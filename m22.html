@@ -1,0 +1,1110 @@
+<section class="view" id="m22" data-title="Acoustic output, bioeffects and regulatory measurement" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part III · Module 22</div>
+    <h1>Acoustic output, bioeffects and regulatory measurement: MI, TI, derating and the 510(k) output table</h1>
+    <p class="lede">Every transmit sequence ends in a number a reviewer checks: a derated intensity, a mechanical index, three thermal indices. This module rebuilds where each number comes from (the bioeffect it stands for, the measurement behind it, the derating and the depth where it is evaluated), what the current FDA guidance and IEC standards actually say, and how coded excitation, plane-wave ultrafast imaging, push pulses and contrast imaging move the numbers.</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>State the thermal and mechanical bioeffect mechanisms and the AIUM numbers that anchor them (1.5 °C, 4 °C for 5 min, MI 0.4 with gas bodies)</li>
+        <li>Compute \(p_{r.3}\), \(\mathrm{PII}_{.3}\), \(I_{\mathrm{SPTA.3}}\), \(I_{\mathrm{SPPA.3}}\), pulse duration and duty factor from a waveform, a pulse rate and a scan geometry</li>
+        <li>Derate correctly (pressure ÷20, intensity ÷10) and find the depth where each derated quantity peaks</li>
+        <li>Evaluate MI and the TIS, TIB and TIC variants (scanning, non-scanning, break-point depth) for a defined mode</li>
+        <li>Quote the FDA Track 3 limits, the ophthalmic limits and the Track 1 application-specific table exactly, with their conditions</li>
+        <li>Plan a hydrophone and radiation-force measurement, correct for spatial averaging, and run a worst-case search</li></ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li>Hydrophone spatial averaging, pulse-echo test analysis and the derating/MI rule (Module 21, Simulation &amp; characterization, Demo 21.6)</li>
+        <li>Coded excitation and the fixed-MI energy argument (Module 10, Matched filtering)</li>
+        <li>Nonlinear propagation and harmonics (Module 15, Wave physics &amp; harmonics); plane-wave compounding (Module 23, Beams, k-space, compounding); microbubble response (Module 28, Microbubbles &amp; contrast)</li></ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form, a definition from the standard, or published table values re-plotted as is</span><span><span class="prov sim">Simulation</span>numerical solver run in this page (steady Pennes integration)</span><span><span class="prov model">Approx. model</span>linear Gaussian-beam field, Gaussian-envelope pulses and the standards' simplified MI/TI formulas; assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not to scale</span></div>
+
+  <div class="callout pitfall"><span class="label">How to read the regulatory statements in this module</span><p>Numbers attributed to the FDA guidance (February 2023: Table 3, Sections 5.2.4–5.2.8) and the AIUM statements (2021; 2016, reapproved 2022) were checked against the current published text (October 2026). IEC clause-level details (formula constants, table layouts) are given only where a public source confirmed them; where the module relies on the ODS lineage or on a secondary source, it says so (the IEC 62359 definition of \(z_{\mathrm{MI}}\) as the depth of maximum attenuated PII is taken from published papers that cite the 2010 edition, and it matches the FDA glossary). Two items could not be confirmed from any public source and are flagged where they appear: the constant \(C_{\mathrm{TIB}}\) of the IEC 62359 \(\sqrt{P_{\alpha} I_{\mathrm{ta},\alpha}}\) form of TIB, and the surface-temperature limits of IEC 60601-2-37:2024. Always work from the edition of each standard your device declares conformity to.</p></div>
+
+  <!-- ===================== 22.1 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">22.1</span>Two ways ultrasound acts on tissue: heat and mechanics</h2>
+    <p><strong>Heating.</strong> A wave of intensity I in a medium with intensity absorption coefficient \(\mu_a\) (twice the amplitude coefficient, in Np/m) deposits a power density \(q = \mu_a I\). Temperature follows the Pennes bioheat equation <span class="eqref">(22.1)</span>: conduction carries heat away over the beam radius, perfusion removes it over a perfusion length L of order 1 cm. Both are slow compared with any pulse, so heating responds to the <em>time-average</em> intensity or power, never to the peak.</p>
+  </div>
+  <div class="eqn" id="m22-eq1">
+    <div class="eqn-body"><div class="eqn-math">\[ \rho c\,\frac{\partial T}{\partial t} = k\nabla^{2}T - w_b c_b\,(T - T_a) + \mu_a I_{\mathrm{ta}} \]</div><span class="eqn-no">(22.1)</span></div>
+    <dl class="where"><dt>\(\rho c\)</dt><dd>volumetric heat capacity of tissue (density × specific heat; here \(c\) is the specific heat, not the sound speed), J/(m³·K)</dd><dt>\(T,\ t\)</dt><dd>temperature (°C) and time (s)</dd><dt>\(k\)</dt><dd>thermal conductivity, W/(m·K)</dd><dt>\(w_b,\ c_b\)</dt><dd>blood perfusion rate, kg/(m³·s), and blood specific heat, J/(kg·K)</dd><dt>\(T_a\)</dt><dd>arterial blood temperature, °C</dd><dt>\(\mu_a\)</dt><dd>intensity absorption coefficient, Np/m</dd><dt>\(I_{\mathrm{ta}}\)</dt><dd>time-average intensity, W/m²</dd><dt>\(\nabla^{2}T\)</dt><dd>Laplacian of temperature (second spatial derivative), K/m²</dd><dt>\(\partial T/\partial t\)</dt><dd>rate of temperature rise, K/s</dd></dl>
+    <span class="note">Pennes bioheat equation: storage = conduction − perfusion + absorbed acoustic power density.</span>
+  </div>
+  <div class="eqn" id="m22-eq2">
+    <div class="eqn-body"><div class="eqn-math">\[ \Delta T(r) = \frac{Q\,e^{-r/L}}{4\pi k r}, \qquad L = \sqrt{\frac{k}{w_b c_b}} \]</div><span class="eqn-no">(22.2)</span></div>
+    <dl class="where"><dt>\(Q\)</dt><dd>power of a point heat source, W</dd><dt>\(r\)</dt><dd>distance from the source, m</dd><dt>\(L\)</dt><dd>perfusion length, m (of order 1 cm)</dd><dt>\(\Delta T(r)\)</dt><dd>steady-state temperature rise above baseline, K</dd><dt>\(k,\ w_b c_b\)</dt><dd>as in (22.1)</dd><dt>\(\pi\)</dt><dd>3.14159</dd></dl>
+    <span class="note">Steady state, point source.</span>
+  </div>
+  <div class="eqn" id="m22-eq3">
+    <div class="eqn-body"><div class="eqn-math">\[ \tau \approx \frac{a^{2}}{4\kappa}, \qquad \kappa = \frac{k}{\rho c} \approx 0.13\ \mathrm{mm^{2}/s} \]</div><span class="eqn-no">(22.3)</span></div>
+    <dl class="where"><dt>\(a\)</dt><dd>beam radius, mm</dd><dt>\(\kappa\)</dt><dd>thermal diffusivity, mm²/s</dd><dt>\(\tau\)</dt><dd>conduction time constant, s</dd><dt>\(k,\ \rho c\)</dt><dd>as in (22.1)</dd></dl>
+    <span class="note">Conduction time constant for a beam of radius \(a\). With \(k\) = 0.5 W/(m·K) and \(\rho c\) = 3.78 MJ/(m³·K): \(\tau \approx\) 1.9 s for \(a\) = 1 mm, 47 s for \(a\) = 5 mm, and \(L^{2}/\kappa \approx\) 13 min for \(L\) = 1 cm.</span>
+  </div>
+  <div class="eqn" id="m22-eq4">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \mathrm{CEM43} &amp;= \sum_i t_i\, R^{\,43 - T_i} \\ R &amp;= \begin{cases} 0.25, &amp; T &lt; 43\ ^{\circ}\mathrm{C} \\ 0.5, &amp; T \ge 43\ ^{\circ}\mathrm{C} \end{cases} \end{aligned} \]</div><span class="eqn-no">(22.4)</span></div>
+    <dl class="where"><dt>\(t_i\)</dt><dd>time spent at temperature \(T_i\), min</dd><dt>\(T_i\)</dt><dd>tissue temperature during interval \(i\), °C</dd><dt>\(R\)</dt><dd>dimensionless base</dd><dt>\(\mathrm{CEM43}\)</dt><dd>cumulative equivalent minutes at 43 °C, min</dd><dt>\(\sum_i\)</dt><dd>sum over time intervals i</dd></dl>
+    <span class="note">Thermal dose. CEM43 (Sapareto &amp; Dewey 1984) converts any history to equivalent minutes at 43 °C: 128 min at 40 °C is 2 CEM43; 1 min at 45 °C is 4 CEM43.</span>
+  </div>
+  <div class="prose">
+    <p><strong>What is safe thermally (AIUM, <em>Statement on Biological Effects of Ultrasound in Vivo</em>, 2021).</strong> A maximum in situ rise of 1.5 °C above 37 °C may be used clinically without reservation on thermal grounds. A fetal rise of 4 °C for 5 min or more can cause severe developmental defects; with commercial equipment this is unlikely at a fetal site if TI ≤ 2.5 and the dwell time is ≤ 4 min, and there is no time limit when TI stays below 0.7. Heating increases from B-mode to colour Doppler to M-mode to spectral Doppler and ARFI. Heating near bone is much larger than in soft tissue, so obstetric practice follows TIS to 10 weeks after the last menstrual period and TIB after.</p>
+    <p><strong>Mechanics.</strong> Inertial cavitation needs a gas nucleus. For an optimally sized free gas nucleus in the diagnostic range, the threshold peak rarefactional pressure grows roughly as \(\sqrt{f}\) (Apfel &amp; Holland 1991), which is why the mechanical index divides \(p_r\) by \(\sqrt{f}\). In tissue without gas bodies the AIUM finds no adverse non-thermal effects below MI 1.9, in vivo inertial cavitation thresholds at or above about 3.6 MPa for f ≥ 0.5 MHz, and lowest empirical thresholds of MI &gt; 4 (blood-cell extravasation in mouse kidney). Gas bodies change everything: pulmonary capillary haemorrhage in some mammals has a threshold MI near 0.4, intestinal effects near 1.4; the separate AIUM contrast-agent statement (reapproved 2021) reports bioeffects with gas-body contrast agents above MI 0.4. Radiation force and streaming are the third mechanism; ARFI and SWE use them on purpose (Section 22.8).</p>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 22.1</span><h3>Duty factor and the heating time constant</h3> <span class="prov model">Approx. model</span><span class="prov-note">first-order lumped response \(d\Delta T/dt = (\Delta T_{\mathrm{ss}}\, s(t) - \Delta T)/\tau\); lower panel re-plotted from AIUM (2021) Table 1</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m22-th-t" aria-label="Temperature versus time"></canvas>
+        <canvas id="m22-th-m" aria-label="Peak temperature rise and exposure time against the AIUM table"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>tissue temperature</span><span><i style="background:var(--sig3)"></i>duty-cycle-weighted mean</span><span><i style="background:var(--sig2)"></i>AIUM fetal (no adverse effects)</span><span><i style="background:var(--sig4)"></i>AIUM postnatal</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m22-th-pre">Preset</label><select id="m22-th-pre"><option value="dop" selected>Spectral Doppler dwell</option><option value="int">Intermittent scanning</option><option value="swe">Push sequence (SWE-like)</option><option value="hot">Long high-TI exposure</option></select></div>
+        <div class="ctrl"><label for="m22-th-dt"><span>ΔT<sub>ss</sub> if always on</span> <output id="m22-th-dt-o"></output></label><input type="range" id="m22-th-dt" min="0.2" max="60" step="0.1" value="1.5"></div>
+        <div class="ctrl"><label for="m22-th-tau"><span>Time constant τ</span> <output id="m22-th-tau-o"></output></label><input type="range" id="m22-th-tau" min="-0.3" max="2.8" step="any" value="1.48"></div>
+        <div class="ctrl"><label for="m22-th-df"><span>Duty factor</span> <output id="m22-th-df-o"></output></label><input type="range" id="m22-th-df" min="-3" max="0" step="any" value="0"></div>
+        <div class="ctrl"><label for="m22-th-per"><span>On/off period</span> <output id="m22-th-per-o"></output></label><input type="range" id="m22-th-per" min="-2" max="2.5" step="any" value="0"></div>
+        <div class="ctrl"><label for="m22-th-dur"><span>Exposure duration</span> <output id="m22-th-dur-o"></output></label><input type="range" id="m22-th-dur" min="1" max="3.3" step="any" value="2.48"></div>
+        <div class="readout" id="m22-th-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> a first-order model \(\Delta T' = (\Delta T_{\mathrm{ss}}\, s(t) - \Delta T)/\tau\) with an on/off drive \(s(t)\). When the period is much shorter than τ the temperature follows the duty-weighted mean \(\mathrm{DF}\cdot\Delta T_{\mathrm{ss}}\), which is why time-average intensity governs heating. Lengthen the period beyond τ and the peaks climb toward \(\Delta T_{\mathrm{ss}}\). In the push preset a 60 °C "always-on" rise at 1 % duty gives a 0.6 °C mean. The lower panel places (exposure time, peak ΔT) on the AIUM table.</div>
+  </div>
+  <div class="rf-grid" id="m22-g1"></div>
+  <div class="callout intuit"><span class="label">One sentence per mechanism</span><p>Heat integrates energy over seconds to minutes, so it scales with power and \(I_{\mathrm{ta}}\) and is indexed by TI. Cavitation responds within a single rarefaction half-cycle, so it scales with \(p_r\) and frequency and is indexed by MI. Two modes with the same MI can differ by 100× in \(I_{\mathrm{SPTA}}\), and two modes with the same \(I_{\mathrm{SPTA}}\) can differ by 10× in MI.</p></div>
+
+  <!-- ===================== 22.2 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">22.2</span>The exposure quantities: pressures, PII, intensities, pulse duration, duty factor</h2>
+    <p>All quantities come from a hydrophone waveform \(p(t)\) at a point in water, converted to intensity with the plane-wave relation \(i(t) = p^{2}(t)/(\rho c)\); the definitions follow in <span class="eqref">(22.5)</span>–<span class="eqref">(22.10)</span>. That relation is an approximation (exact for a plane progressive wave, good in the focal region and far field, poor very close to the aperture), and every intensity in a submission inherits it.</p>
+  </div>
+  <div class="eqn" id="m22-eq5">
+    <div class="eqn-body"><div class="eqn-math">\[ p_c = \max p(t), \qquad p_r = -\min p(t) \]</div><span class="eqn-no">(22.5)</span></div>
+    <dl class="where"><dt>\(p(t)\)</dt><dd>hydrophone pressure waveform at the point, MPa</dd><dt>\(p_c\)</dt><dd>peak compressional pressure, MPa</dd><dt>\(p_r\)</dt><dd>peak rarefactional pressure, MPa</dd><dt>\(\max,\ \min\)</dt><dd>maximum and minimum of the waveform over time</dd></dl>
+  </div>
+  <div class="eqn" id="m22-eq6">
+    <div class="eqn-body"><div class="eqn-math">\[ \mathrm{PII} = \int \frac{p^{2}(t)}{\rho c}\,dt \]</div><span class="eqn-no">(22.6)</span></div>
+    <dl class="where"><dt>\(\mathrm{PII}\)</dt><dd>pulse-intensity integral (energy fluence per pulse), J/m² in SI; the FDA tables use J/cm² (1 J/cm² = 10⁴ J/m²)</dd><dt>\(\rho c\)</dt><dd>characteristic acoustic impedance of water, Rayl (1.5 MRayl)</dd><dt>\(p(t)\)</dt><dd>pressure waveform, as in (22.5)</dd><dt>\(\int dt\)</dt><dd>integral over the whole pulse</dd><dt>\(t\)</dt><dd>time, µs</dd></dl>
+  </div>
+  <div class="eqn" id="m22-eq7">
+    <div class="eqn-body"><div class="eqn-math">\[ t_d = 1.25\,(t_{90} - t_{10}) \]</div><span class="eqn-no">(22.7)</span></div>
+    <dl class="where"><dt>\(t_d\)</dt><dd>pulse duration, µs</dd><dt>\(t_{10},\ t_{90}\)</dt><dd>times at which the cumulative \(\int p^{2}\,dt\) reaches 10 % and 90 % of its final value, µs</dd><dt>\(1.25\)</dt><dd>scale factor: converts the 10 % to 90 % energy interval to the full pulse duration (1/0.8)</dd></dl>
+  </div>
+  <div class="eqn key" id="m22-eq8">
+    <div class="eqn-body"><div class="eqn-math">\[ I_{\mathrm{pa}} = \frac{\mathrm{PII}}{t_d}, \qquad I_{\mathrm{ta}} = \mathrm{PII}\times \dot N \]</div><span class="eqn-no">(22.8)</span></div>
+    <dl class="where"><dt>\(I_{\mathrm{pa}}\)</dt><dd>pulse-average intensity, W/cm²</dd><dt>\(I_{\mathrm{ta}}\)</dt><dd>temporal-average intensity, mW/cm²</dd><dt>\(\dot N\)</dt><dd>pulses per second at the point, s⁻¹</dd><dt>\(\mathrm{PII}\)</dt><dd>pulse-intensity integral, as in (22.6)</dd><dt>\(t_d\)</dt><dd>pulse duration, as in (22.7)</dd><dt>\(\times\)</dt><dd>multiplication</dd></dl>
+  </div>
+  <div class="eqn" id="m22-eq9">
+    <div class="eqn-body"><div class="eqn-math">\[ \mathrm{DF} = t_d\, \dot N, \qquad I_{\mathrm{ta}} = I_{\mathrm{pa}} \times \mathrm{DF} \]</div><span class="eqn-no">(22.9)</span></div>
+    <dl class="where"><dt>\(\mathrm{DF}\)</dt><dd>duty factor at the point, dimensionless</dd><dt>\(t_d,\ \dot N\)</dt><dd>as in (22.7) and (22.8)</dd><dt>\(I_{\mathrm{pa}},\ I_{\mathrm{ta}}\)</dt><dd>as in (22.8)</dd></dl>
+  </div>
+  <div class="eqn" id="m22-eq10">
+    <div class="eqn-body"><div class="eqn-math">\[ \dot N \approx f_{\mathrm{frame}} \times 0.75\,\frac{w_{-6}}{\Delta} \]</div><span class="eqn-no">(22.10)</span></div>
+    <dl class="where"><dt>\(f_{\mathrm{frame}}\)</dt><dd>frame rate, Hz</dd><dt>\(w_{-6}\)</dt><dd>−6 dB beam width, mm</dd><dt>\(\Delta\)</dt><dd>line spacing, mm</dd><dt>\(0.75\)</dt><dd>dimensionless factor \(\sqrt{\pi/2}/1.665\): pulses per frame summed over a Gaussian beam profile</dd><dt>\(\dot N\)</dt><dd>pulses per second at the point, as in (22.8)</dd></dl>
+    <span class="note">Scanned focused imaging. Gaussian envelope of standard deviation \(\sigma_t\): \(\int \mathrm{env}^{2} = \sigma_t\sqrt{\pi}\) and \(t_d = 2.2655\,\sigma_t\), so \(I_{\mathrm{pa}} = 0.782\cdot p^{2}/(2\rho c)\) (envelope approximation; the carrier ripple in \(p^{2}\) moves \(t_{10}\) and \(t_{90}\), so for 2–5-cycle pulses the exact \(t_d\) differs by up to about 6 %). Worked: 3 MHz, 3 cycles at −6 dB, \(p\) = 2 MPa: \(\sigma_t\) = 0.425 µs, \(t_d\) = 0.962 µs (0.905 µs from the exact waveform), PII = 0.100 mJ/cm², \(I_{\mathrm{pa}}\) = 104 W/cm² (111). At 5 kHz (PW Doppler) \(I_{\mathrm{ta}}\) = 502 mW/cm² and DF = 0.48 %. Scanned at 30 Hz with a 1.5 mm beam and 0.3 mm line spacing the point sees 3.76 pulses per frame: \(I_{\mathrm{ta}}\) = 11.3 mW/cm². The factor \(0.75 = \sqrt{\pi/2}/1.665\) is the sum of a Gaussian beam profile over lines.</span>
+  </div>
+  <div class="prose">
+    <p>The subscripts carry the meaning. SP (spatial peak) is the maximum over the field, TA a temporal average over the acoustic repetition period, PA an average over the pulse duration, ".3" or "α" the derated value (Section 22.3). In a non-scanning mode (PW Doppler, M-mode) every pulse passes the point; in a scanning mode (B-mode, colour) only the lines whose beams overlap the point contribute; in plane-wave and diverging-wave imaging every transmit insonifies every point, so the pulse rate at the point equals the PRF.</p>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 22.2</span><h3>\(I_{\mathrm{SPTA}}\) from PII × pulses per second at the point</h3> <span class="prov model">Approx. model</span><span class="prov-note">definitions of PII, \(t_d\) and \(I_{\mathrm{ta}}\) applied to Gaussian-envelope pulses; Gaussian line overlap for scanned modes</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m22-is-tl" aria-label="Pulse arrivals at the point versus time"></canvas>
+        <canvas id="m22-is-bar" aria-label="Fraction of Track 3 limits"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>this mode</span><span><i style="background:var(--muted)"></i>other presets</span><span><i style="background:var(--sig2)"></i>Track 3 limit</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m22-is-mode">Mode</label><select id="m22-is-mode"><option value="B" selected>Focused B-mode (scanned)</option><option value="CF">Colour flow (scanned, ensemble 10)</option><option value="PW">PW Doppler (non-scanned)</option><option value="PWI">Plane-wave ultrafast</option><option value="SWE">Push pulses (SWE/ARFI)</option><option value="ULM">Plane-wave contrast (ULM)</option></select></div>
+        <div class="ctrl"><label for="m22-is-p"><span>Derated p<sub>r.3</sub> at the point</span> <output id="m22-is-p-o"></output></label><input type="range" id="m22-is-p" min="0.05" max="6" step="0.05" value="2"></div>
+        <div class="ctrl"><label for="m22-is-f"><span>Frequency</span> <output id="m22-is-f-o"></output></label><input type="range" id="m22-is-f" min="1" max="15" step="0.5" value="3.5"></div>
+        <div class="ctrl"><label for="m22-is-n"><span>Pulse length (cycles at −6 dB)</span> <output id="m22-is-n-o"></output></label><input type="range" id="m22-is-n" min="0" max="3.4" step="any" value="0.3"></div>
+        <div class="ctrl"><label for="m22-is-r"><span id="m22-is-r-l">Frame rate</span> <output id="m22-is-r-o"></output></label><input type="range" id="m22-is-r" min="-1" max="4.5" step="any" value="1.48"></div>
+        <div class="readout" id="m22-is-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> switch from focused B-mode to plane-wave ultrafast and set the same pressure, frequency and pulse length: the point now receives every transmit, so \(I_{\mathrm{SPTA}}\) rises by the ratio PRF / (frame rate × pulses per frame), here 5000/113 = 44×. Push pulses carry 600 times the PII of a 2-cycle pulse: two 400 µs pushes per second at \(p_{r.3}\) = 3 MPa (MI 1.73) already cost 181 mW/cm², a quarter of the 720 mW/cm² budget, before the tracking pulses.</div>
+  </div>
+  <div class="rf-grid" id="m22-g2"></div>
+  <div class="callout pitfall"><span class="label">Pitfall: the pulse rate at the point is not the system PRF</span><p>For a scanned focused mode, multiplying PII by the system PRF overstates \(I_{\mathrm{ta}}\) by the number of lines divided by the overlap count (128/3.8 ≈ 34 in the example). Multiplying PII by the frame rate understates it by the overlap count. Plane-wave modes are the opposite case: every transmit counts, and compounding angles do not dilute the exposure.</p></div>
+
+  <!-- ===================== 22.3 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">22.3</span>Derating: 0.3 dB/cm/MHz, applied correctly</h2>
+    <p>Fields are measured in water, which barely attenuates; tissue does. The derated ("attenuated", subscript α in IEC notation, ".3" in FDA notation) value multiplies the water value at depth z by the loss of a homogeneous model tissue with 0.3 dB cm\(^{-1}\) MHz\(^{-1}\) along the beam axis <span class="eqref">(22.11)</span>–<span class="eqref">(22.12)</span>. The FDA guidance states the assumption in those words. The value is deliberately below typical soft tissue (about 0.5–1 dB/cm/MHz, Duck 1990) so that paths with long fluid segments, such as a full bladder or amniotic fluid, are not badly underestimated.</p>
+  </div>
+  <div class="eqn" id="m22-eq11">
+    <div class="eqn-body"><div class="eqn-math">\[ A(z) = 0.3\, f_{\mathrm{awf}}\, z \]</div><span class="eqn-no">(22.11)</span></div>
+    <dl class="where"><dt>\(A\)</dt><dd>derating loss, dB</dd><dt>\(f_{\mathrm{awf}}\)</dt><dd>acoustic working frequency, MHz</dd><dt>\(z\)</dt><dd>depth along the beam axis from the transducer face, cm</dd><dt>\(0.3\)</dt><dd>derating coefficient, dB/(cm·MHz)</dd></dl>
+  </div>
+  <div class="eqn key" id="m22-eq12">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} p_{.3}(z) &amp;= p(z)\cdot 10^{-A/20} \\ I_{.3}(z),\ \mathrm{PII}_{.3}(z),\ P_{.3}(z) &amp;= (\text{value})\cdot 10^{-A/10} \end{aligned} \]</div><span class="eqn-no">(22.12)</span></div>
+    <dl class="where"><dt>\(p\)</dt><dd>pressure in water, MPa</dd><dt>\(I,\ \mathrm{PII},\ P\)</dt><dd>intensity, pulse-intensity integral and power in water</dd><dt>\(_{.3}\)</dt><dd>derated value (IEC: subscript \(\alpha\))</dd><dt>\(A\)</dt><dd>derating loss, dB, as in (22.11)</dd><dt>\(z,\ f_{\mathrm{awf}}\)</dt><dd>as in (22.11)</dd></dl>
+    <span class="note">3 MHz at 5 cm: 4.5 dB, pressure × 0.596, intensity × 0.355. 5 MHz at 5 cm: 7.5 dB, × 0.422 and × 0.178. 7.5 MHz at 4 cm: 9.0 dB, × 0.355 and × 0.126. Each derated quantity has its own maximum depth: the water focus, the derated \(p_r\) peak and the derated \(I_{\mathrm{ta}}\) peak need not coincide.</span>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 22.3</span><h3>Derating calculator: water, derated and in situ profiles</h3> <span class="prov model">Approx. model</span><span class="prov-note">linear Gaussian-beam field of a circular aperture (source 1/e half-width 0.4 × aperture); the 0.3 dB/cm/MHz derating applied exactly as defined</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m22-de-z" aria-label="On-axis pressure in water, derated and in situ"></canvas>
+        <canvas id="m22-de-fz" aria-label="Derating loss versus depth"></canvas>
+        <div class="legend"><span><i style="background:var(--ink)"></i>water \(p_r\)(z)</span><span><i style="background:var(--accent)"></i>derated \(p_{r.3}\)(z)</span><span><i style="background:var(--sig4)"></i>in situ, chosen α</span><span><i style="background:var(--sig3)"></i>derated PII (norm.)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m22-de-f"><span>Frequency f<sub>awf</sub></span> <output id="m22-de-f-o"></output></label><input type="range" id="m22-de-f" min="1" max="12" step="0.25" value="3.5"></div>
+        <div class="ctrl"><label for="m22-de-F"><span>Focal depth</span> <output id="m22-de-F-o"></output></label><input type="range" id="m22-de-F" min="15" max="120" step="1" value="80"></div>
+        <div class="ctrl"><label for="m22-de-L"><span>Aperture (circular, diameter)</span> <output id="m22-de-L-o"></output></label><input type="range" id="m22-de-L" min="8" max="40" step="1" value="12"></div>
+        <div class="ctrl"><label for="m22-de-pw"><span>Water peak p<sub>r</sub></span> <output id="m22-de-pw-o"></output></label><input type="range" id="m22-de-pw" min="0.5" max="10" step="0.1" value="4"></div>
+        <div class="ctrl"><label for="m22-de-a"><span>In situ attenuation α</span> <output id="m22-de-a-o"></output></label><input type="range" id="m22-de-a" min="0.02" max="1.2" step="0.01" value="0.5"></div>
+        <div class="readout" id="m22-de-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> Gaussian-beam model (source half-width 0.4 × aperture). At 3.5 MHz, a 12 mm aperture and an 8 cm focus, the water maximum is at 6.5 cm (focal shift) and the derated maximum at 5.1 cm, and the MI comes from there. Widen the aperture and the sharper focal gain pulls the two maxima together. Raise the frequency: the derated peak moves toward the probe and MI falls even though the water field is unchanged. Set α to 0.05 dB/cm/MHz (a fluid path): the in situ pressure exceeds the derated value, the case the 0.3 compromise is meant to bound.</div>
+  </div>
+  <div class="rf-grid" id="m22-g3"></div>
+  <div class="callout pitfall"><span class="label">Pitfalls that change a derated number by tens of per cent</span><p>(1) Using ÷10 for pressure or ÷20 for intensity. (2) Derating the water spatial peak at its own depth instead of searching for the maximum of the derated profile. (3) Using the transducer nominal frequency instead of the measured acoustic working frequency. (4) Derating a waveform measured at high drive in water, where nonlinear propagation has already moved energy into harmonics and partly saturated the peak: the linear derating then misrepresents the in situ field, most for long low-attenuation paths. (5) Measuring z from the wrong origin: depth is measured from the transducer face (or lens surface) along the beam axis.</p></div>
+
+  <!-- ===================== 22.4 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">22.4</span>The mechanical index</h2>
+    <p>IEC 62359 defines MI from the attenuated peak rarefactional pressure at a specific depth \(z_{\mathrm{MI}}\), the depth on the beam axis where the attenuated pulse-intensity integral is largest, and the acoustic working frequency \(f_{\mathrm{awf}}\) (from the hydrophone waveform at the position of spatial-peak temporal-peak pressure, as defined in IEC 62127-1). The FDA guidance (Appendix A glossary) uses the same depth in its formula. Its one-line prose definition ("the spatial-peak value of the peak rarefactional pressure, derated by 0.3 dB/cm-MHz at each point along the beam axis") reads like a maximum over depth, but the formula that follows fixes the point: \(\mathrm{MI} = p_{r.3}(z_{\mathrm{sp}})/\sqrt{f_c}\), where \(z_{\mathrm{sp}}\) is "the point on the beam axis where the pulse intensity integral (\(\mathrm{PII}_{.3}\)) is maximum" and \(f_c\) is the centre frequency <span class="eqref">(22.13)</span>. MI is therefore not the maximum of \(p_{r.3}(z)\) over depth; it is \(p_{r.3}\) read at the depth where the derated PII peaks.</p>
+  </div>
+  <div class="eqn key" id="m22-eq13">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \mathrm{MI} &amp;= \frac{p_{r,\alpha}(z_{\mathrm{MI}})}{C_{\mathrm{MI}}\sqrt{f_{\mathrm{awf}}}} \\ C_{\mathrm{MI}} &amp;= 1\ \mathrm{MPa\cdot MHz^{-1/2}} \end{aligned} \]</div><span class="eqn-no">(22.13)</span></div>
+    <dl class="where"><dt>\(p_{r,\alpha}\)</dt><dd>attenuated (derated) peak rarefactional pressure, MPa</dd><dt>\(z_{\mathrm{MI}}\)</dt><dd>depth on the beam axis where the attenuated PII is largest, cm</dd><dt>\(f_{\mathrm{awf}}\)</dt><dd>acoustic working frequency, MHz</dd><dt>\(C_{\mathrm{MI}}\)</dt><dd>normalizing constant</dd><dt>\(\mathrm{MI}\)</dt><dd>mechanical index, dimensionless</dd><dt>\(\sqrt{\cdot}\)</dt><dd>square root of \(f_{\mathrm{awf}}\) in MHz</dd></dl>
+  </div>
+  <div class="eqn" id="m22-eq14">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} z_{\mathrm{MI}} &amp;= \arg\max_z \mathrm{PII}_{\alpha}(z) \\ p_{r,\alpha}(z) &amp;= p_r(z)\cdot 10^{-0.3 f z/20} \end{aligned} \]</div><span class="eqn-no">(22.14)</span></div>
+      <dl class="where"><dt>\(z_{\mathrm{MI}}\)</dt><dd>as in (22.13), cm</dd><dt>\(\mathrm{PII}_{\alpha}(z)\)</dt><dd>derated pulse-intensity integral at depth \(z\), as in (22.12)</dd><dt>\(\arg\max_z\)</dt><dd>the depth \(z\) at which the quantity is largest</dd><dt>\(p_{r,\alpha}(z)\)</dt><dd>derated peak rarefactional pressure, MPa, as in (22.13)</dd><dt>\(p_r(z)\)</dt><dd>peak rarefactional pressure in water at depth \(z\), MPa, as in (22.5)</dd><dt>\(f,\ z\)</dt><dd>acoustic working frequency (MHz) and depth (cm)</dd><dt>\(0.3\)</dt><dd>derating coefficient, dB/(cm·MHz)</dd></dl>
+  </div>
+  <div class="eqn" id="m22-eq15">
+    <div class="eqn-body"><div class="eqn-math">\[ \mathrm{MI} = 1.9 \;\Leftrightarrow\; p_{r.3} = 1.9\sqrt{f}\ \ (\mathrm{MPa}) \]</div><span class="eqn-no">(22.15)</span></div>
+      <dl class="where"><dt>\(\mathrm{MI}\)</dt><dd>mechanical index, as in (22.13)</dd><dt>\(p_{r.3}\)</dt><dd>derated peak rarefactional pressure, MPa (subscript .3 as in (22.12))</dd><dt>\(f\)</dt><dd>acoustic working frequency, MHz</dd><dt>\(\Leftrightarrow\)</dt><dd>equivalent to</dd><dt>\(1.9\)</dt><dd>upper MI limit (non-ophthalmic), dimensionless</dd></dl>
+    <span class="note">2.69 at 2 MHz, 3.29 at 3, 4.25 at 5, 5.20 at 7.5, 6.01 at 10 MHz.</span>
+    <span class="note">IEC 62359 (\(z_{\mathrm{MI}}\)) and the FDA glossary (\(z_{\mathrm{sp}}\)) both read \(p_{r,\alpha}\) at the depth of maximum derated PII, not at the depth where \(p_{r,\alpha}(z)\) itself is largest. In a linear field whose pulse shape does not change with depth, \(p_r^{2} \propto \mathrm{PII}\) at every depth, so the two depths coincide. They separate when the waveform changes with depth: nonlinear steepening raises PII (harmonics) faster than \(p_r\), and near-field pulses change shape; then the maximum of \(p_{r,\alpha}(z)\) can exceed the reported MI pressure. Report the depth with the value.</span>
+  </div>
+  <div class="rf-grid" id="m22-g4"></div>
+  <div class="callout us"><span class="label">Ultrasound link: what MI does and does not measure</span><p>MI indexes the likelihood of inertial cavitation of free gas nuclei and the scaling of gas-body effects, which is why it is displayed. It is not a threshold for shelled contrast microbubbles, whose response depends on resonance, shell and size distribution (Module 28), and it is evaluated at one depth with 0.3 dB/cm/MHz, not at the bubble with the real attenuation (Section 22.8). Nonlinear propagation combined with the focal phase shift of the harmonics makes \(p_c\) exceed \(p_r\) in a focused field (a plane-wave Fubini waveform stays symmetric), so reading \(p_c\) as the MI pressure overstates it.</p></div>
+
+  <!-- ===================== 22.5 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">22.5</span>The thermal indices: TIS, TIB, TIC</h2>
+    <p>A thermal index is a power ratio: \(\mathrm{TI} = W/W_{\mathrm{deg}}\), the relevant (attenuated, bounded) acoustic power divided by the power that raises the model tissue by 1 °C. It is not a temperature, but the AIUM states that TI predicts the maximum temperature rise within a factor of 2, with TIS usually overestimating or close, and underestimating by up to 2 in fetal examinations through low-attenuation fluid. Three tissue models define three indices.</p>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Index</th><th>Tissue model</th><th>\(W_{\mathrm{deg}}\) idea</th><th>Typical use</th></tr></thead>
+    <tbody>
+      <tr><td>TIS (soft tissue)</td><td>Homogeneous soft tissue, 0.3 dB/cm/MHz</td><td>≈ \(210/f_{\mathrm{awf}}\) mW (\(C_{\mathrm{TIS}}\) = 210 mW·MHz); heating ∝ absorbed power ∝ \(f\cdot W\)</td><td>Abdominal, vascular, first-trimester obstetric</td></tr>
+      <tr><td>TIB (bone at depth)</td><td>Soft tissue path, bone at the depth where heating is greatest</td><td>≈ 40 mW/cm × beam diameter at the bone (all power absorbed in a thin bone layer)</td><td>Obstetric after 10 weeks LMP; pulsed Doppler near bone</td></tr>
+      <tr><td>TIC (bone at surface)</td><td>Bone immediately under the transducer</td><td>40 mW/cm × \(D_{\mathrm{eq}}\) of the aperture (\(C_{\mathrm{TIC}}\) = 40 mW/cm)</td><td>Transcranial, paediatric head</td></tr>
+    </tbody>
+  </table></div>
+
+  <figure class="m22-fig" id="m22-fig-b">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 22.B</b> · The three tissue models behind TIS, TIB and TIC</div>
+    <div class="mx-scroll"><svg viewBox="0 0 800 330" role="img" aria-label="The three thermal index tissue models: soft tissue only, bone at the focus, and bone at the surface under the transducer">
+<defs><marker id="m22-ahB" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 Z" style="fill:var(--muted)"/></marker></defs>
+<text x="140.0" y="30.0" class="t" text-anchor="middle">TIS: soft tissue</text>
+<text x="140.0" y="48.0" class="s" text-anchor="middle">homogeneous, 0.3 dB/cm/MHz</text>
+<rect x="20" y="70" width="240" height="150" style="fill:var(--sig3);fill-opacity:.07;stroke:var(--rule)"/>
+<rect x="90.0" y="64" width="100" height="12" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.4"/>
+<path d="M90.0 76.0 L90.8 77.4 L91.5 78.9 L92.3 80.3 L93.0 81.7 L93.8 83.2 L94.5 84.6 L95.3 86.0 L96.1 87.5 L96.8 88.9 L97.6 90.3 L98.3 91.8 L99.1 93.2 L99.8 94.6 L100.6 96.1 L101.3 97.5 L102.0 98.9 L102.8 100.4 L103.5 101.8 L104.3 103.3 L105.0 104.7 L105.8 106.1 L106.5 107.6 L107.2 109.0 L108.0 110.4 L108.7 111.9 L109.4 113.3 L110.1 114.7 L110.9 116.2 L111.6 117.6 L112.3 119.0 L113.0 120.5 L113.7 121.9 L114.4 123.3 L115.1 124.8 L115.8 126.2 L116.5 127.6 L117.2 129.1 L117.9 130.5 L118.6 131.9 L119.2 133.4 L119.9 134.8 L120.5 136.2 L121.2 137.7 L121.8 139.1 L122.4 140.5 L123.0 142.0 L123.6 143.4 L124.2 144.8 L124.7 146.3 L125.3 147.7 L125.8 149.2 L126.3 150.6 L126.7 152.0 L127.1 153.5 L127.5 154.9 L127.9 156.3 L128.2 157.8 L128.5 159.2 L128.7 160.6 L128.9 162.1 L129.0 163.5 L129.1 164.9 L129.1 166.4 L129.0 167.8 L128.9 169.2 L128.8 170.7 L128.6 172.1 L128.3 173.5 L128.1 175.0 L127.7 176.4 L127.3 177.8 L126.9 179.3 L126.5 180.7 L126.0 182.1 L125.5 183.6 L125.0 185.0 L124.4 186.4 L123.9 187.9 L123.3 189.3 L122.7 190.7 L122.1 192.2 L121.5 193.6 L120.8 195.1 L120.2 196.5 L119.5 197.9 L118.9 199.4 L118.2 200.8 L117.5 202.2 L116.9 203.7 L116.2 205.1 L115.5 206.5 L114.8 208.0 L114.1 209.4 L113.4 210.8 L112.6 212.3 L111.9 213.7 L111.2 215.1 L110.5 216.6 L109.8 218.0 L170.2 218.0 L169.5 216.6 L168.8 215.1 L168.1 213.7 L167.4 212.3 L166.6 210.8 L165.9 209.4 L165.2 208.0 L164.5 206.5 L163.8 205.1 L163.1 203.7 L162.5 202.2 L161.8 200.8 L161.1 199.4 L160.5 197.9 L159.8 196.5 L159.2 195.1 L158.5 193.6 L157.9 192.2 L157.3 190.7 L156.7 189.3 L156.1 187.9 L155.6 186.4 L155.0 185.0 L154.5 183.6 L154.0 182.1 L153.5 180.7 L153.1 179.3 L152.7 177.8 L152.3 176.4 L151.9 175.0 L151.7 173.5 L151.4 172.1 L151.2 170.7 L151.1 169.2 L151.0 167.8 L150.9 166.4 L150.9 164.9 L151.0 163.5 L151.1 162.1 L151.3 160.6 L151.5 159.2 L151.8 157.8 L152.1 156.3 L152.5 154.9 L152.9 153.5 L153.3 152.0 L153.7 150.6 L154.2 149.2 L154.7 147.7 L155.3 146.3 L155.8 144.8 L156.4 143.4 L157.0 142.0 L157.6 140.5 L158.2 139.1 L158.8 137.7 L159.5 136.2 L160.1 134.8 L160.8 133.4 L161.4 131.9 L162.1 130.5 L162.8 129.1 L163.5 127.6 L164.2 126.2 L164.9 124.8 L165.6 123.3 L166.3 121.9 L167.0 120.5 L167.7 119.0 L168.4 117.6 L169.1 116.2 L169.9 114.7 L170.6 113.3 L171.3 111.9 L172.0 110.4 L172.8 109.0 L173.5 107.6 L174.2 106.1 L175.0 104.7 L175.7 103.3 L176.5 101.8 L177.2 100.4 L178.0 98.9 L178.7 97.5 L179.4 96.1 L180.2 94.6 L180.9 93.2 L181.7 91.8 L182.4 90.3 L183.2 88.9 L183.9 87.5 L184.7 86.0 L185.5 84.6 L186.2 83.2 L187.0 81.7 L187.7 80.3 L188.5 78.9 L189.2 77.4 L190.0 76.0 Z" style="fill:var(--accent);fill-opacity:.15;stroke:var(--accent);stroke-width:1"/>
+<ellipse cx="140.0" cy="88" rx="46" ry="10" style="fill:var(--sig2);fill-opacity:.35;stroke:var(--sig2)"/>
+<text x="196.0" y="92.0" class="s" text-anchor="start">scanned:</text>
+<text x="196.0" y="106.0" class="s" text-anchor="start">hot near surface</text>
+<path d="M24 136 H256" style="stroke:var(--muted);stroke-width:1;fill:none;stroke-dasharray:3 3"/>
+<text x="26.0" y="132.0" class="s" text-anchor="start">z_bp = 1.5 D_eq</text>
+<ellipse cx="140.0" cy="166" rx="12" ry="9" style="fill:var(--sig2);fill-opacity:.3;stroke:var(--sig2);stroke-dasharray:3 2"/>
+<text x="26.0" y="166.0" class="s" text-anchor="start">unscanned</text>
+<text x="26.0" y="180.0" class="s" text-anchor="start">A > 1 cm²</text>
+<text x="24.0" y="244.0" text-anchor="start">W_deg = 210 mW·MHz / f</text>
+<text x="24.0" y="262.0" class="s" text-anchor="start">scanned: TIS = P₁ f / 210</text>
+<text x="24.0" y="280.0" class="s" text-anchor="start">unscanned A > 1 cm²: beyond z_bp,</text>
+<text x="24.0" y="298.0" class="s" text-anchor="start">min[P_α, I_ta,α × 1 cm²] f / 210</text>
+<text x="400.0" y="30.0" class="t" text-anchor="middle">TIB: bone at the focus</text>
+<text x="400.0" y="48.0" class="s" text-anchor="middle">soft-tissue path, bone at z_b</text>
+<rect x="280" y="70" width="240" height="150" style="fill:var(--sig3);fill-opacity:.07;stroke:var(--rule)"/>
+<rect x="350.0" y="64" width="100" height="12" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.4"/>
+<path d="M350.0 76.0 L350.8 77.4 L351.5 78.9 L352.3 80.3 L353.0 81.7 L353.8 83.2 L354.5 84.6 L355.3 86.0 L356.1 87.5 L356.8 88.9 L357.6 90.3 L358.3 91.8 L359.1 93.2 L359.8 94.6 L360.6 96.1 L361.3 97.5 L362.0 98.9 L362.8 100.4 L363.5 101.8 L364.3 103.3 L365.0 104.7 L365.8 106.1 L366.5 107.6 L367.2 109.0 L368.0 110.4 L368.7 111.9 L369.4 113.3 L370.1 114.7 L370.9 116.2 L371.6 117.6 L372.3 119.0 L373.0 120.5 L373.7 121.9 L374.4 123.3 L375.1 124.8 L375.8 126.2 L376.5 127.6 L377.2 129.1 L377.9 130.5 L378.6 131.9 L379.2 133.4 L379.9 134.8 L380.5 136.2 L381.2 137.7 L381.8 139.1 L382.4 140.5 L383.0 142.0 L383.6 143.4 L384.2 144.8 L384.7 146.3 L385.3 147.7 L385.8 149.2 L386.3 150.6 L386.7 152.0 L387.1 153.5 L387.5 154.9 L387.9 156.3 L388.2 157.8 L388.5 159.2 L388.7 160.6 L388.9 162.1 L389.0 163.5 L389.1 164.9 L389.1 166.4 L389.0 167.8 L388.9 169.2 L388.8 170.7 L388.6 172.1 L388.3 173.5 L388.1 175.0 L387.7 176.4 L387.3 177.8 L386.9 179.3 L386.5 180.7 L386.0 182.1 L385.5 183.6 L385.0 185.0 L384.4 186.4 L383.9 187.9 L383.3 189.3 L382.7 190.7 L382.1 192.2 L381.5 193.6 L380.8 195.1 L380.2 196.5 L379.5 197.9 L378.9 199.4 L378.2 200.8 L377.5 202.2 L376.9 203.7 L376.2 205.1 L375.5 206.5 L374.8 208.0 L374.1 209.4 L373.4 210.8 L372.6 212.3 L371.9 213.7 L371.2 215.1 L370.5 216.6 L369.8 218.0 L430.2 218.0 L429.5 216.6 L428.8 215.1 L428.1 213.7 L427.4 212.3 L426.6 210.8 L425.9 209.4 L425.2 208.0 L424.5 206.5 L423.8 205.1 L423.1 203.7 L422.5 202.2 L421.8 200.8 L421.1 199.4 L420.5 197.9 L419.8 196.5 L419.2 195.1 L418.5 193.6 L417.9 192.2 L417.3 190.7 L416.7 189.3 L416.1 187.9 L415.6 186.4 L415.0 185.0 L414.5 183.6 L414.0 182.1 L413.5 180.7 L413.1 179.3 L412.7 177.8 L412.3 176.4 L411.9 175.0 L411.7 173.5 L411.4 172.1 L411.2 170.7 L411.1 169.2 L411.0 167.8 L410.9 166.4 L410.9 164.9 L411.0 163.5 L411.1 162.1 L411.3 160.6 L411.5 159.2 L411.8 157.8 L412.1 156.3 L412.5 154.9 L412.9 153.5 L413.3 152.0 L413.7 150.6 L414.2 149.2 L414.7 147.7 L415.3 146.3 L415.8 144.8 L416.4 143.4 L417.0 142.0 L417.6 140.5 L418.2 139.1 L418.8 137.7 L419.5 136.2 L420.1 134.8 L420.8 133.4 L421.4 131.9 L422.1 130.5 L422.8 129.1 L423.5 127.6 L424.2 126.2 L424.9 124.8 L425.6 123.3 L426.3 121.9 L427.0 120.5 L427.7 119.0 L428.4 117.6 L429.1 116.2 L429.9 114.7 L430.6 113.3 L431.3 111.9 L432.0 110.4 L432.8 109.0 L433.5 107.6 L434.2 106.1 L435.0 104.7 L435.7 103.3 L436.5 101.8 L437.2 100.4 L438.0 98.9 L438.7 97.5 L439.4 96.1 L440.2 94.6 L440.9 93.2 L441.7 91.8 L442.4 90.3 L443.2 88.9 L443.9 87.5 L444.7 86.0 L445.5 84.6 L446.2 83.2 L447.0 81.7 L447.7 80.3 L448.5 78.9 L449.2 77.4 L450.0 76.0 Z" style="fill:var(--accent);fill-opacity:.15;stroke:var(--accent);stroke-width:1"/>
+<rect x="282" y="154" width="236" height="16" style="fill:var(--muted);fill-opacity:.35;stroke:var(--ink)"/>
+<text x="288.0" y="166.0" class="s" text-anchor="start">bone</text>
+<rect x="391.0" y="154" width="18" height="16" style="fill:var(--sig2);fill-opacity:.5;stroke:var(--sig2)"/>
+<path d="M466.0 128.0 L411.0 158.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahB)"/>
+<text x="468.0" y="124.0" class="s" text-anchor="start">d₋₆ at z_b</text>
+<text x="284.0" y="244.0" text-anchor="start">W_deg ≈ 40 mW/cm × d₋₆</text>
+<text x="284.0" y="262.0" class="s" text-anchor="start">TIB ≈ P_α(z_b)/(40 mW/cm × d₋₆)</text>
+<text x="284.0" y="280.0" class="s" text-anchor="start">scanned modes: TIB = TIS</text>
+<text x="284.0" y="298.0" class="s" text-anchor="start">IEC: √(P_α I_ta,α)/C_TIB at z_b</text>
+<text x="660.0" y="30.0" class="t" text-anchor="middle">TIC: bone at the surface</text>
+<text x="660.0" y="48.0" class="s" text-anchor="middle">bone under the aperture</text>
+<rect x="540" y="70" width="240" height="150" style="fill:var(--sig3);fill-opacity:.07;stroke:var(--rule)"/>
+<rect x="610.0" y="64" width="100" height="12" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.4"/>
+<rect x="542" y="76" width="236" height="26" style="fill:var(--muted);fill-opacity:.35;stroke:var(--ink)"/>
+<rect x="610.0" y="76" width="100" height="26" style="fill:var(--sig2);fill-opacity:.4;stroke:var(--sig2)"/>
+<text x="660.0" y="93.0" class="s" text-anchor="middle">bone</text>
+<text x="660.0" y="130.0" class="s" text-anchor="middle">heat in the first mm of bone,</text>
+<text x="660.0" y="146.0" class="s" text-anchor="middle">spread over the aperture D_eq</text>
+<text x="544.0" y="244.0" text-anchor="start">W_deg = 40 mW/cm × D_eq</text>
+<text x="544.0" y="262.0" class="s" text-anchor="start">TIC = P / (40 mW/cm × D_eq)</text>
+<text x="544.0" y="280.0" class="s" text-anchor="start">D_eq = √(4A/π): 1 cm² → 1.13 cm</text>
+<text x="544.0" y="298.0" class="s" text-anchor="start">TIC = 1 at 45 mW for 1 cm²</text>
+</svg></div>
+    <p class="cap">All three are power ratios \(W/W_{\mathrm{deg}}\) built on the standards' simplified models, not temperatures; the AIUM quotes agreement with measured maximum rise within about a factor of 2. Soft tissue: heating peaks near the surface for scanned modes and beyond \(z_{\mathrm{bp}} = 1.5\,D_{\mathrm{eq}}\) for large unscanned apertures <span class="eqref">(22.16)</span>–<span class="eqref">(22.20)</span>. Bone at focus: power absorbed in a thin bone layer over the −6 dB beam diameter at \(z_b\). Bone at surface: the same over the aperture. Not to scale.</p>
+  </figure>
+  <div class="eqn key" id="m22-eq16">
+    <div class="eqn-body"><div class="eqn-math">\[ \mathrm{TIS} = \frac{P_1\, f_{\mathrm{awf}}}{C_{\mathrm{TIS}}} \]</div><span class="eqn-no">(22.16)</span></div>
+    <dl class="where"><dt>\(P_1\)</dt><dd>power through a 1 cm wide window of the scan, mW</dd><dt>\(C_{\mathrm{TIS}}\)</dt><dd>210 mW·MHz</dd><dt>\(f_{\mathrm{awf}}\)</dt><dd>acoustic working frequency, MHz</dd><dt>\(\mathrm{TIS}\)</dt><dd>soft-tissue thermal index (scanning), dimensionless</dd></dl>
+    <span class="note">Scanning modes (heating maximal at the surface).</span>
+  </div>
+  <div class="eqn" id="m22-eq17">
+    <div class="eqn-body"><div class="eqn-math">\[ \mathrm{TIS} = \frac{P\, f_{\mathrm{awf}}}{C_{\mathrm{TIS}}} \qquad (A_{\mathrm{aprt}} \le 1\ \mathrm{cm^{2}}) \]</div><span class="eqn-no">(22.17)</span></div>
+    <dl class="where"><dt>\(P\)</dt><dd>total acoustic power, mW</dd><dt>\(A_{\mathrm{aprt}}\)</dt><dd>radiating aperture area, cm²</dd><dt>\(\mathrm{TIS}\)</dt><dd>soft-tissue thermal index (non-scanning, small aperture), dimensionless</dd><dt>\(C_{\mathrm{TIS}},\ f_{\mathrm{awf}}\)</dt><dd>as in (22.16)</dd></dl>
+    <span class="note">Non-scanning, small aperture.</span>
+  </div>
+  <div class="eqn" id="m22-eq18">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \mathrm{TIS} &amp;= \max_{z \ge z_{\mathrm{bp}}} \min\!\left[P_{\alpha}(z),\, I_{\mathrm{ta},\alpha}(z)\times 1\ \mathrm{cm^{2}}\right] \\ &amp;\qquad \times \frac{f_{\mathrm{awf}}}{C_{\mathrm{TIS}}} \\ z_{\mathrm{bp}} &amp;= 1.5\, D_{\mathrm{eq}} = 1.69\sqrt{A_{\mathrm{aprt}}} \end{aligned} \]</div><span class="eqn-no">(22.18)</span></div>
+    <dl class="where"><dt>\(P_{\alpha}(z)\)</dt><dd>attenuated power at depth \(z\), mW</dd><dt>\(I_{\mathrm{ta},\alpha}(z)\)</dt><dd>attenuated temporal-average intensity, mW/cm²</dd><dt>\(z_{\mathrm{bp}}\)</dt><dd>break-point depth, cm</dd><dt>\(D_{\mathrm{eq}}\)</dt><dd>equivalent aperture diameter, cm</dd><dt>\(\mathrm{TIS}\)</dt><dd>soft-tissue thermal index (non-scanning, large aperture), dimensionless</dd><dt>\(\max,\ \min\)</dt><dd>largest over depths beyond \(z_{\mathrm{bp}}\); smaller of the two bracketed quantities (mW)</dd><dt>\(C_{\mathrm{TIS}},\ f_{\mathrm{awf}}\)</dt><dd>as in (22.16)</dd><dt>\(A_{\mathrm{aprt}}\)</dt><dd>radiating aperture area, cm², as in (22.17)</dd><dt>\(1\ \mathrm{cm^{2}}\)</dt><dd>reference area that converts intensity (mW/cm²) to power (mW)</dd></dl>
+    <span class="note">Non-scanning, \(A_{\mathrm{aprt}} &gt; 1\) cm².</span>
+  </div>
+  <div class="eqn" id="m22-eq19">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \mathrm{TIB} &amp;\approx \max_z \frac{P_{\alpha}(z)}{40\ \mathrm{mW/cm}\times d_{-6}(z)} \\ \mathrm{TIB}_{\mathrm{scan}} &amp;= \mathrm{TIS}_{\mathrm{scan}} \end{aligned} \]</div><span class="eqn-no">(22.19)</span></div>
+    <dl class="where"><dt>\(d_{-6}(z)\)</dt><dd>−6 dB beam diameter at depth \(z\), cm</dd><dt>\(\mathrm{TIB}\)</dt><dd>bone thermal index, dimensionless</dd><dt>\(\mathrm{TIB}_{\mathrm{scan}},\ \mathrm{TIS}_{\mathrm{scan}}\)</dt><dd>scanning-mode bone and soft-tissue thermal indices</dd><dt>\(P_{\alpha}(z)\)</dt><dd>attenuated power, mW, as in (22.18)</dd><dt>\(40\ \mathrm{mW/cm}\)</dt><dd>bone normalizing constant \(C_{\mathrm{TIC}}\) of (22.20)</dd></dl>
+    <span class="note">Bone at depth (model); in scanning modes TIB equals the scanning TIS.</span>
+  </div>
+  <div class="eqn key" id="m22-eq20">
+    <div class="eqn-body"><div class="eqn-math">\[ \mathrm{TIC} = \frac{P}{C_{\mathrm{TIC}}\, D_{\mathrm{eq}}}, \qquad D_{\mathrm{eq}} = \sqrt{\frac{4A_{\mathrm{aprt}}}{\pi}} \]</div><span class="eqn-no">(22.20)</span></div>
+    <dl class="where"><dt>\(P\)</dt><dd>total acoustic power, mW</dd><dt>\(C_{\mathrm{TIC}}\)</dt><dd>40 mW/cm</dd><dt>\(D_{\mathrm{eq}}\)</dt><dd>equivalent aperture diameter, cm</dd><dt>\(\mathrm{TIC}\)</dt><dd>cranial-bone thermal index, dimensionless</dd><dt>\(A_{\mathrm{aprt}}\)</dt><dd>radiating aperture area, cm², as in (22.17)</dd><dt>\(\pi\)</dt><dd>3.14159</dd></dl>
+    <span class="note">Bone at surface. \(C_{\mathrm{TIS}}\) = 210 mW·MHz, \(C_{\mathrm{TIC}}\) = 40 mW/cm, \(C_{\mathrm{MI}}\) and the break-point depth \(1.69\sqrt{A}\) (= \(1.5\,D_{\mathrm{eq}}\)) are confirmed in public sources (C<sub>TIS</sub> and the break-point depth: Health Canada device-licence guidance, 2005, now archived; C<sub>TIC</sub>: ITRUSST consensus; C<sub>MI</sub>: EFSUMB 2022; see also Nowicki 2020); the diameter form of TIB with 40 mW/cm is Nowicki 2020, Eq. (6). The large-aperture TIS and the TIB forms follow the ODS lineage that IEC 62359 kept; the standard computes non-scanning TIB from \(P_{\alpha}\) and \(I_{\mathrm{ta},\alpha}\) at the depth where their product peaks, \(\sqrt{P_{\alpha} I_{\mathrm{ta},\alpha}}/C_{\mathrm{TIB}}\). <strong>Flag:</strong> \(C_{\mathrm{TIB}}\) = 50 mW/cm is the value commonly quoted from the ODS, but no public source consulted for this module (October 2026) states it, so treat it as unverified. If \(C_{\mathrm{TIB}}\) = 50 mW/cm, a round Gaussian beam gives \(\sqrt{P I_0} = 1.329\,P/d_{-6}\), i.e. \(\mathrm{TIB} = P/(37.6\, d_{-6})\), 6.3 % above the diameter form (m22_ti_estimates.m prints the same ratio, 1.063). IEC 62359 Ed. 2 (2010) added at-surface and below-surface summations for combined modes. Use the standard's own text for submission numbers.</span>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 22.4</span><h3>MI and TI calculator for a defined mode</h3> <span class="prov model">Approx. model</span><span class="prov-note">linear separable Gaussian-beam field; \(\mathrm{MI} = p_{r.3}/\sqrt{f}\) at \(z_{\mathrm{MI}}\); \(\mathrm{TIS} = P f/210\) (scanned: \(P_1\); unscanned \(A &gt; 1\) cm²: \(\min[P_{\alpha}, I_{\mathrm{ta},\alpha}\cdot 1\ \mathrm{cm^{2}}]\) beyond \(z_{\mathrm{bp}}\)); \(\mathrm{TIB} \approx P_{\alpha}/(40\ \mathrm{mW/cm}\times d_{-6})\); \(\mathrm{TIC} = P/(40\,D_{\mathrm{eq}})\). The standards' simplified formulas, not the full IEC 62359 procedure</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m22-ti-z" aria-label="Derated pressure and TI integrands versus depth"></canvas>
+        <canvas id="m22-ti-bar" aria-label="Indices against limits"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>\(p_{r.3}\)(z)</span><span><i style="background:var(--sig3)"></i>\(P_{\alpha}(z)\,f/210\)</span><span><i style="background:var(--sig4)"></i>\(I_{\mathrm{ta},\alpha}(z)\cdot 1\ \mathrm{cm^{2}}\cdot f/210\)</span><span><i style="background:var(--sig2)"></i>TIB(z) model</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m22-ti-pre">Mode preset</label><select id="m22-ti-pre"><option value="bmode">Focused B-mode, linear array (scanned)</option><option value="pw" selected>PW Doppler (non-scanned)</option><option value="plane">Plane-wave ultrafast, 5 kHz</option><option value="push">ARFI/SWE push, 2 per second</option><option value="ulm">Low-MI plane-wave contrast (ULM)</option></select></div>
+        <div class="ctrl"><label for="m22-ti-f"><span>Frequency</span> <output id="m22-ti-f-o"></output></label><input type="range" id="m22-ti-f" min="1.5" max="12" step="0.25" value="3"></div>
+        <div class="ctrl"><label for="m22-ti-p0"><span>Source pressure p₀ (drive)</span> <output id="m22-ti-p0-o"></output></label><input type="range" id="m22-ti-p0" min="0.05" max="2" step="0.01" value="0.45"></div>
+        <div class="ctrl"><label for="m22-ti-F"><span>Azimuth focus</span> <output id="m22-ti-F-o"></output></label><input type="range" id="m22-ti-F" min="10" max="120" step="1" value="50"></div>
+        <div class="ctrl"><label for="m22-ti-n"><span>Pulse length (cycles at −6 dB)</span> <output id="m22-ti-n-o"></output></label><input type="range" id="m22-ti-n" min="0" max="3.4" step="any" value="0.9"></div>
+        <div class="ctrl"><label for="m22-ti-r"><span id="m22-ti-r-l">PRF</span> <output id="m22-ti-r-o"></output></label><input type="range" id="m22-ti-r" min="-1" max="4.3" step="any" value="3.78"></div>
+        <div class="readout" id="m22-ti-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> linear Gaussian-beam model (water \(\rho c\) = 1.5 MRayl, \(c\) = 1500 m/s), 19.2 × 10 mm aperture unless the preset says otherwise. In PW Doppler, TIB is the largest index: the derated power reaching a narrow focus is concentrated on a small bone area. Push the focus deeper and TIB falls while TIS barely moves; raise the PRF and every TI and \(I_{\mathrm{SPTA}}\) rise linearly while MI does not move. In scanned B-mode the power is spread over the scan width, so TIS uses only the power through a 1 cm window.</div>
+  </div>
+  <div class="rf-grid" id="m22-g5"></div>
+
+  <!-- ===================== 22.6 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">22.6</span>The regulatory frame: FDA guidance, IEC standards, ALARA</h2>
+    <p><strong>FDA.</strong> <em>Marketing Clearance of Diagnostic Ultrasound Systems and Transducers</em>, issued February 21, 2023 (originally issued June 27, 2019; the 2019 version superseded the September 9, 2008 guidance; docket FDA-2017-D-5372). It defines two tracks. <strong>Track 1</strong>: devices that do not conform to the Output Display Standard in IEC 60601-2-37; output is compared with application-specific preamendments levels. <strong>Track 3</strong>: devices that conform to the Output Display Standard in IEC 60601-2-37; global maximum limits apply and MI/TI are displayed so the user can apply ALARA.</p>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>FDA guidance (2023)</th><th class="num">\(I_{\mathrm{SPTA.3}}\) (mW/cm²)</th><th class="num">\(I_{\mathrm{SPPA.3}}\) (W/cm²)</th><th class="num">MI</th><th>Condition</th></tr></thead>
+    <tbody>
+      <tr><td>Track 3, global maximum (all applications except ophthalmic)</td><td class="num">≤ 720</td><td class="num">≤ 190</td><td class="num">≤ 1.9</td><td>\(I_{\mathrm{SPTA.3}} \le 720\) <em>and either</em> \(\mathrm{MI} \le 1.9\) <em>or</em> \(I_{\mathrm{SPPA.3}} \le 190\)</td></tr>
+      <tr><td>Track 3, ophthalmic</td><td class="num">≤ 50</td><td class="num">n/a</td><td class="num">≤ 0.23</td><td>\(\mathrm{TI} = \max(\mathrm{TIS}_{\mathrm{as}}, \mathrm{TIC}) \le 1\)</td></tr>
+      <tr><td>Track 1: peripheral vessel</td><td class="num">720</td><td class="num">190</td><td class="num">1.9</td><td rowspan="4">Preamendments levels (Table 3), derated; \(I_{\mathrm{SPPA.3}}\) or MI</td></tr>
+      <tr><td>Track 1: cardiac</td><td class="num">430</td><td class="num">190</td><td class="num">1.9</td></tr>
+      <tr><td>Track 1: fetal imaging &amp; other</td><td class="num">94</td><td class="num">190</td><td class="num">1.9</td></tr>
+      <tr><td>Track 1: ophthalmic</td><td class="num">17</td><td class="num">28</td><td class="num">0.23</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose">
+    <p>Other statements in the guidance that matter at the bench: an explanation is expected for any TI above 6.0; if no system/transducer combination can exceed a TI of 1.0 or an MI of 1.0 in any mode, the global maximum values are reported instead of the full per-mode tables; the Table 3 levels are themselves estimated to carry ±30 % (intensities) and ±15 % (MI) uncertainty, so a manufacturer whose measurement uncertainty is within those margins need not subtract it, and one whose uncertainty exceeds them should reduce the levels by the excess; measurements should use a spot-poled membrane or capsule hydrophone unless another type is shown equivalent or better; the protocol must assure that global maximum output conditions are identified, especially in autoscanning and combined modes; labelling should state the ALARA precaution; for transcranial (cephalic) use with \(I_{\mathrm{SPTA.3}}\) above 94 mW/cm², an estimate of the maximum temperature rise and on-screen precautions (scanning through the eye, burr holes, fontanels, foramen magnum) are recommended; fetal heart-rate monitors (CW) are held to 20 mW/cm² \(I_{\mathrm{SATA}}\) at the transducer face.</p>
+    <p><strong>IEC documents, current editions.</strong> IEC 60601-2-37:2024 (Ed. 3.0, July 2024; replaces Ed. 2 of 2007 and Amendment 1:2015; clause 201.11 on excessive temperatures fully revised): particular safety requirements and the output display. IEC 62359:2010 + AMD1:2017 (Ed. 2.1): test methods for TI and MI; a third edition that adds "and acoustic intensities" to the title was circulated as a draft for comment in 2023 (check whether it has published before citing it). IEC 62127-1:2022 (Ed. 2.0): hydrophone measurement of medical fields; it removed the 40 MHz upper limit, made sensitivity complex-valued, and amended the spatial-averaging correction. IEC 62127-2 (hydrophone calibration) and IEC 62127-3 (hydrophone properties). IEC 61161:2013 (Ed. 3.0): power measurement with radiation force balances.</p>
+    <p><strong>History in one paragraph.</strong> The Track 1 levels descend from devices marketed before the 1976 Medical Device Amendments. The AIUM/NEMA Output Display Standard (UD 3) introduced the real-time display of MI and TI so that users, not fixed application limits, manage exposure; its 1998 (Revision 1) and 2004 (Revision 2) versions were later superseded by IEC 60601-2-37, and the FDA notes that the AIUM has withdrawn its equivalent standard. The physics of the indices (\(W_{\mathrm{deg}}\) models, break-point depth, MI from Apfel &amp; Holland) is unchanged from the ODS.</p>
+  </div>
+  <div class="rf-grid" id="m22-g6"></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Acoustic-output section of a submission</th><th>What the reviewer looks for</th></tr></thead>
+    <tbody>
+      <tr><td>Track and applications</td><td>Track 3 conformity to IEC 60601-2-37 (or Track 1 with application-specific levels); intended uses matching the indications table</td></tr>
+      <tr><td>Global maxima per transducer/mode</td><td>MI, TIS, TIB, TIC, \(I_{\mathrm{SPTA.3}}\), \(I_{\mathrm{SPPA.3}}\) (or MI) against Track 3; TI &gt; 6 explained</td></tr>
+      <tr><td>Reporting tables</td><td>Per IEC 60601-2-37 example: indices with the parameters behind them (\(p_{r.\alpha}\), P, \(P_1\), \(z_{\mathrm{MI}}\), \(z_s\), \(z_b\), \(f_{\mathrm{awf}}\), prr, srr, beam dimensions, aperture) for each combination whose displayed MI or TI exceeds 1.0</td></tr>
+      <tr><td>Measurement protocol</td><td>Hydrophone type and calibration, spatial-averaging and bandwidth corrections, power method, the global-maximum search, Type A and Type B uncertainties</td></tr>
+      <tr><td>Display accuracy</td><td>Displayed MI/TI versus measured values across settings</td></tr>
+      <tr><td>Labelling</td><td>ALARA statement, output tables in the user documentation, application-specific precautions</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout us"><span class="label">ALARA in practice</span><p>As Low As Reasonably Achievable means the user, guided by the displayed indices, lowers output and dwell time to the minimum that answers the clinical question. The AIUM dwell-time tables (reapproved 2022) turn the displayed TI into a time budget: obstetric TI ≤ 0.7 no limit, 1.0–1.5 under 30 min, 2.5–3.0 under 1 min, above 3.0 not recommended; non-obstetric TI ≤ 1.5 no limit, 4–5 under 1 min, 5–6 under 15 s, above 6 not recommended; reduce dwell by 33 % for ARFI and pulsed Doppler when bone is near the focus.</p></div>
+
+  <!-- ===================== 22.7 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">22.7</span>Measurement: hydrophones, spatial averaging, radiation force, the worst-case search</h2>
+    <p><strong>The tank.</strong> Degassed (and for high pressures deionized) water, absorbing walls, a 3-axis positioner with angular alignment, and a hydrophone with its preamplifier and calibration file. Alignment and the search for the beam axis and spatial peak come first, then axial scans, then lateral and elevation scans at the depths that matter (\(z_{\mathrm{MI}}\), \(z_s\), \(z_b\)).</p>
+    <p><strong>Hydrophones.</strong> Spot-poled membrane hydrophones (with capsule hydrophones, the FDA's stated default for pulsed waveforms) have the most uniform frequency response; needle hydrophones are small and robust but their response is less flat and their effective radius can differ from the geometric one; fibre-optic hydrophones survive high pressures and reach small sizes. The calibration is the complex end-of-cable sensitivity \(M_L(f)\) (IEC 62127-2), so p(t) is obtained by deconvolution. Finite size averages the field over the sensitive area (spatial averaging, below) and finite bandwidth drops and phase-shifts harmonics (Module 21).</p>
+  </div>
+
+  <figure class="m22-fig" id="m22-fig-a">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 22.A</b> · Measurement setup and the derating path from a water waveform to MI and the derated intensities</div>
+    <div class="mx-scroll"><svg viewBox="0 0 800 425" role="img" aria-label="Acoustic output measurement: water tank with transducer, hydrophone on a three-axis positioner, absorbers, preamplifier and digitizer, followed by deconvolution and the derating path to MI and derated intensities">
+<defs><marker id="m22-ahA" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 Z" style="fill:var(--muted)"/></marker></defs>
+<text x="20.0" y="20.0" class="t" text-anchor="start">Hydrophone tank (side view) and the path to the reported numbers</text>
+<rect x="40" y="90" width="470" height="220" style="fill:var(--accent);fill-opacity:.06;stroke:var(--ink);stroke-width:1.6"/>
+<path d="M40 104 H510" style="stroke:var(--accent);stroke-width:1;fill:none;stroke-dasharray:5 4"/>
+<text x="90.0" y="122.0" class="s" text-anchor="start">degassed water, temperature logged</text>
+<rect x="488" y="126" width="16" height="176" style="fill:var(--sig3);fill-opacity:.25;stroke:var(--sig3)"/>
+<rect x="46" y="290" width="458" height="14" style="fill:var(--sig3);fill-opacity:.25;stroke:var(--sig3)"/>
+<text x="275.0" y="301.0" class="s" text-anchor="middle">absorber lining</text>
+<rect x="46" y="165" width="30" height="50" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.4"/>
+<path d="M61 165 V70" style="stroke:var(--ink);stroke-width:2;fill:none"/>
+<text x="67.0" y="82.0" class="s" text-anchor="start">probe clamp</text>
+<text x="48.0" y="232.0" class="s" text-anchor="start">probe</text>
+<path d="M76.0 168.0 L78.8 168.3 L81.5 168.6 L84.3 168.9 L87.1 169.3 L89.9 169.6 L92.6 169.9 L95.4 170.2 L98.2 170.5 L101.0 170.8 L103.7 171.1 L106.5 171.4 L109.3 171.7 L112.1 172.0 L114.8 172.3 L117.6 172.7 L120.4 173.0 L123.1 173.3 L125.9 173.6 L128.7 173.9 L131.5 174.2 L134.2 174.5 L137.0 174.8 L139.8 175.1 L142.6 175.4 L145.3 175.7 L148.1 176.0 L150.9 176.3 L153.6 176.6 L156.4 176.8 L159.2 177.1 L162.0 177.4 L164.7 177.7 L167.5 178.0 L170.3 178.3 L173.1 178.6 L175.8 178.8 L178.6 179.1 L181.4 179.4 L184.2 179.6 L186.9 179.9 L189.7 180.2 L192.5 180.4 L195.2 180.7 L198.0 180.9 L200.8 181.2 L203.6 181.4 L206.3 181.6 L209.1 181.9 L211.9 182.1 L214.7 182.3 L217.4 182.5 L220.2 182.7 L223.0 182.9 L225.7 183.0 L228.5 183.2 L231.3 183.3 L234.1 183.5 L236.8 183.6 L239.6 183.7 L242.4 183.8 L245.2 183.9 L247.9 183.9 L250.7 184.0 L253.5 184.0 L256.3 184.0 L259.0 184.0 L261.8 184.0 L264.6 183.9 L267.3 183.9 L270.1 183.8 L272.9 183.7 L275.7 183.6 L278.4 183.5 L281.2 183.3 L284.0 183.2 L286.8 183.0 L289.5 182.8 L292.3 182.6 L295.1 182.5 L297.8 182.2 L300.6 182.0 L303.4 181.8 L306.2 181.6 L308.9 181.4 L311.7 181.1 L314.5 180.9 L317.3 180.6 L320.0 180.4 L322.8 180.1 L325.6 179.9 L328.4 179.6 L331.1 179.3 L333.9 179.1 L336.7 178.8 L339.4 178.5 L342.2 178.2 L345.0 177.9 L347.8 177.7 L350.5 177.4 L353.3 177.1 L356.1 176.8 L358.9 176.5 L361.6 176.2 L364.4 175.9 L367.2 175.6 L369.9 175.3 L372.7 175.0 L375.5 174.7 L378.3 174.4 L381.0 174.1 L383.8 173.8 L386.6 173.5 L389.4 173.2 L392.1 172.9 L394.9 172.6 L397.7 172.3 L400.5 172.0 L403.2 171.7 L406.0 171.4 L406.0 208.6 L403.2 208.3 L400.5 208.0 L397.7 207.7 L394.9 207.4 L392.1 207.1 L389.4 206.8 L386.6 206.5 L383.8 206.2 L381.0 205.9 L378.3 205.6 L375.5 205.3 L372.7 205.0 L369.9 204.7 L367.2 204.4 L364.4 204.1 L361.6 203.8 L358.9 203.5 L356.1 203.2 L353.3 202.9 L350.5 202.6 L347.8 202.3 L345.0 202.1 L342.2 201.8 L339.4 201.5 L336.7 201.2 L333.9 200.9 L331.1 200.7 L328.4 200.4 L325.6 200.1 L322.8 199.9 L320.0 199.6 L317.3 199.4 L314.5 199.1 L311.7 198.9 L308.9 198.6 L306.2 198.4 L303.4 198.2 L300.6 198.0 L297.8 197.8 L295.1 197.5 L292.3 197.4 L289.5 197.2 L286.8 197.0 L284.0 196.8 L281.2 196.7 L278.4 196.5 L275.7 196.4 L272.9 196.3 L270.1 196.2 L267.3 196.1 L264.6 196.1 L261.8 196.0 L259.0 196.0 L256.3 196.0 L253.5 196.0 L250.7 196.0 L247.9 196.1 L245.2 196.1 L242.4 196.2 L239.6 196.3 L236.8 196.4 L234.1 196.5 L231.3 196.7 L228.5 196.8 L225.7 197.0 L223.0 197.1 L220.2 197.3 L217.4 197.5 L214.7 197.7 L211.9 197.9 L209.1 198.1 L206.3 198.4 L203.6 198.6 L200.8 198.8 L198.0 199.1 L195.2 199.3 L192.5 199.6 L189.7 199.8 L186.9 200.1 L184.2 200.4 L181.4 200.6 L178.6 200.9 L175.8 201.2 L173.1 201.4 L170.3 201.7 L167.5 202.0 L164.7 202.3 L162.0 202.6 L159.2 202.9 L156.4 203.2 L153.6 203.4 L150.9 203.7 L148.1 204.0 L145.3 204.3 L142.6 204.6 L139.8 204.9 L137.0 205.2 L134.2 205.5 L131.5 205.8 L128.7 206.1 L125.9 206.4 L123.1 206.7 L120.4 207.0 L117.6 207.3 L114.8 207.7 L112.1 208.0 L109.3 208.3 L106.5 208.6 L103.7 208.9 L101.0 209.2 L98.2 209.5 L95.4 209.8 L92.6 210.1 L89.9 210.4 L87.1 210.7 L84.3 211.1 L81.5 211.4 L78.8 211.7 L76.0 212.0 Z" style="fill:var(--accent);fill-opacity:.15;stroke:var(--accent);stroke-width:1"/>
+<path d="M76 190 H440" style="stroke:var(--muted);stroke-width:1;fill:none;stroke-dasharray:4 3"/>
+<text x="90.0" y="240.0" class="s" text-anchor="start">z: from the probe face along the beam axis</text>
+<path d="M270 188 V50 H400" style="stroke:var(--ink);stroke-width:2;fill:none"/>
+<circle cx="270" cy="190" r="4" style="fill:var(--sig2)"/>
+<rect x="400" y="30" width="130" height="38" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.4"/>
+<text x="465.0" y="45.0" class="s" text-anchor="middle">3-axis positioner</text>
+<text x="465.0" y="60.0" class="s" text-anchor="middle">+ tilt / rotation</text>
+<text x="280.0" y="148.0" class="s" text-anchor="start">hydrophone: spot-poled</text>
+<text x="280.0" y="162.0" class="s" text-anchor="start">membrane or capsule</text>
+<path d="M440.0 265.0 L470.0 265.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahA)"/>
+<path d="M440.0 265.0 L440.0 235.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahA)"/>
+<path d="M440.0 265.0 L460.0 247.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahA)"/>
+<text x="474.0" y="269.0" class="s" text-anchor="start">z</text>
+<text x="436.0" y="231.0" class="s" text-anchor="start">y</text>
+<text x="464.0" y="245.0" class="s" text-anchor="start">x</text>
+<rect x="560" y="60" width="220" height="34" rx="4" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.2"/>
+<text x="670.0" y="82.0" text-anchor="middle">preamplifier</text>
+<rect x="560" y="112" width="220" height="34" rx="4" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.2"/>
+<text x="670.0" y="134.0" text-anchor="middle">digitizer, averaging</text>
+<rect x="560" y="164" width="220" height="34" rx="4" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.2"/>
+<text x="670.0" y="186.0" text-anchor="middle">deconvolve M_L(f) → p(t)</text>
+<rect x="560" y="216" width="220" height="34" rx="4" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.2"/>
+<text x="670.0" y="238.0" text-anchor="middle">spatial-averaging corr.</text>
+<path d="M670.0 94.0 L670.0 111.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahA)"/>
+<path d="M670.0 146.0 L670.0 163.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahA)"/>
+<path d="M670.0 198.0 L670.0 215.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahA)"/>
+<path d="M510 150 H546 V77" style="stroke:var(--muted);stroke-width:1.2;fill:none;stroke-dasharray:3 3"/>
+<path d="M546.0 77.0 L559.0 77.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahA)"/>
+<text x="516.0" y="144.0" class="s" text-anchor="start">cable</text>
+<text x="20.0" y="338.0" class="t" text-anchor="start">Derating path, evaluated at every depth z on the beam axis</text>
+<rect x="20" y="350" width="180" height="62" rx="4" style="fill:var(--panel);stroke:var(--accent);stroke-width:1.2"/>
+<text x="28.0" y="367.0" class="s" text-anchor="start">water scan</text>
+<text x="28.0" y="385.0" text-anchor="start">p_r(z), PII(z), I_ta(z)</text>
+<text x="28.0" y="403.0" text-anchor="start">P (radiation force)</text>
+<path d="M201.0 381.0 L214.0 381.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahA)"/>
+<rect x="215" y="350" width="180" height="62" rx="4" style="fill:var(--panel);stroke:var(--accent);stroke-width:1.2"/>
+<text x="223.0" y="367.0" class="s" text-anchor="start">derate, A = 0.3 f z dB</text>
+<text x="223.0" y="385.0" text-anchor="start">p × 10^(−A/20)</text>
+<text x="223.0" y="403.0" text-anchor="start">I, PII, P × 10^(−A/10)</text>
+<path d="M396.0 381.0 L409.0 381.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahA)"/>
+<rect x="410" y="350" width="180" height="62" rx="4" style="fill:var(--panel);stroke:var(--accent);stroke-width:1.2"/>
+<text x="418.0" y="367.0" class="s" text-anchor="start">search</text>
+<text x="418.0" y="385.0" text-anchor="start">z_MI = argmax PII_α(z)</text>
+<text x="418.0" y="403.0" text-anchor="start">z_s, z_b per TI formula</text>
+<path d="M591.0 381.0 L604.0 381.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahA)"/>
+<rect x="605" y="350" width="180" height="62" rx="4" style="fill:var(--panel);stroke:var(--accent);stroke-width:1.2"/>
+<text x="613.0" y="367.0" class="s" text-anchor="start">report</text>
+<text x="613.0" y="385.0" text-anchor="start">MI, I_SPTA.3, I_SPPA.3</text>
+<text x="613.0" y="403.0" text-anchor="start">TIS, TIB, TIC</text>
+</svg></div>
+    <p class="cap">Typical tank about 60 × 40 × 40 cm of degassed water with absorbing lining; lateral steps of 0.05–0.1 mm through a focus and 0.5–1 mm axially; \(f_{\mathrm{awf}}\) from the waveform at the position of the spatial-peak temporal-peak pressure (IEC 62127-1). The hydrophone voltage is deconvolved with the complex end-of-cable sensitivity \(M_L(f)\) and corrected for spatial averaging before any derating. Power comes from a radiation force balance (absorbing target, \(F = P/c\) <span class="eqref">(22.23)</span>: 100 mW gives 66.7 µN) per IEC 61161. Not to scale.</p>
+  </figure>
+  <div class="eqn key" id="m22-eq21">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \frac{\langle p\rangle}{p(0)} &amp;= \frac{w^{2}}{b^{2}}\left(1 - e^{-b^{2}/w^{2}}\right) \\ \text{intensity error} &amp;= \left(\frac{\langle p\rangle}{p(0)}\right)^{2} \end{aligned} \]</div><span class="eqn-no">(22.21)</span></div>
+    <dl class="where"><dt>\(w\)</dt><dd>Gaussian focal spot parameter: amplitude \(e^{-r^{2}/w^{2}}\), −6 dB width \(W_{-6} = 1.665\,w\), mm</dd><dt>\(b\)</dt><dd>hydrophone radius, mm</dd><dt>\(\langle p\rangle\)</dt><dd>pressure averaged over the hydrophone face, MPa</dd><dt>\(p(0)\)</dt><dd>true on-axis peak pressure, MPa</dd><dt>\(r\)</dt><dd>radial distance from the beam axis, mm</dd><dt>\(e\)</dt><dd>exponential function</dd><dt>\(w,\ b\)</dt><dd>Gaussian spot parameter and hydrophone radius, mm</dd><dt>\(\text{intensity error}\)</dt><dd>fractional intensity (pressure squared) reading relative to the true peak; below 1 means under-reading</dd></dl>
+    <span class="note">Exact for a round Gaussian focal spot and a circular, uniformly sensitive hydrophone element centred on the axis. Diameter = \(W_{-6}/4\): −0.19 dB, i.e. pressure 2.1 % and intensity 4.2 % low. Diameter = \(W_{-6}/2\): −0.74 dB, pressure 8.2 % and intensity 15.7 % low. The dB loss is the same for pressure and intensity (\(10\log_{10} p^{2} = 20\log_{10} p\)); only the percentage doubles.</span>
+  </div>
+  <div class="eqn" id="m22-eq22">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &amp;w_{\mathrm{meas}}^{2} \approx w^{2} + \frac{b^{2}}{2}\ \text{per axis} \\ \Rightarrow\ &amp;\text{peak} \times \frac{w_{\mathrm{meas}}}{w}\ \text{per axis} \end{aligned} \]</div><span class="eqn-no">(22.22)</span></div>
+    <dl class="where"><dt>\(w_{\mathrm{meas}}\)</dt><dd>measured (broadened) spot parameter, mm</dd><dt>\(w,\ b\)</dt><dd>as in (22.21), mm</dd><dt>\(\text{peak}\)</dt><dd>peak pressure reading corrected for spatial averaging, MPa</dd></dl>
+    <span class="note">Gaussian-kernel correction.</span>
+  </div>
+  <div class="eqn" id="m22-eq23">
+    <div class="eqn-body"><div class="eqn-math">\[ F = \frac{P}{c} \]</div><span class="eqn-no">(22.23)</span></div>
+    <dl class="where"><dt>\(F\)</dt><dd>radiation force on an absorbing target, N</dd><dt>\(P\)</dt><dd>acoustic power, W</dd><dt>\(c\)</dt><dd>speed of sound in water, m/s</dd></dl>
+    <span class="note">Absorbing target, plane wave, normal incidence. For \(F = P/c\): 100 mW gives 66.7 µN, which a balance reads as 6.80 mg (\(c\) = 1500 m/s); 1 W gives 0.667 mN (68 mg). Focused and steered beams and reflecting targets need the corrections in IEC 61161.</span>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 22.5</span><h3>Hydrophone spatial averaging versus element size and beam width</h3> <span class="prov model">Approx. model</span><span class="prov-note">elliptical Gaussian focal spot; numerical disc average over the hydrophone face; Gaussian-kernel correction</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m22-hy-p" aria-label="True and measured lateral profiles"></canvas>
+        <canvas id="m22-hy-l" aria-label="Error versus hydrophone diameter"></canvas>
+        <div class="legend"><span><i style="background:var(--ink)"></i>true profile</span><span><i style="background:var(--accent)"></i>measured (disc average)</span><span><i style="background:var(--sig4)"></i>after Gaussian correction</span><span><i style="background:var(--sig2)"></i>intensity error</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m22-hy-w"><span>Beam −6 dB width (azimuth)</span> <output id="m22-hy-w-o"></output></label><input type="range" id="m22-hy-w" min="0.1" max="3" step="0.02" value="0.6"></div>
+        <div class="ctrl"><label for="m22-hy-asp"><span>Elevation / azimuth width</span> <output id="m22-hy-asp-o"></output></label><input type="range" id="m22-hy-asp" min="1" max="6" step="0.1" value="3"></div>
+        <div class="ctrl"><label for="m22-hy-d"><span>Hydrophone effective diameter</span> <output id="m22-hy-d-o"></output></label><input type="range" id="m22-hy-d" min="25" max="1000" step="25" value="400"></div>
+        <label class="check"><input type="checkbox" id="m22-hy-cor" checked> Show Gaussian-kernel correction</label>
+        <div class="readout" id="m22-hy-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> a 400 µm hydrophone on a 0.6 mm azimuth focus (a 7.5 MHz probe) with a 3:1 elongated spot under-reads the peak by 0.7 dB in pressure, so MI is 8 % low and \(I_{\mathrm{SPTA}}\) 15 % low; set the aspect to 1 and the loss grows to 1.3 dB (26 % in intensity) because both axes are undersampled. The Gaussian-kernel correction, which uses only the measured width, recovers the peak to within 0.1 dB while the hydrophone stays below about three quarters of the beam width.</div>
+  </div>
+  <div class="rf-grid" id="m22-g7"></div>
+  <div class="prose">
+    <p><strong>The worst-case (global maximum) search.</strong> Each index has its own maximizing setting. MI usually peaks at the highest transmit voltage, the shortest focus that still lies beyond the near-field region, and the lowest frequency of a multi-frequency probe; TIS in scanned modes at the highest frame rate and widest power; TIB in Doppler at a moderate focus with a narrow beam and the highest PRF; TIC at the largest total power and smallest aperture. A defensible protocol enumerates the parameters (voltage, focal depth, aperture, frequency, pulse length, PRF, line density, sector width, combined modes, zoom), uses the system's own output model to rank candidates, and measures the top candidates for every index. Combined modes (B + colour + PW) sum contributions and are where FDA asks most often for evidence that the global maximum was found.</p>
+    <p><strong>Surface temperature.</strong> Transducer self-heating is limited separately from TI, and the FDA guidance points to IEC 60601-2-37 for it. For IEC 60601-2-37:2007 + A1:2015 the applied-part limits are usually quoted as 43 °C when coupled to a tissue-mimicking test object and 50 °C in still air (from secondary sources; the 2007 clause text was not available for this module). <strong>Flag:</strong> the foreword of IEC 60601-2-37:2024 (Ed. 3.0) states that clause 201.11 on excessive temperatures "has been fully revised", and the revised limits and test conditions could not be confirmed from any public source (October 2026). Do not carry 43 °C / 50 °C into a test plan against the 2024 edition without reading its clause 201.11.</p>
+  </div>
+
+
+  <figure class="m22-fig" id="m22-fig-c">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 22.C</b> · Worst-case (global maximum) search flow</div>
+    <div class="mx-scroll"><svg viewBox="0 0 800 290" role="img" aria-label="Worst-case output search: enumerate settings, rank candidates with the system output model, measure the top candidates for each index, check combined modes and limits, and loop back when a measurement exceeds the prediction">
+<defs><marker id="m22-ahC" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 Z" style="fill:var(--muted)"/></marker></defs>
+<text x="20.0" y="20.0" class="t" text-anchor="start">Global-maximum search, per transducer and mode</text>
+<rect x="15" y="40" width="240" height="70" rx="5" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.3"/>
+<text x="25.0" y="60.0" class="t" text-anchor="start">enumerate settings</text>
+<text x="25.0" y="80.0" class="s" text-anchor="start">V, focus, aperture, f, cycles,</text>
+<text x="25.0" y="96.0" class="s" text-anchor="start">PRF, lines, sector, zoom, modes</text>
+<rect x="280" y="40" width="240" height="70" rx="5" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.3"/>
+<text x="290.0" y="60.0" class="t" text-anchor="start">rank with output model</text>
+<text x="290.0" y="80.0" class="s" text-anchor="start">predicted MI, TIS, TIB, TIC,</text>
+<text x="290.0" y="96.0" class="s" text-anchor="start">I_SPTA.3, I_SPPA.3 per setting</text>
+<rect x="545" y="40" width="240" height="70" rx="5" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.3"/>
+<text x="555.0" y="60.0" class="t" text-anchor="start">measure top N per index</text>
+<text x="555.0" y="80.0" class="s" text-anchor="start">hydrophone at z_MI, z_s, z_b;</text>
+<text x="555.0" y="96.0" class="s" text-anchor="start">power: radiation force balance</text>
+<rect x="545" y="190" width="240" height="70" rx="5" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.3"/>
+<text x="555.0" y="210.0" class="t" text-anchor="start">combined modes</text>
+<text x="555.0" y="230.0" class="s" text-anchor="start">sum contributions (B + colour</text>
+<text x="555.0" y="246.0" class="s" text-anchor="start">+ PW; push + tracking); derate</text>
+<rect x="280" y="190" width="240" height="70" rx="5" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.3"/>
+<text x="290.0" y="210.0" class="t" text-anchor="start">compare with Track 3</text>
+<text x="290.0" y="230.0" class="s" text-anchor="start">I_SPTA.3 ≤ 720 and (MI ≤ 1.9</text>
+<text x="290.0" y="246.0" class="s" text-anchor="start">or I_SPPA.3 ≤ 190); TI > 6?</text>
+<rect x="15" y="190" width="240" height="70" rx="5" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.3"/>
+<text x="25.0" y="210.0" class="t" text-anchor="start">report</text>
+<text x="25.0" y="230.0" class="s" text-anchor="start">global maxima; tables for any</text>
+<text x="25.0" y="246.0" class="s" text-anchor="start">index > 1.0; display accuracy</text>
+<path d="M256.0 75.0 L279.0 75.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahC)"/>
+<path d="M521.0 75.0 L544.0 75.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahC)"/>
+<path d="M665.0 111.0 L665.0 189.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahC)"/>
+<path d="M544.0 225.0 L521.0 225.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahC)"/>
+<path d="M279.0 225.0 L256.0 225.0" style="stroke:var(--muted);stroke-width:1.2;fill:none" marker-end="url(#m22-ahC)"/>
+<path d="M600 111 C 580 150, 440 150, 420 112" style="stroke:var(--sig2);stroke-width:1.3;fill:none;stroke-dasharray:4 3" marker-end="url(#m22-ahC)"/>
+<text x="510.0" y="164.0" class="s" text-anchor="middle">measured > predicted:</text>
+<text x="510.0" y="178.0" class="s" text-anchor="middle">refine model, add candidates</text>
+<text x="20.0" y="284.0" class="s" text-anchor="start">Drawn for intuition; not a normative procedure.</text>
+</svg></div>
+    <p class="cap">Each index has its own maximizing setting, so the search runs per index and per transducer/mode, with combined modes summed. The output model only ranks candidates; the reported numbers are measured. The FDA guidance asks that the protocol assure global maximum conditions are found, especially in autoscanning and combined modes, and expects reporting tables for every combination whose global maximum MI or TI exceeds 1.0.</p>
+  </figure>
+
+  <!-- ===================== 22.8 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">22.8</span>New sequences, new numbers: coding, ultrafast, push pulses, contrast and ULM</h2>
+    <p><strong>Coded excitation</strong> (Module 10). At a fixed peak pressure, MI is unchanged while PII, \(I_{\mathrm{SPTA}}\) and power scale with the energy ratio (the compression gain). A TB-50 chirp at MI 1.9 and 200 pulses/s at a point goes from 27 to about 2000 mW/cm², so a coded mode is usually limited by \(I_{\mathrm{SPTA.3}}\) or TI, not MI.</p>
+    <p><strong>Plane-wave and diverging-wave ultrafast imaging.</strong> The unfocused transmit has a low peak pressure (low MI) but every transmit reaches every point, so \(I_{\mathrm{ta}} = \mathrm{PII}\times\mathrm{PRF}\). At 5 kHz this is 40–50 times the pulse rate a focused B-mode delivers to a point, and long acquisitions (Doppler ensembles of hundreds of frames, ULM acquisitions of seconds to minutes) turn that into TI and dwell-time questions.</p>
+    <p><strong>Push pulses (ARFI, SWE).</strong> A push is a focused burst of hundreds of microseconds (hundreds to a few thousand cycles), often near the MI limit. Its PII is hundreds of times that of an imaging pulse, so a few pushes per second dominate \(I_{\mathrm{SPTA.3}}\) and focal heating, and the tracking ensemble adds on top. The AIUM places ARFI with spectral Doppler at the top of the heating ranking and asks for 33 % shorter dwell times when bone is near the focus. Report the push and the tracking sequence as one combined mode, and evaluate heating at the push focus and at the transducer surface.</p>
+    <p><strong>Contrast imaging and ULM.</strong> Low-MI contrast imaging is designed to keep bubbles oscillating without destroying them; high-MI flashes destroy them for replenishment studies. The pressure at the bubble is the in situ pressure at its depth, with the real attenuation of the path, not the derated pressure at \(z_{\mathrm{MI}}\): through a fluid path it is higher than the derated value, through liver it is lower. The AIUM contrast statement (reapproved 2021) reports bioeffects above MI 0.4 with gas-body agents and recommends the minimal MI and examination time; BMUS (2009) names MI 0.7 as the cavitation-risk threshold with contrast. ULM adds long plane-wave acquisitions at kHz rates: low MI per pulse and an \(I_{\mathrm{SPTA}}\) set by the PRF (a time average, independent of duration), while heating, and with it the TI dwell-time budget, accumulates over the whole acquisition.</p>
+  </div>
+  <div class="rf-grid" id="m22-g8"></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Sequence</th><th>MI</th><th>\(I_{\mathrm{SPTA.3}}\)</th><th>TI</th><th>What binds first</th></tr></thead>
+    <tbody>
+      <tr><td>Focused B-mode</td><td>High (focused, short pulses)</td><td>Low (few pulses per point)</td><td>Low TIS (power spread over the scan)</td><td>MI</td></tr>
+      <tr><td>Coded B-mode</td><td>Same as B-mode at equal peak</td><td>× compression gain</td><td>× compression gain</td><td>\(I_{\mathrm{SPTA.3}}\) or TI</td></tr>
+      <tr><td>PW Doppler</td><td>Moderate</td><td>High (every pulse at the gate)</td><td>TIB highest near bone</td><td>TIB, \(I_{\mathrm{SPTA.3}}\)</td></tr>
+      <tr><td>Plane-wave ultrafast</td><td>Low (unfocused)</td><td>\(\propto\) PRF</td><td>Grows with PRF and duration</td><td>TI and dwell time</td></tr>
+      <tr><td>ARFI/SWE push</td><td>Near limit</td><td>Pushes dominate</td><td>Focal and surface heating</td><td>TI, surface temperature, \(I_{\mathrm{SPTA.3}}\)</td></tr>
+      <tr><td>Low-MI contrast / ULM</td><td>Very low (bubble survival)</td><td>Low per pulse, × PRF</td><td>Low</td><td>Bubble destruction (physics), not regulation</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ===================== 22.9 Visual summary ===================== -->
+  <h2><span class="sec">22.9</span>Visual summary</h2>
+  <div class="prose"><p>Fourteen pictures that carry the module. Each card is a question to answer in five seconds, the answer with its number, and a figure computed in the page; the badge says whether it is a definition or published table plotted as is, a simulation or an approximate model (water \(\rho c\) = 1.5 MRayl, \(c\) = 1500 m/s unless stated).</p></div>
+  <div class="rf-grid" id="m22-vis"></div>
+
+  <!-- ===================== 22.10 Experts ===================== -->
+  <h2><span class="sec">22.10</span>How experts think about it</h2>
+  <div class="prose"><p>An expert keeps two ledgers. The mechanical ledger has one entry per pulse: the derated peak rarefactional pressure at the depth the standard specifies, divided by \(\sqrt{f}\) <span class="eqref">(22.13)</span>. The thermal ledger integrates: PII times the number of pulses that actually pass the point, power through the right window, divided by the power that heats the model tissue by a degree. Every number in a 510(k) table is one of these, derated with the right exponent at the right depth, measured with a hydrophone whose size and bandwidth have been accounted for, and taken at the global maximum over settings.</p></div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">Heating follows time-average power; cavitation follows the peak rarefaction of a single pulse.</div>
+      <div class="keynum"><span>\(\mathrm{TI} \propto P,\ I_{\mathrm{ta}}\)</span><span>\(\mathrm{MI} \propto p_r/\sqrt{f}\)</span><span>same MI, 100× \(I_{\mathrm{SPTA}}\)</span></div>
+      <div class="why"><p>Conduction and perfusion time constants are seconds to minutes (\(a^{2}/4\kappa \approx\) 1.9 s for a 1 mm beam, <span class="eqref">(22.3)</span>), while a pulse lasts a microsecond, so tissue temperature sees only the average absorbed power. Bubble growth in a rarefaction half-cycle happens within that microsecond, so only the peak negative pressure and the time available (\(1/f\)) matter. A B-mode line and a PW Doppler gate at the same \(p_r\) differ in \(I_{\mathrm{ta}}\) by the pulse-rate ratio: 113 versus 5000 pulses/s is 44×.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">pulse arrivals drawn evenly spaced; scanned B-mode really delivers bursts of about 3.8 per frame</span><canvas id="m22-rf-1" aria-label="Same peak pressure, different pulse rate"></canvas></div></div>
+      <div class="limits">Push pulses and long bursts blur the split: radiation force and streaming act during the pulse and heating is not negligible within a push.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Derate by 0.3 dB/cm/MHz: pressure with 20 log, intensity and power with 10 log.</div>
+      <div class="keynum"><span>3 MHz, 5 cm: 4.5 dB</span><span>\(p\) × 0.596</span><span>\(I\) × 0.355</span></div>
+      <div class="why"><p>The derating is a loss in dB, the same number of dB for pressure and intensity; only the conversion to a linear factor differs. \(A(z) = 0.3\,f z\) <span class="eqref">(22.11)</span>: at 7.5 MHz and 4 cm it is 9.0 dB, pressure × 0.355 and intensity × 0.126. Mixing the exponents misstates MI by the square root (or the square) of the intended factor, a 40 % error at 4.5 dB.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">the regulatory definition</span><canvas id="m22-rf-2" aria-label="Derating loss versus depth for several frequencies"></canvas></div></div>
+      <div class="limits">The 0.3 value is a regulatory model, not tissue: real paths range from about 0.05 (fluid) to more than 1 dB/cm/MHz, and attenuation is not exactly linear in \(f\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">The derated peak sits shallower than the water focus, and MI is taken there.</div>
+      <div class="keynum"><span>water peak 6.5 cm</span><span>derated peak 5.1 cm</span><span>3.5 MHz, 8 cm focus</span></div>
+      <div class="why"><p>Multiplying a focal gain curve by a falling exponential moves its maximum toward the probe; the shift grows with f, with depth and with a weak focal gain. For the Gaussian-beam model of a 12 mm circular aperture focused at 8 cm, the water maximum is at 6.5 cm (focal shift), the derated maximum at 5.1 cm, and the derated pressure there is 0.49 of the water peak. A test plan that only scans around the water focus can miss \(z_{\mathrm{MI}}\).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">linear Gaussian-beam field, 12 mm circular aperture</span><canvas id="m22-rf-3" aria-label="Water and derated on-axis profiles"></canvas></div></div>
+      <div class="limits">Strongly focused, low-frequency beams have a sharp gain peak and a small shift; nonlinear distortion moves PII and \(p_r\) maxima differently.</div>
+    </div>
+    <div class="rule">
+      <div class="say">MI 1.9 means 3.3 MPa derated at 3 MHz and 5.2 MPa at 7.5 MHz.</div>
+      <div class="keynum"><span>\(p_{r.3} = 1.9\sqrt{f}\)</span><span>2 MHz: 2.69 MPa</span><span>10 MHz: 6.01 MPa</span></div>
+      <div class="why"><p>Invert the definition <span class="eqref">(22.13)</span> with \(C_{\mathrm{MI}} = 1\ \mathrm{MPa\cdot MHz^{-1/2}}\). The water pressure needed at 4 cm is larger by \(10^{0.3\cdot f\cdot 4/20}\): 4.98 MPa at 3 MHz, 8.5 MPa at 5 MHz and 14.7 MPa at 7.5 MHz. High-frequency probes rarely reach MI 1.9 at depth; they reach it in the first centimetres where derating is small.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">definition of MI inverted</span><canvas id="m22-rf-4" aria-label="Derated and water pressure allowed by MI 1.9 versus frequency"></canvas></div></div>
+      <div class="limits">\(\sqrt{f}\) comes from free-nucleus cavitation theory over the diagnostic range; it is not a law for shelled bubbles or for gas bodies in lung.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Track 3 is 720 mW/cm² and either \(\mathrm{MI} \le 1.9\) or \(I_{\mathrm{SPPA.3}} \le\) 190 W/cm²: the "or" matters.</div>
+      <div class="keynum"><span>\(I_{\mathrm{SPTA.3}} \le 720\)</span><span>\(\mathrm{MI} \le 1.9\) or \(I_{\mathrm{SPPA.3}} \le 190\)</span><span>branches meet near 2 MHz</span></div>
+      <div class="why"><p>For a Gaussian pulse \(I_{\mathrm{pa}} = 0.782\,p^{2}/(2\rho c)\). At MI 1.9 that is 188 W/cm² at 2 MHz, 282 at 3 MHz and 471 at 5 MHz: above 2 MHz most short-pulse modes at the MI limit exceed 190 W/cm² and comply through the MI branch. A low-frequency long-burst mode can do the reverse. Both conditions sit under the \(I_{\mathrm{SPTA.3}}\) limit, which always applies.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Gaussian-envelope pulse: \(I_{\mathrm{pa}} = 0.782\,p^{2}/2\rho c\)</span><canvas id="m22-rf-5" aria-label="ISPPA.3 versus MI with the Track 3 compliance region"></canvas></div></div>
+      <div class="limits">Ophthalmic is different (\(\mathrm{MI} \le 0.23\), \(I_{\mathrm{SPTA.3}} \le 50\), \(\mathrm{TI} \le 1\)); the \(I_{\mathrm{pa}}\) factor depends on the real waveform.</div>
+    </div>
+    <div class="rule">
+      <div class="say">\(I_{\mathrm{SPTA}} = \mathrm{PII}\) × pulses per second at the point; in scanned modes, count the overlapping lines.</div>
+      <div class="keynum"><span>\(n \approx 0.75\,w_{-6}/\Delta\)</span><span>1.5 mm / 0.3 mm: 3.76</span><span>× frame rate</span></div>
+      <div class="why"><p>A point is hit by every line whose beam covers it, weighted by the beam profile. For a Gaussian profile \(e^{-2x^{2}/w^{2}}\) the sum over lines spaced \(\Delta\) is \(\sqrt{\pi/2}\,w/\Delta\), and \(w = w_{-6}/1.665\), so \(n = 0.753\,w_{-6}/\Delta\) <span class="eqref">(22.10)</span>. At 30 frames/s the point sees 113 pulses/s, not the 3840/s the system fires; the factor of 34 is the most common error in hand calculations.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Gaussian line profiles, uniform line spacing</span><canvas id="m22-rf-6" aria-label="Line beam profiles summing at a point"></canvas></div></div>
+      <div class="limits">Multi-zone focusing, line interleaving and parallel receive change the count; at the surface many more lines overlap.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Pulse duration is 1.25 times the 10–90 % width of the cumulative \(p^{2}\) integral.</div>
+      <div class="keynum"><span>\(t_d = 1.25(t_{90} - t_{10})\)</span><span>Gaussian: \(2.27\,\sigma_t\)</span><span>\(I_{\mathrm{pa}} = 0.782\,p^{2}/2\rho c\)</span></div>
+      <div class="why"><p>The definition is energy-based, so ringing tails count only through their energy. For a Gaussian envelope the cumulative \(p^{2}\) is an error function with standard deviation \(\sigma_t/\sqrt{2}\); its 10–90 % width is \(1.812\,\sigma_t\), times 1.25 gives \(2.266\,\sigma_t\). For a rectangular burst of length \(T\), the factor 1.25 makes \(t_d = T\) exactly <span class="eqref">(22.7)</span>, which is the reason for the 1.25.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Gaussian-envelope 3-cycle pulse; \(t_d\) from the definition</span><canvas id="m22-rf-7" aria-label="Pulse and cumulative pressure-squared integral"></canvas></div></div>
+      <div class="limits">The Gaussian closed form ignores the carrier ripple in \(p^{2}\): for 2–5-cycle pulses the exact \(t_d\) is within about ±6 % of \(2.27\,\sigma_t\). Reverberation tails far behind the pulse depend on the integration window; define it in the protocol.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The duty factor links the two intensities: \(I_{\mathrm{SPTA}} = I_{\mathrm{SPPA}}\times\mathrm{DF}\), with DF from \(10^{-5}\) to \(10^{-2}\).</div>
+      <div class="keynum"><span>B-mode ≈ \(10^{-4}\)</span><span>PW ≈ 0.5 %</span><span>push train ≈ 0.1 %</span></div>
+      <div class="why"><p>\(\mathrm{DF} = t_d\) × (pulses per second at the point) <span class="eqref">(22.9)</span>. A 3-cycle, 3 MHz pulse lasts 0.96 µs: at 5 kHz DF = 0.48 %, so 104 W/cm² pulse-average becomes 502 mW/cm². In scanned B-mode at 113 pulses/s the DF is \(1.1\times 10^{-4}\). Plane-wave ultrafast reaches PW-Doppler duty factors with short pulses, and push sequences reach them with a few long bursts.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Gaussian envelopes, pulse rates of the module presets</span><canvas id="m22-rf-8" aria-label="Duty factors of common modes"></canvas></div></div>
+      <div class="limits">DF is per point; the system-level transmit duty (for pulser and probe heating) is different.</div>
+    </div>
+    <div class="rule">
+      <div class="say">TI is a ratio, not degrees: \(W/W_{\mathrm{deg}}\), good to about a factor of 2.</div>
+      <div class="keynum"><span>AIUM: within × 2</span><span>fluid paths: under by up to 2</span><span>TI 1 ≈ 1 °C (model)</span></div>
+      <div class="why"><p>\(W_{\mathrm{deg}}\) comes from steady-state models with fixed absorption, conduction and perfusion. Integrating the steady Pennes solution for a collimated Gaussian beam carrying \(W_{\mathrm{deg}} = 210/f\) mW (\(k\) = 0.5 W/m/K, \(L\) = 1 cm) gives a peak rise of 0.5–1.6 °C depending on beam radius (0.5–4 mm), and only 20–30 % lower at 7.5 MHz than at 1 MHz, because the absorbed power per unit length \(\propto f\cdot W\) is the same 210 mW·MHz at every frequency. The index is useful for ranking and ALARA; it is not a thermometer.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">steady Pennes solution integrated numerically over a collimated Gaussian beam (JS); \(k\) = 0.5 W/(m·K), \(L\) = 1 cm</span><canvas id="m22-rf-9" aria-label="Pennes temperature rise at TIS equal to one versus beam radius"></canvas></div></div>
+      <div class="limits">Transducer self-heating, bone, low perfusion and fluid paths break the model; steady state may take minutes.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Soft tissue: \(W_{\mathrm{deg}} = 210/f\) mW, so a 3 MHz beam reaches TIS 1 at 70 mW.</div>
+      <div class="keynum"><span>\(C_{\mathrm{TIS}}\) = 210 mW·MHz</span><span>5 MHz: 42 mW</span><span>scanned: \(P_1\) in 1 cm</span></div>
+      <div class="why"><p>Absorbed power per unit length is \(\mu_a P\) with \(\mu_a \propto f\), so the power for a given rise scales as \(1/f\). In a scanned mode the heat source is the beam swept across the scan, and the maximum rise is near the surface where the swept power per unit width is highest, hence the bounded power through a 1 cm window: a 4 cm scan radiating 80 mW at 3.5 MHz has \(P_1\) = 20 mW and TIS = 0.33 <span class="eqref">(22.16)</span>.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">the standards' simplified \(W_{\mathrm{deg}}\) formulas</span><canvas id="m22-rf-10" aria-label="W_deg versus frequency for soft tissue and bone"></canvas></div></div>
+      <div class="limits">Non-scanned large apertures need the below-surface evaluation (rule 12); combined modes add contributions.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Bone: \(W_{\mathrm{deg}} \approx\) 40 mW/cm × beam diameter; at the surface \(\mathrm{TIC} = P/(40\,D_{\mathrm{eq}})\).</div>
+      <div class="keynum"><span>\(C_{\mathrm{TIC}}\) = 40 mW/cm</span><span>1 cm² aperture: TIC 1 at 45 mW</span><span>\(D_{\mathrm{eq}} = \sqrt{4A/\pi}\)</span></div>
+      <div class="why"><p>Bone absorbs almost all incident power in a thin layer, so the rise depends on power per unit beam diameter, not on frequency. For a 1 cm² aperture \(D_{\mathrm{eq}}\) = 1.128 cm and TIC reaches 1 at 45 mW <span class="eqref">(22.20)</span>; a transcranial probe radiating 200 mW through 2 cm² has TIC = 3.1. TIB uses the same idea at the depth where a narrow beam meets bone, which is why Doppler TIB often exceeds TIS by 3–5×.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">\(\mathrm{TIC} = P/(40\,D_{\mathrm{eq}})\), the standard's formula</span><canvas id="m22-rf-11" aria-label="TIC versus power for several apertures"></canvas></div></div>
+      <div class="limits">The IEC TIB formula uses \(\sqrt{P_{\alpha} I_{\mathrm{ta},\alpha}}/C_{\mathrm{TIB}}\) at \(z_b\) rather than a diameter; for a round Gaussian beam the two agree to 6 % if \(C_{\mathrm{TIB}}\) = 50 mW/cm, a constant not confirmed from a public source here.</div>
+    </div>
+    <div class="rule">
+      <div class="say">For large unscanned apertures the soft-tissue hot spot lies beyond the break-point depth \(1.5\,D_{\mathrm{eq}}\).</div>
+      <div class="keynum"><span>\(z_{\mathrm{bp}} = 1.69\sqrt{A}\)</span><span>\(\min[P_{\alpha}, I_{\mathrm{ta},\alpha}\cdot 1\ \mathrm{cm^{2}}]\)</span><span>PW preset: \(z_s = z_{\mathrm{bp}}\)</span></div>
+      <div class="why"><p>Near a large aperture the power is spread over more than 1 cm², so the relevant heat source is the intensity times 1 cm²; deeper, the beam has converged and the whole attenuated power counts. The smaller of the two, maximized over \(z \ge z_{\mathrm{bp}}\), approximates the hottest point <span class="eqref">(22.18)</span>. For a 19.2 × 10 mm aperture \(z_{\mathrm{bp}}\) = 2.35 cm; in the PW preset the maximum is at \(z_{\mathrm{bp}}\) and TIS = 0.34 while TIB = 1.5.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">linear Gaussian-beam field; TIS formulas of the standard; TIB diameter form</span><canvas id="m22-rf-12" aria-label="TIS integrands versus depth with the break-point depth"></canvas></div></div>
+      <div class="limits">IEC 62359 Ed. 2 also defines at-surface TIS for non-scanning modes and sums at-surface and below-surface parts for combined modes.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Keep the hydrophone below a quarter of the −6 dB beam width and the intensity error stays near 4 %.</div>
+      <div class="keynum"><span>\(d = W_{-6}/4\): −0.19 dB, \(I\) 4.2 % low</span><span>\(d = W_{-6}/2\): −0.74 dB, \(I\) 15.7 % low</span><span>same dB for \(p\) and \(I\); the % doubles</span></div>
+      <div class="why"><p>The hydrophone reports the average pressure over its face; squaring the average underestimates the peak intensity by the square of the pressure loss. For a round Gaussian focus \(\langle p\rangle/p(0) = (w^{2}/b^{2})\left(1 - e^{-b^{2}/w^{2}}\right)\) <span class="eqref">(22.21)</span>. A 0.4 mm hydrophone on a 7.5 MHz, F/3 focus (\(W_{-6} \approx 1.0\,\lambda F_{\#} \approx\) 0.6 mm) is at \(d/W_{-6}\) = 0.67: −1.3 dB in pressure and 26 % low in \(I_{\mathrm{SPTA}}\) for a round beam, −0.7 dB and 15 % for a 3:1 elongated one.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Gaussian focal spot: round = closed form, 3:1 = numerical disc average</span><canvas id="m22-rf-13" aria-label="Spatial averaging error versus hydrophone diameter"></canvas></div></div>
+      <div class="limits">Harmonics are narrower than the fundamental and suffer more; needle hydrophones can have an effective radius larger than the geometric one at low frequency.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A radiation force balance weighs power: 1 W pushes an absorber with 0.67 mN, 68 mg on the scale.</div>
+      <div class="keynum"><span>\(F = P/c\)</span><span>100 mW: 6.8 mg</span><span>IEC 61161:2013</span></div>
+      <div class="why"><p>A plane wave carries momentum flux \(P/c\) <span class="eqref">(22.23)</span>; an absorbing target takes all of it, a perfect reflector normal to the beam twice, and a 45° conical reflector \(P/c\) along the axis (\(2\cos^{2}45^{\circ} = 1\)). At \(c\) = 1500 m/s, 10 mW is 6.7 µN or 0.68 mg, so diagnostic power needs a microgram balance, draught shielding and temperature control. Focusing and steering reduce the axial component and need the corrections in IEC 61161.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">plane wave, normal incidence, ideal absorber or reflector</span><canvas id="m22-rf-14" aria-label="Radiation force versus power"></canvas></div></div>
+      <div class="limits">Streaming, target heating and buoyancy drift, and standing waves between target and transducer, all bias the reading.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Plane-wave imaging delivers every transmit to every point: \(I_{\mathrm{SPTA}}\) scales with the PRF, not the frame rate.</div>
+      <div class="keynum"><span>5 kHz vs 113/s: 44×</span><span>MI low, TI not</span><span>ULM: seconds to minutes</span></div>
+      <div class="why"><p>A focused B-mode point sees about frame rate × \(0.75\,w_{-6}/\Delta\) pulses per second; a plane-wave sequence at PRF 5 kHz delivers 5000. Compounding angles do not dilute this: each angle insonifies the field. The low unfocused peak pressure keeps MI small, but \(I_{\mathrm{SPTA}}\), power and TI grow linearly with PRF and with acquisition length, which is what an ultrafast or ULM mode must document.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">pulse rates of the module presets</span><canvas id="m22-rf-15" aria-label="Pulses per second at a point by mode"></canvas></div></div>
+      <div class="limits">Diverging waves spread power over a wider field (lower intensity per point); sparse or synthetic-aperture schemes differ again.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A push pulse is a Doppler burst a hundred times longer: its PII dominates the \(I_{\mathrm{SPTA}}\) budget.</div>
+      <div class="keynum"><span>400 µs push</span><span>600× a 2-cycle PII</span><span>2/s at MI 1.73: 181 mW/cm²</span></div>
+      <div class="why"><p>\(\mathrm{PII} = p^{2}/(2\rho c)\times\int \mathrm{env}^{2}\,dt\) grows with burst length. A 1200-cycle push at 3 MHz (400 µs at −6 dB) carries 600 times the PII of a 2-cycle pulse at the same pressure. At \(p_{r.3}\) = 3 MPa (MI 1.73) one push is 0.090 J/cm²; two per second give 181 mW/cm² from the pushes alone. Push repetition, not push amplitude, is usually the lever that keeps an SWE mode inside 720 mW/cm² and within TI limits.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Gaussian envelopes at equal pressure</span><canvas id="m22-rf-16" aria-label="PII per pulse for imaging, Doppler and push pulses"></canvas></div></div>
+      <div class="limits">Heating within a single long push and at the transducer face can matter even when \(I_{\mathrm{SPTA.3}}\) complies.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Obstetric: follow TIS to 10 weeks and TIB after; TI ≤ 0.7 has no time limit, 4 °C for 5 min is the harm threshold.</div>
+      <div class="keynum"><span>OB TI 2.5–3: &lt; 1 min</span><span>non-OB TI ≤ 1.5: no limit</span><span>ARFI/PW near bone: −33 %</span></div>
+      <div class="why"><p>Fetal bone ossifies through the second trimester and absorbs strongly, so the bone-at-focus index becomes the relevant one (AIUM, reapproved 2022). The dwell tables encode the AIUM \(\Delta T\)–time data (fetal 4 °C: 2 min; 2 °C: 30 min; 1.5 °C: 1 h) with margin, using the displayed TI as a conservative proxy for \(\Delta T\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Re-plotted from AIUM (2016, reapproved 2022) Tables 1 and 2</span><canvas id="m22-rf-17" aria-label="AIUM maximum dwell time versus TI"></canvas></div></div>
+      <div class="limits">TI can underestimate fetal ΔT by up to 2 through fluid; the tables assume the displayed TI is accurate.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Gas bodies lower the mechanical threshold: lung near MI 0.4, intestine 1.4, contrast agents 0.4.</div>
+      <div class="keynum"><span>no gas bodies: no effects &lt; 1.9</span><span>lung 0.4</span><span>contrast &gt; 0.4</span></div>
+      <div class="why"><p>Pre-existing gas removes the nucleation barrier, so effects appear at far lower pressures than in gas-free tissue, where in vivo inertial cavitation needs about 3.6 MPa or more. The AIUM (2021) puts the pulmonary capillary haemorrhage threshold in laboratory mammals near 0.4 and intestinal effects near 1.4; its contrast-agent statement (reapproved 2021) reports contrast-agent bioeffects (PVCs, microvascular leakage) above 0.4. BMUS (2009) uses 0.3 for neonatal lung and intestine and 0.7 for contrast cavitation risk.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">threshold values placed as published (AIUM 2021, BMUS 2009)</span><canvas id="m22-rf-18" aria-label="MI scale with bioeffect thresholds"></canvas></div></div>
+      <div class="limits">Animal thresholds translate poorly to humans (likely lower risk); the significance of microscale contrast effects is uncertain.</div>
+    </div>
+  </div>
+
+  <!-- ===================== 22.11 Cheat sheet ===================== -->
+  <h2><span class="sec">22.11</span>Cheat sheet</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Concept</th><th>Formula or number</th><th>Use</th></tr></thead>
+    <tbody>
+      <tr><td>Plane-wave intensity</td><td>\(i(t) = p^{2}(t)/(\rho c)\)</td><td>Every intensity in the output table</td></tr>
+      <tr><td>Pulse-intensity integral</td><td>\(\mathrm{PII} = \int p^{2}/(\rho c)\,dt\)</td><td>\(z_{\mathrm{MI}}\), \(I_{\mathrm{ta}}\), \(I_{\mathrm{pa}}\)</td></tr>
+      <tr><td>Pulse duration</td><td>\(t_d = 1.25\,(t_{90} - t_{10})\) of cumulative \(\int p^{2}\)</td><td>\(I_{\mathrm{pa}} = \mathrm{PII}/t_d\); Gaussian \(t_d = 2.27\,\sigma_t\)</td></tr>
+      <tr><td>Temporal average</td><td>\(I_{\mathrm{ta}} = \mathrm{PII}\) × pulses/s at the point \(= I_{\mathrm{pa}}\times\mathrm{DF}\)</td><td>Scanned: × frame × \(0.75\,w_{-6}/\Delta\); plane wave: × PRF</td></tr>
+      <tr><td>Derating</td><td>\(A = 0.3\,f z\) dB; \(p\times 10^{-A/20}\), \(I\times 10^{-A/10}\)</td><td>All ".3" / "α" quantities</td></tr>
+      <tr><td>Mechanical index</td><td>\(\mathrm{MI} = p_{r,\alpha}(z_{\mathrm{MI}})/\sqrt{f_{\mathrm{awf}}}\) (MPa, MHz)</td><td>Displayed; Track 3 ≤ 1.9 (or \(I_{\mathrm{SPPA.3}} \le 190\))</td></tr>
+      <tr><td>Thermal index</td><td>\(\mathrm{TI} = W/W_{\mathrm{deg}}\)</td><td>Displayed; explain TI &gt; 6</td></tr>
+      <tr><td>TIS</td><td>\(P_{(1)} f/210\) (mW, MHz); large non-scanned: \(\min[P_{\alpha}, I_{\mathrm{ta},\alpha}\cdot 1\ \mathrm{cm^{2}}]\) beyond \(z_{\mathrm{bp}} = 1.5\,D_{\mathrm{eq}}\)</td><td>Soft tissue</td></tr>
+      <tr><td>TIB, TIC</td><td>\(\mathrm{TIB} \approx P_{\alpha}/(40\,d)\) at \(z_b\); \(\mathrm{TIC} = P/(40\,D_{\mathrm{eq}})\) (mW, cm)</td><td>Fetal bone after 10 weeks; transcranial</td></tr>
+      <tr><td>Track 3 global maxima</td><td>\(I_{\mathrm{SPTA.3}} \le\) 720 mW/cm²; \(\mathrm{MI} \le 1.9\) or \(I_{\mathrm{SPPA.3}} \le\) 190 W/cm²</td><td>Ophthalmic: \(\mathrm{TI} \le 1\), \(I_{\mathrm{SPTA.3}} \le 50\), \(\mathrm{MI} \le 0.23\)</td></tr>
+      <tr><td>Track 1 \(I_{\mathrm{SPTA.3}}\)</td><td>720 / 430 / 94 / 17 mW/cm² (peripheral vessel / cardiac / fetal & other / ophthalmic)</td><td>Non-ODS devices</td></tr>
+      <tr><td>AIUM thermal anchors</td><td>1.5 °C without reservation; fetal 4 °C ≥ 5 min harmful</td><td>Dwell-time tables, ALARA</td></tr>
+      <tr><td>Thermal dose</td><td>\(\mathrm{CEM43} = \sum t\,R^{43-T}\), \(R\) = 0.25 / 0.5</td><td>Comparing heating histories</td></tr>
+      <tr><td>Hydrophone averaging</td><td>\(\langle p\rangle/p_0 = (w^{2}/b^{2})\left(1 - e^{-b^{2}/w^{2}}\right)\)</td><td>\(d \le W_{-6}/4\) for ≈ 4 % in \(I\)</td></tr>
+      <tr><td>Radiation force</td><td>\(F = P/c\) (absorber)</td><td>100 mW → 66.7 µN (6.8 mg)</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ===================== 22.12 Interview ===================== -->
+  <h2><span class="sec">22.12</span>Interview and qualifying-exam questions</h2>
+  <details class="quiz"><summary><span class="q">I1</span><span>Define MI and explain every factor in it. <span class="muted">· screen</span></span></summary><div class="a"><p>\(\mathrm{MI} = p_{r,\alpha}(z_{\mathrm{MI}})/(C_{\mathrm{MI}}\sqrt{f_{\mathrm{awf}}})\) with \(C_{\mathrm{MI}} = 1\ \mathrm{MPa\cdot MHz^{-1/2}}\) <span class="eqref">(22.13)</span>: the peak rarefactional pressure derated by 0.3 dB/cm/MHz, taken (IEC 62359 \(z_{\mathrm{MI}}\), FDA \(z_{\mathrm{sp}}\)) at the depth where the derated pulse-intensity integral peaks, divided by the root of the acoustic working frequency. Rarefaction because bubbles grow under tension; \(\sqrt{f}\) because the inertial-cavitation threshold of an optimally sized free nucleus rises roughly as \(\sqrt{f}\) (Apfel &amp; Holland 1991). MI 1.9 at 3 MHz is 3.29 MPa derated.</p><p><em>Follow-up:</em> does MI predict contrast-bubble destruction? Only loosely: shelled bubbles respond by resonance and shell properties, and the pressure at the bubble uses the real path attenuation.</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>Why is the derating 0.3 dB/cm/MHz when soft tissue is closer to 0.5–0.7? <span class="muted">· screen</span></span></summary><div class="a"><p>It is a deliberately low average so that exposure is not underestimated for paths with long fluid segments (full bladder, amniotic fluid) where attenuation is far below tissue values. The FDA states it as an assumed average attenuation along the beam axis. Pressure is derated by \(10^{-0.3fz/20}\) and intensity by \(10^{-0.3fz/10}\) <span class="eqref">(22.12)</span>: 4.5 dB at 3 MHz and 5 cm, × 0.596 and × 0.355.</p><p><em>Follow-up:</em> when does derating still underestimate? Very low-loss paths and nonlinear water measurements at high drive, where energy already went into harmonics before derating.</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>State the Track 3 limits exactly, including the ophthalmic case. <span class="muted">· regulatory</span></span></summary><div class="a"><p>FDA guidance (February 2023): derated global maximum \(I_{\mathrm{SPTA.3}} \le\) 720 mW/cm², and either \(\mathrm{MI} \le 1.9\) or derated \(I_{\mathrm{SPPA.3}} \le\) 190 W/cm². Ophthalmic: \(\mathrm{TI} = \max(\mathrm{TIS}_{\mathrm{as}}, \mathrm{TIC}) \le 1\), \(I_{\mathrm{SPTA.3}} \le\) 50 mW/cm², \(\mathrm{MI} \le 0.23\). Any TI above 6.0 should be explained. Track 3 applies to devices conforming to the Output Display Standard in IEC 60601-2-37.</p><p><em>Follow-up:</em> a short-pulse 3.5 MHz mode at MI 1.85 has \(I_{\mathrm{SPPA.3}}\) = 300 W/cm². Compliant? Yes, through the MI branch, provided \(I_{\mathrm{SPTA.3}} \le 720\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>Track 1 or Track 3: what is the difference and when would you choose Track 1? <span class="muted">· regulatory</span></span></summary><div class="a"><p>Track 1 is for devices that do not conform to the IEC 60601-2-37 output display; their derated output is held to application-specific preamendments levels (\(I_{\mathrm{SPTA.3}}\) 720 peripheral vessel, 430 cardiac, 94 fetal imaging and other, 17 mW/cm² ophthalmic; \(I_{\mathrm{SPPA.3}}\) 190, or 28 W/cm² ophthalmic, or MI 1.9 / 0.23). Track 3 replaces these with global limits plus an on-screen MI/TI display. Track 1 suits simple, fixed-output devices (some Doppler-only or single-purpose devices) where a display adds cost but the low application limit is easy to meet.</p><p><em>Follow-up:</em> a fetal-imaging device on Track 1 at 200 mW/cm²? Not acceptable: the fetal level is 94.</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>When must MI and TI be displayed, and what is reported if they never exceed 1? <span class="muted">· regulatory</span></span></summary><div class="a"><p>The display requirement comes from IEC 60601-2-37 (the Output Display Standard), which, as public secondary sources summarize it (the IEC text is not public), ties the obligation to whether the system can exceed an index value of 1.0. The FDA guidance follows the same threshold: if no system/transducer combination can exceed a TI of 1.0 or an MI of 1.0 in any operating mode, the global maximum values are submitted instead of per-mode reporting tables; tables are provided for combinations whose global maximum displayed MI or TI exceeds 1.0. Display accuracy against measurement is part of the submission.</p><p><em>Follow-up:</em> which TI is displayed? The one appropriate to the application (TIS, TIB or TIC), with the user able to select it.</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>You add an SWE mode to a cleared system. Plan the acoustic-output work. <span class="muted">· onsite</span></span></summary><div class="a"><p>Treat push plus tracking as one combined mode. Measure the push waveform with a membrane hydrophone at the push focus and along the axis to find \(z_{\mathrm{MI}}\); derate; compute PII per push (a 400 µs push at 3 MPa is about 0.09 J/cm²), \(I_{\mathrm{SPTA.3}}\) from push and tracking rates, \(I_{\mathrm{SPPA.3}}\), MI, and the TIs at the push and tracking powers. Search the global maximum over push voltage, duration, focal depth, push rate and region-of-interest size. Measure surface temperature under the worst sequence. Expect TI and \(I_{\mathrm{SPTA.3}}\), not MI, to set the push repetition limit; check AIUM guidance on reduced dwell for ARFI near bone for labelling.</p><p><em>Follow-up:</em> why can a compliant \(I_{\mathrm{SPTA.3}}\) still be a heating concern? The average hides heating within a push and at the face; the TI and surface tests catch it.</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>Estimate \(I_{\mathrm{SPTA.3}}\) for a 5 MHz plane-wave mode at 5 kHz PRF with \(p_{r.3}\) = 0.8 MPa and 2-cycle pulses. <span class="muted">· onsite</span></span></summary><div class="a"><p>\(\sigma_t = 2/(2.3548\cdot 5\ \mathrm{MHz}) = 0.170\ \mathrm{\mu s}\), \(\int \mathrm{env}^{2} = 0.301\ \mathrm{\mu s}\). \(\mathrm{PII} = \frac{p^{2}}{2\rho c}\cdot 0.301\ \mathrm{\mu s}\) \(= \frac{(0.8\ \mathrm{MPa})^{2}}{3\ \mathrm{MRayl}}\times 0.301\ \mathrm{\mu s}\) \(= 0.0642\ \mathrm{J/m^{2}}\) = 6.4 µJ/cm². Every transmit reaches the point: \(I_{\mathrm{SPTA.3}}\) = 6.4 µJ/cm² × 5000/s = 32 mW/cm², \(\mathrm{MI} = 0.8/\sqrt{5} = 0.36\). A focused B-mode at the same pressure and 113 pulses/s would be 0.7 mW/cm².</p><p><em>Follow-up:</em> a 60 s ULM acquisition at the same settings: \(I_{\mathrm{SPTA}}\) is the same, but TI and dwell time now govern; the AIUM tables apply to the displayed TI.</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>How do you choose a hydrophone for a 15 MHz linear array, and what corrections do you apply? <span class="muted">· onsite</span></span></summary><div class="a"><p>At 15 MHz and F/2 the focal \(W_{-6}\) is about 0.2 mm, so the effective diameter should be at most 50–100 µm (a spot-poled membrane, or a fibre-optic or small needle hydrophone with known effective radius), and the calibrated bandwidth should extend to several harmonics (≥ 60 MHz) because the focal waveform is nonlinear. Deconvolve with the complex sensitivity, apply the spatial-averaging correction of IEC 62127-1:2022, and include both in the uncertainty budget. A 200 µm hydrophone at \(W_{-6}\) = 0.2 mm would under-read p by 2.8 dB and intensity by about 48 %.</p><p><em>Follow-up:</em> why do harmonics make it worse? Their beams are narrower, so averaging removes more of them and distorts \(p_c\) and \(p_r\) differently.</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>TIS, TIB or TIC: which applies when, and why does Doppler TIB exceed TIS? <span class="muted">· screen</span></span></summary><div class="a"><p>TIS for soft tissue (abdomen, vessels, early pregnancy), TIB when bone may lie at the beam's focus (obstetrics after 10 weeks LMP, Doppler near bone), TIC when bone is under the transducer (transcranial). Bone absorbs nearly all incident power in a thin layer, so its \(W_{\mathrm{deg}}\) scales with beam diameter (≈ 40 mW/cm × \(d\)), whereas soft tissue \(W_{\mathrm{deg}} = 210/f\) mW. A narrow Doppler focus therefore gives a small bone \(W_{\mathrm{deg}}\); in the PW preset TIB = 1.5 against TIS = 0.34.</p><p><em>Follow-up:</em> why is TIB in scanned modes set equal to TIS? Sweeping the beam spreads the bone heating, and the surface soft-tissue case dominates.</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>What does the ±30 % / ±15 % statement in the FDA guidance mean for your uncertainty budget? <span class="muted">· regulatory</span></span></summary><div class="a"><p>The Track 1 preamendments levels are themselves estimated to be uncertain by ±30 % for intensities and ±15 % for MI. A manufacturer whose expanded measurement uncertainty is within those margins does not have to subtract it from the limits; if it exceeds them, the levels are reduced by the excess (an intensity uncertainty of 40 % reduces the level by 10 %). The protocol must describe Type A and Type B uncertainties: hydrophone calibration, spatial averaging, bandwidth, positioning, temperature and the power measurement.</p><p><em>Follow-up:</em> which term usually dominates at high frequency? Hydrophone calibration and spatial averaging.</p></div></details>
+  <details class="quiz"><summary><span class="q">I11</span><span>For CEUS and ULM, what pressure matters at the bubble, and why is the displayed MI a poor guide? <span class="muted">· research</span></span></summary><div class="a"><p>The bubble responds to the in situ pressure at its depth, with the real attenuation and the local beam, and to its resonance relative to \(f\); the displayed MI is the 0.3-derated pressure at one depth divided by \(\sqrt{f}\), a scaling derived for free gas nuclei. Through a fluid path (\(\alpha \approx\) 0.05) at 3.5 MHz and 8 cm the in situ pressure exceeds the derated value by 7.0 dB; through liver-like tissue (\(\alpha \approx\) 0.7) it is 11.2 dB lower. Researchers calibrate the in situ pressure (hydrophone plus a tissue model) and report it with the frequency and pulse length.</p><p><em>Follow-up:</em> what MI threshold do safety statements give for contrast? The AIUM reports bioeffects above MI 0.4 with gas-body agents and recommends minimal MI and time; BMUS uses 0.7 as the cavitation-risk threshold.</p></div></details>
+
+  <!-- ===================== 22.13 MATLAB ===================== -->
+  <h2><span class="sec">22.13</span>MATLAB lab</h2>
+  <div class="prose"><p class="code-note">Base MATLAB only (no toolboxes); each script runs as-is in MATLAB R2019b+ and GNU Octave 8. Paste into the editor and press Run.</p></div>
+  <details class="code">
+    <summary><span class="fname">m22_derating_mi.m</span><button class="copy" type="button">Copy</button><span class="what">Derating table, focused-piston field in water vs derated, \(z_{\mathrm{MI}}\) and MI, allowed water pressure vs frequency · change f0, a, d, p_water · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m22_derating_mi.m"></code></pre>
+  </details>
+  <div class="prose"><p id="m22-ml1"><strong>What to look for.</strong> The derating table (3 MHz at 5 cm: 4.50 dB, × 0.596 and × 0.355). For a 6 mm radius piston focused at 70 mm, 3.5 MHz and 4 MPa water peak: water peak at 46.0 mm (focal shift), \(z_{\mathrm{MI}}\) = 41.5 mm, \(p_{r.3}\) = 2.36 MPa, MI = 1.26; derating the water peak at its own depth gives 1.23, 2 % low here and more for weaker focusing. At the same water peak MI falls from 2.27 at 2 MHz to 0.39 at 7 MHz while \(z_{\mathrm{MI}}\) moves from 31 to 53 mm; the water peak allowed by MI 1.9 rises from 3.4 to 19.3 MPa.</p></div>
+  <details class="code">
+    <summary><span class="fname">m22_intensity_parameters.m</span><button class="copy" type="button">Copy</button><span class="what">\(p_c\), \(p_r\), PII, pulse duration, \(I_{\mathrm{pa}}\), \(f_{\mathrm{awf}}\) from a waveform; \(I_{\mathrm{ta}}\) and DF for scanned, PW, plane-wave and push modes · change f0, ncyc, prf, frame rate · runtime ≈ 1 s</span></summary>
+    <pre><code data-file="matlab/m22_intensity_parameters.m"></code></pre>
+  </details>
+  <div class="prose"><p id="m22-ml2"><strong>What to look for.</strong> Linear 3-cycle pulse: \(p_c\) = 2.00, \(p_r\) = 1.85 MPa (the carrier peak is not at a rarefaction), PII = 0.1004 mJ/cm², \(t_d\) = 0.905 µs (envelope closed form 0.962), \(I_{\mathrm{pa}}\) = 111 W/cm², \(f_{\mathrm{awf}}\) 3.00 MHz by both methods. Adding a second harmonic raises \(p_c\) to 2.70 and lowers \(p_r\) to 1.35 MPa with PII almost unchanged: MI and \(I_{\mathrm{pa}}\) move differently. The overlap sum is 3.763 pulses per frame (rule \(0.7527\,W_{-6}/\Delta = 3.764\)): B-mode 11.3, colour 37.8, PW and plane wave 502 mW/cm²; one push 0.090 J/cm², two per second 181 mW/cm².</p></div>
+  <details class="code">
+    <summary><span class="fname">m22_hydrophone_spatial_averaging.m</span><button class="copy" type="button">Copy</button><span class="what">Disc-average error vs diameter for round and elongated Gaussian foci, closed-form check, Gaussian-kernel correction, jinc focus · change W6, aspect, d · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m22_hydrophone_spatial_averaging.m"></code></pre>
+  </details>
+  <div class="prose"><p id="m22-ml3"><strong>What to look for.</strong> The numerical disc average matches the closed form to 0.001 dB. Round Gaussian focus: −0.19, −0.74, −1.32, −2.84 dB in pressure at d/\(W_{-6}\) = 0.25, 0.5, 0.67, 1 (intensity 4.2, 15.7, 26.1, 48.0 % low). A 3:1 elongated focus loses about half as many dB; a jinc focus with the same \(W_{-6}\) slightly less than the Gaussian. The Gaussian-kernel correction leaves −0.02 dB at d = \(W_{-6}\)/2 and −0.25 dB at d = \(W_{-6}\); the measured width at d = \(W_{-6}\)/2 is 1.044 mm for a true 1.000 mm, as predicted.</p></div>
+  <details class="code">
+    <summary><span class="fname">m22_ti_estimates.m</span><button class="copy" type="button">Copy</button><span class="what">The Demo 22.4 Gaussian-beam model: MI, \(I_{\mathrm{SPTA.3}}\), \(I_{\mathrm{SPPA.3}}\), TIS, TIB, TIC for the PW, B-mode and push presets; TIB vs focal depth · change preset fields · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m22_ti_estimates.m"></code></pre>
+  </details>
+  <div class="prose"><p id="m22-ml4"><strong>What to look for.</strong> The same numbers as Demo 22.4. PW: MI 0.60 at 4.80 cm, \(I_{\mathrm{SPTA.3}}\) 428 mW/cm², P 39.2 mW, TIS 0.344 at \(z_s\) = 2.36 cm (just beyond \(z_{\mathrm{bp}}\) = 2.35 cm), TIB 1.49 at 4.70 cm, TIC 0.63. B-mode: MI 1.16, \(I_{\mathrm{SPTA.3}}\) 14.8 mW/cm² at the surface (many lines overlap there), TIS = TIB = 0.125, TIC 0.32. Push: MI 1.62, \(I_{\mathrm{SPPA.3}}\) 206 W/cm² (compliant through the MI branch), \(I_{\mathrm{SPTA.3}}\) 159 mW/cm². Focus sweep: TIB 3.62 at 20 mm, 1.49 at 50 mm, 1.05 at 100 mm, TIS constant at 0.34. The cross-check line evaluates the IEC form \(\sqrt{P_{\alpha} I_{\mathrm{ta},\alpha}}/C_{\mathrm{TIB}}\) with the unverified \(C_{\mathrm{TIB}}\) = 50 mW/cm (Section 22.5): PW 1.586, push 0.523, both 1.063 times the diameter form.</p></div>
+  <details class="code">
+    <summary><span class="fname">m22_bioheat_toy.m</span><button class="copy" type="button">Copy</button><span class="what">Steady Pennes rise for \(W = 210/f\) mW vs beam radius and frequency; duty-cycle heating with a first-order model; CEM43 · change k, L, a, tau · runtime ≈ 3 s</span></summary>
+    <pre><code data-file="matlab/m22_bioheat_toy.m"></code></pre>
+  </details>
+  <div class="prose"><p id="m22-ml5"><strong>What to look for.</strong> Peak rise for \(W = 210/f\) mW: 1.56 °C (0.5 mm radius, 1 MHz) down to 0.48 °C (4 mm, 7.5 MHz); 23 % variation from 1 to 7.5 MHz at 1 mm; the grid is converged (1.110 versus 1.112 °C). Time constants 0.47 s, 1.89 s and 47 s for 0.5, 1 and 5 mm radii; \(L^{2}/\kappa\) = 756 s. Duty cycle 50 % with τ = 20 s: a 2 s period stays at the 1.50 °C mean (peak 1.54), a 60 s period swings to 2.45 °C with the same mean. CEM43 checks: 2.00, 1.875, 4.0.</p></div>
+
+  <!-- ===================== 22.14 Self-check ===================== -->
+  <h2><span class="sec">22.14</span>Self-check</h2>
+  <details class="quiz"><summary><span class="q">Q1</span><span>A 5 MHz probe measures \(p_r\) = 4.0 MPa in water at 3 cm. What are \(p_{r.3}\) and the MI if this is \(z_{\mathrm{MI}}\)?</span></summary><div class="a"><p>\(A = 0.3\times 5\times 3 = 4.5\) dB, factor \(10^{-4.5/20} = 0.596\): \(p_{r.3}\) = 2.38 MPa, \(\mathrm{MI} = 2.38/\sqrt{5} = 1.07\).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>A water \(I_{\mathrm{SPTA}}\) of 600 mW/cm² is measured at 4 cm at 3.5 MHz. Is the derated value within Track 3?</span></summary><div class="a"><p>\(A = 0.3\times 3.5\times 4 = 4.2\) dB; intensity factor \(10^{-0.42} = 0.380\): \(I_{\mathrm{SPTA.3}}\) = 228 mW/cm² ≤ 720, provided 4 cm is where the derated \(I_{\mathrm{ta}}\) peaks (search the profile, not one point).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>A scanned linear-array mode radiates 80 mW at 3.5 MHz across a 40 mm scan. What is TIS?</span></summary><div class="a"><p>\(P_1 = 80\times(10/40) = 20\) mW through a 1 cm window; \(\mathrm{TIS} = 20\times 3.5/210 = 0.33\).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>Why does multiplying PII by the system PRF overstate \(I_{\mathrm{SPTA}}\) for focused B-mode but not for plane-wave imaging?</span></summary><div class="a"><p>In focused scanning only the lines whose beams overlap the point deliver energy there (about \(0.75\,w_{-6}/\Delta\) per frame); in plane-wave imaging every transmit insonifies every point, so pulses per second at the point equal the PRF.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>A transcranial probe has a 2 cm² aperture and radiates 120 mW. What is TIC, and what does the AIUM non-obstetric table allow?</span></summary><div class="a"><p>\(D_{\mathrm{eq}} = \sqrt{4\times 2/\pi} = 1.60\) cm; \(\mathrm{TIC} = 120/(40\times 1.60) = 1.88\). Non-obstetric (adult transcranial included): \(1.5 &lt; \mathrm{TI} \le 2.0\), under 120 min dwell.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>A 0.5 mm hydrophone measures a round Gaussian focus with \(W_{-6}\) = 1.0 mm. How low are the pressure and intensity readings?</span></summary><div class="a"><p>\(d/W_{-6} = 0.5\): \(\langle p\rangle/p_0 = 0.918\), −0.74 dB in pressure and the same −0.74 dB in intensity (\(0.918^{2} = 0.843\), 15.7 % low); MI reads 8 % low.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>Tissue sits at 41 °C for 30 min. What is the thermal dose in CEM43?</span></summary><div class="a"><p>\(R\) = 0.25 below 43 °C: \(30\times 0.25^{2} = 1.9\) CEM43.</p></div></details>
+
+  <!-- ===================== 22.15 Literature ===================== -->
+  <h2><span class="sec">22.15</span>Figures from the literature</h2>
+  <div class="prose"><p>The regulatory tables and published figures behind the numbers of this module. Links only. Table and figure numbers were checked against the cited documents (October 2026); the Nowicki 2020 equation numbers are as cited and could not be re-checked against an accessible copy.</p></div>
+  <div class="litfig"><h4>FDA Track 1 table and the Track 3 limits</h4><p>Table 3 (Section 5.2.7) lists the preamendments derated levels by use: peripheral vessel 720 mW/cm², cardiac 430, fetal imaging and other 94, ophthalmic 17, with \(I_{\mathrm{SPPA.3}}\) 190 W/cm² or MI 1.9 (ophthalmic 28 W/cm² or 0.23). Section 5.2.8 gives the Track 3 global maxima (\(I_{\mathrm{SPTA.3}} \le 720\) and \(\mathrm{MI} \le 1.9\) or \(I_{\mathrm{SPPA.3}} \le 190\); ophthalmic \(\mathrm{TI} = \max(\mathrm{TIS}_{\mathrm{as}}, \mathrm{TIC}) \le 1\), 50 mW/cm², MI 0.23); Section 5.2.4 gives the ±30 % / ±15 % uncertainty rule and the membrane or capsule hydrophone recommendation. The card "Track 1 or Track 3 limit?" re-plots these values.</p><p class="cite">U.S. FDA, <em>Marketing Clearance of Diagnostic Ultrasound Systems and Transducers</em>, guidance issued February 21, 2023 (originally June 27, 2019). <a href="https://www.fda.gov/media/71100/download" target="_blank" rel="noopener">fda.gov/media/71100</a></p></div>
+  <div class="litfig"><h4>AIUM: temperature rise versus exposure time without adverse effects</h4><p>Table 1 pairs each rise with the longest exposure without observed adverse effects, fetal and postnatal: 9.6 °C for under 1 s (postnatal 5 s), 6 °C for 8 s (1 min), 5 °C for 30 s (4 min), 4 °C for 2 min (16 min), 3 °C for 8 min (1 h), 2 °C for 30 min (4 h), 1.5 °C for 1 h (≥ 50 h). Demo 22.1 and the card "How long may tissue be heated by \(\Delta T\)?" re-plot it. The same statement gives the 1.5 °C, 4 °C for 5 min, TI ≤ 2.5 for 4 min and TI &lt; 0.7 anchors, and the MI thresholds 0.4 (lung), 1.4 (intestine), 1.9 and MI &gt; 4.</p><p class="cite">AIUM, <em>Statement on the Biological Effects of Ultrasound in Vivo</em>, approved August 19, 2021. <a href="https://www.aium.org/resources/official-statements/view/statement-on-biological-effects-of-ultrasound-in-vivo" target="_blank" rel="noopener">aium.org</a></p></div>
+  <div class="litfig"><h4>AIUM dwell-time tables for the displayed TI</h4><p>Table 1 (obstetric, also neonatal transcranial and spinal) and Table 2 (adult transcranial, abdominal, peripheral vascular and other) give maximum dwell times by TI range, with the 33 % reduction for ARFI and pulsed Doppler when bone is near the focus and the TIS-to-TIB switch at 10 weeks LMP. Rule card 17 re-plots both tables.</p><p class="cite">AIUM, <em>Recommended Maximum Scanning Times for Displayed Thermal Index (TI) Values</em>, approved October 30, 2016, reapproved September 26, 2022. <a href="https://aium.org/resources/official-statements/view/recommended-maximum-scanning-times-for-displayed-thermal-index-(ti)-values" target="_blank" rel="noopener">aium.org</a></p></div>
+  <div class="litfig"><h4>How well does TIS predict the temperature maximum?</h4><p>Fig. 13 plots the computed maximum steady-state temperature rise against the unscanned-mode TIS for rectangular sources grouped by f-number, all at \(I_{\mathrm{SPTA.3}}\) = 720 mW/cm²; Fig. 14 plots the rise against the axial location of the maximum for circular sources. The spread of \(\Delta T_{\mathrm{max}}\) at a given TIS is the quantitative content of "TI is a ratio, not degrees" (rule card 9), and the axial locations show why the break-point depth exists. These are model calculations summarized in a review, not in vivo measurements.</p><p class="cite">W. D. O'Brien Jr., "Ultrasound–biophysics mechanisms," Prog. Biophys. Mol. Biol. 93(1–3), 212–255 (2007; online 2006). <a href="https://doi.org/10.1016/j.pbiomolbio.2006.07.010" target="_blank" rel="noopener">doi:10.1016/j.pbiomolbio.2006.07.010</a></p></div>
+  <div class="litfig"><h4>The simplified TI formulas with their constants</h4><p>Eqs. (4)–(7) give \(\mathrm{TIS} = P f/210\) mW·MHz (scanned, 1 cm window; stationary beam), \(\mathrm{TIB} = W(z)/(d_{-6}\times 40\ \mathrm{mW/cm})\) and \(\mathrm{TIC} = W_0/(D\times 40\ \mathrm{mW/cm})\), and Eq. (10) gives MI with \(C_{\mathrm{MI}} = 1\ \mathrm{MPa\cdot MHz^{-1/2}}\). These are the forms Demo 22.4 implements. The paper does not give the \(\sqrt{P_{\alpha} I_{\mathrm{ta},\alpha}}\) form of TIB used by IEC 62359 (see the flag in Section 22.5).</p><p class="cite">A. Nowicki, "Safety of ultrasonic examinations; thermal and mechanical indices," Med. Ultrason. 22(2), 203–210 (2020). <a href="https://doi.org/10.11152/mu-3272" target="_blank" rel="noopener">doi:10.11152/mu-3272</a></p></div>
+
+  <!-- ===================== 22.16 Go deeper ===================== -->
+  <h2><span class="sec">22.16</span>Go deeper</h2>
+  <ul class="refs">
+    <li>U.S. FDA, <em>Marketing Clearance of Diagnostic Ultrasound Systems and Transducers</em>, guidance for industry and FDA staff, issued February 21, 2023 (originally issued June 27, 2019), docket FDA-2017-D-5372.</li>
+    <li>IEC 60601-2-37:2024, <em>Medical electrical equipment – Part 2-37: Particular requirements for the basic safety and essential performance of ultrasonic medical diagnostic and monitoring equipment</em>, Ed. 3.0.</li>
+    <li>IEC 62359:2010 + AMD1:2017, <em>Ultrasonics – Field characterization – Test methods for the determination of thermal and mechanical indices related to medical diagnostic ultrasonic fields</em>, Ed. 2.1.</li>
+    <li>IEC 62127-1:2022, <em>Ultrasonics – Hydrophones – Part 1: Measurement and characterization of medical ultrasonic fields</em>, Ed. 2.0; with IEC 62127-2 (calibration) and IEC 62127-3 (hydrophone properties).</li>
+    <li>IEC 61161:2013, <em>Ultrasonics – Power measurement – Radiation force balances and performance requirements</em>, Ed. 3.0.</li>
+    <li>AIUM official statements: <em>Statement on Biological Effects of Ultrasound in Vivo</em> (2021); <em>Recommended Maximum Scanning Times for Displayed Thermal Index (TI) Values</em> (2016, reapproved 2022); <em>Statement on Biological Effects in Tissues with Ultrasound Contrast Agents</em> (2002, reapproved 2021).</li>
+    <li>AIUM/NEMA UD 3-2004, <em>Standard for Real-Time Display of Thermal and Mechanical Acoustic Output Indices on Diagnostic Ultrasound Equipment</em>, Revision 2 (historical; superseded by IEC 60601-2-37).</li>
+    <li>British Medical Ultrasound Society, <em>Guidelines for the safe use of diagnostic ultrasound equipment</em> (2009 revision).</li>
+    <li>J. G. Abbott, "Rationale and derivation of MI and TI: a review," <em>Ultrasound Med. Biol.</em> 25, 431–441 (1999). Where the \(W_{\mathrm{deg}}\) models, the break-point depth and the \(\sqrt{f}\) of MI come from.</li>
+    <li>W. L. Nyborg, "Biological effects of ultrasound: development of safety guidelines. Part II: general review," <em>Ultrasound Med. Biol.</em> 27, 301–333 (2001).</li>
+    <li>R. E. Apfel and C. K. Holland, "Gauging the likelihood of cavitation from short-pulse, low-duty cycle diagnostic ultrasound," <em>Ultrasound Med. Biol.</em> 17, 179–185 (1991).</li>
+    <li>S. A. Sapareto and W. C. Dewey, "Thermal dose determination in cancer therapy," <em>Int. J. Radiat. Oncol. Biol. Phys.</em> 10, 787–800 (1984).</li>
+    <li>H. H. Pennes, "Analysis of tissue and arterial blood temperatures in the resting human forearm," <em>J. Appl. Physiol.</em> 1, 93–122 (1948).</li>
+    <li>T. A. Bigelow et al., "The thermal index: its strengths, weaknesses, and proposed improvements," <em>J. Ultrasound Med.</em> 30, 714–734 (2011).</li>
+    <li>A. Nowicki, "Safety of ultrasonic examinations; thermal and mechanical indices," <em>Med. Ultrason.</em> 22, 203–210 (2020).</li>
+    <li>C. Kollmann et al., "Ultrasound output: thermal (TI) and mechanical (MI) indices," <em>Ultraschall Med.</em> 34, 422–434 (2013).</li>
+    <li>NCRP Report No. 140, <em>Exposure Criteria for Medical Diagnostic Ultrasound: II. Criteria Based on All Known Mechanisms</em> (2002).</li>
+    <li>F. A. Duck, <em>Physical Properties of Tissue</em> (Academic Press, 1990); T. L. Szabo, <em>Diagnostic Ultrasound Imaging: Inside Out</em>, 2nd ed. (Academic Press, 2014), chapters on acoustic output and bioeffects.</li>
+  </ul>
+  <div class="next"><a href="#m21">← 21 Simulation &amp; characterization</a><a href="{{PART4_URL}}" target="_blank" rel="noopener">Part IV · 23 Beams, k-space, compounding →</a></div>
+</section>
+
+<style>
+#m22 td.num { white-space: nowrap; }
+#m22 .demo-head .prov-note { flex-basis: 100%; margin-top: 0; }
+#m22 .rule-fig .prov, #m22 .rule-fig .prov-note { margin: 0 0 4px; }
+#m22 .prov-legend .prov, #m22 .m22-fig .fh .prov { margin-left: 0; }
+#m22 .m22-fig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 12px; margin: 18px 0; }
+#m22 .m22-fig .fh { font-size: 0.9rem; margin-bottom: 6px; }
+#m22 .m22-fig .mx-scroll > svg { min-width: 560px; width: 100%; height: auto; display: block; }
+#m22 .m22-fig text { font: 12px var(--f-mono); fill: var(--ink); }
+#m22 .m22-fig text.m { fill: var(--muted); }
+#m22 .m22-fig text.s { font-size: 11px; fill: var(--muted); }
+#m22 .m22-fig text.t { font-weight: 600; font-size: 12.5px; }
+#m22 .m22-fig .cap { font-size: 0.86rem; line-height: 1.45; color: var(--muted); margin: 8px 0 0; }
+#m22 .litfig h4 { margin: 0 0 4px; font-size: 0.98rem; }
+#m22 .litfig p { margin: 4px 0; }
+#m22 .litfig .cite { display: block; }
+</style>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id), PI = Math.PI, TAU = 2 * PI, MI = Lab.mini;
+  const RHOC = 1.5e6, CW = 1500;
+  const fmt = (v, d) => Lab.fmt(v, d), lin = (a, b, n) => Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1));
+  const dB10 = v => 10 * Math.log10(v), dB20 = v => 20 * Math.log10(v);
+  const der = (f, z, pow) => Math.pow(10, -0.3 * f * z / (pow ? 10 : 20));
+  const sup = s => String(s).replace(/e([+-]?\d+)/, (m, e) => '×10<sup>' + (+e) + '</sup>');
+  const sci = (v, d) => { if (v === 0) return '0'; const e = Math.floor(Math.log10(Math.abs(v))); if (e >= -2 && e < 4) return fmt(v, d); return fmt(v / Math.pow(10, e), d === undefined ? 2 : d) + '×10<sup>' + e + '</sup>'; };
+
+  /* ======================= physics model ======================= */
+  function gauss1(ws, F, lam, z) { const a = -1 / F, b = -lam / (PI * ws * ws), den = a * a + b * b, qr = a / den + z, qi = -b / den, d2 = qr * qr + qi * qi, im = -qi / d2; return Math.sqrt(-lam / (PI * im)); }
+  function beam(P) { const lam = CW / (P.f * 1e6), wsx = 0.4 * P.Lx * 1e-3, wsy = 0.4 * P.Ly * 1e-3;
+    const wx = z => gauss1(wsx, P.Fx * 1e-3, lam, z * 1e-2), wy = z => gauss1(wsy, P.Fy * 1e-3, lam, z * 1e-2);
+    return { lam, wsx, wsy, wx, wy, amp: z => Math.sqrt(wsx * wsy / (wx(z) * wy(z))) }; }
+  const envE = (N, f) => { const s = N / (2.3548 * f * 1e6); return { Ee: s * Math.sqrt(PI), td: 2.2655 * s, sig: s }; };
+  const ZS = []; for (let i = 0; i <= 745; i++) ZS.push(0.1 + 0.02 * i);
+  function output(P) {
+    const B = beam(P), Pu = envE(P.N, P.f), p0 = P.p0 * 1e6, E = p0 * p0 / (2 * RHOC) * Pu.Ee * PI * B.wsx * B.wsy / 2;
+    let pps, overlap = null;
+    if (P.mode === 'scan') { pps = P.lines * P.frame; const dx = P.fov * 1e-3 / P.lines; overlap = z => { const w = B.wx(z); let s = 0; const L = Math.ceil(4 * w / dx); for (let l = -L; l <= L; l++) s += Math.exp(-2 * (l * dx) ** 2 / (w * w)); return s; }; }
+    else pps = P.rate;
+    const Pw = E * pps * 1e3;
+    const rows = ZS.map(z => { const p = p0 * B.amp(z), pii = p * p / (2 * RHOC) * Pu.Ee, rate = overlap ? P.frame * overlap(z) : pps;
+      return { z, p, pr3: p * der(P.f, z, 0), pii3: pii * der(P.f, z, 1), ita3: pii * rate * der(P.f, z, 1), ipa3: pii / Pu.td * der(P.f, z, 1), P3: Pw * der(P.f, z, 1), wx: B.wx(z), wy: B.wy(z) }; });
+    let iMI = 0, iT = 0, iPA = 0; rows.forEach((r, i) => { if (r.pii3 > rows[iMI].pii3) iMI = i; if (r.ita3 > rows[iT].ita3) iT = i; if (r.ipa3 > rows[iPA].ipa3) iPA = i; });
+    const MIv = rows[iMI].pr3 / 1e6 / Math.sqrt(P.f), ispta3 = rows[iT].ita3 * 0.1, isppa3 = rows[iPA].ipa3 / 1e4;
+    const Aap = P.Lx * P.Ly / 100; let TIS, TIB, TIC, zs = null, zb = null, Deq, zbp = null, P1 = null;
+    rows.forEach(r => { r.tisA = r.P3 * P.f / 210; r.tisB = r.ita3 * 0.1 * P.f / 210; r.tib = r.P3 / (40 * 1.6651 * Math.sqrt(r.wx * r.wy) * 100); });
+    if (P.mode !== 'unscan') { const fovcm = (P.mode === 'scan' ? P.fov : P.Lx) / 10; P1 = Pw * Math.min(1, 1 / fovcm); TIS = P1 * P.f / 210; TIB = TIS; Deq = Math.sqrt(4 * (fovcm * P.Ly / 10) / PI); TIC = Pw / (40 * Deq); }
+    else { Deq = Math.sqrt(4 * Aap / PI); zbp = 1.5 * Deq;
+      if (Aap <= 1) TIS = Pw * P.f / 210; else { let best = 0; rows.forEach(r => { if (r.z >= zbp) { const v = Math.min(r.tisA, r.tisB); if (v > best) { best = v; zs = r.z; } } }); TIS = best; }
+      let bb = 0; rows.forEach(r => { if (r.tib > bb) { bb = r.tib; zb = r.z; } }); TIB = bb; TIC = Pw / (40 * Deq); }
+    return { rows, zMI: rows[iMI].z, iMI, MI: MIv, ispta3, isppa3, Pw, P1, E, TIS, TIB, TIC, zs, zb, zbp, Deq, pps, zT: rows[iT].z, Pu, Aap };
+  }
+  const PRE = {
+    bmode: { f: 3.5, Lx: 19.2, Ly: 10, Fx: 50, Fy: 60, p0: 0.9, N: 2, mode: 'scan', lines: 128, frame: 40, fov: 38.4 },
+    pw: { f: 3.0, Lx: 19.2, Ly: 10, Fx: 50, Fy: 60, p0: 0.45, N: 8, mode: 'unscan', rate: 6000 },
+    plane: { f: 5, Lx: 38.4, Ly: 5, Fx: 1e6, Fy: 20, p0: 0.8, N: 2, mode: 'plane', rate: 5000 },
+    push: { f: 3.0, Lx: 19.2, Ly: 10, Fx: 40, Fy: 60, p0: 1.0, N: 1200, mode: 'unscan', rate: 2 },
+    ulm: { f: 5, Lx: 38.4, Ly: 5, Fx: 1e6, Fy: 20, p0: 0.15, N: 2, mode: 'plane', rate: 5000 }
+  };
+
+  /* ======================= mini-figure helpers ======================= */
+  const FH = 150; const box = (w, h) => ({ x: 8, y: 18, w: w - 16, h: h - 38 });
+  function plotXY(x, m, xs, ys, col, o) { o = o || {}; x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.beginPath(); let st = false;
+    for (let i = 0; i < xs.length; i++) { const v = ys[i]; if (!isFinite(v)) { st = false; continue; } const px = m.X(xs[i]), py = m.Y(v); st ? x.lineTo(px, py) : x.moveTo(px, py); st = true; }
+    x.strokeStyle = col; x.lineWidth = o.w || 1.7; if (o.dash) x.setLineDash(o.dash); x.stroke(); x.restore(); }
+  function dot(x, m, px, py, col, r) { x.save(); x.fillStyle = col; x.beginPath(); x.arc(m.X(px), m.Y(py), r || 3.5, 0, TAU); x.fill(); x.restore(); }
+  function vline(x, m, v, col, dash) { x.save(); x.strokeStyle = col; x.setLineDash(dash || [3, 3]); x.beginPath(); x.moveTo(m.X(v) + 0.5, m.b.y); x.lineTo(m.X(v) + 0.5, m.b.y + m.b.h); x.stroke(); x.restore(); }
+  function hline(x, m, v, col, dash) { x.save(); x.strokeStyle = col; x.setLineDash(dash || [3, 3]); x.beginPath(); x.moveTo(m.b.x, m.Y(v) + 0.5); x.lineTo(m.b.x + m.b.w, m.Y(v) + 0.5); x.stroke(); x.restore(); }
+  function bar(x, m, x0, x1, y0, y1, col, a) { x.save(); x.fillStyle = col; x.globalAlpha = a || 0.85; const X0 = m.X(x0), X1 = m.X(x1), Y0 = m.Y(y0), Y1 = m.Y(y1); x.fillRect(Math.min(X0, X1), Math.min(Y0, Y1), Math.abs(X1 - X0), Math.abs(Y1 - Y0)); x.restore(); }
+  const T = MI.text;
+  /* Gaussian beam for a circular aperture (both axes equal) */
+  const circProfile = (f, Lmm, Fmm) => { const B = beam({ f, Lx: Lmm, Ly: Lmm, Fx: Fmm, Fy: Fmm }); return z => B.amp(z); };
+  /* Pennes steady rise (coarse) for collimated Gaussian beam, W in mW, a in m */
+  const pennesCache = {};
+  function pennes(Wmw, f, a) { const key = [Wmw, f, a].join(','); if (pennesCache[key] !== undefined) return pennesCache[key];
+    const k = 0.5, L = 0.01, W = Wmw * 1e-3, mu = 0.3 * Math.LN10 / 10 * f * 100, dr = a / 12, nr = 72, dz = Math.min(a / 3, 0.0006), nz = Math.round(Math.min(0.12, 8 / mu + 0.05) / dz);
+    let best = 0; for (let j0 = 0; j0 <= 16; j0++) { const z0 = j0 * 0.003; let s = 0;
+      for (let iz = 0; iz < nz; iz++) { const z = (iz + 0.5) * dz, att = Math.exp(-mu * z), dzz = (z - z0) * (z - z0);
+        for (let ir = 0; ir < nr; ir++) { const r = (ir + 0.5) * dr, d = Math.sqrt(r * r + dzz); s += Math.exp(-2 * r * r / (a * a)) * att * Math.exp(-d / L) / d * r; } }
+      const v = mu * 2 * W / (PI * a * a) * s * dr * dz * TAU / (4 * PI * k); if (v > best) best = v; }
+    pennesCache[key] = best; return best; }
+  /* hydrophone disc average of a 2D Gaussian amplitude field at offset (x0, 0) */
+  function discAvg(wx, wy, b, x0) { if (b <= 0) return Math.exp(-x0 * x0 / (wx * wx)); const nr = 14, nt = 32; let s = 0, a = 0;
+    for (let i = 0; i < nr; i++) { const r = (i + 0.5) * b / nr; for (let j = 0; j < nt; j++) { const t = TAU * j / nt, xx = x0 + r * Math.cos(t), yy = r * Math.sin(t); s += Math.exp(-xx * xx / (wx * wx) - yy * yy / (wy * wy)) * r; a += r; } } return s / a; }
+
+  /* ======================= figure library ======================= */
+  const AIUM_F = [[1, 9.6], [8, 6], [30, 5], [120, 4], [480, 3], [1800, 2], [3600, 1.5]];
+  const AIUM_P = [[5, 9.6], [60, 6], [240, 5], [960, 4], [3600, 3], [14400, 2], [180000, 1.5]];
+  const F = {
+    mech: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), hh = (h - 52) / 2, f = 3;
+      [[16, 'B-mode point: 113 pulses/s', c.a, 1 / 113], [16 + hh + 18, 'PW gate: 5000 pulses/s', c.b, 1 / 5000]].forEach(([y0, lab, col, per]) => {
+        const m = MI.panel(x, { x: 8, y: y0, w: w - 16, h: hh }, [0, 0.02], [-1.2, 1.2], { lab: lab + ' (same p_r, 20 ms shown)', yaxis: false });
+        const pts = []; for (let t = 0.0005; t < 0.02; t += per) pts.push(t);
+        x.save(); x.strokeStyle = col; x.lineWidth = per < 1e-3 ? 0.6 : 1.6; pts.forEach(t => { x.beginPath(); x.moveTo(m.X(t), m.Y(-1)); x.lineTo(m.X(t), m.Y(1)); x.stroke(); }); x.restore(); });
+      T(x, 'MI equal · I_ta ratio 44×', w - 10, h - 8, c.fg, 'right'); },
+    derate: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), zs = lin(0, 12, 121);
+      const m = MI.panel(x, box(w, h), [0, 12], [-30, 1], { lab: 'derating loss (dB) vs z (cm)', base: -30, ticks: [[5, '5'], [10, '10']] }); [-10, -20].forEach(v => { hline(x, m, v, c.grid); T(x, v + ' dB', m.X(0.15), m.Y(v) - 7, c.mu); });
+      [[2, c.d, '2 MHz'], [3.5, c.a, '3.5'], [5, c.c, '5'], [7.5, c.b, '7.5 MHz']].forEach(([f, col, n]) => { plotXY(x, m, zs, zs.map(z => -0.3 * f * z), col); const ze = Math.min(12, 29 / (0.3 * f)); T(x, n, m.X(ze) - 4, m.Y(-0.3 * f * ze) + 9, col, 'right'); });
+      dot(x, m, 5, -4.5, c.fg, 3); T(x, '3 MHz, 5 cm: −4.5 dB', m.X(5) + 6, m.Y(-4.5) - 8, c.fg); },
+    shift: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), f = 3.5, pr = circProfile(f, 12, 80), zs = lin(0.2, 12, 300);
+      const pw = zs.map(pr), mx = Math.max(...pw), pn = pw.map(v => v / mx), pd = zs.map((z, i) => pn[i] * der(f, z, 0)); let iw = 0, id = 0; pn.forEach((v, i) => { if (v > pn[iw]) iw = i; if (pd[i] > pd[id]) id = i; });
+      const m = MI.panel(x, box(w, h), [0, 12], [0, 1.1], { lab: 'p/p_water,max vs z (cm): 3.5 MHz, 12 mm, F 8 cm', ticks: [[zs[id], fmt(zs[id], 1)], [zs[iw], fmt(zs[iw], 1)], [10, '10']] });
+      plotXY(x, m, zs, pn, c.fg); plotXY(x, m, zs, pd, c.a); dot(x, m, zs[iw], pn[iw], c.fg); dot(x, m, zs[id], pd[id], c.a); T(x, 'water', m.X(7.5), m.Y(0.75), c.fg); T(x, 'derated', m.X(7), m.Y(0.28), c.a); },
+    miP: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), fs = lin(1, 10, 91);
+      const m = MI.panel(x, box(w, h), [1, 10], [0, 16], { lab: 'p allowed at MI 1.9 (MPa) vs f (MHz)', ticks: [[3, '3'], [5, '5'], [7.5, '7.5'], [10, '10']], hlines: [[6.01, '6.0']] });
+      plotXY(x, m, fs, fs.map(f => 1.9 * Math.sqrt(f)), c.a); plotXY(x, m, fs, fs.map(f => 1.9 * Math.sqrt(f) * Math.pow(10, 0.3 * f * 4 / 20)), c.b);
+      T(x, 'derated p_r.3 = 1.9√f', m.X(4.2), m.Y(3.2), c.a); T(x, 'water at 4 cm', m.X(5.4), m.Y(11), c.b); },
+    miF: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), fs = lin(1, 10, 91);
+      const m = MI.panel(x, box(w, h), [1, 10], [0, 3.2], { lab: 'MI vs f, water p_r = 3 MPa at z', ticks: [[3, '3'], [5, '5'], [10, '10']], hlines: [[1.9, '1.9']] });
+      [[2, c.d], [4, c.a], [6, c.b]].forEach(([z, col]) => plotXY(x, m, fs, fs.map(f => 3 * der(f, z, 0) / Math.sqrt(f)), col));
+      T(x, 'z = 2 cm', m.X(2.5), m.Y(2.05), c.d); T(x, '4 cm', m.X(3.2), m.Y(1.0), c.a); T(x, '6 cm', m.X(1.6), m.Y(0.55), c.b); },
+    fubini: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), b2 = 0.3, ts = lin(-1, 1, 400);
+      const ps = ts.map(t => Math.sin(PI * t) - b2 * Math.cos(TAU * t)), pc = Math.max(...ps), prr = -Math.min(...ps);
+      const m = MI.panel(x, box(w, h), [-1, 1], [-1.45, 1.45], { lab: 'p = sin θ − 0.3 cos 2θ (2nd harmonic shifted 90°)', yaxis: false });
+      plotXY(x, m, ts, ts.map(t => Math.sin(PI * t)), c.mu, { dash: [3, 3], w: 1 }); plotXY(x, m, ts, ps, c.a);
+      hline(x, m, pc, c.b); hline(x, m, -prr, c.d);
+      T(x, 'p_c = ' + fmt(pc, 2), m.X(0.55), m.Y(pc) - 8, c.b); T(x, 'p_r = ' + fmt(prr, 2), m.X(-0.98), m.Y(-prr) + 9, c.d); T(x, 'fundamental', m.X(-0.98), m.Y(0.75), c.mu); },
+    orRegion: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), mis = lin(0, 2.6, 131);
+      const m = MI.panel(x, box(w, h), [0, 2.6], [0, 500], { lab: 'I_SPPA.3 (W/cm²) vs MI, 3-cycle Gaussian', ticks: [[1, '1'], [1.9, '1.9']], hlines: [[190, '190']] });
+      x.save(); x.fillStyle = c.d; x.globalAlpha = 0.12; x.fillRect(m.X(0), m.Y(500), m.X(1.9) - m.X(0), m.Y(0) - m.Y(500)); x.fillRect(m.X(1.9), m.Y(190), m.X(2.6) - m.X(1.9), m.Y(0) - m.Y(190)); x.restore(); vline(x, m, 1.9, c.mu);
+      [[2, c.d], [3, c.a], [5, c.b]].forEach(([f, col]) => plotXY(x, m, mis, mis.map(v => 0.7824 * (v * Math.sqrt(f) * 1e6) ** 2 / (2 * RHOC) / 1e4), col));
+      T(x, '2 MHz', m.X(2.15), m.Y(215), c.d); T(x, '3', m.X(1.75), m.Y(300), c.a); T(x, '5 MHz', m.X(1.0), m.Y(250), c.b); T(x, 'compliant', m.X(0.1), m.Y(470), c.fg); },
+    overlap: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), W6 = 1.5, d = 0.3, wg = W6 / 1.6651, xs = lin(-2, 2, 401);
+      const m = MI.panel(x, box(w, h), [-2, 2], [0, 1.15], { lab: 'beam profiles of lines Δ = 0.3 mm, W₋₆ = 1.5 mm (x, mm)', ticks: [[-1, '−1'], [0, '0'], [1, '1']] });
+      let s = 0; for (let l = -8; l <= 8; l++) { const xl = l * d, v = Math.exp(-2 * xl * xl / (wg * wg)); s += v; plotXY(x, m, xs, xs.map(xx => Math.exp(-2 * (xx - xl) ** 2 / (wg * wg))), c.mu, { w: 0.9 }); MI.stems(x, m, [[xl, v]], c.a); }
+      T(x, 'Σ at x = 0: ' + fmt(s, 2) + ' pulses/frame', m.X(-1.95), m.Y(1.08), c.fg); },
+    td: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), f = 3, N = 3, s = N / (2.3548 * f), ts = lin(-1.2, 1.2, 1200);
+      const p = ts.map(t => Math.exp(-t * t / (2 * s * s)) * Math.cos(TAU * f * t)); let acc = 0; const cum = p.map(v => (acc += v * v)); const tot = acc, cn = cum.map(v => v / tot);
+      const t10 = ts[cn.findIndex(v => v >= 0.1)], t90 = ts[cn.findIndex(v => v >= 0.9)], tdv = 1.25 * (t90 - t10);
+      const m = MI.panel(x, box(w, h), [-1.2, 1.2], [-1.7, 1.15], { lab: 'p(t) and cumulative ∫p² (t, µs): 3 MHz, 3 cycles', base: -1.7, ticks: [[t10, 't₁₀'], [t90, 't₉₀']] });
+      plotXY(x, m, ts, p, c.a, { w: 1.2 }); plotXY(x, m, ts, cn, c.b); hline(x, m, 0.1, c.mu); hline(x, m, 0.9, c.mu); vline(x, m, t10, c.mu); vline(x, m, t90, c.mu);
+      T(x, 't_d = 1.25(t₉₀ − t₁₀) = ' + tdv.toFixed(2) + ' µs', m.X(-1.15), m.Y(-1.35), c.fg); },
+    duty: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH);
+      const items = [['B-mode', 2, 3.5, 113], ['colour', 6, 3, 10 * 3.76 * 10], ['PW', 8, 3, 6000], ['plane wave', 2, 5, 5000], ['push 2/s', 1200, 3, 2]].map(([n, N, f, r]) => [n, Math.log10(envE(N, f).td * r)]);
+      const m = MI.panel(x, box(w, h), [0, items.length], [-6, -0.6], { lab: 'log₁₀ duty factor at the point', base: -6, yaxis: false });
+      items.forEach(([n, v], i) => { bar(x, m, i + 0.15, i + 0.85, -6, v, i === 2 ? c.b : c.a); T(x, n, m.X(i + 0.5), m.Y(v) - 20, c.fg, 'center'); T(x, sci(Math.pow(10, v), 1).replace(/<\/?sup>/g, '').replace('×10', 'e'), m.X(i + 0.5), m.Y(v) - 8, c.mu, 'center'); }); },
+    wdeg: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), fs = lin(1, 10, 91);
+      const m = MI.panel(x, box(w, h), [1, 10], [0, 220], { lab: 'W_deg (mW) vs f (MHz)', ticks: [[3, '3'], [5, '5'], [10, '10']], hlines: [[40, 'bone d = 1 cm: 40'], [12, 'd = 0.3 cm: 12']] });
+      plotXY(x, m, fs, fs.map(f => 210 / f), c.a); T(x, 'soft tissue 210/f', m.X(2.2), m.Y(120), c.a); dot(x, m, 3, 70, c.a); T(x, '70 mW at 3 MHz', m.X(3.3), m.Y(78), c.fg); },
+    tic: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), Ps = lin(0, 300, 61);
+      const m = MI.panel(x, box(w, h), [0, 300], [0, 6], { lab: 'TIC vs power P (mW)', ticks: [[45, '45'], [100, '100'], [200, '200']], hlines: [[1, '1']] });
+      [[1, c.b], [2, c.a], [4, c.d]].forEach(([A, col]) => { const D = Math.sqrt(4 * A / PI); plotXY(x, m, Ps, Ps.map(P => P / (40 * D)), col); T(x, A + ' cm²', m.X(250), m.Y(250 / (40 * D)) - 9, col); }); },
+    zbp: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), o = output(PRE.pw), zs = o.rows.map(r => r.z);
+      const ymax = Math.max(...o.rows.map(r => r.tib)) * 1.1;
+      const m = MI.panel(x, box(w, h), [0, 15], [0, ymax], { lab: 'PW preset: index integrands vs z (cm)', ticks: [[o.zbp, 'z_bp ' + fmt(o.zbp, 2)], [10, '10']] });
+      plotXY(x, m, zs, o.rows.map(r => r.tisA), c.c); plotXY(x, m, zs, o.rows.map(r => r.tisB), c.d); plotXY(x, m, zs, o.rows.map(r => r.tib), c.b); vline(x, m, o.zbp, c.mu);
+      dot(x, m, o.zs, o.TIS, c.fg); T(x, 'TIS ' + fmt(o.TIS, 2), m.X(o.zs) + 6, m.Y(o.TIS) - 8, c.fg); T(x, 'TIB(z)', m.X(o.zb) + 8, m.Y(o.TIB) - 4, c.b); },
+    hyd: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), rs = lin(0.01, 1.2, 120), wg = 1 / 1.6651;
+      const g = r => { const b = r / 2, X = b * b / (wg * wg); return (1 - Math.exp(-X)) / X; };
+      const m = MI.panel(x, box(w, h), [0, 1.2], [0.3, 1.04], { lab: 'reading / true peak vs hydrophone d / W₋₆', ticks: [[0.25, '¼'], [0.5, '½'], [1, '1']] });
+      plotXY(x, m, rs, rs.map(r => g(r)), c.a); plotXY(x, m, rs, rs.map(r => g(r) ** 2), c.b); plotXY(x, m, rs, rs.map(r => discAvg(wg, 3 * wg, r / 2, 0)), c.a, { dash: [4, 3], w: 1.2 });
+      T(x, 'pressure, round', m.X(0.05), m.Y(0.62), c.a); T(x, 'intensity, round', m.X(0.05), m.Y(0.53), c.b); T(x, 'pressure, 3:1 elongated (dashed)', m.X(0.05), m.Y(0.44), c.a); dot(x, m, 0.25, g(0.25) ** 2, c.b, 3); },
+    rfb: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), Ps = lin(0, 1000, 51);
+      const m = MI.panel(x, box(w, h), [0, 1000], [0, 1.5], { lab: 'force (mN) vs power (mW), c = 1500 m/s', ticks: [[100, '100'], [500, '500'], [1000, '1000']] });
+      plotXY(x, m, Ps, Ps.map(P => P / 1500), c.a); plotXY(x, m, Ps, Ps.map(P => 2 * P / 1500), c.b, { dash: [4, 3] });
+      T(x, 'absorber P/c', m.X(560), m.Y(0.26), c.a); T(x, 'normal reflector 2P/c', m.X(300), m.Y(0.9), c.b); dot(x, m, 1000, 1000 / 1500, c.a); T(x, '68 mg', m.X(900), m.Y(0.67) + 11, c.fg, 'right'); },
+    plane: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH); const items = [['B 30 Hz', 30 * 3.76], ['colour', 10 * 3.76 * 10], ['plane 1 kHz', 1000], ['plane 5 kHz', 5000], ['PW 6 kHz', 6000]];
+      const m = MI.panel(x, box(w, h), [0, 5], [1, 4.2], { lab: 'log₁₀ pulses per second at a point', base: 1, yaxis: false });
+      items.forEach(([n, v], i) => { const l = Math.log10(v); bar(x, m, i + 0.15, i + 0.85, 1, l, i >= 2 && i <= 3 ? c.b : c.a); T(x, n, m.X(i + 0.5), m.Y(l) - 8, c.fg, 'center'); }); },
+    push: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), f = 3, p = 3e6; const items = [['2-cycle', 2], ['PW 8-cycle', 8], ['push 400 µs', 1200]];
+      const m = MI.panel(x, box(w, h), [0, 3], [-6, 0.2], { lab: 'log₁₀ PII (J/cm²) at p_r.3 = 3 MPa, 3 MHz', base: -6, yaxis: false });
+      items.forEach(([n, N], i) => { const pii = p * p / (2 * RHOC) * envE(N, f).Ee / 1e4, l = Math.log10(pii); bar(x, m, i + 0.2, i + 0.8, -6, l, i === 2 ? c.b : c.a); T(x, n + ': ' + sci(pii, 2).replace(/<\/?sup>/g, '').replace('×10', 'e'), m.X(i + 0.5), m.Y(l) - 8, c.fg, 'center'); }); },
+    aiumTI: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH);
+      const ob = [[0.7, 3], [1.0, Math.log10(60)], [1.5, Math.log10(30)], [2.0, Math.log10(15)], [2.5, Math.log10(4)], [3.0, 0]], nob = [[1.5, 3], [2.0, Math.log10(120)], [2.5, Math.log10(60)], [3.0, Math.log10(15)], [4.0, Math.log10(4)], [5.0, 0], [6.0, Math.log10(0.25)]];
+      const m = MI.panel(x, box(w, h), [0, 6.5], [-0.8, 3.6], { lab: 'log₁₀ max dwell (min) vs displayed TI (AIUM 2022)', base: -0.8, ticks: [[0.7, '0.7'], [1.5, '1.5'], [3, '3'], [6, '6']] });
+      const stair = (arr, col) => { const xs = [], ys = []; arr.forEach(([ti, v], i) => { xs.push(i ? arr[i - 1][0] : 0); ys.push(v); xs.push(ti); ys.push(v); }); plotXY(x, m, xs, ys, col); };
+      stair(ob, c.b); stair(nob, c.d); T(x, 'obstetric', m.X(1.6), m.Y(1.75), c.b); T(x, 'non-obstetric', m.X(3.1), m.Y(1.6), c.d); T(x, '"no limit" drawn as 1000 min', m.X(0.05), m.Y(3.35), c.mu); },
+    aiumDT: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH);
+      const m = MI.panel(x, box(w, h), [0, 5.5], [0, 10.5], { lab: 'AIUM 2021: ΔT (°C) vs log₁₀ time (s), no adverse effects', base: 0, ticks: [[0, '1 s'], [Math.log10(60), '1 min'], [Math.log10(3600), '1 h']] });
+      [[AIUM_F, c.b, 'fetal'], [AIUM_P, c.d, 'postnatal']].forEach(([arr, col, lab], k) => { plotXY(x, m, arr.map(a => Math.log10(a[0])), arr.map(a => a[1]), col); arr.forEach(a => dot(x, m, Math.log10(a[0]), a[1], col, 2.5)); });
+      T(x, 'fetal', m.X(0.9), m.Y(4.2), c.b); T(x, 'postnatal', m.X(3.0), m.Y(5.6), c.d);
+      hline(x, m, 1.5, c.mu); T(x, '1.5 °C', m.X(5.4), m.Y(1.5) - 7, c.mu, 'right'); },
+    cem: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), Ts = lin(37, 47, 101);
+      const m = MI.panel(x, box(w, h), [37, 47], [-3, 2], { lab: 'log₁₀ CEM43 per minute at T (°C)', base: -3, ticks: [[40, '40'], [43, '43'], [45, '45']], hlines: [[0, '1 min = 1 CEM43']] });
+      plotXY(x, m, Ts, Ts.map(t => Math.log10(Math.pow(t < 43 ? 0.25 : 0.5, 43 - t))), c.a); dot(x, m, 40, Math.log10(0.25 ** 3), c.b); T(x, '40 °C: 1/64', m.X(40.2), m.Y(Math.log10(1 / 64)) + 10, c.b); },
+    heatTau: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), ts = lin(0, 120, 241);
+      const m = MI.panel(x, box(w, h), [0, 120], [0, 1.1], { lab: 'ΔT/ΔT_ss vs t (s) at switch-on, τ ≈ a²/4κ', ticks: [[30, '30'], [60, '60'], [120, '120']] });
+      [[0.5, c.d, 0.88], [2, c.a, 0.7], [5, c.b, 0.42]].forEach(([a, col, yy]) => { const tau = (a * 1e-3) ** 2 / (4 * 0.1323e-6); plotXY(x, m, ts, ts.map(t => 1 - Math.exp(-t / tau)), col); T(x, 'a = ' + a + ' mm: τ = ' + fmt(tau, 2) + ' s', m.X(62), m.Y(yy), col); }); },
+    ti2: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), as = [0.5, 1, 2, 3, 4];
+      const m = MI.panel(x, box(w, h), [0, 4.5], [0, 2.2], { lab: 'Pennes ΔT (°C) for W = 210/f mW vs beam radius (mm)', ticks: [[1, '1'], [2, '2'], [4, '4']], hlines: [[1, 'TIS = 1'], [2, '×2'], [0.5, '÷2']] });
+      [[2, c.d], [5, c.b]].forEach(([f, col]) => { const ys = as.map(a => pennes(210 / f, f, a * 1e-3)); plotXY(x, m, as, ys, col); as.forEach((a, i) => dot(x, m, a, ys[i], col, 2.5)); T(x, f + ' MHz', m.X(4.05), m.Y(ys[4]) + (f === 2 ? -9 : 9), col); }); },
+    limits: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH); const items = [['ophth.', 17], ['fetal', 94], ['cardiac', 430], ['periph.', 720], ['Track 3', 720], ['T3 ophth.', 50]];
+      const m = MI.panel(x, box(w, h), [0, 6], [0, 3.9], { lab: 'log₁₀ I_SPTA.3 limit (mW/cm²): Track 1 vs Track 3', base: 0, yaxis: false });
+      items.forEach(([n, v], i) => { const l = Math.log10(v); bar(x, m, i + 0.15, i + 0.85, 0, l, i >= 4 ? c.b : c.a); T(x, n, m.X(i + 0.5), m.Y(l) - 20, c.fg, 'center'); T(x, String(v), m.X(i + 0.5), m.Y(l) - 8, c.mu, 'center'); }); },
+    gas: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH);
+      const m = MI.panel(x, box(w, h), [0, 4.5], [0, 1], { lab: 'MI scale: thresholds from AIUM 2021 and BMUS 2009', ticks: [[0.4, '0.4'], [1, '1'], [1.9, '1.9'], [4, '4']], yaxis: false });
+      [[0.3, 'BMUS neonatal lung', c.mu, 0.92], [0.4, 'lung haemorrhage / contrast', c.b, 0.78], [0.7, 'BMUS contrast', c.mu, 0.62], [1.4, 'intestine', c.c, 0.46], [1.9, 'FDA Track 3', c.a, 0.3], [4, 'gas-free effects (mouse)', c.d, 0.14]].forEach(([v, n, col, yy]) => { vline(x, m, v, col, [2, 2]); T(x, n, m.X(v) + 3, m.Y(yy), col); }); },
+    insitu: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), f = 3.5, zs = lin(0, 12, 121);
+      const m = MI.panel(x, box(w, h), [0, 12], [-12, 9], { lab: 'in situ / derated pressure (dB) vs z (cm), 3.5 MHz', ticks: [[4, '4'], [8, '8']] });
+      [[0.05, c.d, 'fluid α = 0.05', 6], [0.5, c.a, 'tissue α = 0.5', -3.2], [0.7, c.b, 'α = 0.7', -10.2]].forEach(([a, col, n, yy]) => { plotXY(x, m, zs, zs.map(z => -(a - 0.3) * f * z), col); T(x, n, m.X(0.4), m.Y(yy), col); }); },
+    hydCorr: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), rs = lin(0.02, 1.0, 50), wg = 1 / 1.6651;
+      const m = MI.panel(x, box(w, h), [0, 1], [-3, 0.4], { lab: 'peak error (dB) vs d / W₋₆, round beam', ticks: [[0.25, '¼'], [0.5, '½'], [1, '1']] });
+      const raw = rs.map(r => discAvg(wg, wg, r / 2, 0)); const cor = rs.map((r, i) => { const b = r / 2, wm2 = wg * wg + b * b / 2; return raw[i] * wm2 / (wg * wg) * 1; });
+      plotXY(x, m, rs, raw.map(dB20), c.a); plotXY(x, m, rs, rs.map((r, i) => dB20(raw[i] * (wg * wg + (r / 2) ** 2 / 2) / (wg * wg))), c.d);
+      T(x, 'measured', m.X(0.62), m.Y(-1.9), c.a); T(x, 'Gaussian-kernel corrected', m.X(0.3), m.Y(0.2), c.d); },
+    bubble: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), f = 2.5, zs = lin(0.5, 12, 116), pw = 0.25;
+      const m = MI.panel(x, box(w, h), [0, 12], [0, 0.27], { lab: 'p at the bubble (MPa), plane wave 0.25 MPa water, 2.5 MHz', ticks: [[4, '4'], [8, '8']] });
+      [[0.05, c.d, 'fluid'], [0.3, c.mu, 'derated 0.3'], [0.7, c.b, 'liver 0.7']].forEach(([a, col, n]) => { plotXY(x, m, zs, zs.map(z => pw * Math.pow(10, -a * f * z / 20)), col, a === 0.3 ? { dash: [4, 3] } : {}); T(x, n, m.X(9.5), m.Y(pw * Math.pow(10, -a * f * 10 / 20)) - 9, col); }); }
+  };
+
+  /* ======================= Demo 22.1: heating toy ======================= */
+  const THP = { dop: [1.5, Math.log10(30), 0, 0, Math.log10(300)], int: [3, Math.log10(20), Math.log10(0.5), Math.log10(60), Math.log10(600)], swe: [60, Math.log10(2), -2, -1, Math.log10(120)], hot: [4, Math.log10(60), 0, 0, Math.log10(1800)] };
+  function thSet(k) { const v = THP[k]; ['m22-th-dt', 'm22-th-tau', 'm22-th-df', 'm22-th-per', 'm22-th-dur'].forEach((id, i) => { $(id).value = v[i]; }); thDraw(); }
+  function thDraw() { const c = Lab.colors(), dTs = +$('m22-th-dt').value, tau = Math.pow(10, +$('m22-th-tau').value), D = Math.pow(10, +$('m22-th-df').value), Tp = Math.pow(10, +$('m22-th-per').value), Td = Math.pow(10, +$('m22-th-dur').value);
+    $('m22-th-dt-o').textContent = fmt(dTs, 1) + ' °C'; $('m22-th-tau-o').textContent = fmt(tau, tau < 10 ? 2 : 0) + ' s'; $('m22-th-df-o').textContent = fmt(D * 100, 3) + ' %'; $('m22-th-per-o').textContent = fmt(Tp, Tp < 0.1 ? 3 : Tp < 10 ? 2 : 0) + ' s'; $('m22-th-dur-o').textContent = (Td >= 100 ? Math.round(Td) : fmt(Td, 1)) + ' s';
+    const tEnd = Td * 1.3, ncyc = Math.ceil(Td / Tp), sub = ncyc > 100000 ? 1 : ncyc > 40000 ? 2 : ncyc > 5000 ? 4 : 16; let th = 0, t = 0, peak = 0, cem = 0, above = 0; const NP = 900, pts = new Array(NP + 1).fill(null);
+    const rec = (tt, v) => { const k = Math.round(tt / tEnd * NP); if (k >= 0 && k <= NP) { if (pts[k] === null || v > pts[k]) pts[k] = v; } };
+    const step = (dt, on) => { const ss = on ? dTs : 0, n = Math.max(1, Math.round(sub * dt / Tp)), h = dt / n, e = Math.exp(-h / tau); for (let i = 0; i < n; i++) { th = ss + (th - ss) * e; t += h; const T = 37 + th; cem += h / 60 * Math.pow(T < 43 ? 0.25 : 0.5, 43 - T); if (th > peak) peak = th; if (T >= 39) above += h; rec(t, th); } };
+    rec(0, 0); for (let k = 0; k < ncyc; k++) { const ton = Math.min(D * Tp, Td - k * Tp); if (ton <= 0) break; step(ton, true); const toff = Math.min((1 - D) * Tp, Td - k * Tp - ton); if (toff > 0) step(toff, false); }
+    step(tEnd - t, false);
+    { const { ctx, w: W } = Lab.canvas($('m22-th-t'), 210); const ymax = Math.max(dTs * 1.05, 0.5) > 12 ? Math.max(peak * 1.3, D * dTs * 2, 0.5) : Math.max(dTs * 1.1, 0.5);
+      const ax = Lab.axes(ctx, { x: 54, y: 14, w: W - 70, h: 160 }, [0, tEnd], [0, ymax], { xlabel: 't (s)', ylabel: 'ΔT (°C)', ny: 4 });
+      const xs = [], ys = []; pts.forEach((v, k) => { if (v !== null) { xs.push(k / NP * tEnd); ys.push(Math.min(v, ymax)); } }); ax.clip(); Lab.line(ctx, ax, xs, ys, c.accent, 1.4);
+      Lab.line(ctx, ax, [0, Td], [D * dTs, D * dTs], c.sig3, 1.5, [5, 3]); ax.unclip(); ctx.save(); ctx.strokeStyle = c.muted; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ax.X(Td), ax.box.y); ctx.lineTo(ax.X(Td), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
+    { const { ctx, w: W } = Lab.canvas($('m22-th-m'), 190); const ax = Lab.axes(ctx, { x: 54, y: 14, w: W - 70, h: 140 }, [0, 5.5], [0, 10.5], { xlabel: 'exposure time, log₁₀ (s)', ylabel: 'peak ΔT (°C)', ny: 4, xticks: [0, 1, 2, 3, 4, 5] });
+      Lab.line(ctx, ax, AIUM_F.map(a => Math.log10(a[0])), AIUM_F.map(a => a[1]), c.sig2, 1.8); Lab.dots(ctx, ax, AIUM_F.map(a => Math.log10(a[0])), AIUM_F.map(a => a[1]), c.sig2, 3);
+      Lab.line(ctx, ax, AIUM_P.map(a => Math.log10(a[0])), AIUM_P.map(a => a[1]), c.sig4, 1.8); Lab.dots(ctx, ax, AIUM_P.map(a => Math.log10(a[0])), AIUM_P.map(a => a[1]), c.sig4, 3);
+      Lab.dots(ctx, ax, [Math.log10(Td)], [Math.min(peak, 10.4)], c.accent, 6); }
+    const limF = (tt) => { let lim = 1.5; for (let i = AIUM_F.length - 1; i >= 0; i--) if (tt <= AIUM_F[i][0]) lim = AIUM_F[i][1]; return tt <= 1 ? 9.6 : lim; };
+    const okF = peak <= 1.5 || peak <= limF(Td);
+    $('m22-th-read').innerHTML = 'peak ΔT = <b>' + fmt(peak, 2) + ' °C</b> (T = ' + fmt(37 + peak, 2) + ' °C)<br>duty-weighted mean DF·ΔT<sub>ss</sub> = <b>' + fmt(D * dTs, 2) + ' °C</b><br>period/τ = ' + fmt(Tp / tau, 3) + (Tp < 0.2 * tau ? ' → follows the mean' : Tp > 3 * tau ? ' → follows each on-time' : '') + '<br>CEM43 = <b>' + sci(cem, 2) + '</b> min; time ≥ 39 °C: ' + fmt(above, 1) + ' s<br>AIUM fetal table: <b>' + (okF ? 'within' : 'beyond') + '</b> (allowed ' + fmt(limF(Td), 1) + ' °C for this duration)'; }
+  ['m22-th-dt', 'm22-th-tau', 'm22-th-df', 'm22-th-per', 'm22-th-dur'].forEach(id => $(id).addEventListener('input', thDraw)); $('m22-th-pre').addEventListener('change', () => thSet($('m22-th-pre').value));
+
+  /* ======================= Demo 22.2: ISPTA calculator ======================= */
+  const ISP = { B: { p: 2.0, f: 3.5, n: Math.log10(2), r: Math.log10(30), lab: 'Frame rate', unit: 'Hz', rmin: 0, rmax: 2.3 },
+    CF: { p: 1.5, f: 3, n: Math.log10(6), r: Math.log10(10), lab: 'Frame rate', unit: 'Hz', rmin: 0, rmax: 1.7 },
+    PW: { p: 1.5, f: 3, n: Math.log10(8), r: Math.log10(6000), lab: 'PRF', unit: 'Hz', rmin: 2.7, rmax: 4.3 },
+    PWI: { p: 0.8, f: 5, n: Math.log10(2), r: Math.log10(5000), lab: 'PRF (every transmit reaches the point)', unit: 'Hz', rmin: 2, rmax: 4.3 },
+    SWE: { p: 3.0, f: 3, n: Math.log10(1200), r: Math.log10(2), lab: 'Pushes per second', unit: '/s', rmin: -1, rmax: 1.3 },
+    ULM: { p: 0.15, f: 5, n: Math.log10(2), r: Math.log10(5000), lab: 'PRF (every transmit reaches the point)', unit: 'Hz', rmin: 2, rmax: 4.3 } };
+  const NEFF = 0.7527 * 1.5 / 0.3, ENS = 10;
+  const isCalc = (mode, p, f, N, r) => { const Pu = envE(N, f), pii = (p * 1e6) ** 2 / (2 * RHOC) * Pu.Ee, rate = mode === 'B' ? r * NEFF : mode === 'CF' ? r * NEFF * ENS : r;
+    return { pii, rate, td: Pu.td, ita: pii * rate * 0.1, ipa: pii / Pu.td / 1e4, df: Pu.td * rate, mi: p / Math.sqrt(f) }; };
+  function isSet() { const m = $('m22-is-mode').value, s = ISP[m]; $('m22-is-r').min = s.rmin; $('m22-is-r').max = s.rmax; $('m22-is-p').value = s.p; $('m22-is-f').value = s.f; $('m22-is-n').value = s.n; $('m22-is-r').value = s.r; isDraw(); }
+  function isDraw() { const c = Lab.colors(), mode = $('m22-is-mode').value, s = ISP[mode], p = +$('m22-is-p').value, f = +$('m22-is-f').value, N = Math.pow(10, +$('m22-is-n').value), r = Math.pow(10, +$('m22-is-r').value);
+    $('m22-is-p-o').textContent = fmt(p, 2) + ' MPa'; $('m22-is-f-o').textContent = fmt(f) + ' MHz'; $('m22-is-n-o').textContent = fmt(N, N < 10 ? 1 : 0) + ' (' + fmt(N / f, 3) + ' µs)'; $('m22-is-r-l').textContent = s.lab; $('m22-is-r-o').textContent = fmt(r, r < 10 ? 2 : 0) + ' ' + s.unit;
+    const R = isCalc(mode, p, f, N, r);
+    { const { ctx, w: W } = Lab.canvas($('m22-is-tl'), 170); let win, arr = [];
+      if (mode === 'B' || mode === 'CF') { win = 2.2 / r; for (let fr = 0; fr < 3; fr++) { const t0 = fr / r + 0.3 / r; for (let l = -8; l <= 8; l++) { const wgt = Math.exp(-2 * (l * 0.3) ** 2 / ((1.5 / 1.6651) ** 2)); for (let e = 0; e < (mode === 'CF' ? ENS : 1); e++) arr.push([t0 + (l + 8) * 0.012 / r + e * 0.0008 / r, wgt]); } } }
+      else if (mode === 'SWE') { win = 2.2 / r; for (let k = 0; k < 3; k++) arr.push([(k + 0.2) / r, 1]); }
+      else { win = 12 / r; for (let k = 0; k < 13; k++) arr.push([(k + 0.5) / r, 1]); }
+      const ax = Lab.axes(ctx, { x: 54, y: 14, w: W - 70, h: 120 }, [0, win * 1e3], [0, 1.15], { xlabel: 'time at the point (ms)', ylabel: 'PII (rel.)', ny: 2, nx: W < 500 ? 4 : 8 });
+      ctx.save(); ctx.strokeStyle = c.accent; ctx.fillStyle = c.accent; arr.forEach(([t, v]) => { if (t > win) return; const px = ax.X(t * 1e3); if (mode === 'SWE') { const wpx = Math.max(2, ax.X((t + N / f * 1e-6) * 1e3) - px); ctx.globalAlpha = 0.85; ctx.fillRect(px, ax.Y(v), wpx, ax.Y(0) - ax.Y(v)); } else { ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(px, ax.Y(0)); ctx.lineTo(px, ax.Y(v)); ctx.stroke(); } }); ctx.restore(); }
+    { const { ctx, w: W } = Lab.canvas($('m22-is-bar'), 170); const ax = Lab.axes(ctx, { x: 118, y: 14, w: W - 134, h: 120 }, [-4, 1], [0, 3], { xlabel: 'log₁₀ (value / Track 3 limit)', noYLabels: true, xticks: [-4, -3, -2, -1, 0, 1] });
+      const lab = ['I_SPTA.3 / 720', 'I_SPPA.3 / 190', 'MI / 1.9']; ctx.save(); ctx.font = '11px ' + c.mono; ctx.fillStyle = c.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; lab.forEach((l, i) => ctx.fillText(l, ax.box.x - 6, ax.Y(2.5 - i))); ctx.restore();
+      Object.keys(ISP).forEach(k => { if (k === mode) return; const q = ISP[k], o = isCalc(k, q.p, q.f, Math.pow(10, q.n), Math.pow(10, q.r)); [o.ita / 720, o.ipa / 190, o.mi / 1.9].forEach((v, i) => { ctx.save(); ctx.fillStyle = c.muted; ctx.globalAlpha = 0.55; ctx.fillRect(ax.X(Math.max(-4, Math.log10(v))) - 1.5, ax.Y(2.5 - i) - 9, 3, 18); ctx.restore(); }); });
+      [R.ita / 720, R.ipa / 190, R.mi / 1.9].forEach((v, i) => { const l = Math.max(-4, Math.min(1, Math.log10(v))); ctx.save(); ctx.fillStyle = v > 1 ? c.sig2 : c.accent; ctx.globalAlpha = 0.85; ctx.fillRect(ax.X(-4), ax.Y(2.5 - i) - 6, ax.X(l) - ax.X(-4), 12); ctx.restore(); });
+      ctx.save(); ctx.strokeStyle = c.sig2; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax.X(0), ax.box.y); ctx.lineTo(ax.X(0), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
+    const ok3 = R.ita <= 720 && (R.mi <= 1.9 || R.ipa <= 190);
+    $('m22-is-read').innerHTML = 'PII<sub>.3</sub> = <b>' + sci(R.pii * 1e3 / 1e4, 3) + '</b> mJ/cm²<br>pulses/s at the point = <b>' + fmt(R.rate, R.rate < 10 ? 2 : 0) + '</b>' + (mode === 'B' ? ' (frame × ' + fmt(NEFF, 2) + ')' : mode === 'CF' ? ' (frame × ' + fmt(NEFF, 2) + ' × 10)' : '') + '<br>I<sub>SPTA.3</sub> = <b>' + fmt(R.ita, R.ita < 10 ? 2 : 0) + ' mW/cm²</b><br>t<sub>d</sub> = ' + fmt(R.td * 1e6, 3) + ' µs, I<sub>SPPA.3</sub> = <b>' + fmt(R.ipa, 1) + ' W/cm²</b><br>DF = ' + sci(R.df, 2) + ', MI = <b>' + fmt(R.mi, 2) + '</b><br>Track 3: <b>' + (ok3 ? 'within' : 'exceeded') + '</b>' + (R.mi > 1.9 && R.ipa <= 190 ? ' (via I<sub>SPPA.3</sub> branch)' : R.ipa > 190 && R.mi <= 1.9 ? ' (via MI branch)' : ''); }
+  ['m22-is-p', 'm22-is-f', 'm22-is-n', 'm22-is-r'].forEach(id => $(id).addEventListener('input', isDraw)); $('m22-is-mode').addEventListener('change', isSet);
+
+  /* ======================= Demo 22.3: derating ======================= */
+  function deDraw() { const c = Lab.colors(), f = +$('m22-de-f').value, Fm = +$('m22-de-F').value, L = +$('m22-de-L').value, pw = +$('m22-de-pw').value, al = +$('m22-de-a').value;
+    $('m22-de-f-o').textContent = fmt(f) + ' MHz'; $('m22-de-F-o').textContent = Fm + ' mm'; $('m22-de-L-o').textContent = L + ' mm'; $('m22-de-pw-o').textContent = fmt(pw, 1) + ' MPa'; $('m22-de-a-o').textContent = fmt(al, 2) + ' dB/cm/MHz';
+    const pr = circProfile(f, L, Fm), zs = lin(0.1, 15, 450), raw = zs.map(pr), mx = Math.max(...raw), p = raw.map(v => pw * v / mx), p3 = zs.map((z, i) => p[i] * der(f, z, 0)), pin = zs.map((z, i) => p[i] * Math.pow(10, -al * f * z / 20));
+    let iw = 0, i3 = 0, ii = 0; p.forEach((v, i) => { if (v > p[iw]) iw = i; if (p3[i] > p3[i3]) i3 = i; if (pin[i] > pin[ii]) ii = i; });
+    { const { ctx, w: W } = Lab.canvas($('m22-de-z'), 220); const ax = Lab.axes(ctx, { x: 54, y: 14, w: W - 70, h: 170 }, [0, 15], [0, pw * 1.12], { xlabel: 'depth z (cm)', ylabel: 'p_r (MPa)', ny: 4 });
+      ax.clip(); Lab.line(ctx, ax, zs, p, c.fg, 1.6); Lab.line(ctx, ax, zs, p3, c.accent, 2); Lab.line(ctx, ax, zs, pin, c.sig4, 1.6, [5, 3]); Lab.line(ctx, ax, zs, p3.map(v => pw * 1.05 * (v / p3[i3]) ** 2), c.sig3, 1.2, [2, 3]); ax.unclip();
+      Lab.dots(ctx, ax, [zs[iw]], [p[iw]], c.fg, 4); Lab.dots(ctx, ax, [zs[i3]], [p3[i3]], c.accent, 5); Lab.dots(ctx, ax, [zs[ii]], [pin[ii]], c.sig4, 4); }
+    { const { ctx, w: W } = Lab.canvas($('m22-de-fz'), 150); const ymin = -Math.max(6, Math.ceil(0.3 * f * 15 / 5) * 5);
+      const ax = Lab.axes(ctx, { x: 54, y: 12, w: W - 70, h: 100 }, [0, 15], [ymin, 0], { xlabel: 'depth z (cm)', ylabel: 'loss (dB)', ny: 3 });
+      Lab.line(ctx, ax, [0, 15], [0, -0.3 * f * 15], c.accent, 2); Lab.line(ctx, ax, [0, 15], [0, -al * f * 15], c.sig4, 1.5, [5, 3]); Lab.dots(ctx, ax, [zs[i3]], [-0.3 * f * zs[i3]], c.accent, 4); }
+    const MIv = p3[i3] / Math.sqrt(f);
+    $('m22-de-read').innerHTML = 'water peak at <b>' + fmt(zs[iw], 2) + ' cm</b><br>derated peak (z<sub>MI</sub>) at <b>' + fmt(zs[i3], 2) + ' cm</b><br>loss there ' + fmt(0.3 * f * zs[i3], 2) + ' dB: p × ' + fmt(der(f, zs[i3], 0), 3) + ', I × ' + fmt(der(f, zs[i3], 1), 3) + '<br>p<sub>r.3</sub> = <b>' + fmt(p3[i3], 2) + ' MPa</b>, MI = <b>' + fmt(MIv, 2) + '</b>' + (MIv > 1.9 ? ' (&gt; 1.9)' : '') + '<br>water peak derated at its own depth: MI ' + fmt(p[iw] * der(f, zs[iw], 0) / Math.sqrt(f), 2) + '<br>in situ peak (α = ' + fmt(al, 2) + '): <b>' + fmt(pin[ii], 2) + ' MPa</b> at ' + fmt(zs[ii], 2) + ' cm, ' + (pin[ii] >= p3[i3] ? '+' : '') + fmt(dB20(pin[ii] / p3[i3]), 1) + ' dB vs derated'; }
+  ['m22-de-f', 'm22-de-F', 'm22-de-L', 'm22-de-pw', 'm22-de-a'].forEach(id => $(id).addEventListener('input', deDraw));
+
+  /* ======================= Demo 22.4: MI/TI calculator ======================= */
+  const TIPRE = { bmode: { r: Math.log10(40), lab: 'Frame rate (128 lines)', u: 'Hz', rmin: 0, rmax: 2.3 }, pw: { r: Math.log10(6000), lab: 'PRF', u: 'Hz', rmin: 2.7, rmax: 4.3 }, plane: { r: Math.log10(5000), lab: 'PRF', u: 'Hz', rmin: 2, rmax: 4.3 }, push: { r: Math.log10(2), lab: 'Pushes per second', u: '/s', rmin: -1, rmax: 1.3 }, ulm: { r: Math.log10(5000), lab: 'PRF', u: 'Hz', rmin: 2, rmax: 4.3 } };
+  function tiSet() { const k = $('m22-ti-pre').value, P = PRE[k], s = TIPRE[k]; $('m22-ti-r').min = s.rmin; $('m22-ti-r').max = s.rmax; $('m22-ti-f').value = P.f; $('m22-ti-p0').value = P.p0; $('m22-ti-F').value = Math.min(120, P.Fx); $('m22-ti-F').disabled = P.Fx > 1e4; $('m22-ti-n').value = Math.log10(P.N); $('m22-ti-r').value = s.r; tiDraw(); }
+  function tiDraw() { const c = Lab.colors(), k = $('m22-ti-pre').value, s = TIPRE[k], P = Object.assign({}, PRE[k]);
+    P.f = +$('m22-ti-f').value; P.p0 = +$('m22-ti-p0').value; if (PRE[k].Fx < 1e4) P.Fx = +$('m22-ti-F').value; P.N = Math.pow(10, +$('m22-ti-n').value); const r = Math.pow(10, +$('m22-ti-r').value); if (P.mode === 'scan') P.frame = r; else P.rate = r;
+    $('m22-ti-f-o').textContent = fmt(P.f) + ' MHz'; $('m22-ti-p0-o').textContent = fmt(P.p0, 2) + ' MPa'; $('m22-ti-F-o').textContent = PRE[k].Fx > 1e4 ? 'unfocused' : P.Fx + ' mm'; $('m22-ti-n-o').textContent = fmt(P.N, P.N < 10 ? 1 : 0); $('m22-ti-r-l').textContent = s.lab; $('m22-ti-r-o').textContent = fmt(r, r < 10 ? 2 : 0) + ' ' + s.u;
+    const o = output(P), zs = o.rows.map(q => q.z);
+    { const { ctx, w: W } = Lab.canvas($('m22-ti-z'), 200); const pm = Math.max(...o.rows.map(q => q.pr3)) / 1e6;
+      const ax = Lab.axes(ctx, { x: 54, y: 14, w: W - 70, h: 150 }, [0, 15], [0, pm * 1.15], { xlabel: 'depth z (cm)', ylabel: 'p_r.3 (MPa)', ny: 4 });
+      Lab.line(ctx, ax, zs, o.rows.map(q => q.pr3 / 1e6), c.accent, 2); Lab.dots(ctx, ax, [o.zMI], [o.rows[o.iMI].pr3 / 1e6], c.accent, 5);
+      ctx.save(); ctx.fillStyle = c.accent; ctx.font = '11px ' + c.mono; ctx.fillText('z_MI = ' + fmt(o.zMI, 2) + ' cm', ax.X(o.zMI) + 8, ax.Y(o.rows[o.iMI].pr3 / 1e6) - 6); ctx.restore();
+      if (P.mode === 'unscan') { const tm = Math.max(o.TIB, o.TIS, 1e-6) / 0.8, sc = pm * 1.15 / tm; ax.clip(); Lab.line(ctx, ax, zs, o.rows.map(q => q.tisA * sc), c.sig3, 1.3, [5, 3]); Lab.line(ctx, ax, zs, o.rows.map(q => q.tisB * sc), c.sig4, 1.3, [5, 3]); Lab.line(ctx, ax, zs, o.rows.map(q => q.tib * sc), c.sig2, 1.3, [2, 2]); ax.unclip();
+        ctx.save(); ctx.strokeStyle = c.muted; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ax.X(o.zbp), ax.box.y); ctx.lineTo(ax.X(o.zbp), ax.box.y + ax.box.h); ctx.stroke(); ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.fillText('z_bp', ax.X(o.zbp) + 3, ax.box.y + 12); ctx.textAlign = 'right'; ctx.fillText('dashed: TI integrands, scaled (TIB peak ' + fmt(o.TIB, 2) + ')', ax.box.x + ax.box.w - 4, ax.box.y + ax.box.h - 8); ctx.restore(); } }
+    { const { ctx, w: W } = Lab.canvas($('m22-ti-bar'), 190); const items = [['MI / 1.9', o.MI / 1.9], ['I_SPTA.3 / 720', o.ispta3 / 720], ['I_SPPA.3 / 190', o.isppa3 / 190], ['TIS', o.TIS], ['TIB', o.TIB], ['TIC', o.TIC]];
+      const ax = Lab.axes(ctx, { x: 110, y: 10, w: W - 126, h: 150 }, [0, 2.2], [0, 6], { xlabel: 'index, or fraction of limit', noYLabels: true, xticks: [0, 0.5, 1, 1.5, 2] });
+      items.forEach(([n, v], i) => { const yy = 5.5 - i; ctx.save(); ctx.fillStyle = (i < 3 ? v > 1 : false) ? c.sig2 : i < 3 ? c.accent : c.sig4; ctx.globalAlpha = 0.85; ctx.fillRect(ax.X(0), ax.Y(yy) - 8, ax.X(Math.min(2.2, v)) - ax.X(0), 16); ctx.restore();
+        ctx.save(); ctx.font = '11px ' + c.mono; ctx.fillStyle = c.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(n, ax.box.x - 6, ax.Y(yy)); ctx.textAlign = 'left'; ctx.fillStyle = c.fg; ctx.fillText(fmt(v, 2), ax.X(Math.min(2.2, v)) + 4 > ax.box.x + ax.box.w - 30 ? ax.box.x + ax.box.w - 30 : ax.X(Math.min(2.2, v)) + 4, ax.Y(yy)); ctx.restore(); });
+      ctx.save(); ctx.strokeStyle = c.sig2; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(ax.X(1), ax.box.y); ctx.lineTo(ax.X(1), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
+    const ok3 = o.ispta3 <= 720 && (o.MI <= 1.9 || o.isppa3 <= 190);
+    $('m22-ti-read').innerHTML = 'MI = <b>' + fmt(o.MI, 2) + '</b> at z<sub>MI</sub> = ' + fmt(o.zMI, 2) + ' cm<br>I<sub>SPTA.3</sub> = <b>' + fmt(o.ispta3, o.ispta3 < 10 ? 2 : 0) + '</b> mW/cm² (at ' + fmt(o.zT, 2) + ' cm), I<sub>SPPA.3</sub> = <b>' + fmt(o.isppa3, 1) + '</b> W/cm²<br>power P = <b>' + fmt(o.Pw, 1) + ' mW</b>' + (o.P1 !== null ? ', P<sub>1</sub> = ' + fmt(o.P1, 1) + ' mW' : '') + '<br>' + (P.mode === 'unscan' ? 'A<sub>aprt</sub> = ' + fmt(o.Aap, 2) + ' cm², D<sub>eq</sub> = ' + fmt(o.Deq, 2) + ' cm, z<sub>bp</sub> = ' + fmt(o.zbp, 2) + ' cm<br>' : 'scanning: TIB = TIS<br>') + 'TIS = <b>' + fmt(o.TIS, 2) + '</b>' + (o.zs ? ' (z<sub>s</sub> ' + fmt(o.zs, 2) + ')' : '') + ', TIB = <b>' + fmt(o.TIB, 2) + '</b>' + (o.zb && P.mode === 'unscan' ? ' (z<sub>b</sub> ' + fmt(o.zb, 2) + ')' : '') + ', TIC = <b>' + fmt(o.TIC, 2) + '</b><br>Track 3: <b>' + (ok3 ? 'within' : 'exceeded') + '</b>' + (Math.max(o.TIS, o.TIB, o.TIC) > 6 ? '; TI &gt; 6 needs justification' : '') + (Math.max(o.MI, o.TIS, o.TIB, o.TIC) > 1 ? '; an index exceeds 1.0' : ''); }
+  ['m22-ti-f', 'm22-ti-p0', 'm22-ti-F', 'm22-ti-n', 'm22-ti-r'].forEach(id => $(id).addEventListener('input', tiDraw)); $('m22-ti-pre').addEventListener('change', tiSet);
+
+  /* ======================= Demo 22.5: hydrophone ======================= */
+  function hyDraw() { const c = Lab.colors(), W6 = +$('m22-hy-w').value, asp = +$('m22-hy-asp').value, d = +$('m22-hy-d').value / 1000, cor = $('m22-hy-cor').checked;
+    $('m22-hy-w-o').textContent = fmt(W6, 2) + ' mm'; $('m22-hy-asp-o').textContent = fmt(asp, 1); $('m22-hy-d-o').textContent = Math.round(d * 1000) + ' µm';
+    const wx = W6 / 1.6651, wy = asp * wx, b = d / 2, xs = lin(-1.6 * W6, 1.6 * W6, 121), tru = xs.map(x0 => Math.exp(-x0 * x0 / (wx * wx))), mea = xs.map(x0 => discAvg(wx, wy, b, x0));
+    const m0 = mea[60]; let i6 = 60; while (i6 < 120 && mea[i6] >= m0 / 2) i6++; const W6m = 2 * (xs[i6 - 1] + (mea[i6 - 1] - m0 / 2) / (mea[i6 - 1] - mea[i6]) * (xs[i6] - xs[i6 - 1]));
+    const wxm = W6m / 1.6651, wxc = Math.sqrt(Math.max(1e-9, wxm * wxm - b * b / 2)), wyc = Math.sqrt(Math.max(1e-9, (asp * wxm) ** 2 - b * b / 2)), corrF = Math.sqrt((wxc * wxc + b * b / 2) / (wxc * wxc)) * Math.sqrt((wyc * wyc + b * b / 2) / (wyc * wyc)), pc = m0 * corrF;
+    { const { ctx, w: W } = Lab.canvas($('m22-hy-p'), 200); const ax = Lab.axes(ctx, { x: 50, y: 14, w: W - 66, h: 150 }, [xs[0], xs[120]], [-0.05, 1.12], { xlabel: 'x (mm), azimuth scan through the focus', ylabel: 'p (norm.)', ny: 3, nx: W < 500 ? 4 : 8 });
+      Lab.line(ctx, ax, xs, tru, c.fg, 1.6); Lab.line(ctx, ax, xs, mea, c.accent, 2); if (cor) Lab.dots(ctx, ax, [0], [Math.min(1.1, pc)], c.sig4, 5);
+      ctx.save(); ctx.fillStyle = c.sig3; ctx.globalAlpha = 0.3; ctx.fillRect(ax.X(-b), ax.box.y + ax.box.h - 10, Math.max(2, ax.X(b) - ax.X(-b)), 8); ctx.restore(); }
+    { const { ctx, w: W } = Lab.canvas($('m22-hy-l'), 170); const ds = lin(0.02, 1.0, 50);
+      const ax = Lab.axes(ctx, { x: 50, y: 14, w: W - 66, h: 120 }, [0, 1], [0, 1.05], { xlabel: 'hydrophone diameter (mm)', ylabel: 'reading / true', ny: 4 });
+      const lp = ds.map(dd => discAvg(wx, wy, dd / 2, 0)); Lab.line(ctx, ax, ds, lp, c.accent, 1.8); Lab.line(ctx, ax, ds, lp.map(v => v * v), c.sig2, 1.8);
+      Lab.dots(ctx, ax, [d], [m0], c.accent, 4.5); Lab.dots(ctx, ax, [d], [m0 * m0], c.sig2, 4.5); }
+    $('m22-hy-read').innerHTML = 'd / W<sub>−6</sub> = <b>' + fmt(d / W6, 2) + '</b><br>pressure (MI) reads <b>' + fmt(dB20(m0), 2) + ' dB</b> (' + fmt(100 * (m0 - 1), 1) + ' %)<br>intensity (I<sub>SPTA</sub>, I<sub>SPPA</sub>) reads <b>' + fmt(dB10(m0 * m0), 2) + ' dB</b> (' + fmt(100 * (m0 * m0 - 1), 1) + ' %)<br>measured W<sub>−6</sub> = ' + fmt(W6m, 3) + ' mm (true ' + fmt(W6, 3) + ')<br>' + (cor ? 'Gaussian-kernel corrected peak: <b>' + fmt(dB20(pc), 2) + ' dB</b>' : 'correction off'); }
+  ['m22-hy-w', 'm22-hy-asp', 'm22-hy-d'].forEach(id => $(id).addEventListener('input', hyDraw)); $('m22-hy-cor').addEventListener('change', hyDraw);
+
+  /* ======================= card grids ======================= */
+  Lab.cardGrid('m22', 'm22-g1', [
+    { q: 'How long may tissue be heated by ΔT?', a: 'AIUM 2021: <b>1.5 °C</b> without reservation; fetal <b>4 °C for 2 min</b>, 2 °C for 30 min without observed adverse effects.', prov: 'exact', draw: F.aiumDT },
+    { q: 'How do degrees and minutes trade?', a: 'CEM43 = Σ t·R<sup>43−T</sup>: each degree below 43 °C divides the dose by <b>4</b>, each degree above multiplies it by <b>2</b>.', prov: 'exact', draw: F.cem },
+    { q: 'How fast does a beam heat tissue?', a: 'Conduction time constant <b>τ ≈ a²/4κ</b>: 0.5 s for a 0.5 mm beam radius, 1.9 s for 1 mm, 47 s for 5 mm.', prov: 'model', draw: F.heatTau }
+  ]);
+  Lab.cardGrid('m22', 'm22-g2', [
+    { q: 'What is the pulse duration?', a: '<b>1.25 × (t₉₀ − t₁₀)</b> of the cumulative ∫p². For this 3-cycle, 3 MHz pulse: <b>0.91 µs</b> (envelope formula 2.27σ<sub>t</sub> = 0.96 µs).', prov: 'model', draw: F.td },
+    { q: 'How large is the duty factor?', a: '<b>10<sup>−4</sup></b> for scanned B-mode, <b>0.5 %</b> for PW Doppler at 6 kHz, similar for plane-wave ultrafast.', prov: 'model', draw: F.duty }
+  ]);
+  Lab.cardGrid('m22', 'm22-g3', [
+    { q: 'How big is the derating?', a: '<b>0.3 f z dB</b>: 4.5 dB at 3 MHz and 5 cm, 9 dB at 7.5 MHz and 4 cm.', prov: 'exact', draw: F.derate },
+    { q: 'Is the derated value conservative?', a: 'Relative to tissue at 0.5–0.7 dB/cm/MHz, yes; through a <b>fluid path</b> the in situ pressure exceeds it by several dB.', prov: 'model', draw: F.insitu }
+  ]);
+  Lab.cardGrid('m22', 'm22-g4', [
+    { q: 'What pressure does MI 1.9 allow?', a: '<b>1.9√f MPa</b> derated: 3.29 MPa at 3 MHz; in water at 4 cm that is <b>4.98 MPa</b>.', prov: 'exact', draw: F.miP },
+    { q: 'Why do high frequencies give lower MI at depth?', a: 'Derating falls as 10<sup>−0.3fz/20</sup> and MI divides by √f: at 4 cm, 3 MPa in water is <b>MI 1.14 at 3 MHz, 0.39 at 7.5 MHz</b>.', prov: 'exact', draw: F.miF },
+    { q: 'Why is p<sub>c</sub> larger than p<sub>r</sub> in a focus?', a: 'Harmonics generated before the focus cross it with a different diffraction (Gouy) phase, so the waveform turns asymmetric: <b>p<sub>c</sub> &gt; p<sub>r</sub></b>. A plane-wave Fubini waveform stays symmetric. MI uses p<sub>r</sub>.', prov: 'model', draw: F.fubini }
+  ]);
+  Lab.cardGrid('m22', 'm22-g5', [
+    { q: 'What power heats soft tissue by a degree?', a: '<b>W<sub>deg</sub> = 210/f mW</b>: 70 mW at 3 MHz; bone ≈ 40 mW per cm of beam diameter.', prov: 'model', draw: F.wdeg },
+    { q: 'When is TIC above 1?', a: 'TIC = P/(40 D<sub>eq</sub>): <b>45 mW</b> for a 1 cm² aperture, 64 mW for 2 cm².', prov: 'model', draw: F.tic },
+    { q: 'Is TI a temperature?', a: 'Within about <b>× 2</b>: a steady Pennes model at W = 210/f mW gives <b>0.5–1.6 °C</b> depending on beam radius, only weakly dependent on f.', prov: 'sim', draw: F.ti2 }
+  ]);
+  Lab.cardGrid('m22', 'm22-g6', [
+    { q: 'Track 1 or Track 3 limit?', a: 'Track 1 I<sub>SPTA.3</sub>: <b>17 / 94 / 430 / 720</b> mW/cm²; Track 3: <b>720</b> global, 50 ophthalmic.', prov: 'exact', draw: F.limits },
+    { q: 'Which pulses meet the MI-or-I<sub>SPPA</sub> rule?', a: 'Shaded region: MI ≤ 1.9 <b>or</b> I<sub>SPPA.3</sub> ≤ 190 W/cm². Short pulses above 2 MHz use the MI branch.', prov: 'model', draw: F.orRegion },
+    { q: 'How long may I dwell at a given TI?', a: 'AIUM (2022): obstetric <b>&lt; 1 min at TI 2.5–3</b>, no limit ≤ 0.7; non-obstetric no limit ≤ 1.5, <b>not above 6</b>.', prov: 'exact', draw: F.aiumTI }
+  ]);
+  Lab.cardGrid('m22', 'm22-g7', [
+    { q: 'What does a radiation force balance read?', a: '<b>F = P/c</b> for an absorber: 100 mW → 66.7 µN → 6.8 mg.', prov: 'model', draw: F.rfb },
+    { q: 'Does the Gaussian correction work?', a: 'It restores the peak to within <b>0.1 dB</b> up to d ≈ ¾ W₋₆ for a round Gaussian focus (0.25 dB at d = W₋₆); non-Gaussian foci need the full deconvolution.', prov: 'model', draw: F.hydCorr }
+  ]);
+  Lab.cardGrid('m22', 'm22-g8', [
+    { q: 'Why does ultrafast imaging raise I<sub>SPTA</sub>?', a: 'Every transmit reaches every point: <b>5000 pulses/s</b> against about 113 for focused B-mode.', prov: 'model', draw: F.plane },
+    { q: 'How much energy is in a push?', a: 'A 400 µs push carries <b>≈ 600×</b> the PII of a 2-cycle pulse at the same pressure.', prov: 'model', draw: F.push },
+    { q: 'Which MI thresholds matter with gas?', a: 'Lung <b>0.4</b>, intestine <b>1.4</b>, contrast agents <b>0.4</b> (AIUM); BMUS: 0.3 neonatal lung, 0.7 contrast.', prov: 'exact', draw: F.gas },
+    { q: 'What pressure does the bubble see?', a: 'The <b>in situ</b> pressure with the real path loss: at 8 cm and 2.5 MHz, a fluid path gives 1.8× the derated value, liver-like tissue 0.4×.', prov: 'model', draw: F.bubble }
+  ]);
+  Lab.cardGrid('m22', 'm22-vis', [
+    { q: 'Heat or cavitation?', a: 'Heat: <b>time-average power</b> (TI). Cavitation: <b>p<sub>r</sub>/√f</b> of one pulse (MI).', prov: 'model', draw: F.mech },
+    { q: 'Derating?', a: '<b>0.3 f z dB</b>; pressure ÷20, intensity ÷10.', prov: 'exact', draw: F.derate },
+    { q: 'Where is MI evaluated?', a: 'At the <b>derated</b> PII maximum, shallower than the water focus.', prov: 'model', draw: F.shift },
+    { q: 'MI 1.9 in MPa?', a: '<b>1.9√f</b>: 3.29 at 3 MHz, 5.20 at 7.5 MHz.', prov: 'exact', draw: F.miP },
+    { q: 'p<sub>c</sub> or p<sub>r</sub>?', a: 'MI uses <b>p<sub>r</sub></b>; nonlinearity plus the focal phase shift makes p<sub>c</sub> larger.', prov: 'model', draw: F.fubini },
+    { q: 'Pulse duration?', a: '<b>1.25 (t₉₀ − t₁₀)</b> of cumulative p².', prov: 'model', draw: F.td },
+    { q: 'Pulses per second at a point?', a: 'Scanned: frame × <b>0.75 w₋₆/Δ</b>; plane wave: <b>PRF</b>.', prov: 'model', draw: F.overlap },
+    { q: 'Track 3?', a: '<b>720 mW/cm²</b> and (MI ≤ 1.9 <b>or</b> I<sub>SPPA.3</sub> ≤ 190 W/cm²).', prov: 'model', draw: F.orRegion },
+    { q: 'W<sub>deg</sub>?', a: 'Soft tissue <b>210/f mW</b>, bone <b>40 mW/cm × d</b>.', prov: 'model', draw: F.wdeg },
+    { q: 'Large unscanned aperture?', a: 'TIS beyond <b>z<sub>bp</sub> = 1.5 D<sub>eq</sub></b> from min[P<sub>α</sub>, I<sub>ta,α</sub>·1 cm²].', prov: 'model', draw: F.zbp },
+    { q: 'Track 1 table?', a: '<b>720 / 430 / 94 / 17</b> mW/cm² by application.', prov: 'exact', draw: F.limits },
+    { q: 'Dwell time at a TI?', a: 'Obstetric: <b>none above 3</b>; non-obstetric: <b>none above 6</b>.', prov: 'exact', draw: F.aiumTI },
+    { q: 'Hydrophone size?', a: '<b>≤ W₋₆/4</b>: about 4 % intensity error.', prov: 'model', draw: F.hyd },
+    { q: 'Power by weighing?', a: '<b>F = P/c</b>: 1 W ≈ 68 mg.', prov: 'model', draw: F.rfb }
+  ]);
+  const RF = { 1: F.mech, 2: F.derate, 3: F.shift, 4: F.miP, 5: F.orRegion, 6: F.overlap, 7: F.td, 8: F.duty, 9: F.ti2, 10: F.wdeg, 11: F.tic, 12: F.zbp, 13: F.hyd, 14: F.rfb, 15: F.plane, 16: F.push, 17: F.aiumTI, 18: F.gas };
+  function drawRules() { Object.keys(RF).forEach(k => { const cv = $('m22-rf-' + k); if (cv) { try { RF[k](cv); } catch (e) { console.error(e); } } }); }
+  let inited = false;
+  function drawAll() { if (!inited) { inited = true; thSet('dop'); isSet(); tiSet(); } else { thDraw(); isDraw(); tiDraw(); } deDraw(); hyDraw(); drawRules(); }
+  Lab.onShow('m22', drawAll);
+})();
+</script>

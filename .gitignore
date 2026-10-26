@@ -1,0 +1,9 @@
+shots/
+build/
+public/
+octave-workspace
+__pycache__/
+*.pyc
+# vendor/ is tracked on purpose (offline MathJax for --local builds)
+tools/m25-admire-tuning/out/
+*.log

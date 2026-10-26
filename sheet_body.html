@@ -1,0 +1,277 @@
+<style>
+.sheet { max-width: 1040px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 48px); padding-block: 28px 72px; }
+.sheet .toc { display: flex; flex-wrap: wrap; gap: 6px 14px; font: 500 0.88rem var(--f-display); margin: 14px 0 6px; }
+.sheet .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 14px; }
+.sheet .callout mjx-container { max-width: 100%; overflow-x: auto; overflow-y: hidden; vertical-align: middle; }
+.sheet .grid2 > * { min-width: 0; }
+.sheet td.f { white-space: nowrap; }
+.sheet .part-head { margin: 44px 0 0; padding: 14px 0 0; border-top: 2px solid var(--accent); }
+.sheet .part-head .eyebrow { margin: 0; }
+.sheet .part-head h2 { margin-top: 4px; }
+.sheet .mods { font: 500 0.82rem/1.4 var(--f-mono); color: var(--muted); margin: -6px 0 10px; }
+.sheet .eqn .eqn-math { font-size: 1.05rem; }
+.sheet .keyeq { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 10px 0 18px; }
+.sheet .keyeq .eqn { margin: 0; min-width: 0; }
+.sheet .keyeq .eqn.key::before { content: none; }
+.sheet .kmod { font: 600 0.95rem/1.3 var(--f-display); margin: 22px 0 4px; }
+.sheet .kmod a { color: var(--ink); text-decoration-color: var(--accent); }
+.sheet .kmod .n { font-family: var(--f-mono); color: var(--accent); margin-right: 6px; }
+.sheet details.sym { margin-top: 6px; font-size: 0.86rem; }
+.sheet details.sym > summary { cursor: pointer; color: var(--muted); font: 500 0.76rem var(--f-mono); }
+.sheet details.sym .where { margin-top: 4px; }
+</style>
+<div class="sheet">
+  <div class="eyebrow">Companion to the Open Ultrasound Lab · Parts I–V · Modules 01–33</div>
+  <h1>Ultrasound Formula Sheet</h1>
+  <p class="lede">The transform pairs, theorems, numbers and rules of thumb an ultrasound signal-processing expert answers from memory, organized by the five parts of the course. Each part opens with the facts to know cold, then lists the key equations of every module in that part, with their equation numbers in the module.</p>
+  <nav class="toc" aria-label="Sections">
+    <a href="#s-conv">Conventions</a><a href="#p1">Part I · Foundations</a><a href="#p2">Part II · Signal processing</a><a href="#p3">Part III · Physics &amp; hardware</a><a href="#p4">Part IV · Image formation</a><a href="#p5">Part V · Modes &amp; capstones</a><a href="#s-rapid">Rapid fire</a>
+  </nav>
+
+  <h2 id="s-conv"><span class="sec">1</span>Conventions used on this sheet</h2>
+  <div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ X(f) = \int x(t)\, e^{-j2\pi f t}\, dt \qquad x(t) = \int X(f)\, e^{+j2\pi f t}\, df \]</div></div><span class="note">Ordinary frequency f in Hz, so no 2π factors in front. With angular frequency ω the inverse gains 1/(2π). \(\operatorname{sinc}(x) = \sin(\pi x)/(\pi x)\), so sinc has zeros at every nonzero integer. \(\operatorname{rect}(t) = 1\) for \(\lvert t\rvert &lt; \tfrac12\). Decibels: amplitude ratios use \(20\log_{10}\), power ratios use \(10\log_{10}\). Equation numbers such as (04.3) refer to the module and equation in the course.</span></div>
+
+  <!-- ===================== PART I ===================== -->
+  <div class="part-head" id="p1"><p class="eyebrow">Part I · Modules 01–07</p></div>
+  <h2 id="s-pairs"><span class="sec">2</span>Fourier transform pairs</h2>
+  <p class="mods">Modules 02 (DFT), 03 (LTI systems), 04 (sampling and Fourier)</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th style="text-transform:none">Signal x(t)</th><th style="text-transform:none">Transform X(f)</th><th>Remember it as</th><th>Ultrasound use</th></tr></thead>
+    <tbody>
+      <tr><td class="f">\(\delta(t)\)</td><td class="f">\(1\)</td><td>An impulse contains every frequency equally</td><td>Ideal reflector; system impulse response</td></tr>
+      <tr><td class="f">\(1\)</td><td class="f">\(\delta(f)\)</td><td>DC is one spectral line</td><td>DC offset, stationary clutter at 0 Hz</td></tr>
+      <tr><td class="f">\(\operatorname{III}_T(t) = \sum_n \delta(t - nT)\)</td><td class="f">\(\frac{1}{T}\sum_k \delta\!\left(f - \frac{k}{T}\right)\)</td><td><strong>Comb ↔ comb</strong>; spacing T becomes 1/T, height 1/T</td><td>Sampling (replicas at \(k f_s\)), element pitch (grating lobes), PRF (Doppler aliasing)</td></tr>
+      <tr><td class="f">\(\operatorname{rect}(t/T)\)</td><td class="f">\(T\operatorname{sinc}(fT)\)</td><td>Box ↔ sinc; first null at f = 1/T</td><td>Uniform aperture → beam; gated signal → spectrum</td></tr>
+      <tr><td class="f">\(\operatorname{tri}(t/T)\)</td><td class="f">\(T\operatorname{sinc}^2(fT)\)</td><td>tri = rect ∗ rect, so its transform is sinc²</td><td>Two-way beam of identical tx/rx apertures; VCZ coherence triangle</td></tr>
+      <tr><td class="f">\(\operatorname{sinc}(Bt)\)</td><td class="f">\(\frac{1}{B}\operatorname{rect}(f/B)\)</td><td>Duality of the box pair</td><td>Ideal low-pass filter; sinc interpolation</td></tr>
+      <tr><td class="f">\(e^{-\pi t^2}\)</td><td class="f">\(e^{-\pi f^2}\)</td><td>The Gaussian is its own transform</td><td>Gaussian pulse model, Gaussian apodization</td></tr>
+      <tr><td class="f">\(e^{-t^2/(2\sigma_t^2)}\)</td><td class="f">\(\sigma_t\sqrt{2\pi}\, e^{-f^2/(2\sigma_f^2)}\)</td><td>\(\sigma_t\sigma_f = 1/(2\pi)\); shorter pulse means wider band</td><td>Gaussian pulse: −6 dB \(\tau B = 0.883\)</td></tr>
+      <tr><td class="f">\(e^{j2\pi f_0 t}\)</td><td class="f">\(\delta(f - f_0)\)</td><td>A phasor is one line</td><td>Analytic signal, IQ, steering phase</td></tr>
+      <tr><td class="f">\(\cos(2\pi f_0 t)\)</td><td class="f">\(\tfrac12\left[\delta(f - f_0) + \delta(f + f_0)\right]\)</td><td>A real tone has two lines, \(\pm f_0\)</td><td>Real RF has a Hermitian spectrum</td></tr>
+      <tr><td class="f">\(g(t)\cos(2\pi f_0 t)\)</td><td class="f">\(\tfrac12\left[G(f - f_0) + G(f + f_0)\right]\)</td><td>Modulation shifts the envelope spectrum</td><td>RF pulse = envelope × carrier</td></tr>
+      <tr><td class="f">\(e^{-at}u(t),\ a &gt; 0\)</td><td class="f">\(\dfrac{1}{a + j2\pi f}\)</td><td>One-pole low-pass</td><td>RC filters, transducer damping models</td></tr>
+      <tr><td class="f">\(u(t)\)</td><td class="f">\(\tfrac12\delta(f) + \dfrac{1}{j2\pi f}\)</td><td>Step = integral of δ</td><td>Integration, cumulative sums</td></tr>
+      <tr><td class="f">\(\operatorname{sgn}(t)\)</td><td class="f">\(\dfrac{1}{j\pi f}\)</td><td>Sign function</td><td>Dual of the Hilbert filter</td></tr>
+      <tr><td class="f">\(\dfrac{1}{\pi t}\)</td><td class="f">\(-j\operatorname{sgn}(f)\)</td><td>Hilbert transform = −90° shift of positive frequencies</td><td>Envelope detection: \(x_a = x + j\mathcal{H}\{x\}\)</td></tr>
+      <tr><td class="f">\(\sum_{n=0}^{N-1}\delta(t - nT)\)</td><td class="f">\(e^{-j\pi f(N-1)T}\,\dfrac{\sin(\pi N f T)}{\sin(\pi f T)}\)</td><td>Finite comb ↔ Dirichlet (periodic sinc): mainlobes every 1/T, width ≈ 1/(NT)</td><td>Array factor of N elements at pitch d; pulse train of N pulses</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s-comb"><span class="sec">3</span>The comb, derived in four lines</h2>
+  <p class="mods">Module 04, Section 04.1</p>
+  <div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ \operatorname{III}_T(t)\ \text{has period } T:\qquad c_k = \frac{1}{T}\int_{-T/2}^{T/2} \delta(t)\, e^{-j2\pi k t/T}\, dt = \frac{1}{T} \]</div></div></div>
+  <div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ \operatorname{III}_T(t) = \frac{1}{T}\sum_k e^{\,j2\pi k t/T}, \qquad e^{\,j2\pi k t/T} \;\longleftrightarrow\; \delta\!\left(f - \frac{k}{T}\right) \]</div></div></div>
+  <div class="eqn key"><div class="eqn-body"><div class="eqn-math">\[ \Rightarrow\quad \mathcal{F}\{\operatorname{III}_T\}(f) = \frac{1}{T}\operatorname{III}_{1/T}(f) = \frac{1}{T}\sum_k \delta\!\left(f - \frac{k}{T}\right) \]</div></div><span class="note">A comb with spacing T transforms to a comb with spacing 1/T and weight 1/T. Narrow spacing in one domain means wide spacing in the other.</span></div>
+  <div class="grid2">
+    <div class="callout us"><span class="label">Sampling</span><p>Sampled signal \(x_s(t) = x(t)\operatorname{III}_T(t)\) ⇒ \(X_s(f) = X(f) \ast \tfrac{1}{T}\operatorname{III}_{1/T} = f_s\sum_k X(f - k f_s)\). The spectrum repeats every \(f_s\). Replicas overlap (alias) unless \(f_s &gt; 2f_{\max}\).</p></div>
+    <div class="callout us"><span class="label">Arrays</span><p>An array is a continuous aperture multiplied by a comb at pitch d. Its beam is the continuous beam convolved with a comb in \(\sin\theta\) at spacing λ/d. Those replicas are the grating lobes: \(\sin\theta_g = \sin\theta_0 \pm m\lambda/d\). Finite length turns each delta into a Dirichlet lobe of width ≈ λ/(Nd).</p></div>
+    <div class="callout us"><span class="label">Pulsed Doppler</span><p>Slow-time sampling at the PRF is a comb in time, so the Doppler spectrum repeats every PRF. Velocities with \(\lvert f_D\rvert &gt; \mathrm{PRF}/2\) wrap around: \(v_{\mathrm{Nyq}} = c\cdot\mathrm{PRF}/(4f_0\cos\theta)\).</p></div>
+    <div class="callout intuit"><span class="label">Periodic ↔ discrete</span><p>Periodic in one domain means discrete (line spectrum) in the other. Sampled in time means periodic in frequency. That is why the DFT is both discrete and periodic in both domains.</p></div>
+  </div>
+
+  <h2 id="s-props"><span class="sec">4</span>Fourier theorems</h2>
+  <p class="mods">Modules 03 (convolution theorem, 03.19), 04, 07 (Wiener–Khinchin), 11 (correlation)</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Property</th><th>Time domain</th><th>Frequency domain</th><th>Ultrasound use</th></tr></thead>
+    <tbody>
+      <tr><td>Linearity</td><td class="f">\(a x + b y\)</td><td class="f">\(a X + b Y\)</td><td>Superposition of scatterers</td></tr>
+      <tr><td>Time shift</td><td class="f">\(x(t - t_0)\)</td><td class="f">\(X(f)\, e^{-j2\pi f t_0}\)</td><td>A delay is a linear phase ramp; delays in the frequency domain</td></tr>
+      <tr><td>Frequency shift</td><td class="f">\(x(t)\, e^{j2\pi f_0 t}\)</td><td class="f">\(X(f - f_0)\)</td><td>IQ demodulation multiplies by \(e^{-j2\pi f_0 t}\)</td></tr>
+      <tr><td>Scaling</td><td class="f">\(x(at)\)</td><td class="f">\(\frac{1}{\lvert a\rvert} X(f/a)\)</td><td>Shorter pulse → wider bandwidth; larger aperture → narrower beam</td></tr>
+      <tr><td>Convolution</td><td class="f">\(x \ast h\)</td><td class="f">\(X H\)</td><td>RF = pulse ∗ reflectivity; filtering</td></tr>
+      <tr><td>Multiplication</td><td class="f">\(x\, w\)</td><td class="f">\(X \ast W\)</td><td>Windowing causes leakage; apodization shapes the beam; sampling replicates</td></tr>
+      <tr><td>Correlation</td><td class="f">\(\int x^*(t)\, y(t + \tau)\, dt\)</td><td class="f">\(X^*(f)\, Y(f)\)</td><td>Fast cross-correlation for delay estimation</td></tr>
+      <tr><td>Wiener–Khinchin</td><td class="f">\(R_{xx}(\tau)\)</td><td class="f">\(S_{xx}(f)\)</td><td>Speckle autocorrelation ↔ system power spectrum</td></tr>
+      <tr><td>Parseval</td><td class="f">\(\int \lvert x\rvert^2 dt\)</td><td class="f">\(= \int \lvert X\rvert^2 df\)</td><td>Energy is the same in both domains</td></tr>
+      <tr><td>Duality</td><td class="f">\(X(t)\)</td><td class="f">\(x(-f)\)</td><td>Get the sinc ↔ rect pair from rect ↔ sinc</td></tr>
+      <tr><td>Differentiation</td><td class="f">\(dx/dt\)</td><td class="f">\(j2\pi f X(f)\)</td><td>Derivatives boost high frequencies (strain from displacement)</td></tr>
+      <tr><td>Real signal</td><td class="f">\(x\) real</td><td class="f">\(X(-f) = X^*(f)\)</td><td>Negative frequencies are redundant, so keep the analytic signal</td></tr>
+      <tr><td>Uncertainty</td><td class="f">\(\sigma_t\) (rms width)</td><td class="f">\(\sigma_t\sigma_f \ge 1/(4\pi)\)</td><td>Axial resolution vs bandwidth; equality only for a Gaussian</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout pitfall"><span class="label">Watch the uncertainty constant</span><p>\(\sigma_t\sigma_f \ge 1/(4\pi)\) uses rms widths of \(\lvert x\rvert^2\) and \(\lvert X\rvert^2\) (energy densities). For the amplitude Gaussian above, the amplitude-function widths satisfy \(\sigma_t\sigma_f = 1/(2\pi)\). Both statements describe the same pulse, so say which width you mean.</p></div>
+
+  <!--CONV-->
+
+  <h2 id="s-dft"><span class="sec">5</span>DFT, FFT and windows</h2>
+  <p class="mods">Module 02 (derivations), Module 04 (resolution, window choice)</p>
+  <div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ X[k] = \sum_{n=0}^{N-1} x[n]\, e^{-j2\pi kn/N} \qquad x[n] = \frac{1}{N}\sum_{k} X[k]\, e^{j2\pi kn/N} \qquad \sum_n \lvert x[n]\rvert^2 = \frac{1}{N}\sum_k \lvert X[k]\rvert^2 \]</div></div><span class="note">Bin spacing \(\Delta f = f_s/N\). True resolution ≈ \(1/T_{\mathrm{obs}} = f_s/N\). Zero padding interpolates the spectrum but adds no resolution. Multiplying DFTs gives circular convolution, so pad to \(N \ge L + M - 1\) for linear convolution. The FFT costs about \(N\log_2 N\) operations instead of \(N^2\), and fftshift puts 0 Hz in the middle.</span></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Window</th><th class="num">Peak sidelobe</th><th class="num">−3 dB width (bins)</th><th class="num">ENBW (bins)</th><th class="num">Sidelobe roll-off</th><th>When to use it</th></tr></thead>
+    <tbody>
+      <tr><td>Rectangular</td><td class="num">−13.3 dB</td><td class="num">0.89</td><td class="num">1.00</td><td class="num">−6 dB/oct</td><td>Best resolution, poor dynamic range</td></tr>
+      <tr><td>Hann</td><td class="num">−31.5 dB</td><td class="num">1.44</td><td class="num">1.50</td><td class="num">−18 dB/oct</td><td>General purpose; common apodization</td></tr>
+      <tr><td>Hamming</td><td class="num">−42.7 dB</td><td class="num">1.30</td><td class="num">1.36</td><td class="num">−6 dB/oct</td><td>Low near sidelobes, slow far roll-off</td></tr>
+      <tr><td>Blackman</td><td class="num">−58.1 dB</td><td class="num">1.64</td><td class="num">1.73</td><td class="num">−18 dB/oct</td><td>High dynamic range spectra</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s-samp"><span class="sec">6</span>Sampling and aliasing</h2>
+  <p class="mods">Module 04, Sections 04.1–04.2</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Fact</th><th>Formula</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td>Nyquist (real, lowpass)</td><td class="f">\(f_s &gt; 2 f_{\max}\)</td><td>5 MHz, 100 % BW (\(f_{\max}\) 7.5 MHz): \(f_s\) &gt; 15 MHz; scanners use \(4f_0\) to 62.5 MHz</td></tr>
+      <tr><td>Alias of a tone</td><td class="f">\(f_a = \left\lvert f - f_s\operatorname{round}(f/f_s)\right\rvert\)</td><td>7 MHz sampled at 10 MHz appears at 3 MHz</td></tr>
+      <tr><td>Bandpass sampling</td><td class="f">\(\dfrac{2f_H}{n} \le f_s \le \dfrac{2f_L}{n-1}\)</td><td>The band must fit in one Nyquist zone</td></tr>
+      <tr><td>Reconstruction</td><td class="f">\(x(t) = \sum_n x[n]\operatorname{sinc}\!\left(\frac{t - nT_s}{T_s}\right)\)</td><td>Fractional delays in DAS and delay estimation</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s-la"><span class="sec">7</span>Linear algebra</h2>
+  <p class="mods">Modules 05 (matrices as operators), 06 (SVD), 13 (regularization)</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Fact</th><th>Formula</th><th>Ultrasound use</th></tr></thead>
+    <tbody>
+      <tr><td>SVD</td><td class="f">\(\mathbf{A} = \mathbf{U}\mathbf{\Sigma}\mathbf{V}^H,\ \sigma_i^2 = \operatorname{eig}(\mathbf{A}^H\mathbf{A})\)</td><td>Clutter filter on the Casorati matrix (pixels × frames)</td></tr>
+      <tr><td>Eckart–Young</td><td class="f">\(\lVert \mathbf{A} - \mathbf{A}_k\rVert_F^2 = \sum_{i&gt;k}\sigma_i^2\)</td><td>Best rank-k approximation</td></tr>
+      <tr><td>Condition number</td><td class="f">\(\kappa = \sigma_{\max}/\sigma_{\min}\)</td><td>Lose about \(\log_{10}\kappa\) digits; \(\kappa(\mathbf{A}^H\mathbf{A}) = \kappa^2\)</td></tr>
+      <tr><td>Least squares</td><td class="f">\(\hat{\mathbf{x}} = (\mathbf{A}^H\mathbf{A})^{-1}\mathbf{A}^H\mathbf{b} = \mathbf{A}^{+}\mathbf{b}\)</td><td>Residual ⟂ columns; attenuation slope fits; use QR or backslash</td></tr>
+      <tr><td>Projector</td><td class="f">\(\mathbf{P} = \mathbf{A}(\mathbf{A}^H\mathbf{A})^{-1}\mathbf{A}^H,\ \mathbf{P}^2 = \mathbf{P}\)</td><td>Signal subspace / clutter subspace</td></tr>
+      <tr><td>Tikhonov (Module 13)</td><td class="f">\(\mathbf{x} = (\mathbf{A}^H\mathbf{A} + \lambda^2\mathbf{I})^{-1}\mathbf{A}^H\mathbf{b}\); filter \(\frac{\sigma^2}{\sigma^2 + \lambda^2}\)</td><td>Sound-speed tomography, diagonal loading</td></tr>
+      <tr><td>Sample covariance rank</td><td class="f">\(\operatorname{rank} \le K\) snapshots</td><td>Invertible only if \(K \ge N\); MVDR needs loading or averaging</td></tr>
+      <tr><td>DAS</td><td>Adjoint \(\mathbf{H}^H\) of the forward model</td><td>A matched filter, not an inverse</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s-stat"><span class="sec">8</span>Covariance and coherence</h2>
+  <p class="mods">Module 07 (random vectors, covariance and correlation)</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Fact</th><th>Formula</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Covariance, correlation coefficient</td><td class="f">\(\operatorname{cov} = E[(x - \mu_x)(y - \mu_y)^*],\ \rho = \frac{\operatorname{cov}}{\sigma_x\sigma_y}\)</td><td>\(\lvert\rho\rvert \le 1\) (Cauchy–Schwarz)</td></tr>
+      <tr><td>Speckle IQ</td><td>Circular complex Gaussian</td><td>Amplitude Rayleigh, intensity exponential, phase uniform</td></tr>
+      <tr><td>Van Cittert–Zernike</td><td>Coherence across the aperture = FT of the source intensity</td><td>Uniform focused transmit: triangle \(1 - \lvert m\rvert/N\)</td></tr>
+      <tr><td>Noise on coherence</td><td class="f">lags ≥ 1 scaled by \(\frac{\mathrm{SNR}}{1 + \mathrm{SNR}}\)</td><td>0 dB SNR halves it</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="k-1"><span class="sec">9</span>Key equations, Modules 01–07</h2>
+  <!--KEYEQ:1-7-->
+
+  <!-- ===================== PART II ===================== -->
+  <div class="part-head" id="p2"><p class="eyebrow">Part II · Modules 08–14</p></div>
+  <h2 id="s-iq"><span class="sec">10</span>IQ and the analytic signal</h2>
+  <p class="mods">Modules 01 (phasors, I and Q), 08 (analytic signal and IQ demodulation)</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Fact</th><th>Formula</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td>Complex (IQ) sampling</td><td class="f">\(f_{s,\mathrm{IQ}} \ge B\)</td><td>A 3 MHz-wide band needs ≥ 3 MHz complex rate, i.e. 6 M real numbers/s</td></tr>
+      <tr><td>IQ demodulation</td><td class="f">\(x_{bb} = \operatorname{LPF}\{x\, e^{-j2\pi f_d t}\}\)</td><td>Mix, low-pass, decimate; beamforming IQ needs a phase rotation \(e^{j2\pi f_d\tau}\)</td></tr>
+      <tr><td>Analytic signal</td><td class="f">\(x_a = x + j\mathcal{H}\{x\},\ X_a = 2X u(f)\)</td><td>Envelope \(\lvert x_a\rvert\); B-mode = \(20\log_{10}\lvert x_a\rvert\)</td></tr>
+      <tr><td>Delay ↔ phase</td><td class="f">\(\Delta z = c\Delta t/2,\ \varphi = 4\pi f_0\Delta z/c\)</td><td>1 ns = 0.77 µm; phase wraps at λ/4 of displacement</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s-est"><span class="sec">11</span>Estimation, delay and coding</h2>
+  <p class="mods">Modules 10 (matched filtering), 11 (delay estimation), 12 (estimation theory)</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Fact</th><th>Formula</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>MSE decomposition</td><td class="f">\(\mathrm{MSE} = \mathrm{bias}^2 + \mathrm{variance}\)</td><td>A biased estimator can beat the CRLB in MSE</td></tr>
+      <tr><td>CRLB (scalar)</td><td class="f">\(\operatorname{var}(\hat\theta) \ge \frac{1}{I(\theta)},\ I = \frac{1}{\sigma^2}\sum_n\left(\frac{\partial s[n]}{\partial\theta}\right)^2\)</td><td>Real WGN. Amplitude in WGN: \(\operatorname{var} \ge \sigma^2/\sum s[n]^2\)</td></tr>
+      <tr><td>Delay estimate</td><td>Cross-correlation peak = ML in white Gaussian noise</td><td>Jitter falls with \(f_0\), bandwidth, \(\sqrt{T}\), SNR and ρ (Walker–Trahey bound)</td></tr>
+      <tr><td>Subsample estimators</td><td>Parabolic fit is biased toward integer samples; the cosine fit is nearly unbiased on RF</td><td>Every symmetric fit is exact at 0 and ½ sample</td></tr>
+      <tr><td>Matched filter</td><td class="f">\(h(t) = s^*(-t)\); peak SNR \(= 2E/N_0\)</td><td>Real signal, noise PSD \(N_0/2\)</td></tr>
+      <tr><td>Pulse compression</td><td class="f">gain ≈ \(TB\); mainlobe ≈ \(1/B\)</td><td>LFM range sidelobes ≈ −13 dB untapered</td></tr>
+      <tr><td>Barker-13</td><td class="f">peak sidelobe 1/13</td><td>−22.3 dB</td></tr>
+      <tr><td>Golay pair</td><td class="f">\(R_a(k) + R_b(k) = 2N\delta(k)\)</td><td>Zero sidelobes, needs two firings; motion breaks it</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="k-2"><span class="sec">12</span>Key equations, Modules 08–14</h2>
+  <!--KEYEQ:8-14-->
+
+  <!-- ===================== PART III ===================== -->
+  <div class="part-head" id="p3"><p class="eyebrow">Part III · Modules 15–22</p></div>
+  <h2 id="s-phys"><span class="sec">13</span>Physics numbers to know cold</h2>
+  <p class="mods">Modules 15 (wave physics), 17 (matching, lenses), 22 (acoustic output)</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Quantity</th><th>Value or formula</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>Speed of sound, soft tissue</td><td class="f">\(c = 1540\) m/s</td><td>Fat ≈ 1450, water ≈ 1480 (20 °C), muscle ≈ 1580, bone ≈ 3000–4000 m/s</td></tr>
+      <tr><td>Wavelength</td><td class="f">\(\lambda = c/f\)</td><td>0.513 mm at 3 MHz, 0.308 mm at 5 MHz, 0.205 mm at 7.5 MHz</td></tr>
+      <tr><td>Round trip</td><td class="f">\(t = 2z/c\) ≈ 13 µs per cm</td><td>Max PRF \(= c/(2z_{\max})\): 15 cm gives ≈ 5.1 kHz</td></tr>
+      <tr><td>Acoustic impedance</td><td class="f">\(Z = \rho c\)</td><td>Soft tissue ≈ 1.6 MRayl, water 1.48, air ≈ 0.0004</td></tr>
+      <tr><td>Reflection (normal incidence)</td><td class="f">\(R = \frac{Z_2 - Z_1}{Z_2 + Z_1}\); intensity \(R^2\)</td><td>Tissue–air reflects ≈ 99.9 % of the intensity, hence coupling gel</td></tr>
+      <tr><td>Attenuation</td><td class="f">\(\alpha(f) = \alpha_0 f^{\,n},\ n \approx 1\text{–}1.3\)</td><td>Soft tissue ≈ 0.5 dB/cm/MHz (wide range); water 0.0022 dB/cm/MHz²</td></tr>
+      <tr><td>Neper</td><td class="f">1 Np = 8.686 dB (amplitude)</td><td>Two-way loss in dB \(= 2\alpha_0 f z\)</td></tr>
+      <tr><td>Mechanical index</td><td class="f">\(\mathrm{MI} = p_{r,0.3}\,(\mathrm{MPa})/\sqrt{f\,(\mathrm{MHz})}\)</td><td>FDA track 3 limit 1.9; derated \(I_{\mathrm{SPTA}}\) limit 720 mW/cm²</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s-beam"><span class="sec">14</span>Beams and arrays</h2>
+  <p class="mods">Modules 04 (beam = FT of aperture), 19 (array architectures), 23 (beam patterns)</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Quantity</th><th>Formula</th><th>Numbers at 5 MHz (λ = 0.308 mm)</th></tr></thead>
+    <tbody>
+      <tr><td>Beam at focus</td><td>Fourier transform of the apodization at \(u = x/(\lambda z)\)</td><td>Focus cancels the quadratic phase (Fresnel → Fraunhofer)</td></tr>
+      <tr><td>Lateral −6 dB width, uniform</td><td class="f">\(1.21\,\lambda F_\#\) one-way; \(0.89\,\lambda F_\#\) two-way</td><td>\(F_\# = 2\): 0.74 mm one-way, 0.55 mm two-way</td></tr>
+      <tr><td>Sidelobes, uniform</td><td class="f">−13.3 dB one-way, −26.5 dB two-way</td><td>Hann: −31.5 dB one-way, mainlobe about 1.6 times wider</td></tr>
+      <tr><td>Grating lobes</td><td class="f">\(\sin\theta_g = \sin\theta_0 \pm m\lambda/d\)</td><td>Larger pitch puts them closer to the main beam; \(d \le \lambda/2\) means none at any steering</td></tr>
+      <tr><td>Depth of field (−6 dB two-way)</td><td class="f">≈ \(7\lambda F_\#^2\)</td><td>\(F_\# = 2\): 8.6 mm</td></tr>
+      <tr><td>Near-field length, piston of diameter D</td><td class="f">\(N = D^2/(4\lambda)\)</td><td>D = 10 mm: 81 mm; far field \(z \gg D^2/\lambda\)</td></tr>
+      <tr><td>Axial resolution</td><td class="f">\(\Delta z = c\tau/2\) (τ = pulse duration)</td><td>\(\tau_{-6\,\mathrm{dB}}\) = 0.29 µs (60 % BW): \(\Delta z\) ≈ 0.23 mm</td></tr>
+      <tr><td>Element directivity (soft baffle)</td><td class="f">\(\operatorname{sinc}(w\sin\theta/\lambda)\cos\theta\)</td><td>Multiplies the array factor and suppresses far grating lobes; sets \(F_{\#,\min} \approx 1/(2\tan\theta_{-6\,\mathrm{dB}})\)</td></tr>
+      <tr><td>Steering delay</td><td class="f">\(\tau_n = n d\sin\theta/c\)</td><td>Plane-wave transmit at angle θ</td></tr>
+      <tr><td>Focusing delay</td><td class="f">\(\tau_n = \left(\sqrt{z^2 + x_n^2} - z\right)/c\)</td><td>Parabolic (Fresnel) approximation \(x_n^2/(2zc)\)</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="k-3"><span class="sec">15</span>Key equations, Modules 15–22</h2>
+  <!--KEYEQ:15-22-->
+
+  <!-- ===================== PART IV ===================== -->
+  <div class="part-head" id="p4"><p class="eyebrow">Part IV · Modules 23–27</p></div>
+  <h2 id="s-2d"><span class="sec">16</span>2D transforms, apertures and k-space</h2>
+  <p class="mods">Modules 04, 23 (beam patterns, k-space, compounding), 24 (Fourier-domain beamforming)</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Aperture or object</th><th>Transform (focal-plane beam)</th><th>Key numbers</th></tr></thead>
+    <tbody>
+      <tr><td>Separable \(g(x)h(y)\)</td><td class="f">\(G(u)H(v)\)</td><td>Rectangular aperture: product of two sincs</td></tr>
+      <tr><td>Uniform linear aperture, width D</td><td class="f">\(\operatorname{sinc}(D\sin\theta/\lambda) = \operatorname{sinc}\!\left(\frac{Dx}{\lambda z}\right)\)</td><td>First null at \(x = \lambda z/D = \lambda F_\#\); first sidelobe −13.3 dB one-way, −26.5 dB two-way</td></tr>
+      <tr><td>Circular aperture, diameter D</td><td class="f">\(2J_1(v)/v\) (jinc, Airy)</td><td>First null at \(1.22\,\lambda F_\#\); first sidelobe −17.6 dB one-way</td></tr>
+      <tr><td>Rotationally symmetric object</td><td>Hankel transform (order 0)</td><td>The 2D FT of a radial function is radial</td></tr>
+      <tr><td>RF image</td><td>2D FFT = k-space</td><td>Lateral k from aperture (\(k_x \approx k\,x_{\mathrm{ap}}/z\)), axial k from bandwidth (\(k_z = 2\cdot 2\pi f/c\), two-way); PSF ↔ transfer function</td></tr>
+      <tr><td>Two-way PSF</td><td>FT of (tx aperture ∗ rx aperture)</td><td>The coarray (effective aperture): k-space support doubles; identical apertures give a triangle</td></tr>
+      <tr><td>Coherent compounding of N angles</td><td>Synthesizes a transmit focus at every pixel</td><td>Incoherent-noise SNR gain \(10\log_{10}N\) dB; sidelobes approach the two-way level; replicas at \(\lambda/\Delta(\sin\theta)\)</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s-speck"><span class="sec">17</span>Speckle and image-quality metrics</h2>
+  <p class="mods">Modules 25 (coherence-based beamforming), 26 (speckle statistics and metrics)</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Fact</th><th>Formula</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Rayleigh SNR</td><td class="f">\(\text{mean}/\text{std} = \sqrt{\pi/(4 - \pi)}\)</td><td>1.91</td></tr>
+      <tr><td>Speckle in log display</td><td class="f">std of \(20\log_{10} R\)</td><td>5.57 dB</td></tr>
+      <tr><td>Incoherent compounding</td><td>N independent looks</td><td>Speckle SNR × \(\sqrt{N}\); coherent compounding does not average speckle</td></tr>
+      <tr><td>Coherence factor</td><td class="f">\(\mathrm{CF} = \frac{\lvert\sum_i s_i\rvert^2}{N\sum_i\lvert s_i\rvert^2}\)</td><td>Point at focus 1, speckle ≈ 2/3, noise ≈ 1/N</td></tr>
+      <tr><td>gCNR</td><td class="f">\(1 - \mathrm{OVL}\) (overlap of the two pdfs)</td><td>0 to 1; invariant to monotone transforms (log compression, DR)</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="k-4"><span class="sec">18</span>Key equations, Modules 23–27</h2>
+  <!--KEYEQ:23-27-->
+
+  <!-- ===================== PART V ===================== -->
+  <div class="part-head" id="p5"><p class="eyebrow">Part V · Modules 28–33</p></div>
+  <h2 id="s-flow"><span class="sec">19</span>Flow, motion and localization numbers</h2>
+  <p class="mods">Modules 29 (Doppler), 30 (elastography), 31 (ULM)</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Quantity</th><th>Formula</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>Doppler shift</td><td class="f">\(f_D = 2 v f_0\cos\theta/c\)</td><td>1 m/s at 5 MHz, θ = 0: 6.5 kHz</td></tr>
+      <tr><td>Nyquist velocity</td><td class="f">\(v_{\mathrm{Nyq}} = c\cdot\mathrm{PRF}/(4 f_0\cos\theta)\)</td><td>5 MHz, PRF 5 kHz: 0.385 m/s</td></tr>
+      <tr><td>Kasai velocity</td><td class="f">\(v = c\cdot\mathrm{PRF}\cdot\angle R(1)/(4\pi f_0)\)</td><td>Lag-one autocorrelation phase</td></tr>
+      <tr><td>Shear modulus from shear speed</td><td class="f">\(\mu = \rho c_s^2,\ E \approx 3\mu\)</td><td>Elastic, isotropic, incompressible; \(c_s\) = 1.5 m/s → μ ≈ 2.3 kPa (ρ = 1000 kg/m³)</td></tr>
+      <tr><td>ULM localization</td><td class="f">\(\sigma_x \propto \text{PSF width}/\sqrt{\mathrm{SNR}}\)</td><td>Precision, not two-point resolution</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="k-5"><span class="sec">20</span>Key equations, Modules 28–33</h2>
+  <!--KEYEQ:28-33-->
+
+  <h2 id="s-rapid"><span class="sec">21</span>Rapid fire</h2>
+  <p class="muted">Depth-of-field and attenuation values are common approximations; the exact constant depends on the definition (−3 vs −6 dB, one-way vs two-way) and on the tissue. The modules derive each entry and give the conditions; the key-equation lists are generated from the modules' key-equation boxes when the sheet is built.</p>
+</div>

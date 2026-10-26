@@ -1,0 +1,1202 @@
+<section class="view" id="m18" data-title="CMUT, PMUT and new transducer materials" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part III · Module 18</div>
+    <h1>CMUT, PMUT and new transducer materials</h1>
+    <p class="lede">Module 19 introduced micromachined transducers with a lumped parallel-plate model. Here the membrane becomes a real clamped plate. That changes the pull-in voltage, the coupling and the collapse behaviour, and it explains where CMUT bandwidth, crosstalk and charging come from. The same plate physics, driven by a thin piezoelectric film, gives the PMUT. The last part updates the bulk-material choices: single crystals and their composites, lead-free ceramics, AC poling and transparent crystals, piezoelectric films and PVDF, with a sourced property table.</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>Compute CMUT pull-in, snap-back and coupling from a distributed plate model, and say why the lumped piston overestimates \(V_{\mathrm{PI}}\) by about 43 %</li>
+        <li>Explain collapse-mode operation: contact radius, hysteresis, higher annulus resonance, and why the insulator thickness sets the snap-back voltage</li>
+        <li>Predict CMUT bandwidth from \(k_{\mathrm{eff}}\), membrane mass and the water load, and compare it with a matched PZT stack</li>
+        <li>Recognise the dispersive interface wave that carries CMUT crosstalk, and the effects of charging and the \(V^{2}\) force</li>
+        <li>Choose between sacrificial-release and wafer-bonded CMUTs, and between monolithic CMUT-on-CMOS and flip-chip 2D integration</li>
+        <li>Design a PMUT: clamped-plate resonance, neutral axis, water loading, electrode radius 0.71 a, film figure of merit</li>
+        <li>Rank PZT-5H, PMN-PT, PIN-PMN-PT, composites, KNN, AlN, ScAlN, PZT film and PVDF on the numbers that matter for a given probe</li>
+      </ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li>Module 16, Piezoelectrics &amp; KLM: piezoelectric constants, \(k_t\), KLM/Mason, the Smith–Auld composite model</li>
+        <li>Module 17, Matching, backing, lens, FEA: matching layers and backing; Module 21, Simulation &amp; characterization, Section 21.6: bandwidth definitions (−6 dB pulse-echo)</li>
+        <li>Module 19, Arrays: 1D to 2D, RCA, CMUT: Section 19.7, lumped CMUT model (pull-in at \(g_0/3\), \(k_T^{2} = 2\xi/(1 - \xi)\)), and Section 19.4, the 2D channel-count problem</li>
+      </ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form, or tabulated published values, plotted as is</span><span><span class="prov sim">Simulation</span>numerical solution run in this page or in the Octave scripts (axisymmetric finite-difference plate with Newton continuation and eigen-solves)</span><span><span class="prov model">Approx. model</span>simplified physics; assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, labelled with typical dimensions, not to scale</span></div>
+
+  <!-- ===================== 18.1 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">18.1</span>The CMUT cell as a clamped plate</h2>
+    <p>A CMUT cell is a capacitor whose top plate is a membrane. From the bottom up: a conductive (doped) silicon substrate that serves as the bottom electrode, an insulating layer of silicon nitride or oxide, a sealed vacuum gap, and a membrane of silicon or silicon nitride carrying the top electrode. Typical numbers: membrane thickness 0.5–2 µm (1 µm in the Stanford arrays described by Ergun et al., SPIE 2005), radius 10–50 µm, and gaps from about 40 nm (Park et al., MEMS 2008, ±2 nm across the wafer) to about 1 µm. One array element is tens to hundreds of such cells wired in parallel.</p>
+  </div>
+  <figure class="m18-fig" id="m18-fig-cell">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 18.A</b> · CMUT cell cross-sections, conventional (left) and collapse mode (right); vertical scale exaggerated about 20×</div>
+    <div class="mx-scroll"><svg viewBox="0 0 800 330" role="img" aria-label="Cross-sections of a CMUT cell: substrate, insulation, vacuum gap, posts, membrane and top electrode, in conventional mode with a bowed membrane and in collapse mode with the membrane centre touching the insulation">
+<defs><marker id="m18-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"/></marker></defs>
+<text x="20" y="18" class="t">Conventional: 0 &lt; V<tspan baseline-shift="sub" font-size="8">DC</tspan> &lt; V<tspan baseline-shift="sub" font-size="8">PI</tspan></text>
+<text x="420" y="18" class="t">Collapse mode: V<tspan baseline-shift="sub" font-size="8">DC</tspan> &gt; V<tspan baseline-shift="sub" font-size="8">PI</tspan> (stays down to V<tspan baseline-shift="sub" font-size="8">SB</tspan>)</text>
+<g>
+<rect x="20" y="40" width="360" height="62" class="water"/><text x="200" y="62" class="s" text-anchor="middle">water / lens (1.5 MRayl)</text>
+<path d="M200 92 V 108" class="arr"/><text x="208" y="102" class="s">p</text>
+<rect x="20" y="232" width="360" height="56" class="si"/><text x="200" y="266" class="m" text-anchor="middle">doped Si substrate = bottom electrode</text>
+<rect x="20" y="222" width="360" height="10" class="ins"/>
+<rect x="20" y="150" width="40" height="72" class="ins"/><rect x="340" y="150" width="40" height="72" class="ins"/>
+<path d="M60 150 Q200 186 340 150 L340 164 Q200 200 60 164 Z" class="mem"/>
+<path d="M20 150 H60 M340 150 H380" class="w"/><rect x="20" y="136" width="40" height="14" class="mem"/><rect x="340" y="136" width="40" height="14" class="mem"/>
+<path d="M110 157.6 Q200 180 290 157.6 L290 150.6 Q200 173 110 150.6 Z" class="metal"/>
+<text x="200" y="210" class="s" text-anchor="middle">vacuum gap g₀ ≈ 0.04–1 µm</text>
+<path d="M392 164 V 222" class="arr"/><path d="M392 222 V 164" class="arr"/>
+<text x="22" y="122" class="s">membrane 0.5–2 µm (Si, Si₃N₄)</text>
+<text x="300" y="122" class="s">top electrode</text><path d="M300 126 L270 152" class="ld"/>
+<text x="22" y="304" class="s">post / support</text><path d="M40 296 V 224" class="ld"/>
+<text x="230" y="304" class="s">insulation 0.1–0.2 µm</text><path d="M300 296 V 228" class="ld"/>
+<path d="M60 320 H340" class="dim"/><path d="M60 315 V325 M340 315 V325" class="dim"/><text x="200" y="316" class="s" text-anchor="middle">2a ≈ 20–100 µm</text>
+</g>
+<g>
+<rect x="420" y="40" width="360" height="62" class="water"/><text x="600" y="62" class="s" text-anchor="middle">water / lens</text>
+<rect x="420" y="232" width="360" height="56" class="si"/><text x="600" y="266" class="m" text-anchor="middle">substrate (bottom electrode)</text>
+<rect x="420" y="222" width="360" height="10" class="ins"/>
+<rect x="420" y="150" width="40" height="72" class="ins"/><rect x="740" y="150" width="40" height="72" class="ins"/>
+<rect x="420" y="136" width="40" height="14" class="mem"/><rect x="740" y="136" width="40" height="14" class="mem"/>
+<path d="M460 150 C510 150 530 208 560 208 L640 208 C670 208 690 150 740 150 L740 164 C690 164 670 222 640 222 L560 222 C530 222 510 164 460 164 Z" class="mem"/>
+<path d="M548 205 C 556 207 560 201 560 201 L640 201 C640 201 644 207 652 205 L652 198 C644 200 640 194 640 194 L560 194 C560 194 556 200 548 198 Z" class="metal"/>
+<path d="M560 228 H640" class="w2"/><text x="600" y="246" class="s" text-anchor="middle" style="fill:var(--bad)">contact, radius b</text>
+<path d="M500 186 C 505 176 512 172 520 170" class="arr"/><path d="M700 186 C 695 176 688 172 680 170" class="arr"/>
+<text x="470" y="132" class="s">free annulus a − b vibrates</text>
+<text x="600" y="304" class="s" text-anchor="middle">higher f, higher k², larger stroke</text><text x="600" y="320" class="s" text-anchor="middle">hysteresis between V<tspan baseline-shift="sub" font-size="8">SB</tspan> and V<tspan baseline-shift="sub" font-size="8">PI</tspan></text>
+</g>
+</svg></div>
+  </figure>
+  <div class="prose">
+    <p>With a bias \(V\) the membrane deflects toward the substrate by \(w(r)\). Each patch of membrane feels the local parallel-plate pressure, so the static problem is the clamped-plate equation with a nonlinear load <span class="eqref">(18.1)</span>–<span class="eqref">(18.2)</span>:</p>
+  </div>
+  <div class="eqn" id="m18-eq1">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} D\,\nabla^{4} w(r) &amp;= \frac{\varepsilon_0 V^{2}}{2\left(g_{\mathrm{eff}} - w(r)\right)^{2}} \\ w(a) &amp;= w'(a) = 0 \end{aligned} \]</div><span class="eqn-no">(18.1)</span></div>
+    <dl class="where"><dt>\(D\)</dt><dd>flexural rigidity of the membrane, N·m</dd><dt>\(w(r)\)</dt><dd>membrane deflection toward the substrate at radius \(r\), m</dd><dt>\(\varepsilon_0\)</dt><dd>vacuum permittivity, F/m</dd><dt>\(V\)</dt><dd>bias voltage, V</dd><dt>\(a\)</dt><dd>membrane radius, m</dd><dt>\(g_{\mathrm{eff}}\)</dt><dd>effective (electrical) gap, m</dd><dt>\(r\)</dt><dd>radial coordinate from the membrane centre, m</dd><dt>\(\nabla^{4}\)</dt><dd>biharmonic operator (Laplacian applied twice), 1/m⁴</dd><dt>\(w\'(a)\)</dt><dd>radial slope at the edge (clamped: \(w\'(a) = 0\))</dd></dl>
+  </div>
+  <div class="eqn" id="m18-eq2">
+    <div class="eqn-body"><div class="eqn-math">\[ g_{\mathrm{eff}} = g_0 + \frac{t_i}{\varepsilon_r}, \qquad D = \frac{E h^{3}}{12\left(1 - \nu^{2}\right)} \]</div><span class="eqn-no">(18.2)</span></div>
+    <dl class="where"><dt>\(g_0\)</dt><dd>vacuum gap, m</dd><dt>\(t_i,\ \varepsilon_r\)</dt><dd>insulator thickness (m) and relative permittivity</dd><dt>\(E,\ \nu\)</dt><dd>Young's modulus (Pa) and Poisson ratio of the membrane</dd><dt>\(h\)</dt><dd>membrane thickness, m</dd></dl>
+    <span class="note">The insulator of thickness \(t_i\) and permittivity \(\varepsilon_r\) adds \(t_i/\varepsilon_r\) to the electrical gap but not to the mechanical one: the membrane stops at \(w = g_0\). Example: 0.1 µm of Si₃N₄ (\(\varepsilon_r \approx 7.5\)) adds 13 nm. Fringing fields, residual stress and the electrode's own stiffness are neglected.</span>
+  </div>
+  <div class="eqn" id="m18-eq3">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} k &amp;= \frac{192\pi D}{a^{2}}, \qquad A = \pi a^{2} \\ V_{\mathrm{PI}}^{2} &amp;= \frac{8\,k\,g_{\mathrm{eff}}^{3}}{27\,\varepsilon_0 A} = 56.9\,\frac{D\,g_{\mathrm{eff}}^{3}}{\varepsilon_0 a^{4}} \end{aligned} \]</div><span class="eqn-no">(18.3)</span></div>
+    <dl class="where"><dt>\(k\)</dt><dd>piston-equivalent spring of the clamped plate, N/m</dd><dt>\(A\)</dt><dd>electrode (membrane) area, m²</dd><dt>\(V_{\mathrm{PI}}\)</dt><dd>pull-in voltage, V</dd><dt>\(D,\ g_{\mathrm{eff}},\ \varepsilon_0,\ a\)</dt><dd>as in (18.1)</dd></dl>
+    <span class="note">Lumped piston.</span>
+  </div>
+  <div class="eqn key" id="m18-eq4">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} V_{\mathrm{PI}}^{2} &amp;= 27.8\,\frac{D\,g_{\mathrm{eff}}^{3}}{\varepsilon_0 a^{4}} \\ V_{\mathrm{PI,plate}} &amp;= 0.699\, V_{\mathrm{PI,piston}} \end{aligned} \]</div><span class="eqn-no">(18.4)</span></div>
+    <dl class="where"><dt>\(V_{\mathrm{PI}}\)</dt><dd>pull-in voltage, V</dd><dt>\(D\)</dt><dd>flexural rigidity, N·m</dd><dt>\(g_{\mathrm{eff}}\)</dt><dd>effective gap, m</dd><dt>\(a\)</dt><dd>membrane radius, m</dd><dt>\(\varepsilon_0\)</dt><dd>vacuum permittivity, F/m</dd><dt>\(V_{\mathrm{PI,plate}},\ V_{\mathrm{PI,piston}}\)</dt><dd>pull-in voltage of the full plate model (18.4) and of the piston model (18.3)</dd></dl>
+    <span class="note">Distributed plate (this module, FD). The piston spring \(k = 192\pi D/a^{2}\) is the force \(\pi a^{2}P\) divided by the average deflection \(Pa^{4}/(192D)\) of a clamped plate under uniform pressure \(P\). The distributed constant 27.8 comes from the finite-difference solution below (27.76; unchanged to 0.02 % between 60, 120 and 240 radial intervals). It holds for any \(a\), \(h\), \(g\) as long as the plate stays in small deflection (\(w \ll h\)) and the gap is uniform. Default cell (Si, \(a\) = 20 µm, \(h\) = 1 µm, \(g_0\) = 0.2 µm, 0.1 µm nitride): \(V_{\mathrm{PI}}\) = 53.1 V, against 76.0 V from the piston.</span>
+  </div>
+  <div class="prose">
+    <p><strong>Why the piston is wrong by 30 %.</strong> The piston puts the whole electrode at the average gap. A plate concentrates its deflection at the centre, where the gap is smallest and the pressure, \(\propto 1/(g - w)^{2}\), is largest; the centre therefore softens first. At pull-in the centre has moved ≈ 0.46 \(g_{\mathrm{eff}}\) (0.459 converged; coarse grids read slightly higher; the insulator enters only through \(g_{\mathrm{eff}}\)) but the average only 0.15 \(g_{\mathrm{eff}}\), less than half the piston's \(g/3\) (compare <span class="eqref">(18.3)</span> and <span class="eqref">(18.4)</span>). The numerical method: the conventional branch is traced by fixing the centre deflection \(w(0)\) and solving for both the shape and the voltage that holds it (a Newton solve on \([w;\ V^{2}]\)). Because \(w(0)\) increases monotonically along the branch, the solver walks through the pull-in fold, where \(V\) reaches its maximum, and continues on the unstable side.</p>
+  </div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>"Pull-in at a third of the gap" is a statement about a rigid piston. For a clamped membrane, quote the centre deflection (≈ 0.46 \(g_{\mathrm{eff}}\)) or the average deflection (≈ 0.15 \(g_{\mathrm{eff}}\)), and say which. Datasheets and FEM papers usually give the centre value, so do not compare it with \(g/3\).</p></div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 18.1</span><h3>Distributed CMUT plate: both branches, pull-in, coupling versus bias</h3><span class="prov sim">Simulation</span><span class="prov-note">Axisymmetric finite-difference clamped plate (48 radial intervals, JS), electrostatic pressure on every node, Newton continuation in centre deflection (conventional) and in contact radius (collapsed); coupling from the two lowest eigenvalues. Silicon membrane \(E\) = 169 GPa, \(\nu\) = 0.22, \(\rho\) = 2330 kg/m³, Si₃N₄ insulator \(\varepsilon_r\) = 7.5, in vacuum. Dotted: lumped piston.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m18-pl-cv" aria-label="Average deflection versus bias for both branches, and coupling versus normalized bias"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>conventional (stable)</span><span><i style="background:var(--sig3)"></i>unstable side of the fold</span><span><i style="background:var(--bad)"></i>collapsed branch</span><span><i style="background:var(--muted)"></i>lumped piston</span><span><i style="background:var(--sig2)"></i>\(f/f_0\)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m18-pl-a">Membrane radius a (µm) <output id="m18-pl-a-o">20</output></label><input type="range" id="m18-pl-a" min="10" max="50" step="1" value="20"></div>
+        <div class="ctrl"><label for="m18-pl-h">Membrane thickness h (µm) <output id="m18-pl-h-o">1.0</output></label><input type="range" id="m18-pl-h" min="0.3" max="2" step="0.1" value="1"></div>
+        <div class="ctrl"><label for="m18-pl-g">Vacuum gap g₀ (µm) <output id="m18-pl-g-o">0.20</output></label><input type="range" id="m18-pl-g" min="0.05" max="0.6" step="0.01" value="0.2"></div>
+        <div class="ctrl"><label for="m18-pl-t">Insulator t<sub>i</sub> (µm, Si₃N₄) <output id="m18-pl-t-o">0.10</output></label><input type="range" id="m18-pl-t" min="0.02" max="0.3" step="0.01" value="0.1"></div>
+        <div class="ctrl"><label for="m18-pl-v">Bias V / V<sub>PI</sub> <output id="m18-pl-v-o">0.90</output></label><input type="range" id="m18-pl-v" min="0.05" max="0.99" step="0.01" value="0.9"></div>
+        <div class="readout" id="m18-pl-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> at 0.9 \(V_{\mathrm{PI}}\) the distributed plate gives \(k^{2} \approx 0.26\) where the piston promises 0.43; the gap between the curves is the cost of a bending membrane. Thicken the insulator and watch the snap-back voltage (left end of the red branch) rise toward \(V_{\mathrm{PI}}\): the hysteresis window closes. Halve the gap: \(V_{\mathrm{PI}}\) falls by \(2^{1.5} \approx 2.8\) (it scales as \(g_{\mathrm{eff}}^{3/2}\)).</div>
+  </div>
+
+  <!-- ===================== 18.2 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">18.2</span>Coupling, collapse mode and hysteresis</h2>
+    <p><strong>Coupling as a stiffness ratio.</strong> Linearize the plate about its biased shape. Held at constant voltage (short circuit), the electrostatic pressure adds a negative stiffness at every node, \(-\varepsilon_0 V^{2}/(g_{\mathrm{eff}} - w)^{3}\) per unit area. Held at constant charge (open circuit), the electrode voltage readjusts as the capacitance changes, which adds back a rank-one term. The coupling coefficient is the fractional stiffness difference of the fundamental mode <span class="eqref">(18.5)</span>–<span class="eqref">(18.6)</span>:</p>
+  </div>
+  <div class="eqn" id="m18-eq5">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \mathbf{K}_V &amp;= \mathbf{K} - V^{2}\,\mathrm{diag}\!\left(\frac{\varepsilon_0 W_i}{(g_{\mathrm{eff}} - w_i)^{3}}\right) \\ \mathbf{K}_Q &amp;= \mathbf{K}_V + \frac{V^{2}\,\mathbf{c}\mathbf{c}^{T}}{C} \end{aligned} \]</div><span class="eqn-no">(18.5)</span></div>
+    <dl class="where"><dt>\(\mathbf{K}\)</dt><dd>mechanical stiffness matrix of the FD plate</dd><dt>\(\mathbf{K}_V,\ \mathbf{K}_Q\)</dt><dd>stiffness at constant voltage (short circuit) and at constant charge (open circuit)</dd><dt>\(W_i\)</dt><dd>ring area of node \(i\), m²</dd><dt>\(w_i\)</dt><dd>deflection of node \(i\), m</dd><dt>\(C\)</dt><dd>capacitance, F</dd><dt>\(V,\ \varepsilon_0,\ g_{\mathrm{eff}}\)</dt><dd>as in (18.1)</dd><dt>\(\mathbf{c}\)</dt><dd>capacitance-sensitivity vector, as in (18.6)</dd><dt>\((\cdot)^{T}\)</dt><dd>transpose</dd><dt>\(\mathrm{diag}(\cdot)\)</dt><dd>diagonal matrix of the node values</dd></dl>
+  </div>
+  <div class="eqn key" id="m18-eq6">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} c_i &amp;= \frac{\partial C}{\partial w_i} = \frac{\varepsilon_0 W_i}{(g_{\mathrm{eff}} - w_i)^{2}} \\ k^{2} &amp;= 1 - \frac{\lambda_{\min}(\mathbf{K}_V, \mathbf{M})}{\lambda_{\min}(\mathbf{K}_Q, \mathbf{M})} \end{aligned} \]</div><span class="eqn-no">(18.6)</span></div>
+    <dl class="where"><dt>\(\mathbf{c}\)</dt><dd>vector of capacitance sensitivities \(c_i\), F/m</dd><dt>\(\mathbf{M}\)</dt><dd>mass matrix</dd><dt>\(\lambda_{\min}\)</dt><dd>lowest generalized eigenvalue</dd><dt>\(k^{2}\)</dt><dd>electromechanical coupling coefficient</dd><dt>\(C\)</dt><dd>total capacitance of the cell, F</dd><dt>\(\partial\)</dt><dd>partial derivative</dd><dt>\(\varepsilon_0,\ W_i,\ g_{\mathrm{eff}},\ w_i\)</dt><dd>as in (18.5)</dd><dt>\(\mathbf{K}_V,\ \mathbf{K}_Q\)</dt><dd>as in (18.5)</dd></dl>
+    <span class="note">\(C = \sum \varepsilon_0 W_i/(g_{\mathrm{eff}} - w_i)\). For a piston the rank-one term exactly cancels the softening (\(K_Q = k\)) and \(k^{2} = 1 - k_{\mathrm{eff}}/k\), the Module 19 formula. For a plate it does not cancel fully, and \(k^{2}\) is lower: 0.04, 0.16, 0.26 and 0.37 at 0.5, 0.8, 0.9 and 0.95 \(V_{\mathrm{PI}}\) for the default cell (piston: 0.08, 0.28, 0.43, 0.56). Bayram et al. (IEEE TUFFC 2003) found the same character with FEM: \(k_T^{2}\) exceeds 0.35 only above 85 % of the collapse voltage.</span>
+  </div>
+  <div class="prose">
+    <p><strong>Collapse mode.</strong> Above \(V_{\mathrm{PI}}\) the centre lands on the insulator. The contact disc of radius \(b\) grows with bias and the free annulus between \(b\) and \(a\) carries the vibration (Figure 18.A, right). Three things change. The annulus is a much stiffer plate, so the resonance rises steeply with \(b\). The field across the thin insulator in the contact region is enormous, so the coupling of the annulus edge is high; Bayram et al. report \(k_T^{2} \approx 0.7\) at about 60 % of the collapse voltage after collapse, versus 0.3 averaged over a conventional swing. And the average displacement available for transmit is larger (0.25–0.45 µm versus 0.05–0.15 µm in their 1 µm-gap design). The collapsed branch is traced here by fixing the contact radius and requiring zero contact force at its edge, which again turns the fold into a monotonic path.</p>
+    <p><strong>Snap-back and hysteresis.</strong> Lowering the bias, the membrane stays down until the contact force at the edge can no longer be maintained, at the snap-back voltage \(V_{\mathrm{SB}}\). Since the electrostatic pressure in contact is \(\varepsilon_0 V^{2}/\left(2(t_i/\varepsilon_r)^{2}\right)\), \(V_{\mathrm{SB}}\) is controlled by the insulator: the thinner the electrical gap at contact, the lower \(V_{\mathrm{SB}}\) and the wider the hysteresis loop. For the default cell \(V_{\mathrm{SB}}\) = 25.8 V = 0.49 \(V_{\mathrm{PI}}\); for a 1 µm gap with the same 0.1 µm nitride it is 0.26 \(V_{\mathrm{PI}}\). Bayram et al. computed 140 V and 68 V (0.49) for their 50 µm-radius, 1 µm-gap cell, which also had a 50 nm contact offset; adding that offset to this model moves the ratio from 0.26 to 0.43, so the offset matters as much as the insulator.</p>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 18.2</span><h3>Bias history: C–V hysteresis, contact radius and annulus resonance</h3><span class="prov sim">Simulation</span><span class="prov-note">Same finite-difference plate and geometry as Demo 18.1. Resonance: lowest eigenvalue of the plate with contact nodes fixed, in vacuum. On the conventional branch it includes the electrostatic softening; on the collapsed branch it is the mechanical annulus only, because the softening concentrated at the contact edge is not resolved on a 48-interval grid (it lowers the value; refine before quoting a number).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m18-hy-cv" aria-label="Capacitance versus bias hysteresis loop and the membrane profile at the current state"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>conventional</span><span><i style="background:var(--bad)"></i>collapsed</span><span><i style="background:var(--ink)"></i>current state</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m18-hy-v">Bias V / V<sub>PI</sub> <output id="m18-hy-v-o">0.50</output></label><input type="range" id="m18-hy-v" min="0" max="2" step="0.01" value="0.5"></div>
+        <div class="btn-row"><button class="btn" type="button" id="m18-hy-up">Sweep up to 2 \(V_{\mathrm{PI}}\)</button><button class="btn" type="button" id="m18-hy-dn">Sweep down to 0</button></div>
+        <div class="readout" id="m18-hy-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> sweep up: the membrane snaps down at \(V_{\mathrm{PI}}\) and \(C\) jumps. Sweep down: it stays collapsed well below \(V_{\mathrm{PI}}\) and releases only at \(V_{\mathrm{SB}}\). A probe biased between \(V_{\mathrm{SB}}\) and \(V_{\mathrm{PI}}\) can sit in either state, which is why collapse-mode systems collapse the membrane with a brief overdrive and then hold the bias. The geometry comes from the Demo 18.1 sliders.</div>
+  </div>
+
+  <!-- ===================== 18.3 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">18.3</span>Bandwidth, the water load and crosstalk</h2>
+    <p>Per unit area, a CMUT membrane is a mass \(m_a\) on a spring \(k_a\) radiating into water with resistance \(Z_w = \rho_w c_w\) = 1.5 MRayl. Using the piston-equivalent constants of the clamped plate (spring \(192D/a^{4}\), modal mass \(1.8\rho h\) for the average displacement), a 1 µm silicon membrane of 20 µm radius has \(m_a\) = 4.2 g/m² and \(k_a = 1.8\times 10^{13}\) Pa/m. Its vacuum resonance is 10 MHz, and its quality factor in water is \(Q = \sqrt{k_a m_a}/Z_w \approx 0.18\): deeply over-damped. The velocity response per unit force is then flat between two corner frequencies <span class="eqref">(18.7)</span>:</p>
+  </div>
+  <div class="eqn key" id="m18-eq7">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} f_{\mathrm{low}} &amp;\approx \frac{\eta\, k_{a,\mathrm{eff}}}{2\pi Z_w}, \qquad f_{\mathrm{high}} \approx \frac{Z_w}{2\pi\eta\, m_a} \\ m_a &amp;= 1.8\,\rho h + \frac{8}{3\pi}\,\rho_w a \end{aligned} \]</div><span class="eqn-no">(18.7)</span></div>
+    <dl class="where"><dt>\(\eta\)</dt><dd>fraction of the element area covered by cells</dd><dt>\(k_{a,\mathrm{eff}}\)</dt><dd>spring per unit area including bias softening, Pa/m</dd><dt>\(m_a\)</dt><dd>moving mass per unit area, kg/m²</dd><dt>\(Z_w\)</dt><dd>water impedance \(\rho_w c_w\), Rayl</dd><dt>\(\rho,\ \rho_w\)</dt><dd>membrane and water density, kg/m³</dd><dt>\(f_{\mathrm{low}},\ f_{\mathrm{high}}\)</dt><dd>lower and upper edges of the usable band, Hz</dd><dt>\(h,\ a\)</dt><dd>membrane thickness and radius, m</dd></dl>
+    <span class="note">\(\eta\) is 0.8 here. \(k_{a,\mathrm{eff}}\) includes spring softening, so \(f_{\mathrm{low}}\) falls as the bias rises. The second mass term is the water added mass of an isolated baffled cell, \((8/3)\rho_w a^{3}\) per cell; in an array moving in phase it is smaller, so the true \(f_{\mathrm{high}}\) lies between the two estimates. For the 20 µm cell at 0.9 \(V_{\mathrm{PI}}\): \(f_{\mathrm{low}} \approx\) 0.8 MHz, \(f_{\mathrm{high}} \approx\) 14 MHz with added mass. A PZT element, in contrast, is a half-wave resonator with mechanical impedance ≈ 34 MRayl and \(Q \approx (\pi/2)Z_p/(Z_B + Z_L)\) that needs matching layers to broaden (Modules 16–17).</span>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 18.3</span><h3>CMUT versus PZT stack: pulse-echo spectrum and impulse response</h3><span class="prov model">Approx. model</span><span class="prov-note">1D, plane-wave radiation resistance ρcA for both transducers (no diffraction, no lens), 50 Ω source and receiver, element 0.27 × 5 mm, plane reflector, pulse-echo \(H = S_{21}^{2}\). PZT: Mason three-port, PZT-5H (\(v\) 4580 m/s, \(k_t\) 0.51, \(\varepsilon^{S}\) \(1470\varepsilon_0\); Ma et al. 2015), \(f_a\) = 5 MHz, lossless Desilets quarter-wave layers. CMUT: one piston membrane mode with lumped bias physics (Module 19), no higher membrane modes, no crosstalk, no parasitic capacitance. A bandwidth upper bound for the CMUT, not a prediction.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m18-bw-cv" aria-label="Normalized pulse-echo spectra and impulse responses of a CMUT and a PZT stack"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>PZT-5H stack</span><span><i style="background:var(--bad)"></i>CMUT</span><span><i style="background:var(--muted)"></i>−6 dB</span><span><i style="background:var(--sig3)"></i>measured CMUT band, 96 % at 4.6 MHz (Oralkan 2002, Fig. 10)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m18-bw-v">CMUT bias V / V<sub>PI</sub> <output id="m18-bw-v-o">0.90</output></label><input type="range" id="m18-bw-v" min="0.4" max="0.97" step="0.01" value="0.9"></div>
+        <div class="ctrl"><label for="m18-bw-a">CMUT cell radius a (µm) <output id="m18-bw-a-o">20</output></label><input type="range" id="m18-bw-a" min="10" max="35" step="1" value="20"></div>
+        <label class="check"><input type="checkbox" id="m18-bw-m" checked> cell water added mass</label>
+        <div class="ctrl"><label for="m18-bw-zb">PZT backing Z<sub>B</sub> (MRayl) <output id="m18-bw-zb-o">5</output></label><input type="range" id="m18-bw-zb" min="0" max="20" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m18-bw-l">PZT matching layers</label><select id="m18-bw-l"><option value="0">none</option><option value="1">1 (Desilets)</option><option value="2" selected>2 (Desilets)</option></select></div>
+        <div class="readout" id="m18-bw-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> the PZT stack with two layers reaches about 63 % around 4.6 MHz; remove the layers and it collapses to 17 %. The CMUT band spans 0.8–14 MHz in this model (about 180 %), its peak sensitivity within a few dB of the PZT stack at 0.9 \(V_{\mathrm{PI}}\), falling 8 dB at 0.7 \(V_{\mathrm{PI}}\). Untick the added mass and the upper edge moves past 25 MHz: the moving mass, not a resonance, sets the top of the band. Measured immersion arrays reach 91–105 % (Oralkan et al. 2002, 2003); higher membrane modes, parasitic capacitance, diffraction and crosstalk eat the rest.</div>
+  </div>
+  <div class="prose">
+    <p><strong>Crosstalk rides an interface wave.</strong> In a CMUT array, the neighbouring membranes and the water above them form a compliant surface. Bayram et al. (IEEE TUFFC 2007) measured and simulated 1D arrays and identified the main crosstalk path as a dispersive guided mode along the fluid–membrane interface: its phase velocity approaches the water sound speed at low frequency, falls with frequency and cuts off (near 4 MHz in conventional mode); first-neighbour crosstalk was about −17 dB, strongest near 2.1 MHz. In collapse mode the average crosstalk fell to about −39 dB and the cutoff rose to about 10 MHz. A homogenized model reproduces that behaviour: treat the array as a locally reacting surface of membranes (mass \(m_a\), spring \(k_a\) per area) under a fluid half-space and look for a wave \(e^{j(\omega t - kx)}\) that decays as \(e^{-\alpha z}\) into the water <span class="eqref">(18.8)</span>:</p>
+  </div>
+  <div class="eqn" id="m18-eq8">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} j\left(\omega m_a - \frac{k_a}{\omega}\right)\frac{\alpha\, p}{j\omega\rho_w} &amp;= -p \\ \Rightarrow\quad \alpha &amp;= \frac{\omega^{2}\rho_w}{k_a - \omega^{2} m_a} \\ k_x &amp;= \sqrt{k_w^{2} + \alpha^{2}} \\ c_{\mathrm{ph}} &amp;= \frac{\omega}{k_x} &lt; c_w \end{aligned} \]</div><span class="eqn-no">(18.8)</span></div>
+    <dl class="where"><dt>\(\alpha\)</dt><dd>decay constant of the wave into the water, 1/m</dd><dt>\(k_a,\ m_a\)</dt><dd>membrane spring and mass per unit area</dd><dt>\(k_x,\ k_w\)</dt><dd>interface-wave and water wavenumbers, 1/m</dd><dt>\(c_{\mathrm{ph}},\ c_w\)</dt><dd>phase velocity of the interface wave and sound speed in water, m/s</dd><dt>\(\omega,\ j\)</dt><dd>angular frequency (rad/s) and imaginary unit</dd><dt>\(p\)</dt><dd>pressure amplitude at the surface, Pa</dd><dt>\(\rho_w\)</dt><dd>water density, kg/m³</dd></dl>
+    <span class="note">Membrane impedance times the fluid's normal velocity equals minus the pressure. A real decay constant \(\alpha &gt; 0\) exists only below the membrane resonance \(\omega_c = \sqrt{k_a/m_a}\), where the surface is stiffness-controlled (a compliant wall slows sound, as in a fluid-filled elastic tube). As \(\omega \to \omega_c\), \(\alpha \to \infty\) and \(c_{\mathrm{ph}} \to 0\): the cutoff. The fluid here enters through the evanescent field, so \(m_a\) is the membrane mass alone. Spring softening lowers the cutoff; collapse, which stiffens the annulus, raises it, as Bayram et al. observed.</span>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 18.4</span><h3>The crosstalk mode: phase velocity and decay depth of the interface wave</h3><span class="prov model">Approx. model</span><span class="prov-note">Homogenized locally reacting membrane surface (cells much smaller than the interface wavelength), water half-space, lossless; piston-equivalent \(k_a\) with lumped spring softening; collapsed state from the finite-difference annulus resonance at the chosen contact radius (no softening).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m18-xt-cv" aria-label="Phase velocity of the interface wave versus frequency, with the decay depth"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>\(c_{\mathrm{ph}}/c_w\)</span><span><i style="background:var(--sig2)"></i>decay depth \(1/\alpha\) (µm, right axis)</span><span><i style="background:var(--muted)"></i>cutoff</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m18-xt-st">Membrane state</label><select id="m18-xt-st"><option value="c" selected>conventional</option><option value="k">collapsed</option></select></div>
+        <div class="ctrl"><label for="m18-xt-v">Bias V / V<sub>PI</sub> (conventional) <output id="m18-xt-v-o">0.80</output></label><input type="range" id="m18-xt-v" min="0" max="0.97" step="0.01" value="0.8"></div>
+        <div class="ctrl"><label for="m18-xt-b">Contact radius b / a (collapsed) <output id="m18-xt-b-o">0.40</output></label><input type="range" id="m18-xt-b" min="0.1" max="0.7" step="0.02" value="0.4"></div>
+        <div class="ctrl"><label for="m18-xt-a">Cell radius a (µm) <output id="m18-xt-a-o">20</output></label><input type="range" id="m18-xt-a" min="10" max="50" step="1" value="20"></div>
+        <div class="readout" id="m18-xt-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> raise the bias: the cutoff drops and the slow, strongly confined part of the curve moves into the imaging band, where it couples elements. Switch to collapsed: the cutoff jumps several-fold. The decay depth shows why a lossy layer (Bayram et al. tested PDMS: about 4 dB less crosstalk in their measurements, little change in their simulations) can attenuate this wave: it lives within a fraction of a wavelength of the surface.</div>
+  </div>
+
+  <!-- ===================== 18.4 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">18.4</span>Making CMUTs: fabrication, charging, nonlinearity and CMOS integration</h2>
+    <p><strong>Two process families.</strong> In <em>sacrificial release</em> (surface micromachining) the gap is a sacrificial layer (polysilicon or oxide) deposited on the insulated substrate, covered by a deposited silicon nitride membrane, removed through etch holes and sealed under vacuum; the gap is the sacrificial thickness minus the nitride deposited during sealing. In <em>wafer bonding</em> the cavities are etched into a thermal oxide on one wafer and a silicon-on-insulator wafer is bonded on top; removing the handle and buried oxide leaves the single-crystal device layer (under 1.5 µm, uniform to better than 10 nm on 100 mm wafers) as the membrane (Ergun et al., SPIE 2005, Figs. 3 and 5). Bonding gives better membrane uniformity and material properties; because the silicon membrane is conductive, it needs a thicker insulator than a nitride membrane. Park et al. (MEMS 2008; J. Microelectromech. Syst. 2011) combined local oxidation (LOCOS) with direct bonding to set the gap and the oxide post height independently, reaching 40 nm gaps with ±2 nm uniformity, fewer breakdown paths and lower parasitic capacitance because most of the bonded area is oxide.</p>
+  </div>
+  <figure class="m18-fig" id="m18-fig-fab">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 18.B</b> · Sacrificial release (top) versus wafer bonding (bottom), four steps each, after the flows in Ergun et al. 2005</div>
+    <div class="mx-scroll"><svg viewBox="0 0 800 330" role="img" aria-label="Two CMUT process flows drawn as four cross-sections each: sacrificial release and wafer bonding">
+<text x="12" y="20" class="t">Sacrificial release</text>
+<g transform="translate(12,30)">
+<rect x="0" y="70" width="180" height="40" class="si"/><rect x="0" y="62" width="180" height="8" class="ins"/><rect x="40" y="46" width="100" height="16" class="sac"/>
+<text x="90" y="128" class="s" text-anchor="middle">1 · sacrificial layer</text></g>
+<g transform="translate(208,30)">
+<rect x="0" y="70" width="180" height="40" class="si"/><rect x="0" y="62" width="180" height="8" class="ins"/><rect x="40" y="46" width="100" height="16" class="sac"/>
+<path d="M0 62 V46 H40 V34 H140 V46 H180 V62 H160 V58 H140 V50 H40 V58 H20 V62 Z" class="mem"/>
+<text x="90" y="128" class="s" text-anchor="middle">2 · nitride membrane</text></g>
+<g transform="translate(404,30)">
+<rect x="0" y="70" width="180" height="40" class="si"/><rect x="0" y="62" width="180" height="8" class="ins"/>
+<path d="M0 62 V46 H40 V34 H140 V46 H180 V62 H160 V58 H140 V50 H40 V58 H20 V62 Z" class="mem"/>
+<rect x="44" y="30" width="6" height="22" class="hole"/><rect x="130" y="30" width="6" height="22" class="hole"/>
+<text x="90" y="128" class="s" text-anchor="middle">3 · etch holes, release</text></g>
+<g transform="translate(600,30)">
+<rect x="0" y="70" width="180" height="40" class="si"/><rect x="0" y="62" width="180" height="8" class="ins"/>
+<path d="M0 62 V46 H40 V34 H140 V46 H180 V62 H160 V58 H140 V50 H40 V58 H20 V62 Z" class="mem"/>
+<rect x="40" y="28" width="100" height="6" class="mem"/><rect x="60" y="22" width="60" height="6" class="metal"/>
+<text x="90" y="128" class="s" text-anchor="middle">4 · seal, metallize</text></g>
+<text x="12" y="176" class="t">Wafer bonding (SOI device layer = membrane)</text>
+<g transform="translate(12,186)">
+<rect x="0" y="50" width="180" height="40" class="si"/><path d="M0 50 V30 H40 V44 H140 V30 H180 V50 Z" class="ins"/>
+<text x="90" y="104" class="s" text-anchor="middle">1 · oxidize, etch cavity</text></g>
+<g transform="translate(208,186)">
+<rect x="0" y="50" width="180" height="40" class="si"/><path d="M0 50 V30 H40 V44 H140 V30 H180 V50 Z" class="ins"/>
+<rect x="0" y="22" width="180" height="8" class="si2"/><rect x="0" y="16" width="180" height="6" class="ins"/><rect x="0" y="0" width="180" height="16" class="si"/>
+<text x="90" y="104" class="s" text-anchor="middle">2 · bond SOI in vacuum</text></g>
+<g transform="translate(404,186)">
+<rect x="0" y="50" width="180" height="40" class="si"/><path d="M0 50 V30 H40 V44 H140 V30 H180 V50 Z" class="ins"/>
+<rect x="0" y="22" width="180" height="8" class="si2"/>
+<text x="90" y="104" class="s" text-anchor="middle">3 · remove handle, BOX</text></g>
+<g transform="translate(600,186)">
+<rect x="0" y="50" width="180" height="40" class="si"/><path d="M0 50 V30 H40 V44 H140 V30 H180 V50 Z" class="ins"/>
+<rect x="0" y="22" width="180" height="8" class="si2"/><rect x="50" y="16" width="80" height="6" class="metal"/>
+<text x="90" y="104" class="s" text-anchor="middle">4 · isolate, metallize</text></g>
+<text x="12" y="322" class="s">gap: sacrificial thickness (top) or oxidation (bottom); membrane: Si₃N₄ (top) or single-crystal Si (bottom)</text>
+</svg></div>
+  </figure>
+  <div class="prose">
+    <p><strong>Charging.</strong> The vacuum gap sees fields of order \(V_{\mathrm{DC}}/g_{\mathrm{eff}}\), about 50 V over 0.21 µm, i.e. 240 V/µm; by continuity of \(D\) the nitride carries \(1/\varepsilon_r\) of that, about 30 V/µm (0.3 MV/cm), and in contact the full bias across \(t_i\), about 500 V/µm. Charge injected into it adds a bias offset \(V_q\): the membrane responds to \(V - V_q\), so the C–V curve, the pull-in voltage and the sensitivity drift with use. Remedies are structural (insulation only on posts or patterned, as in the LOCOS process), electrical (bipolar or alternating bias) and operational (stay below collapse).</p>
+    <p><strong>The force is quadratic.</strong> With \(V = V_{\mathrm{DC}} + v\cos\omega t\) the electrostatic force contains \(V_{\mathrm{DC}}^{2} + v^{2}/2\) (static), \(2V_{\mathrm{DC}}v\cos\omega t\) (linear) and \((v^{2}/2)\cos 2\omega t\). The second-harmonic force is \(v/(4V_{\mathrm{DC}})\) of the fundamental: −32 dB at \(v = 0.1\,V_{\mathrm{DC}}\), −20 dB at \(v = 0.4\,V_{\mathrm{DC}}\). On top of that the \(1/(g - w)^{2}\) gap nonlinearity grows with stroke. For tissue-harmonic imaging the transmit harmonic must stay well below what tissue generates, which pushes CMUT drive schemes toward small AC on a large bias, predistortion, or pulse inversion that accounts for the \(V^{2}\) term.</p>
+    <p><strong>The gap is the stroke.</strong> A membrane cannot move further than its gap. Its plane-wave surface pressure is \(Z_w\omega\bar x\) for an average displacement amplitude \(\bar x\): 50 nm at 5 MHz gives 2.4 MPa. Large gaps cost bias voltage (\(V_{\mathrm{PI}} \propto g^{3/2}\)), small gaps cost output pressure; collapse mode and tall-gap designs with pre-charged or high-voltage bias are the standard answers to this trade.</p>
+  </div>
+  <div class="rf-grid" id="m18-g4"></div>
+  <div class="prose">
+    <p><strong>Integration for 2D arrays.</strong> A \(\lambda/2\)-pitch 2D aperture at 3 MHz has 257 µm elements; 32 × 32 such elements cannot each be cabled (Module 19, Section 19.4). CMUTs offer two ways out. <em>Flip-chip</em>: through-wafer vias bring each element's contact to the back of the CMUT chip, which is bump-bonded to a fan-out or an ASIC; Oralkan et al. (IEEE TUFFC 2003) built 128 × 128 arrays at 420 µm pitch this way and imaged in 3D with a 32 × 64 sub-array flip-chip bonded to a glass fan-out (their Figs. 1–2 show the via and the assembly). <em>Monolithic CMUT-on-CMOS</em>: the cells are built directly on the passivation of a finished CMOS wafer with a back-end-compatible, low-temperature process, so that every element has its pulser, preamplifier and often part of the beamformer underneath it; a commercial whole-body handheld probe built this way is described by Rothberg et al. (PNAS 2021). The same logic applies to PMUTs bonded to CMOS. In both cases micro-beamforming in the probe (Module 19, Section 19.5) is what makes the channel count tractable.</p>
+  </div>
+  <figure class="m18-fig" id="m18-fig-cmos">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 18.C</b> · Two routes to a 2D CMUT array with per-element electronics; not to scale</div>
+    <div class="mx-scroll"><svg viewBox="0 0 800 300" role="img" aria-label="Monolithic CMUT-on-CMOS stack and a flip-chip bonded CMUT array with through-wafer vias on an ASIC">
+<text x="16" y="20" class="t">Monolithic CMUT-on-CMOS</text>
+<text x="420" y="18" class="t">Flip-chip: through-wafer vias + bumps</text>
+<g>
+<rect x="16" y="200" width="370" height="70" class="si"/><text x="200" y="250" class="m" text-anchor="middle">CMOS: pulser, LNA, T/R switch per element</text>
+<rect x="40" y="206" width="40" height="14" class="metal"/><rect x="140" y="206" width="40" height="14" class="metal"/><rect x="240" y="206" width="40" height="14" class="metal"/><rect x="320" y="206" width="40" height="14" class="metal"/>
+<rect x="16" y="150" width="370" height="50" class="beol"/><text x="200" y="180" class="s" text-anchor="middle">interconnect metal stack (BEOL)</text>
+<rect x="16" y="140" width="370" height="10" class="ins"/>
+<path d="M60 150 V 200 M340 150 V 200" class="w2"/>
+<rect x="30" y="100" width="20" height="40" class="ins"/><rect x="185" y="100" width="20" height="40" class="ins"/><rect x="350" y="100" width="20" height="40" class="ins"/>
+<path d="M50 100 Q117 116 185 100 L185 108 Q117 124 50 108 Z" class="mem"/><path d="M205 100 Q277 116 350 100 L350 108 Q277 124 205 108 Z" class="mem"/>
+<rect x="30" y="92" width="340" height="8" class="mem"/>
+<text x="200" y="80" class="s" text-anchor="middle">CMUT cells built on the passivation, low-temperature process</text>
+<text x="16" y="292" class="s">via from each element to the circuit underneath it</text>
+</g>
+<g>
+<rect x="420" y="60" width="360" height="56" class="si"/><text x="600" y="54" class="m" text-anchor="middle">CMUT array chip (cells on top)</text>
+<path d="M440 60 Q470 70 500 60 M520 60 Q550 70 580 60 M600 60 Q630 70 660 60 M680 60 Q710 70 740 60" class="w"/>
+<rect x="466" y="60" width="8" height="56" class="metal"/><rect x="626" y="60" width="8" height="56" class="metal"/><rect x="706" y="60" width="8" height="56" class="metal"/><rect x="546" y="60" width="8" height="56" class="metal"/>
+<circle cx="470" cy="124" r="8" class="bump"/><circle cx="550" cy="124" r="8" class="bump"/><circle cx="630" cy="124" r="8" class="bump"/><circle cx="710" cy="124" r="8" class="bump"/>
+<rect x="420" y="132" width="360" height="56" class="beol"/><text x="600" y="164" class="m" text-anchor="middle">ASIC or fan-out (glass, PCB)</text>
+<text x="600" y="210" class="s" text-anchor="middle">through-wafer via per element, bump-bonded</text>
+<text x="600" y="230" class="s" text-anchor="middle">Oralkan et al. 2003: 128 × 128 elements, 420 µm pitch</text>
+<path d="M470 40 H550" class="dim"/><path d="M470 36 V44 M550 36 V44" class="dim"/><text x="560" y="40" class="s">pitch ≈ λ/2 (257 µm at 3 MHz)</text>
+</g>
+</svg></div>
+  </figure>
+
+  <!-- ===================== 18.5 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">18.5</span>PMUT: a flexural plate driven by a piezoelectric film</h2>
+    <p>A piezoelectric micromachined ultrasonic transducer is a clamped plate made of a passive layer (Si, SiO₂ or SiN, 1–5 µm) and a piezoelectric film (AlN or ScAlN 0.5–2 µm, sol-gel or sputtered PZT up to a few µm) between electrodes. A field across the film makes it contract laterally through \(e_{31,f}\); because the film sits off the neutral axis of the stack, the lateral stress becomes a bending moment and the plate flexes (Qiu et al., Sensors 2015, Fig. 1(c)). No DC bias is needed, drive voltages suit CMOS, and AlN processing is CMOS-compatible.</p>
+  </div>
+  <figure class="m18-fig" id="m18-fig-pmut">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 18.D</b> · PMUT cross-section: bilayer plate over a cavity, inner top electrode, neutral axis inside the passive layer; vertical scale exaggerated</div>
+    <div class="mx-scroll"><svg viewBox="0 0 800 290" role="img" aria-label="PMUT cross-section with substrate, cavity, passive layer, bottom electrode, piezoelectric film, inner top electrode, neutral axis and the bending produced by lateral contraction">
+<rect x="20" y="24" width="600" height="52" class="water"/><text x="320" y="44" class="s" text-anchor="middle">water</text>
+<text x="320" y="62" class="s" text-anchor="middle">e₃₁,f: the film contracts laterally → the stack bends</text>
+<rect x="178" y="80" width="284" height="7" class="metal"/>
+<rect x="20" y="87" width="600" height="26" class="piezo"/>
+<rect x="20" y="113" width="600" height="5" class="metal"/>
+<rect x="20" y="118" width="600" height="34" class="si2"/>
+<path d="M20 140 H620" class="na"/>
+<rect x="20" y="152" width="100" height="98" class="si"/><rect x="520" y="152" width="100" height="98" class="si"/>
+<text x="70" y="204" class="m" text-anchor="middle">Si</text><text x="570" y="204" class="m" text-anchor="middle">Si</text>
+<path d="M230 100 H275" class="arr"/><path d="M410 100 H365" class="arr"/>
+<path d="M478 100 V140" class="ld"/><path d="M474 100 H482 M474 140 H482" class="ld"/><text x="486" y="124" class="s" style="fill:var(--sig2)">z<tspan baseline-shift="sub" font-size="8">p</tspan></text>
+<path d="M120 160 Q320 222 520 160" class="bend"/>
+<text x="320" y="214" class="m" text-anchor="middle">cavity (back-side DRIE or front-side release)</text>
+<text x="320" y="176" class="s" text-anchor="middle" style="fill:var(--sig2)">first axisymmetric mode</text>
+<path d="M120 268 H520" class="dim"/><path d="M120 262 V274 M520 262 V274" class="dim"/><text x="320" y="264" class="s" text-anchor="middle">2a ≈ 40–400 µm for MHz in water</text>
+<path d="M462 83 H636" class="ld"/><text x="640" y="80" class="s">top electrode 0.71 a</text>
+<path d="M620 100 H636" class="ld"/><text x="640" y="98" class="s">piezo film h<tspan baseline-shift="sub" font-size="8">p</tspan>:</text><text x="640" y="111" class="s">AlN/ScAlN 0.5–2 µm,</text><text x="640" y="124" class="s">PZT 1–3 µm</text>
+<path d="M620 116 H632 V140 H636" class="ld"/><text x="640" y="140" class="s">bottom electrode</text>
+<path d="M620 135 H628 V156 H636" class="ld"/><text x="640" y="157" class="s">passive Si h<tspan baseline-shift="sub" font-size="8">s</tspan> 1–5 µm</text>
+<path d="M620 140 H624 V173 H636" class="na"/><text x="640" y="174" class="s" style="fill:var(--sig2)">neutral axis z<tspan baseline-shift="sub" font-size="8">n</tspan></text>
+</svg></div>
+  </figure>
+  <div class="eqn key" id="m18-eq9">
+    <div class="eqn-body"><div class="eqn-math">\[ f_{\mathrm{vac}} = \frac{\lambda_1^{2}}{2\pi a^{2}}\sqrt{\frac{D}{\bar\rho h}}, \qquad \lambda_1^{2} = 10.2158 \]</div><span class="eqn-no">(18.9)</span></div>
+    <dl class="where"><dt>\(\lambda_1\)</dt><dd>first root of \(J_0(\lambda)I_1(\lambda) + I_0(\lambda)J_1(\lambda) = 0\)</dd><dt>\(a\)</dt><dd>plate radius, m</dd><dt>\(D\)</dt><dd>flexural rigidity, N·m</dd><dt>\(\bar\rho h\)</dt><dd>mass per unit area of the plate, kg/m²</dd><dt>\(f_{\mathrm{vac}}\)</dt><dd>fundamental resonance in vacuum, Hz</dd><dt>\(J_0,\ J_1,\ I_0,\ I_1\)</dt><dd>Bessel and modified Bessel functions of the first kind, orders 0 and 1</dd></dl>
+    <span class="note">First axisymmetric mode of a clamped circular plate in vacuum (Leissa, Vibration of Plates, NASA SP-160, 1969). The constant is verified here twice: bisection on the Bessel characteristic equation gives \(\lambda_1\) = 3.1962, and the finite-difference eigen-solve used for the CMUT converges to 10.2113, 10.2147, 10.2155 with 40, 80, 160 intervals. \(f \propto h/a^{2}\): halve the radius and the frequency quadruples.</span>
+  </div>
+  <div class="eqn" id="m18-eq10">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} z_n &amp;= \frac{\sum E'_i h_i z_i}{\sum E'_i h_i}, \qquad E' = \frac{E}{1 - \nu^{2}} \\ D &amp;= \sum E'_i\left[\frac{h_i^{3}}{12} + h_i\,(z_i - z_n)^{2}\right] \\ \bar\rho h &amp;= \sum \rho_i h_i \end{aligned} \]</div><span class="eqn-no">(18.10)</span></div>
+    <dl class="where"><dt>\(z_n\)</dt><dd>height of the neutral axis, m</dd><dt>\(z_i,\ h_i\)</dt><dd>mid-plane height and thickness of layer \(i\), m</dd><dt>\(E'_i\)</dt><dd>plate modulus of layer \(i\), Pa</dd><dt>\(\rho_i\)</dt><dd>density of layer \(i\), kg/m³</dd><dt>\(\sum\)</dt><dd>sum over the layers \(i\)</dd><dt>\(E,\ \nu\)</dt><dd>Young’s modulus (Pa) and Poisson ratio of a layer</dd><dt>\(D\)</dt><dd>flexural rigidity of the stack, N·m</dd><dt>\(\bar\rho h\)</dt><dd>mass per unit area of the stack, kg/m²</dd></dl>
+    <span class="note">Laminated-plate stiffness about the neutral axis, \(z_i\) the mid-plane of layer \(i\). Electrodes (0.1–0.2 µm of Mo or Pt) and residual stress are neglected; tensile stress raises the frequency, and a highly stressed film behaves as a membrane rather than a plate (Qiu et al. 2015 give both limits).</span>
+  </div>
+  <div class="eqn key" id="m18-eq11">
+    <div class="eqn-body"><div class="eqn-math">\[ f_{\mathrm{water}} = \frac{f_{\mathrm{vac}}}{\sqrt{1 + \beta}}, \qquad \beta = \frac{0.67\,\rho_w a}{\bar\rho h} \]</div><span class="eqn-no">(18.11)</span></div>
+    <dl class="where"><dt>\(\beta\)</dt><dd>added-mass ratio (water on one side)</dd><dt>\(\rho_w\)</dt><dd>water density, kg/m³</dd><dt>\(f_{\mathrm{water}},\ f_{\mathrm{vac}}\)</dt><dd>fundamental resonance with water on one side and in vacuum (18.9), Hz</dd><dt>\(a,\ \bar\rho h\)</dt><dd>plate radius (m) and mass per unit area (kg/m²), as in (18.9)</dd></dl>
+    <span class="note">Lamb's added virtual mass for a clamped plate with water on one side (H. Lamb, Proc. R. Soc. Lond. A 98, 1920; the form used by Ayela and Nicu to validate PMUT measurements). For \(a\) = 50 µm and 3 µm of AlN-on-Si, \(\beta\) = 4.2: water lowers the resonance by a factor 2.3.</span>
+  </div>
+  <div class="eqn key" id="m18-eq12">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} M_p &amp;= e_{31,f}\, V z_p \\ Q_{\mathrm{gen}} &amp;= -8\pi M_p\, \beta_e^{2}\left(1 - \beta_e^{2}\right) \\ \frac{w_c}{V} &amp;= \frac{0.375\,\lvert e_{31,f}\rvert\, z_p a^{2}\, \beta_e^{2}\left(1 - \beta_e^{2}\right)}{D} \end{aligned} \]</div><span class="eqn-no">(18.12)</span></div>
+    <dl class="where"><dt>\(M_p\)</dt><dd>piezoelectric bending moment per unit length, N</dd><dt>\(e_{31,f}\)</dt><dd>effective transverse film coefficient, C/m²</dd><dt>\(z_p\)</dt><dd>lever arm, film mid-plane to neutral axis, m</dd><dt>\(\beta_e\)</dt><dd>electrode radius / plate radius</dd><dt>\(Q_{\mathrm{gen}}\)</dt><dd>generalized force on the mode</dd><dt>\(w_c/V\)</dt><dd>centre deflection per volt, m/V</dd><dt>\(V\)</dt><dd>drive voltage on the piezoelectric film, V</dd><dt>\(D,\ a\)</dt><dd>as in (18.1)</dd><dt>\(w_c\)</dt><dd>centre deflection, m</dd></dl>
+    <span class="note">The film stress \(e_{31,f}V/h_p\) acting over \(h_p\) at lever arm \(z_p\) (film mid-plane to neutral axis) is a moment per unit length \(M_p\), independent of \(h_p\). Its virtual work on the mode shape \(\varphi = (1 - r^{2}/a^{2})^{2}\) over an inner electrode of radius \(\beta_e a\) is the generalized force \(Q_{\mathrm{gen}}\) (one-term Ritz, quasi-static). It vanishes for a full electrode, because the curvature changes sign near \(r = 0.71a\), and is maximal at \(\beta_e = 1/\sqrt{2} = 0.707\): the origin of the familiar 70 % electrode.</span>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 18.5</span><h3>PMUT designer: resonance in vacuum and water, lever arm, electrode radius</h3><span class="prov model">Approx. model</span><span class="prov-note">Exact clamped-plate constant 10.2158 with laminated-plate D; Lamb added mass for water on one side; actuation from the one-term Ritz shape, quasi-static. Film data from Roy et al. 2023 (\(e_{31,f}\), \(\varepsilon_{33,f}\)) and Wang et al. 2016 (\(E\)); bulk densities; silicon passive layer \(E\) = 169 GPa. No residual stress, no electrodes.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m18-pm-cv" aria-label="PMUT resonance versus radius in vacuum and water, and relative actuation versus passive-layer thickness and electrode radius"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>f in water</span><span><i style="background:var(--sig3)"></i>f in vacuum</span><span><i style="background:var(--sig2)"></i>actuation \(w_c/V\) (relative)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m18-pm-film">Piezo film</label><select id="m18-pm-film"><option value="0" selected>AlN</option><option value="1">ScAlN (Sc ≈ 15 %)</option><option value="2">PZT film</option></select></div>
+        <div class="ctrl"><label for="m18-pm-a">Radius a (µm) <output id="m18-pm-a-o">30</output></label><input type="range" id="m18-pm-a" min="10" max="200" step="1" value="30"></div>
+        <div class="ctrl"><label for="m18-pm-hp">Film thickness h<sub>p</sub> (µm) <output id="m18-pm-hp-o">1.0</output></label><input type="range" id="m18-pm-hp" min="0.3" max="3" step="0.1" value="1"></div>
+        <div class="ctrl"><label for="m18-pm-hs">Si passive layer h<sub>s</sub> (µm) <output id="m18-pm-hs-o">2.0</output></label><input type="range" id="m18-pm-hs" min="0" max="8" step="0.1" value="2"></div>
+        <div class="ctrl"><label for="m18-pm-be">Electrode radius / a <output id="m18-pm-be-o">0.71</output></label><input type="range" id="m18-pm-be" min="0.2" max="1" step="0.01" value="0.71"></div>
+        <div class="readout" id="m18-pm-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> set \(h_s = 0\): the neutral axis sits in the film, \(z_p = 0\) and the PMUT cannot bend. The actuation peaks when the passive layer is comparable to the film (the exact ratio depends on the stiffness ratio). Switch AlN to PZT: deflection per volt rises more than tenfold with \(\lvert e_{31,f}\rvert\) = 14 versus 1.05 C/m², but the capacitance rises a hundredfold, which is why receive sensitivity (\(e_{31,f}/\varepsilon\)) favours AlN and ScAlN.</div>
+  </div>
+  <div class="prose">
+    <p><strong>Where PMUTs fit.</strong> Their impedance is high and their coupling and bandwidth in water are usually lower than a CMUT's, but they need no bias and integrate with CMOS. They win where size, power and cost decide: they are in products for ultrasonic time-of-flight ranging and fingerprint sensing, and are being developed for wearables and catheters. Qiu et al. (2015) show a 64-element, 5 MHz linear PMUT array (Fig. 12), a 6 × 6 matrix of 200 µm elements (Fig. 13) and a 14 Fr intracardiac catheter with a 512-element array built on through-silicon interconnects (Fig. 14). Rank the films by the figures of merit in Table 18.2: \(e_{31,f}^{2}/(\varepsilon_0\varepsilon_{33,f})\) for transmitted energy and coupling, \(e_{31,f}/(\varepsilon_0\varepsilon_{33,f})\) for receive voltage.</p>
+  </div>
+
+  <!-- ===================== 18.6 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">18.6</span>New bulk and film materials</h2>
+    <p>Module 16 gave the constitutive physics and a first property table. This section adds what changed in the last decade and puts every material a probe designer meets in one sourced comparison.</p>
+  </div>
+  <div class="tbl-wrap"><table class="m18-mat">
+    <caption>Table 18.1 · Bulk transducer materials (ranges are supplier or composition spreads; – = not given by the cited source)</caption>
+    <thead><tr><th>Material</th><th class="num">\(d_{33}\) (pC/N)</th><th class="num">\(k_{33}\)</th><th class="num">\(k_t\)</th><th class="num">\(\varepsilon_{33}^{T}/\varepsilon_0\)</th><th class="num">Z (MRayl)</th><th class="num">Temperature limit (°C)</th><th class="num">\(E_c\) (kV/cm)</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>PZT-5H ceramic</td><td class="num">593–650</td><td class="num">0.75</td><td class="num">0.51</td><td class="num">3800 (\(\varepsilon^{S}\) 1470)</td><td class="num">36.0</td><td class="num">\(T_c\) 230</td><td class="num">≈ 8</td><td>Ma et al. 2015, Table I (\(d_{33}\) 593, \(k_t\), \(\varepsilon^{S}\), Z); APC/Piezo Systems PSI-5H4E (\(d_{33}\) 650, \(k_{33}\), \(\varepsilon^{T}\), \(T_c\), \(E_c\))</td></tr>
+      <tr><td>PMN-PT [001] crystal</td><td class="num">1500–2400</td><td class="num">0.91–0.96</td><td class="num">0.55–0.59</td><td class="num">5000–7000</td><td class="num">36–39</td><td class="num">\(T_{\mathrm{rt}}\) 86–100 (\(T_c\) 130–145)</td><td class="num">1.9–2.5</td><td>TRS Technologies X2B data; \(Z\) from \(v_t\) 4500–4850 m/s × \(\rho\) 8084 kg/m³ (Kim et al. 2013)</td></tr>
+      <tr><td>PIN-PMN-PT [001] crystal</td><td class="num">1200–2100</td><td class="num">0.90–0.95</td><td class="num">0.52–0.58</td><td class="num">4000–6000</td><td class="num">35–38</td><td class="num">\(T_{\mathrm{rt}}\) 105–130 (\(T_c\) 150–200)</td><td class="num">4.5–6.0</td><td>TRS Technologies X4B data; \(Z\) from \(v_t\) 4340–4650 m/s, \(\rho \approx\) 8100 kg/m³ assumed</td></tr>
+      <tr><td>AC-poled PMN-28PT</td><td class="num">&gt; 2100</td><td class="num">≈ 0.94</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td>Qiu et al., Nature 2020: near-perfect optical transparency</td></tr>
+      <tr><td>1-3 PZT-5H / soft epoxy, \(\nu\) = 0.3–0.7</td><td class="num">–</td><td class="num">–</td><td class="num">0.67–0.69</td><td class="num">\(\varepsilon^{S}\) 460–1060</td><td class="num">11–22</td><td class="num">epoxy-limited</td><td class="num">–</td><td>Smith–Auld model, this module (Demo 18.6, m18_composite_effective_properties.m)</td></tr>
+      <tr><td>1-3 PMN-28PT / soft epoxy, \(\nu\) = 0.3–0.7</td><td class="num">–</td><td class="num">–</td><td class="num">0.81–0.83</td><td class="num">\(\varepsilon^{S}\) 280–650</td><td class="num">11–23</td><td class="num">\(T_{\mathrm{rt}}\) of the crystal</td><td class="num">–</td><td>Smith–Auld model with Kim et al. 2013 constants</td></tr>
+      <tr><td>KNN-based lead-free ceramic</td><td class="num">&gt; 300; 416 textured</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td>Saito et al., Nature 2004</td></tr>
+      <tr><td>LiNbO₃ (high-frequency single elements)</td><td class="num">6</td><td class="num">–</td><td class="num">0.49</td><td class="num">\(\varepsilon^{S}\) 39</td><td class="num">34</td><td class="num">–</td><td class="num">–</td><td>Ma et al. 2015, Table I</td></tr>
+      <tr><td>PVDF film</td><td class="num">−30 to −33</td><td class="num">–</td><td class="num">0.14</td><td class="num">8–12</td><td class="num">4.0</td><td class="num">use ≤ 70–80</td><td class="num">–</td><td>Measurement Specialties (\(d_{33}\) −33, \(g_{33}\) \(-330\times 10^{-3}\) V·m/N, \(k_t\) 14 %); Precision Acoustics (\(\rho\) 1780, \(c\) 2250 m/s, \(\varepsilon\) 8–10, \(\tan\delta\) 0.25 at 1 MHz)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="tbl-wrap"><table class="m18-mat">
+    <caption>Table 18.2 · Piezoelectric thin films for PMUTs (Roy, Lee and Lee, Microsyst. Nanoeng. 2023, Table I; ScAlN \(d_{33}\): Akiyama et al. 2009 as quoted by Arab et al. 2022)</caption>
+    <thead><tr><th>Film</th><th class="num">\(\lvert e_{31,f}\rvert\) (C/m²)</th><th class="num">\(\varepsilon_{33,f}\)</th><th class="num">\(e_{31,f}/(\varepsilon_0\varepsilon_{33})\) (GV/m)</th><th class="num">\(e_{31,f}^{2}/(\varepsilon_0\varepsilon_{33})\) (GPa)</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>AlN</td><td class="num">1.05</td><td class="num">10.5</td><td class="num">11.3</td><td class="num">11.9</td><td>\(d_{33} \approx\) 6 pC/N; CMOS-compatible; \(\tan\delta\) 0.003</td></tr>
+      <tr><td>Sc<sub>0.15</sub>Al<sub>0.85</sub>N</td><td class="num">1.6</td><td class="num">12</td><td class="num">15</td><td class="num">24</td><td>\(d_{33}\) rises to 27.6 pC/N at 43 % Sc</td></tr>
+      <tr><td>PZT (sol-gel, sputtered)</td><td class="num">8–12</td><td class="num">300–1300</td><td class="num">0.7–1.8</td><td class="num">5.6–54</td><td>highest transmit force per volt; high capacitance; receive FOM as printed by Roy et al. (their \(e_{31,f}\) and \(\varepsilon\) ranges give 0.7–4.5)</td></tr>
+      <tr><td>PZT (fibered epitaxial)</td><td class="num">14</td><td class="num">200–300</td><td class="num">5.3–7.9</td><td class="num">74–110</td><td>texture lowers \(\varepsilon\), raises both FOMs</td></tr>
+      <tr><td>KNN film</td><td class="num">8.5–14.4</td><td class="num">445</td><td class="num">2.2–3.6</td><td class="num">18–53</td><td>lead-free film option</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose">
+    <p><strong>Single crystals.</strong> [001]-poled relaxor-PT crystals reach \(k_{33}\) above 0.9 and \(d_{33}\) above 1500 pC/N (Zhang et al., Prog. Mater. Sci. 2015). For a transducer the gain is \(k_t\) (0.55–0.59 against 0.51) and, more importantly, \(k_{33}\) in diced or composite form, which buys bandwidth and sensitivity. The price is thermal and electrical fragility: PMN-PT depoles near its rhombohedral-to-tetragonal transition at 86–100 °C and has a coercive field of only about 2 kV/cm. PIN-PMN-PT, the "second generation", raises \(T_{\mathrm{rt}}\) to 105–130 °C and \(E_c\) to 4.5–6 kV/cm at slightly lower \(d_{33}\). Mn doping raises the mechanical \(Q\) further (TRS lists \(Q_m \approx\) 500 for Mn:PIN-PMN-PT against 80 for PMN-PT), which matters for therapy and high-power pushes rather than imaging.</p>
+    <p><strong>AC poling and transparency.</strong> Poling with an alternating field instead of DC changes the domain structure of rhombohedral PMN-PT. Qiu et al. (Nature 2020) used it to remove the light-scattering 71° domain walls, obtaining near-perfect transparency together with \(d_{33}\) above 2100 pC/N and \(k_{33}\) ≈ 0.94 (their Fig. 3 compares AC- and DC-poled crystals). Two consequences matter for ultrasound: AC poling is now a route to higher \(d_{33}\) in ordinary crystal transducers, and transparent crystals let light pass through the transducer, which simplifies co-axial photoacoustic and optical-ultrasound probes.</p>
+    <p><strong>Composites.</strong> A 1-3 composite of single-crystal pillars combines the crystal's \(k_{33}\) with the polymer's low impedance: \(k_t\) ≈ 0.83 against 0.69 for PZT-5H pillars, at the same 11–23 MRayl (Demo 18.6). The fine-scale requirement (Smith and Auld, IEEE TUFFC 1991) becomes the manufacturing limit at high frequency: at 20 MHz a half-wave PMN-PT composite is about 90 µm thick, so pillars must be under about 45 µm wide with narrow kerfs, beyond conventional dicing, which is why high-frequency composites are made by etching or other micro-machining routes. A 2-2 composite (plates instead of pillars, \(\nu = w/p\)) is easier to dice and suits 1D arrays, with coupling between the 1-3 and plate values.</p>
+    <p><strong>Lead-free.</strong> Regulatory pressure on lead drives work on (K,Na)NbO₃ (KNN) and Bi-based (BNT, BKT) ceramics. Saito et al. (Nature 2004) reported a KNN-based ceramic with \(d_{33}\) above 300 pC/N, 416 pC/N when textured; KNN films reach \(\lvert e_{31,f}\rvert\) = 8.5–14.4 C/m² (Table 18.2). For imaging arrays they are not yet a drop-in replacement for PZT-5H, mainly on coupling, temperature stability and processing; treat property claims in this area as composition- and process-specific.</p>
+    <p><strong>High frequency and polymers.</strong> Above about 30 MHz single elements are thin and small, so electrical impedance, not coupling, often decides: LiNbO₃ (\(\varepsilon^{S}\) 39, \(k_t\) 0.49) gives a large element a convenient impedance where PZT-5H (\(\varepsilon^{S}\) 1470) would be a near short. PVDF sits at the other extreme: \(Z \approx\) 4 MRayl, close to water, \(k_t\) 0.14 and a tiny permittivity, which together give a weak transmitter but an excellent wideband receiver with \(g_{33} \approx\) 0.33 V·m/N, about 18 times PZT-5H's. That is why membrane and needle hydrophones (Modules 21 and 22) are PVDF.</p>
+  </div>
+  <figure class="m18-fig" id="m18-fig-comp">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 18.E</b> · 1-3 composite: top view and cross-section, with the 2-2 variant; typical 5 MHz dimensions, not to scale</div>
+    <div class="mx-scroll"><svg viewBox="0 0 800 290" role="img" aria-label="Top view of a 1-3 composite with square pillars in polymer, its cross-section between electrodes, and a 2-2 composite cross-section">
+<text x="16" y="20" class="t">Top view (1-3)</text><text x="290" y="20" class="t">Cross-section A–A′</text><text x="630" y="20" class="t">2-2 variant</text>
+<rect x="16" y="34" width="220" height="220" class="poly"/>
+<g><rect x="19.5" y="37.5" width="15" height="15" class="pz"/><rect x="19.5" y="59.5" width="15" height="15" class="pz"/><rect x="19.5" y="81.5" width="15" height="15" class="pz"/><rect x="19.5" y="103.5" width="15" height="15" class="pz"/><rect x="19.5" y="125.5" width="15" height="15" class="pz"/><rect x="19.5" y="147.5" width="15" height="15" class="pz"/><rect x="19.5" y="169.5" width="15" height="15" class="pz"/><rect x="19.5" y="191.5" width="15" height="15" class="pz"/><rect x="19.5" y="213.5" width="15" height="15" class="pz"/><rect x="19.5" y="235.5" width="15" height="15" class="pz"/><rect x="41.5" y="37.5" width="15" height="15" class="pz"/><rect x="41.5" y="59.5" width="15" height="15" class="pz"/><rect x="41.5" y="81.5" width="15" height="15" class="pz"/><rect x="41.5" y="103.5" width="15" height="15" class="pz"/><rect x="41.5" y="125.5" width="15" height="15" class="pz"/><rect x="41.5" y="147.5" width="15" height="15" class="pz"/><rect x="41.5" y="169.5" width="15" height="15" class="pz"/><rect x="41.5" y="191.5" width="15" height="15" class="pz"/><rect x="41.5" y="213.5" width="15" height="15" class="pz"/><rect x="41.5" y="235.5" width="15" height="15" class="pz"/><rect x="63.5" y="37.5" width="15" height="15" class="pz"/><rect x="63.5" y="59.5" width="15" height="15" class="pz"/><rect x="63.5" y="81.5" width="15" height="15" class="pz"/><rect x="63.5" y="103.5" width="15" height="15" class="pz"/><rect x="63.5" y="125.5" width="15" height="15" class="pz"/><rect x="63.5" y="147.5" width="15" height="15" class="pz"/><rect x="63.5" y="169.5" width="15" height="15" class="pz"/><rect x="63.5" y="191.5" width="15" height="15" class="pz"/><rect x="63.5" y="213.5" width="15" height="15" class="pz"/><rect x="63.5" y="235.5" width="15" height="15" class="pz"/><rect x="85.5" y="37.5" width="15" height="15" class="pz"/><rect x="85.5" y="59.5" width="15" height="15" class="pz"/><rect x="85.5" y="81.5" width="15" height="15" class="pz"/><rect x="85.5" y="103.5" width="15" height="15" class="pz"/><rect x="85.5" y="125.5" width="15" height="15" class="pz"/><rect x="85.5" y="147.5" width="15" height="15" class="pz"/><rect x="85.5" y="169.5" width="15" height="15" class="pz"/><rect x="85.5" y="191.5" width="15" height="15" class="pz"/><rect x="85.5" y="213.5" width="15" height="15" class="pz"/><rect x="85.5" y="235.5" width="15" height="15" class="pz"/><rect x="107.5" y="37.5" width="15" height="15" class="pz"/><rect x="107.5" y="59.5" width="15" height="15" class="pz"/><rect x="107.5" y="81.5" width="15" height="15" class="pz"/><rect x="107.5" y="103.5" width="15" height="15" class="pz"/><rect x="107.5" y="125.5" width="15" height="15" class="pz"/><rect x="107.5" y="147.5" width="15" height="15" class="pz"/><rect x="107.5" y="169.5" width="15" height="15" class="pz"/><rect x="107.5" y="191.5" width="15" height="15" class="pz"/><rect x="107.5" y="213.5" width="15" height="15" class="pz"/><rect x="107.5" y="235.5" width="15" height="15" class="pz"/><rect x="129.5" y="37.5" width="15" height="15" class="pz"/><rect x="129.5" y="59.5" width="15" height="15" class="pz"/><rect x="129.5" y="81.5" width="15" height="15" class="pz"/><rect x="129.5" y="103.5" width="15" height="15" class="pz"/><rect x="129.5" y="125.5" width="15" height="15" class="pz"/><rect x="129.5" y="147.5" width="15" height="15" class="pz"/><rect x="129.5" y="169.5" width="15" height="15" class="pz"/><rect x="129.5" y="191.5" width="15" height="15" class="pz"/><rect x="129.5" y="213.5" width="15" height="15" class="pz"/><rect x="129.5" y="235.5" width="15" height="15" class="pz"/><rect x="151.5" y="37.5" width="15" height="15" class="pz"/><rect x="151.5" y="59.5" width="15" height="15" class="pz"/><rect x="151.5" y="81.5" width="15" height="15" class="pz"/><rect x="151.5" y="103.5" width="15" height="15" class="pz"/><rect x="151.5" y="125.5" width="15" height="15" class="pz"/><rect x="151.5" y="147.5" width="15" height="15" class="pz"/><rect x="151.5" y="169.5" width="15" height="15" class="pz"/><rect x="151.5" y="191.5" width="15" height="15" class="pz"/><rect x="151.5" y="213.5" width="15" height="15" class="pz"/><rect x="151.5" y="235.5" width="15" height="15" class="pz"/><rect x="173.5" y="37.5" width="15" height="15" class="pz"/><rect x="173.5" y="59.5" width="15" height="15" class="pz"/><rect x="173.5" y="81.5" width="15" height="15" class="pz"/><rect x="173.5" y="103.5" width="15" height="15" class="pz"/><rect x="173.5" y="125.5" width="15" height="15" class="pz"/><rect x="173.5" y="147.5" width="15" height="15" class="pz"/><rect x="173.5" y="169.5" width="15" height="15" class="pz"/><rect x="173.5" y="191.5" width="15" height="15" class="pz"/><rect x="173.5" y="213.5" width="15" height="15" class="pz"/><rect x="173.5" y="235.5" width="15" height="15" class="pz"/><rect x="195.5" y="37.5" width="15" height="15" class="pz"/><rect x="195.5" y="59.5" width="15" height="15" class="pz"/><rect x="195.5" y="81.5" width="15" height="15" class="pz"/><rect x="195.5" y="103.5" width="15" height="15" class="pz"/><rect x="195.5" y="125.5" width="15" height="15" class="pz"/><rect x="195.5" y="147.5" width="15" height="15" class="pz"/><rect x="195.5" y="169.5" width="15" height="15" class="pz"/><rect x="195.5" y="191.5" width="15" height="15" class="pz"/><rect x="195.5" y="213.5" width="15" height="15" class="pz"/><rect x="195.5" y="235.5" width="15" height="15" class="pz"/><rect x="217.5" y="37.5" width="15" height="15" class="pz"/><rect x="217.5" y="59.5" width="15" height="15" class="pz"/><rect x="217.5" y="81.5" width="15" height="15" class="pz"/><rect x="217.5" y="103.5" width="15" height="15" class="pz"/><rect x="217.5" y="125.5" width="15" height="15" class="pz"/><rect x="217.5" y="147.5" width="15" height="15" class="pz"/><rect x="217.5" y="169.5" width="15" height="15" class="pz"/><rect x="217.5" y="191.5" width="15" height="15" class="pz"/><rect x="217.5" y="213.5" width="15" height="15" class="pz"/><rect x="217.5" y="235.5" width="15" height="15" class="pz"/></g>
+<path d="M16 135 H236" class="na"/><text x="240" y="139" class="s">A–A′</text>
+<path d="M19.5 262 H41.5" class="dim"/><path d="M19.5 258 V266 M41.5 258 V266" class="dim"/><text x="48" y="282" class="s" text-anchor="middle">pitch p</text>
+<text x="126" y="282" class="s" text-anchor="middle">ν = (w/p)²</text>
+<rect x="290" y="70" width="250" height="8" class="metal"/><rect x="290" y="206" width="250" height="8" class="metal"/>
+<rect x="290" y="78" width="250" height="128" class="poly"/>
+<g><rect x="294.5" y="78" width="16" height="128" class="pz"/><rect x="319.5" y="78" width="16" height="128" class="pz"/><rect x="344.5" y="78" width="16" height="128" class="pz"/><rect x="369.5" y="78" width="16" height="128" class="pz"/><rect x="394.5" y="78" width="16" height="128" class="pz"/><rect x="419.5" y="78" width="16" height="128" class="pz"/><rect x="444.5" y="78" width="16" height="128" class="pz"/><rect x="469.5" y="78" width="16" height="128" class="pz"/><rect x="494.5" y="78" width="16" height="128" class="pz"/><rect x="519.5" y="78" width="16" height="128" class="pz"/></g>
+<text x="415" y="62" class="s" text-anchor="middle">front electrode (to matching)</text>
+<text x="415" y="232" class="s" text-anchor="middle">back electrode (to backing)</text>
+<path d="M550 78 V206" class="dim"/><path d="M546 78 H554 M546 206 H554" class="dim"/><text x="556" y="138" class="s">t = λ/2</text><text x="556" y="152" class="s">0.37 mm</text><text x="556" y="166" class="s">at 5 MHz</text>
+<text x="290" y="256" class="s">ceramic or crystal pillars (w/t ≲ 0.5) in soft epoxy;</text>
+<text x="290" y="272" class="s">pitch ≪ t and ≪ polymer shear wavelength</text>
+<rect x="630" y="70" width="160" height="8" class="metal"/><rect x="630" y="206" width="160" height="8" class="metal"/><rect x="630" y="78" width="160" height="128" class="poly"/><rect x="636" y="78" width="20" height="128" class="pz"/><rect x="667" y="78" width="20" height="128" class="pz"/><rect x="698" y="78" width="20" height="128" class="pz"/><rect x="729" y="78" width="20" height="128" class="pz"/><rect x="760" y="78" width="20" height="128" class="pz"/>
+<text x="710" y="232" class="s" text-anchor="middle">plates, ν = w/p</text>
+</svg></div>
+  </figure>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 18.6</span><h3>Composite designer: PZT-5H versus PMN-PT pillars</h3><span class="prov model">Approx. model</span><span class="prov-note">Smith–Auld effective medium (as Module 16), fine-scale limit, lossless; PZT-5H constants as Module 16, PMN-28PT constants from Kim, Joh and Roh (Sensors and Materials 2013): \(c_{11}^{E}\) 14.7, \(c_{12}^{E}\) 13.1, \(c_{13}^{E}\) 11.4, \(c_{33}^{E}\) \(11.4\times 10^{10}\) N/m², \(e_{31}\) −6.88, \(e_{33}\) 21.4 C/m², \(\varepsilon_{33}^{S}\) \(885\varepsilon_0\), \(\rho\) 8084 kg/m³. Epoxy: \(v_L\) 2500, \(v_S\) 1100 m/s, \(\rho\) 1150 kg/m³.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m18-cp-cv" aria-label="Composite thickness coupling and impedance versus volume fraction for PZT-5H and PMN-PT pillars"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>\(k_t\) PMN-PT pillars</span><span><i style="background:var(--sig3)"></i>\(k_t\) PZT-5H pillars</span><span><i style="background:var(--sig2)"></i>\(Z\) (MRayl, right axis), solid PMN-PT, dashed PZT</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m18-cp-nu">Volume fraction ν <output id="m18-cp-nu-o">0.50</output></label><input type="range" id="m18-cp-nu" min="0.1" max="1" step="0.01" value="0.5"></div>
+        <div class="ctrl"><label for="m18-cp-f">Design frequency f<sub>0</sub> (MHz) <output id="m18-cp-f-o">5.0</output></label><input type="range" id="m18-cp-f" min="1" max="30" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m18-cp-ar">Pillar width / thickness <output id="m18-cp-ar-o">0.50</output></label><input type="range" id="m18-cp-ar" min="0.2" max="0.8" step="0.02" value="0.5"></div>
+        <div class="readout" id="m18-cp-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> both curves have a broad \(k_t\) plateau between \(\nu \approx\) 0.4 and 0.7, so pick \(\nu\) for impedance and dicing yield, not for coupling. Raise \(f_0\) to 20 MHz: the pillar width falls below 50 µm and the kerf to a few tens of µm, where dicing saws stop and etched composites take over. The readout turns red when the kerf is under 15 µm, a practical saw-kerf limit.</div>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 18.7</span><h3>Material comparison: ranges from Tables 18.1 and 18.2</h3><span class="prov exact">Exact formula</span><span class="prov-note">Tabulated published values plotted as is (bars span the quoted range, a tick marks a single value); composite rows are Smith–Auld model values. Film FOMs re-plotted from Roy et al. 2023, Table I. \(g_{33} = d_{33}/\varepsilon_{33}^{T}\) from the tabulated mid values (PVDF: datasheet value).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m18-mc-cv" aria-label="Horizontal range bars comparing transducer materials on the chosen property"></canvas>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m18-mc-p">Property</label><select id="m18-mc-p">
+          <option value="kt" selected>k_t (thickness coupling)</option><option value="d33">d33 (pC/N, log)</option><option value="eps">ε33T/ε0 (log)</option><option value="Z">Z (MRayl)</option><option value="T">temperature limit (°C)</option><option value="g33">g33 (mV·m/N, log)</option><option value="fom">film FOM e31,f²/(ε0ε33) (GPa)</option><option value="rx">film receive FOM e31,f/(ε0ε33) (GV/m)</option></select></div>
+        <div class="readout" id="m18-mc-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> \(k_t\) ranks crystal composites first; \(Z\) ranks PVDF and composites best for matching; the temperature limit reverses the crystal advantage; \(g_{33}\) shows why PVDF is a receiver. For films, switch between the two FOMs: epitaxial PZT leads on energy, ScAlN and AlN on receive voltage.</div>
+  </div>
+
+  <!-- ===================== 18.7 Visual summary ===================== -->
+  <h2><span class="sec">18.7</span>Visual summary</h2>
+  <div class="prose"><p>Fifteen questions an expert answers in five seconds, each with its number and a figure computed from the formula or from this module's models.</p></div>
+  <div class="rf-grid" id="m18-vis"></div>
+
+  <!-- ===================== 18.8 Experts ===================== -->
+  <h2><span class="sec">18.8</span>How experts think about it</h2>
+  <div class="prose"><p>A CMUT is a nonlinear capacitor with a plate for a top electrode: bias trades stiffness for coupling until the plate folds, and the water load turns its mass-spring resonance into a broadband response. A PMUT is the same plate with a built-in moment instead of a bias, so its design is about the neutral axis, the electrode radius and the film's figure of merit. Bulk materials are chosen on three numbers, coupling, impedance and robustness, and every new material buys one of them by spending another.</p></div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">A clamped plate pulls in at 70 % of the piston's voltage; its centre has moved about 0.46 of the gap, its average only 0.15.</div>
+      <div class="keynum"><span>\(V_{\mathrm{PI}}^{2} = 27.8\,Dg_{\mathrm{eff}}^{3}/(\varepsilon_0 a^{4})\)</span><span>piston: 56.9</span><span>ratio 0.699</span></div>
+      <div class="why"><p>The electrostatic pressure grows as \(1/(g - w)^{2}\), so the deflected centre is loaded hardest and softens first; the piston, which sees only the average gap, waits too long. The finite-difference plate gives 53.1 V for a 20 µm-radius, 1 µm silicon membrane over a 0.2 µm gap with 0.1 µm nitride, against 76.0 V from the piston with \(k = 192\pi D/a^{2}\) <span class="eqref">(18.3)</span>–<span class="eqref">(18.4)</span>. The figure plots average deflection against bias for both.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">FD plate (blue, red after collapse) versus lumped piston (grey dashed), default cell of Demo 18.1.</span><canvas id="m18-rf-1" aria-label="Average deflection versus bias, distributed and lumped"></canvas></div></div>
+      <div class="limits">Small deflection (\(w \ll h\)), no residual stress (tension raises \(V_{\mathrm{PI}}\)), uniform gap, no fringing, full electrode. Square or hexagonal cells and partial electrodes change the constant.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Collapse is hysteretic: down at \(V_{\mathrm{PI}}\), up only at the snap-back voltage, and the insulator decides how low that is.</div>
+      <div class="keynum"><span>\(V_{\mathrm{SB}} = 0.49\,V_{\mathrm{PI}}\) (\(g_0\) 0.2 µm)</span><span>\(0.26\,V_{\mathrm{PI}}\) (\(g_0\) 1 µm)</span><span>Bayram 2003: 140 / 68 V</span></div>
+      <div class="why"><p>In contact the electrical gap is only \(t_i/\varepsilon_r\) (13 nm for 0.1 µm of nitride), so a small bias holds a large contact force. The thinner that gap relative to \(g_0\), the lower \(V_{\mathrm{SB}}\). The loop in the figure is the capacitance a C–V meter would trace on the default cell: up the blue branch, jump at \(V_{\mathrm{PI}}\), back down the red one to \(V_{\mathrm{SB}}\).</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">FD plate, capacitance normalized to the unbiased value.</span><canvas id="m18-rf-2" aria-label="Capacitance hysteresis loop"></canvas></div></div>
+      <div class="limits">Ideal flat contact. Roughness or a contact offset raises \(V_{\mathrm{SB}}\) (a 50 nm offset moves 0.26 to about 0.43 for the 1 µm-gap cell); trapped charge shifts both thresholds.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Coupling is a stiffness ratio: \(k^{2} = 1 - K_V/K_Q\), short circuit over open circuit.</div>
+      <div class="keynum"><span>plate: 0.26 at 0.9 \(V_{\mathrm{PI}}\)</span><span>piston: 0.43</span><span>0.37 vs 0.56 at 0.95 \(V_{\mathrm{PI}}\)</span></div>
+      <div class="why"><p>At constant voltage the field acts as a negative spring; at constant charge the voltage readjusts and adds back \(V^{2}\mathbf{c}\mathbf{c}^{T}/C\) <span class="eqref">(18.5)</span>. For a piston the two cancel exactly, giving the Module 19 result. For a plate the softening is concentrated at the centre while the rank-one restoring term is spread over the electrode, so less of the stiffness is electrical and \(k^{2}\) is lower at every bias.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">FD plate eigenvalues (blue) and the exact lumped formula \(2\xi/(1 - \xi)\) (grey dashed).</span><canvas id="m18-rf-3" aria-label="Coupling versus bias"></canvas></div></div>
+      <div class="limits">Fundamental mode, small signal, vacuum. Collapse mode needs a much finer grid at the contact edge; FEM gives \(k_T^{2} \approx 0.7\) there (Bayram et al. 2003).</div>
+    </div>
+    <div class="rule">
+      <div class="say">In collapse the annulus rings: the resonance climbs steeply with the contact radius.</div>
+      <div class="keynum"><span>\(b/a\) = 0.3: \(4.4\,f_0\)</span><span>0.5: \(8.7\,f_0\)</span><span>0.6: \(13.5\,f_0\)</span></div>
+      <div class="why"><p>With its centre pinned, the vibrating part is an annulus clamped at \(b\) and at \(a\); its width \(a - b\) sets the frequency much as the radius sets it for a disc. The mechanical values above (240-interval FD) match the classical clamped–clamped annulus: \(\lambda^{2} \approx 89\) at \(b/a\) = 0.5, 8.7 times the disc's 10.22. Raising the bias grows \(b\), so a collapsed CMUT is a bias-tuned transducer.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">FD eigen-solve with the contact disc fixed, mechanical only (no electrostatic softening), in vacuum.</span><canvas id="m18-rf-4" aria-label="Annulus resonance versus contact radius"></canvas></div></div>
+      <div class="limits">Softening at the contact edge lowers these values; water loading lowers them further. The contact radius itself depends on bias, insulator and roughness.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A water-loaded CMUT is an over-damped resonator: its band runs from \(\eta k_{\mathrm{eff}}/(2\pi Z_w)\) to \(Z_w/(2\pi\eta m)\).</div>
+      <div class="keynum"><span>\(Q = \sqrt{km}/Z_w \approx 0.18\)</span><span>0.8–14 MHz at 0.9 \(V_{\mathrm{PI}}\)</span></div>
+      <div class="why"><p>A 1 µm silicon membrane has \(m_a \approx\) 4 g/m²; at 10 MHz its inertial impedance \(\omega m\) is 0.26 MRayl, a sixth of water. The velocity per unit force of a series \(m\)–\(k\)–\(R\) circuit is flat between \(k/R\) and \(R/m\) when \(Q \ll 1\) <span class="eqref">(18.7)</span>; the figure shows \(\lvert H\rvert\) for \(Q\) = 0.18 and, for contrast, \(Q\) = 3.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">\(\left\lvert 1/\left(1 + jQ(f/f_0 - f_0/f)\right)\right\rvert\), normalized frequency.</span><canvas id="m18-rf-5" aria-label="Second-order band-pass response for two Q values"></canvas></div></div>
+      <div class="limits">One membrane mode; higher modes, cell-level added mass and parasitic capacitance cut the upper band in practice.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Matched PZT stacks give 60–80 %; CMUT models promise over 150 % and real immersion arrays deliver about 100 %.</div>
+      <div class="keynum"><span>PZT, 2 layers: 63 % (model)</span><span>Oralkan 2002: 96 %, 105 % compensated</span><span>Oralkan 2003: 91–100 %</span></div>
+      <div class="why"><p>The PZT element is a resonator whose Q the matching layers lower; the CMUT is over-damped from the start. The 1D model of Demo 18.3 shows both spectra. The difference between model and measurement for the CMUT is a list of what the model ignores: second and non-axisymmetric membrane modes, crosstalk through the interface wave, diffraction of the finite element and cable capacitance.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Demo 18.3 defaults: PZT-5H, 2 Desilets layers, \(Z_B\) 5 MRayl; CMUT \(a\) = 20 µm at 0.9 \(V_{\mathrm{PI}}\) with added mass.</span><canvas id="m18-rf-6" aria-label="Model pulse-echo spectra of PZT and CMUT"></canvas></div></div>
+      <div class="limits">Plane reflector, plane-wave loading, lossless layers; compare measured bandwidths only after diffraction and attenuation compensation, as Oralkan et al. did.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The gap is the stroke: a CMUT's surface pressure cannot exceed \(Z_w\omega\bar x\).</div>
+      <div class="keynum"><span>50 nm at 5 MHz → 2.4 MPa</span><span>\(V_{\mathrm{PI}} \propto g^{3/2}\)</span></div>
+      <div class="why"><p>A plane piston radiates \(p = Z_w v = Z_w\omega\bar x\). The average displacement amplitude \(\bar x\) is a fraction of the gap (the centre can travel at most \(g_0\), the average much less), so a large-output CMUT needs a tall gap, and a tall gap needs a high bias. Collapse mode raises \(\bar x\) several-fold for the same gap (Bayram et al. 2003: 0.25–0.45 µm versus 0.05–0.15 µm).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">\(p = Z_w\cdot 2\pi f\cdot\bar x\) for \(\bar x\) = 25, 50, 100 nm.</span><canvas id="m18-rf-7" aria-label="Surface pressure versus frequency for three displacements"></canvas></div></div>
+      <div class="limits">Plane-wave, linear radiation; focusing gain adds on top. Gap nonlinearity and harmonics rise long before contact.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The force goes as \(V^{2}\): keep \(v\) small against \(V_{\mathrm{DC}}\); the second-harmonic force is \(v/(4V_{\mathrm{DC}})\).</div>
+      <div class="keynum"><span>\(v = 0.1\,V_{\mathrm{DC}}\): −32 dB</span><span>\(v = 0.4\,V_{\mathrm{DC}}\): −20 dB</span></div>
+      <div class="why"><p>\((V_{\mathrm{DC}} + v\cos\omega t)^{2} = V_{\mathrm{DC}}^{2} + v^{2}/2\) \(+\, 2V_{\mathrm{DC}}v\cos\omega t + (v^{2}/2)\cos 2\omega t\). The ratio of the \(2\omega\) to the \(\omega\) term is \(v/(4V_{\mathrm{DC}})\). Without bias (\(V_{\mathrm{DC}} = 0\)) a CMUT transmits only at \(2\omega\), the reason unbiased drive is sometimes used deliberately. Tissue-harmonic imaging needs the transmitted \(2\omega\) well below the tissue-generated one.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">\(20\log_{10}(v/4V_{\mathrm{DC}})\), force only (gap nonlinearity adds more).</span><canvas id="m18-rf-8" aria-label="Second-harmonic force ratio versus drive ratio"></canvas></div></div>
+      <div class="limits">Force harmonic only; the \(1/(g - w)^{2}\) dependence adds displacement harmonics that grow with stroke.</div>
+    </div>
+    <div class="rule">
+      <div class="say">CMUT crosstalk is a slow interface wave that cuts off at the membrane resonance.</div>
+      <div class="keynum"><span>first neighbour −17 dB near 2.1 MHz</span><span>collapse: −39 dB average, cutoff ≈ 10 MHz</span></div>
+      <div class="why"><p>Below resonance the membrane surface is a spring; water over a compliant wall supports a wave slower than \(c_w\), confined within \(1/\alpha\) of the surface <span class="eqref">(18.8)</span>. In normalized form \(c_{\mathrm{ph}}/c_w = \left[1 + \left(R\Omega/(1 - \Omega^{2})\right)^{2}\right]^{-1/2}\) with \(\Omega = f/f_c\) and \(R = Z_w/(m_a\omega_c)\). The numbers are the measurements of Bayram et al. (2007); a lossy coating, collapse mode or trenches attenuate the wave.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Homogenized membrane surface, \(R\) = 2, 5 and 15.</span><canvas id="m18-rf-9" aria-label="Normalized interface-wave phase velocity"></canvas></div></div>
+      <div class="limits">Homogenization needs cells much smaller than the interface wavelength; near cutoff the wavelength becomes comparable to the cell and the periodic structure (stop bands) matters.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Trapped charge is a bias offset: it slides the C–V curve sideways.</div>
+      <div class="keynum"><span>effective bias \(V - V_q\)</span><span>insulator ≈ 30 V/µm, ≈ 500 V/µm in contact</span></div>
+      <div class="why"><p>The force depends on \((V - V_q)^{2}\), so the symmetric C–V "butterfly" of a clean device shifts by \(V_q\). A fixed bias then sits at a different fraction of pull-in, changing sensitivity and, near \(V_{\mathrm{PI}}\), risking collapse. Measuring the C–V minimum before and after a stress test is the standard charging check.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Lumped piston \(C/C_0 = 1/(1 - \xi)\) for \(V_q = 0\) and \(0.2\,V_{\mathrm{PI}}\).</span><canvas id="m18-rf-10" aria-label="C-V curves with and without trapped charge"></canvas></div></div>
+      <div class="limits">Uniform charge sheet; real charge is patchy and drifts, and patterned or post-only insulators reduce it.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Clamped plate: \(f = 10.22/(2\pi a^{2})\cdot\sqrt{D/\rho h}\); halve the radius and the frequency quadruples.</div>
+      <div class="keynum"><span>\(\lambda_1 = 3.1962\)</span><span>\(f \propto h/a^{2}\)</span><span>Si 1 µm, \(a\) = 20 µm: 10.2 MHz</span></div>
+      <div class="why"><p>\(\lambda_1\) is the first root of \(J_0(\lambda)I_1(\lambda) + I_0(\lambda)J_1(\lambda) = 0\) <span class="eqref">(18.9)</span>; the FD solver used here converges to it (10.2155 at 160 intervals). Since \(D \propto h^{3}\) and the mass \(\propto h\), \(f \propto h/a^{2}\). CMUT and PMUT cells are therefore tuned mainly by radius.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Silicon, \(h\) = 1 and 2 µm, vacuum.</span><canvas id="m18-rf-11" aria-label="Plate resonance versus radius"></canvas></div></div>
+      <div class="limits">Uniform isotropic plate, no residual stress, vacuum; anisotropic silicon and electrodes shift it by a few percent, stress by much more.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Water lowers a PMUT's resonance by \(\sqrt{1 + 0.67\rho_w a/\bar\rho h}\), often by a factor of two or more.</div>
+      <div class="keynum"><span>\(a\) = 50 µm, 3 µm stack: \(\beta\) = 4.2</span><span>÷ 2.3</span></div>
+      <div class="why"><p>The plate drags a slug of water whose mass scales as \(\rho_w a^{3}\) while the plate's own mass scales as \(\bar\rho h a^{2}\), hence the ratio \(a/h\) (Lamb 1920, <span class="eqref">(18.11)</span>). Thin, wide plates are dominated by the water: their frequency in water depends little on their own density, and their bandwidth is set by radiation.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Lamb added mass, one side wetted, \(\bar\rho\) = 2640 kg/m³ (AlN on Si).</span><canvas id="m18-rf-12" aria-label="Water-loaded to vacuum frequency ratio versus a/h"></canvas></div></div>
+      <div class="limits">Baffled plate in an infinite fluid, first mode; arrays with mutual loading and cavities with back pressure differ.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Stop the top electrode at 0.71 a: a full electrode cancels its own moment.</div>
+      <div class="keynum"><span>\(\beta_e = 1/\sqrt{2}\)</span><span>actuation \(\propto \beta_e^{2}(1 - \beta_e^{2})\)</span></div>
+      <div class="why"><p>The first mode's curvature \(\nabla^{2}\varphi = (16r^{2}/a^{2} - 8)/a^{2}\) changes sign at \(r = a/\sqrt{2}\) <span class="eqref">(18.12)</span>. A uniform piezoelectric moment does positive work inside that radius and negative work outside, so covering the whole plate gives zero; the optimum electrode ends exactly at the sign change. A ring electrode on the outer part, driven in antiphase, adds the outer contribution.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">One-term Ritz with \(\varphi = (1 - r^{2}/a^{2})^{2}\).</span><canvas id="m18-rf-13" aria-label="Relative actuation versus electrode radius"></canvas></div></div>
+      <div class="limits">Quasi-static, first mode; the exact mode shape moves the optimum by a few percent, and receive sensitivity per unit capacitance favours a slightly smaller electrode.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A film on the neutral axis does nothing: the bending moment is \(e_{31,f}\cdot V\cdot z_p\).</div>
+      <div class="keynum"><span>\(h_s = 0 \to z_p = 0\)</span><span>AlN 1 µm on Si 2 µm: \(z_p\) = 0.69 µm</span></div>
+      <div class="why"><p>The film's lateral stress is \(e_{31,f}V/h_p\); integrated over \(h_p\) it is a force per length \(e_{31,f}V\), and its moment arm about the neutral axis is \(z_p\). Deflection per volt \(\propto z_p a^{2}/D\): a thicker passive layer raises \(z_p\) but \(D\) faster, so there is an optimum passive thickness of the order of the film thickness.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Laminated plate, AlN 1 µm on Si, centre deflection per volt (one-term Ritz), normalized.</span><canvas id="m18-rf-14" aria-label="Relative actuation versus passive-layer thickness"></canvas></div></div>
+      <div class="limits">Electrodes and residual stress ignored; with a bimorph (two active films driven in antiphase) the neutral axis can sit between them and both contribute.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Rank films by \(e_{31,f}^{2}/(\varepsilon_0\varepsilon_{33})\) for energy and by \(e_{31,f}/(\varepsilon_0\varepsilon_{33})\) for receive voltage.</div>
+      <div class="keynum"><span>AlN 11.9 GPa</span><span>Sc<sub>0.15</sub>AlN 24 GPa</span><span>sol-gel PZT 5.6–54 GPa</span></div>
+      <div class="why"><p>Transmit force per volt scales with \(e_{31,f}\), the stored electrical energy with \(\varepsilon\), so \(k^{2}\) and transmitted energy per stored energy scale with \(e^{2}/\varepsilon\). Open-circuit receive voltage per unit stress scales with \(e/\varepsilon\), where AlN's low permittivity (10.5 against hundreds) wins despite its tenfold lower \(e_{31,f}\). Values re-plotted from Roy et al. 2023, Table I.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Tabulated values (range mid-points), Roy et al. 2023.</span><canvas id="m18-rf-15" aria-label="Thin-film figure of merit bars"></canvas></div></div>
+      <div class="limits">Film values vary strongly with deposition, texture and thickness; loss tangent (AlN 0.003 versus PZT 0.01–0.03) also enters the receive SNR.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Put single-crystal pillars in the composite: \(k_t\) climbs from 0.69 to 0.83 at the same impedance.</div>
+      <div class="keynum"><span>\(\nu\) = 0.5: 0.687 vs 0.833</span><span>\(Z\) 16.4 vs 17.0 MRayl</span></div>
+      <div class="why"><p>In a fine-scale composite the pillars work near their bar coupling \(k_{33}\) (0.75 for PZT-5H, above 0.9 for PMN-PT), while the epoxy sets the density and stiffness. The Smith–Auld model gives a broad \(k_t\) plateau for \(\nu \approx\) 0.4–0.7 with either pillar; \(Z\) hardly depends on the pillar material because the densities and stiffnesses are similar.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Smith–Auld, soft epoxy; PMN-28PT constants from Kim et al. 2013.</span><canvas id="m18-rf-16" aria-label="Composite coupling versus volume fraction for PZT and PMN-PT pillars"></canvas></div></div>
+      <div class="limits">Fine-scale limit, lossless, no inter-pillar lateral modes; the crystal's \(T_{\mathrm{rt}}\) and coercive field still limit bonding temperature and bipolar drive.</div>
+    </div>
+    <div class="rule">
+      <div class="say">PVDF is a receiver: small \(d_{33}\), huge \(g_{33}\), water-matched.</div>
+      <div class="keynum"><span>\(g_{33}\) = 0.33 V·m/N</span><span>≈ 18 × PZT-5H</span><span>\(Z \approx\) 4 MRayl, \(k_t\) 0.14</span></div>
+      <div class="why"><p>\(g = d/\varepsilon^{T}\) is the open-circuit field per unit stress. PVDF's \(d_{33}\) is 20 times smaller than PZT-5H's but its permittivity is 300–500 times smaller, so its receive voltage per unit thickness is larger. Its impedance is close to water's, so it barely perturbs the field it measures: the basis of membrane and needle hydrophones.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">\(g_{33} = d_{33}/(\varepsilon_0\varepsilon_{33}^{T})\) from Table 18.1 mid values; PVDF datasheet value.</span><canvas id="m18-rf-17" aria-label="Receive constant g33 bars"></canvas></div></div>
+      <div class="limits">Low \(k_t\) makes PVDF a poor transmitter; \(\tan\delta \approx\) 0.25 at 1 MHz and a 70–80 °C limit restrict it further.</div>
+    </div>
+  </div>
+
+  <!-- ===================== 18.9 Cheat sheet ===================== -->
+  <h2><span class="sec">18.9</span>Cheat sheet</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Concept</th><th>Formula or number</th><th>Use</th></tr></thead>
+    <tbody>
+      <tr><td>Effective gap</td><td>\(g_{\mathrm{eff}} = g_0 + t_i/\varepsilon_r\)</td><td>insulator in the electrical but not the mechanical gap</td></tr>
+      <tr><td>Pull-in, piston</td><td>\(V_{\mathrm{PI}}^{2} = 8kg_{\mathrm{eff}}^{3}/(27\varepsilon_0 A)\), \(k = 192\pi D/a^{2}\)</td><td>quick estimate (43 % high for a plate)</td></tr>
+      <tr><td>Pull-in, clamped plate</td><td>\(V_{\mathrm{PI}}^{2} = 27.8\,Dg_{\mathrm{eff}}^{3}/(\varepsilon_0 a^{4})\); \(w(0) \approx 0.46\,g_{\mathrm{eff}}\), \(\bar w \approx 0.15\,g_{\mathrm{eff}}\)</td><td>bias design, comparison with FEM</td></tr>
+      <tr><td>Coupling</td><td>\(k^{2} = 1 - \lambda(K_V)/\lambda(K_Q)\); plate 0.26 at 0.9 \(V_{\mathrm{PI}}\)</td><td>bias point choice</td></tr>
+      <tr><td>Snap-back</td><td>set by \(t_i/\varepsilon_r\) (and roughness); 0.26–0.49 \(V_{\mathrm{PI}}\) here</td><td>collapse-mode bias window</td></tr>
+      <tr><td>Collapsed annulus</td><td>\(f/f_0 \approx\) 4.4, 8.7, 13.5 at \(b/a\) = 0.3, 0.5, 0.6</td><td>bias-tuned frequency</td></tr>
+      <tr><td>CMUT band (over-damped)</td><td>\(f_{\mathrm{low}} \approx \eta k_{\mathrm{eff}}/(2\pi Z_w)\), \(f_{\mathrm{high}} \approx Z_w/(2\pi\eta m_a)\), \(m_a = 1.8\rho h + (8/3\pi)\rho_w a\)</td><td>bandwidth estimate</td></tr>
+      <tr><td>Interface wave</td><td>\(\alpha = \omega^{2}\rho_w/(k_a - \omega^{2}m_a)\), \(c_{\mathrm{ph}} = \omega/\sqrt{k_w^{2} + \alpha^{2}}\)</td><td>crosstalk band and its cutoff</td></tr>
+      <tr><td>Second harmonic</td><td>\(F_2/F_1 = v/(4V_{\mathrm{DC}})\)</td><td>harmonic-imaging drive limits</td></tr>
+      <tr><td>Stroke limit</td><td>\(p \le Z_w\cdot 2\pi f\cdot\bar x\)</td><td>output pressure versus gap</td></tr>
+      <tr><td>Clamped plate</td><td>\(f = 10.2158/(2\pi a^{2})\cdot\sqrt{D/\bar\rho h}\)</td><td>CMUT and PMUT cell frequency</td></tr>
+      <tr><td>Laminated plate</td><td>\(z_n = \sum E'hz/\sum E'h\), \(D = \sum E'[h^{3}/12 + h(z - z_n)^{2}]\)</td><td>PMUT stack design</td></tr>
+      <tr><td>Water loading</td><td>\(f_w = f_{\mathrm{vac}}/\sqrt{1 + 0.67\rho_w a/\bar\rho h}\)</td><td>PMUT in water or gel</td></tr>
+      <tr><td>Electrode radius</td><td>actuation \(\propto \beta_e^{2}(1 - \beta_e^{2})\), optimum 0.707</td><td>PMUT layout</td></tr>
+      <tr><td>Film FOMs</td><td>\(e_{31,f}^{2}/(\varepsilon_0\varepsilon_{33})\), \(e_{31,f}/(\varepsilon_0\varepsilon_{33})\)</td><td>AlN vs ScAlN vs PZT film</td></tr>
+      <tr><td>Composite</td><td>Smith–Auld; \(\nu = (w/p)^{2}\) (1-3), \(w/p\) (2-2); \(w/t \lesssim 0.5\)</td><td>\(k_t\), \(Z\) and dicing</td></tr>
+      <tr><td>Receive constant</td><td>\(g_{33} = d_{33}/\varepsilon_{33}^{T}\): PVDF 0.33, PZT-5H 0.018 V·m/N</td><td>hydrophone choice</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ===================== 18.10 Interview ===================== -->
+  <h2><span class="sec">18.10</span>Interview and qualifying-exam questions</h2>
+  <details class="quiz"><summary><span class="q">I1</span><span>What sets a CMUT's pull-in voltage, and how does it scale with membrane radius, thickness and gap? <span class="muted">· screen</span></span></summary><div class="a"><p>Balance of the plate's bending stiffness against the electrostatic pressure: \(V_{\mathrm{PI}}^{2} = c\cdot Dg_{\mathrm{eff}}^{3}/(\varepsilon_0 a^{4})\) with \(c\) = 27.8 for a clamped plate (56.9 for the piston idealization) <span class="eqref">(18.4)</span>, so \(V_{\mathrm{PI}} \propto h^{3/2}g_{\mathrm{eff}}^{3/2}/a^{2}\), and \(g_{\mathrm{eff}}\) includes \(t_i/\varepsilon_r\) of the insulator. A 1 µm Si membrane, 20 µm radius, 0.2 µm gap and 0.1 µm nitride: 53 V. Follow-up: "how would residual tensile stress change it?" It adds a membrane stiffness that raises \(V_{\mathrm{PI}}\) and the resonance; for thin, highly stressed membranes it dominates the bending term.</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>Why does a CMUT not need a matching layer, and what limits its bandwidth? <span class="muted">· screen</span></span></summary><div class="a"><p>Its moving mass per area is a few g/m², so \(\omega m\) is a fraction of water's 1.5 MRayl: the water load over-damps the mass–spring (\(Q \approx 0.2\)) and couples directly. The band runs from \(\approx \eta k_{\mathrm{eff}}/(2\pi Z_w)\) (spring) to \(\approx Z_w/(2\pi\eta m)\) (mass, including water added mass) <span class="eqref">(18.7)</span>. In practice higher membrane modes, parasitic capacitance, crosstalk and diffraction bring measured immersion bandwidths to about 100 % (Oralkan et al. 2002: 96 % uncompensated, 105 % compensated). Follow-up: "and what limits the low end?" Spring softening helps (\(k_{\mathrm{eff}}\) falls with bias), but element size limits radiation at low frequency.</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>Explain collapse-mode operation. Why would you use it, and what are the risks? <span class="muted">· onsite</span></span></summary><div class="a"><p>Biasing past \(V_{\mathrm{PI}}\) brings the membrane centre onto the insulator; the free annulus then vibrates at a higher, bias-tunable frequency (\(f/f_0 \approx 8.7\) at \(b/a\) = 0.5), with higher coupling (FEM: \(k_T^{2} \approx 0.7\)) and larger average stroke. The state is hysteretic: it releases only below \(V_{\mathrm{SB}}\), set by the insulator's electrical thickness. Risks: dielectric charging under very high contact fields, wear and stiction at the contact, temperature and bias drift of the operating point. Follow-up: "how do you get into collapse reliably?" Overdrive briefly above \(V_{\mathrm{PI}}\), then hold a bias inside the hysteresis window.</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>How do you define and compute the coupling coefficient of a CMUT, and why is the piston value optimistic? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(k^{2} = 1 - K_V/K_Q\) (or \(1 - C^{S}/C^{T}\) electrically): the fraction of stiffness that is electrical. For a plate, linearize about the biased shape, form \(\mathbf{K}_V = \mathbf{K}\) minus the nodal softening and \(\mathbf{K}_Q = \mathbf{K}_V + V^{2}\mathbf{c}\mathbf{c}^{T}/C\), and compare the lowest eigenvalues <span class="eqref">(18.5)</span>–<span class="eqref">(18.6)</span>. The piston puts all softening into one degree of freedom and gets \(2\xi/(1 - \xi) = 0.43\) at 0.9 \(V_{\mathrm{PI}}\); the plate gets 0.26 because only the centre softens strongly. Follow-up: "which one do you measure?" From \(f_r/f_a\) of the impedance or from \(C\) at constant bias, as for a piezo element (Module 16).</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>What is the main crosstalk mechanism in CMUT arrays and how do you suppress it? <span class="muted">· onsite</span></span></summary><div class="a"><p>A dispersive guided wave at the fluid–membrane interface, slower than \(c_w\) and cut off near the membrane resonance; Bayram et al. (2007) measured −17 dB on the first neighbour near 2.1 MHz in conventional mode. It is a property of the compliant surface, not of the substrate (the substrate Lamb modes A0 and S0 were about 16 and 41 dB below the interface mode: −40 and −65 dB against −24.4 dB, all relative to the transmitting element). Suppression: operate in collapse mode (cutoff rises, average −39 dB), add a lossy coating (PDMS gave only a few dB in Bayram's experiments), shape the cell layout or trench between elements, or compensate in the beamformer. Follow-up: "why does it get worse with bias?" Softening lowers the cutoff into the band.</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>Sacrificial release or wafer bonding for a new CMUT array: how do you choose? <span class="muted">· onsite</span></span></summary><div class="a"><p>Wafer bonding gives single-crystal silicon membranes with excellent thickness control (device layer under 1.5 µm, &lt; 10 nm variation), any cell shape and fill factor, and gap control by oxidation (LOCOS: 40 nm ± 2 nm), but needs SOI wafers, a thicker insulator for the conductive membrane, and is harder to do on top of CMOS. Sacrificial release uses deposited nitride membranes, works at lower temperature and is one natural route for CMUT-on-CMOS (low-temperature bonding onto the CMOS wafer is the other), at the cost of membrane stress and thickness variation and etch-hole sealing. Follow-up: "which would you use for a monolithic 2D array?" Sacrificial release (or low-temperature bonding variants), because the CMOS limits the thermal budget.</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>Sketch a 2D CMUT-on-CMOS array for 3 MHz cardiac imaging. What dominates the design? <span class="muted">· research</span></span></summary><div class="a"><p>\(\lambda/2\) = 257 µm pitch; a 20 × 20 mm aperture is about 80 × 80 = 6400 elements, impossible to cable, so each element gets a pulser and LNA under it and micro-beamforming reduces the channel count to the system (Module 19). Dominant constraints: power density (a few mW per channel already gives watts on a few cm<sup>2</sup> at the patient), element capacitance versus LNA noise, bias distribution (tens of volts on a CMOS die, isolated per element or shared), acoustic crosstalk through the interface wave, and thermal limits on the probe face (Module 22). Follow-up: "how do you test it?" Per-element impulse response and C–V maps on wafer before dicing, then pulse-echo uniformity.</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>Give the PMUT resonance formula. Why is the electrode only about 70 % of the radius? <span class="muted">· screen</span></span></summary><div class="a"><p>\(f = 10.22/(2\pi a^{2})\cdot\sqrt{D/\bar\rho h}\) for a clamped bilayer plate with laminated stiffness \(D\), divided by \(\sqrt{1 + 0.67\rho_w a/\bar\rho h}\) in water <span class="eqref">(18.9)</span>–<span class="eqref">(18.11)</span>. The electrode applies a uniform moment; the mode curvature changes sign at \(r = a/\sqrt{2}\), so the work done is \(\propto \beta_e^{2}(1 - \beta_e^{2})\): zero for a full electrode, maximal at 0.707. Example: AlN 1 µm on Si 2 µm, \(a\) = 50 µm: 5.6 MHz in vacuum, 2.4 MHz in water. Follow-up: "what does residual stress do?" Tension raises \(f\) and pushes toward membrane behaviour, compression lowers it and can buckle the plate.</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>AlN or PZT film for a PMUT receiver? For a transmitter? <span class="muted">· onsite</span></span></summary><div class="a"><p>Receiver: open-circuit voltage per stress \(\propto e_{31,f}/(\varepsilon_0\varepsilon_{33})\): AlN 11.3 GV/m and Sc<sub>0.15</sub>AlN 15 GV/m beat sol-gel PZT (0.7–1.8 as published) because their permittivity is 10–12 rather than hundreds; AlN also has a lower loss tangent. Transmitter: force per volt \(\propto e_{31,f}\), 8–14 C/m² for PZT versus 1.05 for AlN, and energy FOM \(e^{2}/\varepsilon\) up to 110 GPa for epitaxial PZT. ScAlN doubles AlN's energy FOM while staying CMOS-friendly. Follow-up: "what about one die doing both?" Use separate receive and transmit electrodes, or a ScAlN compromise.</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>Would you put single-crystal composite in a 2D matrix TEE probe? What would worry you? <span class="muted">· research</span></span></summary><div class="a"><p>The gain: \(k_t \approx\) 0.8 (composite) versus ≈ 0.5–0.7, which means wider bandwidth and higher sensitivity, valuable for harmonic imaging through a small aperture. The worries: PMN-PT depoles near \(T_{\mathrm{rt}}\) 86–100 °C and has \(E_c \approx\) 2 kV/cm, so bonding, sterilization and self-heating at the probe face, and bipolar drive at high voltage, all eat the margin; PIN-PMN-PT (\(T_{\mathrm{rt}}\) 105–130 °C, \(E_c\) 4.5–6 kV/cm) is the usual answer. Also cost, dicing yield at small pitch, and the higher permittivity, which helps small elements drive the in-probe electronics. Follow-up: "Mn doping?" Raises \(Q_m\) (≈ 500), useful for therapy, less for imaging bandwidth.</p></div></details>
+  <details class="quiz"><summary><span class="q">I11</span><span>What is AC poling and why did it attract attention? <span class="muted">· research</span></span></summary><div class="a"><p>Poling a relaxor-PT crystal with an alternating field instead of DC. In rhombohedral PMN-PT it changes the domain configuration; Qiu et al. (Nature 2020) removed the light-scattering 71° domain walls and obtained near-perfect optical transparency with \(d_{33}\) above 2100 pC/N and \(k_{33} \approx 0.94\). For ultrasound it offers higher \(d_{33}\) from the same crystal and transparent transducers through which light can be delivered, which simplifies photoacoustic and optical–acoustic probes. Follow-up: "what limits it?" Temperature stability and the same \(T_{\mathrm{rt}}\) and \(E_c\) constraints as any PMN-PT; poling-condition reproducibility in production.</p></div></details>
+
+  <!-- ===================== 18.11 MATLAB ===================== -->
+  <h2><span class="sec">18.11</span>MATLAB lab</h2>
+  <div class="prose"><p class="code-note">Base MATLAB only (no toolboxes); each script runs as-is in MATLAB R2019b+ and GNU Octave 8. Paste into the editor and press Run.</p></div>
+  <details class="code">
+    <summary><span class="fname">m18_cmut_parallel_plate.m</span><button class="copy" type="button">Copy</button><span class="what">Lumped vs distributed CMUT: both branches, pull-in, snap-back, coupling · change \(a\), \(h\), \(g_0\), \(t_i\), \(N\) · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m18_cmut_parallel_plate.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> \(f_0\) = 10.24 MHz (FD 10.242), \(V_{\mathrm{PI}}\) = 53.1 V against 76.0 V lumped (ratio 0.699), \(V_{\mathrm{PI}}^{2} = 27.76\,Dg_{\mathrm{eff}}^{3}/(\varepsilon_0 a^{4})\), \(k^{2}\) = 0.042, 0.157, 0.262, 0.374 at 0.5, 0.8, 0.9, 0.95 \(V_{\mathrm{PI}}\), snap-back 25.8 V (0.486 \(V_{\mathrm{PI}}\)).</p></div>
+  <details class="code">
+    <summary><span class="fname">m18_pmut_plate_resonance.m</span><button class="copy" type="button">Copy</button><span class="what">Bessel root 10.2158, FD check, bilayer PMUTs in vacuum and water, electrode optimum · change film, thicknesses, radius · runtime ≈ 1 s</span></summary>
+    <pre><code data-file="matlab/m18_pmut_plate_resonance.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> \(\lambda^{2}\) = 10.2158; FD 10.2113 / 10.2147 / 10.2155; 1 µm film on 2 µm Si, \(a\) = 50 µm: 5.58 / 4.81 / 2.98 MHz in vacuum and 2.44 / 2.11 / 1.54 MHz in water for AlN / ScAlN / PZT; optimum electrode 0.707 a.</p></div>
+  <details class="code">
+    <summary><span class="fname">m18_composite_effective_properties.m</span><button class="copy" type="button">Copy</button><span class="what">Smith–Auld for PZT-5H and PMN-28PT pillars · change the polymer, the pillar constants, \(f_0\) · runtime &lt; 1 s</span></summary>
+    <pre><code data-file="matlab/m18_composite_effective_properties.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> \(\nu = 1\): \(k_t\) 0.513 / 0.582, \(Z\) 34.5 / 37.3 MRayl; \(\nu = 0.5\): 0.687 / 0.833 and 16.4 / 17.0 MRayl; half-wave thickness at 5 MHz 379 / 367 µm.</p></div>
+  <details class="code">
+    <summary><span class="fname">m18_material_comparison.m</span><button class="copy" type="button">Copy</button><span class="what">Tables 18.1–18.2 with \(g_{33}\), transmission into water and film FOMs · add your supplier data · runtime &lt; 1 s</span></summary>
+    <pre><code data-file="matlab/m18_material_comparison.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> \(g_{33}\) (mV·m/N) 18.5 PZT-5H, 36.7 PMN-PT, 37.3 PIN-PMN-PT, 356 PVDF (datasheet 330); intensity transmission into 1.5 MRayl 0.15 (PZT), 0.31 (composite), 0.79 (PVDF); film FOM 11.9 (AlN), 24.1 (ScAlN), 5.6–54 (sol-gel PZT).</p></div>
+  <details class="code">
+    <summary><span class="fname">m18_cmut_vs_pzt_bandwidth.m</span><button class="copy" type="button">Copy</button><span class="what">Approximate 1D model: Mason PZT stack vs lumped CMUT, spectra and impulse responses · change \(Z_B\), layers, bias, \(a\) · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m18_cmut_vs_pzt_bandwidth.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> PZT: 17 %, 39 %, 63 % FBW with 0, 1, 2 layers (\(Z_B\) = 5 MRayl); CMUT: 171 % at 0.7 \(V_{\mathrm{PI}}\), 178 % at 0.9 \(V_{\mathrm{PI}}\) with added mass (band 0.80–13.99 MHz), upper edge beyond 25 MHz without it. These are model upper bounds; the page explains why measured values are about 100 %.</p></div>
+
+  <!-- ===================== 18.12 Self-check ===================== -->
+  <h2><span class="sec">18.12</span>Self-check</h2>
+  <details class="quiz"><summary><span class="q">Q1</span><span>You double the membrane thickness and halve the radius of a CMUT cell. By what factor does \(V_{\mathrm{PI}}\) change, and the vacuum resonance?</span></summary><div class="a"><p>\(V_{\mathrm{PI}} \propto h^{3/2}/a^{2} \to 2^{1.5}\times 4 = 11.3\) times higher. \(f \propto h/a^{2} \to 2\times 4 = 8\) times higher. Both at fixed gap and insulator.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>A colleague's piston model gives \(V_{\mathrm{PI}}\) = 100 V for a circular clamped cell. What do you expect from FEM, and where will the centre be at pull-in?</span></summary><div class="a"><p>About 0.699 × 100 ≈ 70 V. The centre will have moved ≈ 0.46 \(g_{\mathrm{eff}}\), the average ≈ 0.15 \(g_{\mathrm{eff}}\) (not \(g/3\)). Residual tension or partial electrodes move this.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>A CMUT biased at 100 V is driven with 20 V amplitude. What is the second-harmonic force relative to the fundamental?</span></summary><div class="a"><p>\(v/(4V_{\mathrm{DC}}) = 20/400 = 0.05\), i.e. −26 dB, before any gap nonlinearity.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>An AlN-on-Si PMUT (1 µm on 2 µm) has \(a\) = 40 µm. Estimate its resonance in vacuum and in water.</span></summary><div class="a"><p>\(f\) scales as \(1/a^{2}\) from the \(a\) = 50 µm value 5.58 MHz: \(5.58\times(50/40)^{2} = 8.72\) MHz. \(\bar\rho h = 2330\times 2 + 3260\times 1\ \mathrm{\mu m}\) = 7.92 g/m², \(\beta = 0.67\times 1000\times 40\times 10^{-6}\) \(/\,7.92\times 10^{-3} = 3.38\), \(f_w = 8.72/\sqrt{4.38} = 4.17\) MHz <span class="eqref">(18.11)</span>.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>Design a 10 MHz PMN-PT/epoxy 1-3 composite at \(\nu\) = 0.5 with pillar width/thickness 0.5. Thickness, pillar width, pitch, kerf?</span></summary><div class="a"><p>\(v \approx\) 3673 m/s (Smith–Auld) → \(t = v/(2f_0)\) = 184 µm. \(w = 0.5t\) = 92 µm, \(p = w/\sqrt{\nu}\) = 130 µm, kerf = \(p - w\) = 38 µm: still dicable. At 30 MHz everything shrinks threefold to a 13 µm kerf, below a practical saw.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>What average displacement amplitude does a CMUT need to produce 1 MPa at its surface at 3 MHz?</span></summary><div class="a"><p>\(\bar x = p/(Z_w\cdot 2\pi f)\) \(= 10^{6}/(1.5\times 10^{6}\times 2\pi\times 3\times 10^{6})\) = 35 nm. With an average travel of about \(0.15\,g\) before pull-in, that asks for a gap of a few hundred nm, or collapse mode.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>Why does a PVDF membrane hydrophone give a larger open-circuit voltage than a PZT-5H disc of the same thickness, although PZT's \(d_{33}\) is 20 times larger?</span></summary><div class="a"><p>Open-circuit voltage \(= g_{33}\cdot t\cdot p\) with \(g = d/\varepsilon^{T}\). PVDF: 0.33 V·m/N; PZT-5H: 622 pC/N / (\(3800\varepsilon_0\)) = 0.0185 V·m/N. The ratio is about 18 in PVDF's favour; PVDF also matches water (4 MRayl), so it disturbs the field less.</p></div></details>
+
+  <!-- ===================== 18.13 Literature ===================== -->
+  <h2><span class="sec">18.13</span>Figures from the literature</h2>
+  <div class="prose"><p>Published figures with real data that anchor this module's models. Links only; no images are reproduced. Figure numbers were checked against the full texts.</p></div>
+  <div class="litfig"><h4>Measured CMUT pulse-echo bandwidth and wire images</h4><p class="cite">Ö. Oralkan, A. S. Ergun, J. A. Johnson, M. Karaman, U. Demirci, K. Kaviani, T. H. Lee, B. T. Khuri-Yakub, "Capacitive micromachined ultrasonic transducers: next-generation arrays for acoustic imaging?" IEEE Trans. Ultrason. Ferroelectr. Freq. Control 49(11), 1596–1610, 2002. doi:10.1109/TUFFC.2002.1049742</p><p><b>Figs. 9 and 10:</b> pulse-echo frequency responses of a 128-element immersion array: 80 % at about 3 MHz from a wire, 96 % at 4.59 MHz from a plane reflector, 105 % at 4.62 MHz after diffraction and attenuation compensation. <b>Fig. 12:</b> B-scans of a wire phantom at 40 and 60 dB. Compare with Demo 18.3: the measured band is the model band minus everything a one-mode model omits. <a href="https://research.ece.ncsu.edu/wp-content/uploads/sites/17/2016/09/04_Oralkan_02.pdf" target="_blank" rel="noopener">PDF (author site)</a></p></div>
+  <div class="litfig"><h4>Collapse regime: membrane shapes, coupling and snap-back</h4><p class="cite">B. Bayram, E. Hæggström, G. G. Yaralioglu, B. T. Khuri-Yakub, "A new regime for operating capacitive micromachined ultrasonic transducers," IEEE Trans. Ultrason. Ferroelectr. Freq. Control 50(9), 1184–1190, 2003.</p><p><b>Fig. 2:</b> FEM membrane shapes from conventional to collapsed. <b>Fig. 4:</b> \(k_T^{2}\) versus bias, rising to about 0.7 after collapse when the bias is lowered. <b>Fig. 5:</b> average and peak displacement with the hysteresis between 140 V (collapse) and 68 V (snap-back) for a 50 µm-radius, 1 µm-gap cell. Compare the shape of the loop with Demo 18.2. <a href="https://ultramems-eee.metu.edu.tr/bARIs%20BAYRAM/papersBarisBayram/paper4.pdf" target="_blank" rel="noopener">PDF (author site)</a></p></div>
+  <div class="litfig"><h4>Crosstalk: the dispersive interface mode, measured</h4><p class="cite">B. Bayram, M. Kupnik, G. G. Yaralioglu, Ö. Oralkan, A. S. Ergun, D.-S. Lin, S. H. Wong, B. T. Khuri-Yakub, "Finite element modeling and experimental characterization of crosstalk in 1-D CMUT arrays," IEEE Trans. Ultrason. Ferroelectr. Freq. Control 54(2), 418–430, 2007. doi:10.1109/TUFFC.2007.256</p><p><b>Fig. 4:</b> conventional-mode crosstalk in time–space and frequency–wavenumber, FEM against laser-vibrometer measurement, with and without PDMS. <b>Fig. 7:</b> crosstalk versus element number (−17 dB first neighbour). <b>Fig. 8:</b> phase velocity of the guided mode versus frequency, approaching water speed at low frequency and cutting off. This is the measured counterpart of Demo 18.4. <a href="https://ultramems-eee.metu.edu.tr/bARIs%20BAYRAM/papersBarisBayram/paper1.pdf" target="_blank" rel="noopener">PDF (author site)</a></p></div>
+  <div class="litfig"><h4>Wafer-bonded CMUT with LOCOS: the cross-section and the bias-dependent impedance</h4><p class="cite">K. K. Park, H. J. Lee, M. Kupnik, Ö. Oralkan, B. T. Khuri-Yakub, "Fabricating capacitive micromachined ultrasonic transducers with direct wafer-bonding and LOCOS technology," Proc. IEEE MEMS 2008, 339–342; journal version: K. K. Park, H. Lee, M. Kupnik, B. T. Khuri-Yakub, J. Microelectromech. Syst. 20(1), 95–103, 2011, doi:10.1109/JMEMS.2010.2093567.</p><p><b>Fig. 4</b> (MEMS 2008): SEM cross-section of a single cell (130 nm gap, 0.5 µm silicon membrane, oxide posts), the real version of Figure 18.A. <b>Fig. 6:</b> measured electrical input impedance of a 40 nm-gap device at several bias voltages, the bias-dependent resonance that the coupling formulas of Section 18.2 describe. <a href="https://research.ece.ncsu.edu/wp-content/uploads/sites/17/2016/10/09_Park_08.pdf" target="_blank" rel="noopener">PDF (author site)</a></p></div>
+  <div class="litfig"><h4>2D CMUT arrays with through-wafer vias, flip-chip bonded, and volumetric images</h4><p class="cite">Ö. Oralkan, A. S. Ergun, C.-H. Cheng, J. A. Johnson, M. Karaman, T. H. Lee, B. T. Khuri-Yakub, "Volumetric ultrasound imaging using 2-D CMUT arrays," IEEE Trans. Ultrason. Ferroelectr. Freq. Control 50(11), 1581–1594, 2003. doi:10.1109/TUFFC.2003.1251142</p><p><b>Fig. 1:</b> cell cross-section, 3D model and SEM of the through-wafer via. <b>Fig. 2:</b> the 32 × 64 sub-array of a 128 × 128 array (420 µm pitch) flip-chip bonded to a glass fan-out. <b>Figs. 8 and 10:</b> reconstructed 3D images of plate and sphere phantoms; the echoes have 91–100 % bandwidth. The flip-chip route of Figure 18.C. <a href="https://research.ece.ncsu.edu/wp-content/uploads/sites/17/2016/09/03_Oralkan_03.pdf" target="_blank" rel="noopener">PDF (author site)</a></p></div>
+  <div class="litfig"><h4>PMUT structures, a measured element response and a 512-element ICE catheter</h4><p class="cite">Y. Qiu, J. V. Gigliotti, M. Wallace, F. Griggio, C. E. M. Demore, S. Cochran, S. Trolier-McKinstry, "Piezoelectric micromachined ultrasound transducer (PMUT) arrays for integrated sensing, actuation and imaging," Sensors 15, 8020–8041, 2015. doi:10.3390/s150408020 (open access, CC BY 4.0)</p><p><b>Fig. 1:</b> cross-sections of a bulk piezo transducer, a CMUT and a \(d_{31}\)-mode PMUT side by side. <b>Fig. 11:</b> receive and transmit responses of one PMUT array element measured in water. <b>Fig. 14:</b> through-silicon-interconnect PMUTs and a 14 Fr ICE catheter with a 512-element array. <a href="https://doi.org/10.3390/s150408020" target="_blank" rel="noopener">doi.org/10.3390/s150408020</a></p></div>
+  <div class="litfig"><h4>Thin-film figures of merit (re-plotted in Demo 18.7)</h4><p class="cite">K. Roy, J. E.-Y. Lee, C. Lee, "Thin-film PMUTs: a review of over 40 years of research," Microsystems &amp; Nanoengineering 9, 2023. doi:10.1038/s41378-023-00555-7</p><p><b>Table I:</b> \(\lvert e_{31,f}\rvert\), \(\varepsilon_{33,f}\), \(e_{31,f}/(\varepsilon_0\varepsilon_{33})\) and \(e_{31,f}^{2}/(\varepsilon_0\varepsilon_{33})\) for PZT variants, AlN, Sc<sub>0.15</sub>AlN, ZnO and KNN films. Table 18.2 and the film modes of Demo 18.7 re-plot these values; badge Exact formula (tabulated values as published). <a href="https://doi.org/10.1038/s41378-023-00555-7" target="_blank" rel="noopener">doi.org/10.1038/s41378-023-00555-7</a></p></div>
+  <div class="litfig"><h4>AC-poled transparent PMN-PT</h4><p class="cite">C. Qiu, B. Wang, N. Zhang, S. Zhang, J. Liu, D. Walker, Y. Wang, H. Tian, T. R. Shrout, Z. Xu, L.-Q. Chen, F. Li, "Transparent ferroelectric crystals with ultrahigh piezoelectricity," Nature 577, 350–354, 2020. doi:10.1038/s41586-019-1891-y</p><p><b>Fig. 3:</b> AC- versus DC-poled PMN-28PT crystals: appearance, optical transmittance, birefringence and \(d_{33}\) (above 2100 pC/N for AC poling). <b>Fig. 1:</b> phase-field simulation of domain evolution under DC and AC poling, the mechanism. <a href="https://doi.org/10.1038/s41586-019-1891-y" target="_blank" rel="noopener">doi.org/10.1038/s41586-019-1891-y</a></p></div>
+
+  <!-- ===================== 18.14 Go deeper ===================== -->
+  <h2><span class="sec">18.14</span>Go deeper</h2>
+  <ul class="refs">
+    <li>M. I. Haller, B. T. Khuri-Yakub, "Electrostatic ultrasonic transducer," US Patent 5,619,476 (filed 1994, granted 1997): the Stanford micromachined capacitive transducer.</li>
+    <li>I. Ladabaum, X. Jin, H. T. Soh, A. Atalar, B. T. Khuri-Yakub, "Surface micromachined capacitive ultrasonic transducers," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em> 45(3), 678–690, 1998. doi:10.1109/58.677612</li>
+    <li>A. S. Ergun, X. Zhuang, Y. Huang, Ö. Oralkan, G. G. Yaralioglu, B. T. Khuri-Yakub, "Capacitive micromachined ultrasonic transducer technology for medical ultrasound imaging," <em>Proc. SPIE</em> 5750, 58–68, 2005. doi:10.1117/12.595692 (sacrificial release and wafer-bonding flows, Figs. 3 and 5)</li>
+    <li>J. M. Rothberg, T. S. Ralston, A. G. Rothberg et al., "Ultrasound-on-chip platform for medical imaging, analysis, and collective intelligence," <em>PNAS</em> 118(27), e2019339118, 2021. doi:10.1073/pnas.2019339118</li>
+    <li>A. W. Leissa, <em>Vibration of Plates</em>, NASA SP-160, 1969 (clamped circular and annular plate eigenvalues).</li>
+    <li>H. Lamb, "On the vibrations of an elastic plate in contact with water," <em>Proc. R. Soc. Lond. A</em> 98, 1920.</li>
+    <li>Q. Wang, Y. Lu, S. Fung, X. Jiang, S. Mishin, Y. Oshmyansky, D. A. Horsley, "Scandium doped aluminum nitride based piezoelectric micromachined ultrasound transducers," Solid-State Sensors, Actuators and Microsystems Workshop, Hilton Head, 2016, 436–439 (film \(e_{31,f}\), \(\varepsilon\), \(E\)).</li>
+    <li>S. Zhang, F. Li, X. Jiang, J. Kim, J. Luo, X. Geng, "Advantages and challenges of relaxor-PbTiO₃ ferroelectric crystals for electroacoustic transducers – a review," <em>Prog. Mater. Sci.</em> 68, 1–66, 2015. doi:10.1016/j.pmatsci.2014.10.002</li>
+    <li>W. A. Smith, B. A. Auld, "Modeling 1-3 composite piezoelectrics: thickness-mode oscillations," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em> 38(1), 40–47, 1991. doi:10.1109/58.67833</li>
+    <li>J. Kim, C. Joh, Y. Roh, "Evaluation of all the material constants of PMN-28%PT piezoelectric single crystals for acoustic transducers," <em>Sensors and Materials</em> 25(8), 539–552, 2013.</li>
+    <li>T. Ma, M. Yu, Z. Chen, C. Fei, K. K. Shung, Q. Zhou, "Multi-frequency intravascular ultrasound (IVUS) imaging," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em> 62(1), 97–107, 2015. doi:10.1109/TUFFC.2014.006679 (Table I: PZT-5H, PMN-PT, LiNbO₃)</li>
+    <li>Y. Saito, H. Takao, T. Tani, T. Nonoyama, K. Takatori, T. Homma, T. Nagaya, M. Nakamura, "Lead-free piezoceramics," <em>Nature</em> 432, 84–87, 2004. doi:10.1038/nature03028</li>
+    <li>TRS Technologies, single-crystal PMN-PT and PIN-PMN-PT property ranges (X2B, X4B, Mn:PIN-PMN-PT), trstechnologies.com; Measurement Specialties and Precision Acoustics PVDF data sheets.</li>
+  </ul>
+  <div class="next"><a href="#m17">← 17 Matching, backing, lens, FEA</a><a href="#m19">19 Arrays: 1D to 2D, RCA, CMUT →</a></div>
+</section>
+<style>
+#m18 .demo-head .prov-note { flex-basis: 100%; margin-top: 0; }
+#m18 .rule-fig .prov { margin: 0 0 4px; }
+#m18 .rule-fig .prov-note { margin: 0 0 4px; }
+#m18 .prov-legend .prov, #m18 .m18-fig .fh .prov { margin-left: 0; }
+#m18 .m18-fig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 12px; margin: 18px 0; }
+#m18 .m18-fig .fh { font-size: 0.9rem; margin-bottom: 6px; }
+#m18 .m18-fig .mx-scroll > svg { min-width: 600px; width: 100%; height: auto; display: block; }
+#m18 .m18-fig text { font: 12px var(--f-mono); fill: var(--ink); }
+#m18 .m18-fig text.m { fill: var(--muted); }
+#m18 .m18-fig text.s { font-size: 11px; fill: var(--muted); }
+#m18 .m18-fig text.t { font-weight: 600; font-size: 12.5px; }
+#m18 .m18-fig .si { fill: var(--grid); stroke: var(--ink); stroke-width: 1.2; }
+#m18 .m18-fig .si2 { fill: var(--paper); stroke: var(--ink); stroke-width: 1.2; }
+#m18 .m18-fig .ins { fill: var(--sig3); fill-opacity: 0.35; stroke: var(--sig3); stroke-width: 1; }
+#m18 .m18-fig .mem { fill: var(--accent); fill-opacity: 0.35; stroke: var(--accent); stroke-width: 1.4; }
+#m18 .m18-fig .metal { fill: var(--muted); stroke: var(--ink); stroke-width: 0.8; }
+#m18 .m18-fig .water { fill: var(--accent); fill-opacity: 0.08; stroke: none; }
+#m18 .m18-fig .sac { fill: var(--sig4); fill-opacity: 0.45; stroke: var(--sig4); stroke-width: 1; }
+#m18 .m18-fig .hole { fill: var(--panel); stroke: var(--bad); stroke-width: 1; }
+#m18 .m18-fig .beol { fill: var(--sig4); fill-opacity: 0.18; stroke: var(--ink); stroke-width: 1; }
+#m18 .m18-fig .bump { fill: var(--muted); stroke: var(--ink); stroke-width: 1; }
+#m18 .m18-fig .piezo, #m18 .m18-fig .pz { fill: var(--sig2); fill-opacity: 0.45; stroke: var(--sig2); stroke-width: 1; }
+#m18 .m18-fig .poly { fill: var(--sig3); fill-opacity: 0.12; stroke: var(--ink); stroke-width: 1; }
+#m18 .m18-fig .w { stroke: var(--ink); fill: none; stroke-width: 1.3; }
+#m18 .m18-fig .w2 { stroke: var(--bad); fill: none; stroke-width: 2.4; }
+#m18 .m18-fig .na { stroke: var(--sig2); fill: none; stroke-width: 1.2; stroke-dasharray: 6 4; }
+#m18 .m18-fig .bend { stroke: var(--sig2); fill: none; stroke-width: 1.8; stroke-dasharray: 3 3; }
+#m18 .m18-fig .dim, #m18 .m18-fig .ld { stroke: var(--muted); fill: none; stroke-width: 1; }
+#m18 .m18-fig .arr { stroke: var(--muted); stroke-width: 1.3; fill: none; marker-end: url(#m18-ah); }
+#m18 table.m18-mat caption { caption-side: top; text-align: left; font-size: 0.88rem; color: var(--muted); padding: 4px 0 6px; }
+#m18 table.m18-mat td:last-child { font-size: 0.84rem; color: var(--muted); min-width: 220px; }
+#m18 .litfig h4 { margin: 0 0 4px; font-size: 0.98rem; }
+#m18 .litfig p { margin: 4px 0; }
+#m18 .readout .bad { color: var(--bad); font-weight: 600; }
+</style>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id), PI = Math.PI, MM = Lab.mini;
+  const F = (v, d) => Lab.fmt(v, d);
+  const E0 = 8.854e-12, RW = 1000, CW = 1500, ZW = RW * CW;
+
+  /* ===================== dense linear algebra ===================== */
+  function luf(A, n) { // A: array of Float64Array rows (copied in place). returns {A, p}
+    const p = new Int32Array(n); for (let i = 0; i < n; i++) p[i] = i;
+    for (let k = 0; k < n; k++) {
+      let mx = Math.abs(A[k][k]), im = k; for (let i = k + 1; i < n; i++) { const v = Math.abs(A[i][k]); if (v > mx) { mx = v; im = i; } }
+      if (im !== k) { const t = A[k]; A[k] = A[im]; A[im] = t; const tp = p[k]; p[k] = p[im]; p[im] = tp; }
+      const piv = A[k][k] || 1e-300, rk = A[k];
+      for (let i = k + 1; i < n; i++) { const ri = A[i], f = ri[k] / piv; if (f === 0) continue; ri[k] = f; for (let j = k + 1; j < n; j++) ri[j] -= f * rk[j]; }
+    }
+    return { A, p, n };
+  }
+  function lus(L, b) { const { A, p, n } = L, x = new Float64Array(n);
+    for (let i = 0; i < n; i++) { let s = b[p[i]]; const r = A[i]; for (let j = 0; j < i; j++) s -= r[j] * x[j]; x[i] = s; }
+    for (let i = n - 1; i >= 0; i--) { let s = x[i]; const r = A[i]; for (let j = i + 1; j < n; j++) s -= r[j] * x[j]; x[i] = s / r[i]; }
+    return x; }
+  const mat = n => Array.from({ length: n }, () => new Float64Array(n));
+  /* lowest eigenvalue of S = M^-1/2 K M^-1/2 (K symmetric, M diagonal) by inverse iteration */
+  function lowEig(Kfun, md, n) {
+    const S = mat(n); for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) S[i][j] = Kfun(i, j) / Math.sqrt(md[i] * md[j]);
+    const S0 = S.map(r => Float64Array.from(r)); const L = luf(S, n);
+    let x = new Float64Array(n).fill(1);
+    for (let it = 0; it < 14; it++) { x = lus(L, x); let nn = 0; for (let i = 0; i < n; i++) nn += x[i] * x[i]; nn = Math.sqrt(nn); for (let i = 0; i < n; i++) x[i] /= nn; }
+    let q = 0; for (let i = 0; i < n; i++) { let s = 0; const r = S0[i]; for (let j = 0; j < n; j++) s += r[j] * x[j]; q += x[i] * s; }
+    return q;
+  }
+
+  /* ===================== axisymmetric FD clamped plate ===================== */
+  function plateOps(N, a) {
+    const dr = a / N, r = new Float64Array(N + 1); for (let i = 0; i <= N; i++) r[i] = i * dr;
+    const L = Array.from({ length: N + 1 }, () => new Float64Array(N));
+    L[0][0] = -4 / dr / dr; L[0][1] = 4 / dr / dr;
+    for (let i = 1; i < N; i++) { const rp = r[i] + dr / 2, rm = r[i] - dr / 2; L[i][i] = -(rp + rm) / (r[i] * dr * dr); L[i][i - 1] = rm / (r[i] * dr * dr); if (i + 1 < N) L[i][i + 1] = rp / (r[i] * dr * dr); }
+    L[N][N - 1] = 2 / dr / dr;
+    const W = new Float64Array(N + 1); for (let i = 0; i <= N; i++) W[i] = 2 * PI * r[i] * dr; W[0] = PI * dr * dr / 4; W[N] = PI * r[N] * dr;
+    const K = mat(N); for (let i = 0; i <= N; i++) { const Li = L[i]; for (let p = Math.max(0, i - 1); p <= Math.min(N - 1, i + 1); p++) { const lp = Li[p] * W[i]; if (!lp) continue; for (let q = Math.max(0, i - 1); q <= Math.min(N - 1, i + 1); q++) K[p][q] += lp * Li[q]; } }
+    return { r, W, K, N };
+  }
+  /* mechanical annulus resonance ratio f(b)/f0 for a unit plate (cached) */
+  const ANN = {};
+  function annRatio(ba) {
+    const N = 48, key = Math.round(ba * N); if (ANN[key] !== undefined) return ANN[key];
+    const P = plateOps(N, 1); const nc = key; const n = N - nc - (nc > 0 ? 1 : 0), o = N - n;
+    const md = new Float64Array(n); for (let i = 0; i < n; i++) md[i] = P.W[o + i];
+    const lam = lowEig((i, j) => P.K[o + i][o + j], md, n);
+    return (ANN[key] = Math.sqrt(lam) / 10.2158);
+  }
+
+  /* ===================== CMUT distributed model ===================== */
+  const MAT = { E: 169e9, nu: 0.22, rho: 2330, er: 7.5 };
+  const CM = {};
+  function cmutModel(a, h, g0, ti) {
+    const key = [a, h, g0, ti].map(v => v.toPrecision(4)).join('|'); if (CM[key]) return CM[key];
+    const N = 48, D = MAT.E * h * h * h / (12 * (1 - MAT.nu * MAT.nu)), ge = g0 + ti / MAT.er;
+    const P = plateOps(N, a), K = P.K.map(row => row.map(v => v * D)), W = P.W, r = P.r, Wt = W.reduce((s, v) => s + v, 0);
+    const md = new Float64Array(N); for (let i = 0; i < N; i++) md[i] = MAT.rho * h * W[i];
+    const f0 = 10.2158 / (2 * PI * a * a) * Math.sqrt(D / (MAT.rho * h));
+    const Kw = w => { const o = new Float64Array(N); for (let i = 0; i < N; i++) { let s = 0; const Ki = K[i]; for (let j = Math.max(0, i - 2); j <= Math.min(N - 1, i + 2); j++) s += Ki[j] * w[j]; o[i] = s; } return o; };
+    const capOf = w => { let C = W[N] * E0 / ge; for (let i = 0; i < N; i++) C += W[i] * E0 / (ge - w[i]); return C; };
+    const avgOf = w => { let s = 0; for (let i = 0; i < N; i++) s += W[i] * w[i]; return s / Wt; };
+    const C0 = capOf(new Float64Array(N));
+    function modal(w, lam, nc, mech) {
+      const o = nc, n = N - nc, fp = new Float64Array(N), c = new Float64Array(N);
+      for (let i = 0; i < N; i++) { fp[i] = mech ? 0 : lam * W[i] * E0 / Math.pow(ge - w[i], 3); c[i] = W[i] * E0 / Math.pow(ge - w[i], 2); }
+      const C = capOf(w), mdF = md.subarray(o);
+      const lv = lowEig((i, j) => K[o + i][o + j] - (i === j ? fp[o + i] : 0), mdF, n);
+      if (mech) return { f: Math.sqrt(Math.max(lv, 0)) / (2 * PI) };
+      const lq = lowEig((i, j) => K[o + i][o + j] - (i === j ? fp[o + i] : 0) + lam * c[o + i] * c[o + j] / C, mdF, n);
+      return { f: Math.sqrt(Math.max(lv, 0)) / (2 * PI), k2: 1 - lv / lq };
+    }
+    // conventional branch: centre deflection control
+    const conv = []; let w = new Float64Array(N), lam = 0;
+    for (let s = 1; s <= 66; s++) {
+      const wc = s * 0.015 * g0;
+      for (let it = 0; it < 40; it++) {
+        const Kx = Kw(w), J = mat(N + 1), R = new Float64Array(N + 1);
+        for (let i = 0; i < N; i++) { const d = ge - w[i], fe = W[i] * E0 / (2 * d * d), fp = W[i] * E0 / (d * d * d);
+          R[i] = -(Kx[i] - lam * fe); const Ji = J[i], Ki = K[i]; for (let j = Math.max(0, i - 2); j <= Math.min(N - 1, i + 2); j++) Ji[j] = Ki[j]; Ji[i] -= lam * fp; Ji[N] = -fe; }
+        J[N][0] = 1; R[N] = -(w[0] - wc);
+        const dx = lus(luf(J, N + 1), R); let mx = 0; for (let i = 0; i < N; i++) { w[i] += dx[i]; mx = Math.max(mx, Math.abs(dx[i])); } lam += dx[N];
+        if (mx < 1e-10 * g0) break;
+      }
+      conv.push({ wc, V: Math.sqrt(Math.max(lam, 0)), lam, w: Float64Array.from(w), wav: avgOf(w), C: capOf(w) });
+    }
+    let ip = 0; conv.forEach((c, i) => { if (c.V > conv[ip].V) ip = i; });
+    for (let i = 0; i <= Math.min(ip, conv.length - 1); i++) { const m = modal(conv[i].w, conv[i].lam, 0, false); conv[i].f = m.f; conv[i].k2 = m.k2; }
+    // collapsed branch: contact radius control
+    const coll = []; w = Float64Array.from(conv[conv.length - 1].w); w[0] = g0;
+    for (let nc = 1; nc <= N - 4; nc++) {
+      const n = N - nc, e = nc - 1;
+      for (let it = 0; it < 50; it++) {
+        for (let i = 0; i < nc; i++) w[i] = g0;
+        const Kx = Kw(w), fe = new Float64Array(N), fp = new Float64Array(N);
+        for (let i = 0; i < N; i++) { const d = ge - w[i]; fe[i] = W[i] * E0 / (2 * d * d); fp[i] = W[i] * E0 / (d * d * d); }
+        const J = mat(n + 1), R = new Float64Array(n + 1);
+        for (let ii = 0; ii < n; ii++) { const i = nc + ii, Ji = J[ii], Ki = K[i]; R[ii] = -(Kx[i] - lam * fe[i]);
+          for (let jj = Math.max(0, ii - 2); jj <= Math.min(n - 1, ii + 2); jj++) Ji[jj] = Ki[nc + jj]; Ji[ii] -= lam * fp[i]; Ji[n] = -fe[i]; }
+        const Je = J[n], Ke = K[e]; for (let jj = 0; jj < Math.min(n, 3); jj++) Je[jj] = Ke[nc + jj]; Je[n] = -fe[e]; R[n] = -(Kx[e] - lam * fe[e]);
+        const dx = lus(luf(J, n + 1), R); let st = 1;
+        for (let k = 0; k < 14; k++) { let ok = true; for (let ii = 0; ii < n; ii++) if (w[nc + ii] + st * dx[ii] >= ge - 1e-12) { ok = false; break; } if (ok) break; st /= 2; }
+        let mx = 0; for (let ii = 0; ii < n; ii++) { w[nc + ii] += st * dx[ii]; mx = Math.max(mx, Math.abs(st * dx[ii])); } lam += st * dx[n];
+        if (mx < 1e-10 * g0) break;
+      }
+      coll.push({ nc, b: r[nc - 1], V: Math.sqrt(Math.max(lam, 0)), lam, w: Float64Array.from(w), wav: avgOf(w), C: capOf(w) });
+    }
+    let isb = 0; coll.forEach((c, i) => { if (c.V < coll[isb].V) isb = i; });
+    let Vpi = conv[ip].V; if (ip > 0 && ip < conv.length - 1) { const y0 = conv[ip - 1].V, y1 = conv[ip].V, y2 = conv[ip + 1].V, den = y0 - 2 * y1 + y2; if (den < 0) Vpi = y1 - (y2 - y0) * (y2 - y0) / (8 * den); }
+    const kp = 192 * PI * D / (a * a), Vl = Math.sqrt(8 * kp * ge * ge * ge / (27 * E0 * PI * a * a));
+    const res = { a, h, g0, ti, ge, D, N, r, W, K, f0, conv, coll, ip, isb, Vpi, Vsb: coll[isb].V, Vl, C0, modal };
+    const keys = Object.keys(CM); if (keys.length > 12) delete CM[keys[0]];
+    return (CM[key] = res);
+  }
+  const lumpXi = v => { let lo = 0, hi = 1 / 3; for (let i = 0; i < 50; i++) { const m = (lo + hi) / 2; if (27 / 4 * m * (1 - m) * (1 - m) < v * v) lo = m; else hi = m; } return (lo + hi) / 2; };
+  const interpConv = (M, vf) => { // stable conventional state at V = vf*Vpi
+    const V = vf * M.Vpi, c = M.conv; let i = 0; while (i < M.ip && c[i + 1].V < V) i++;
+    if (i >= M.ip) return { s: c[M.ip], u: 1, i: M.ip };
+    const u = (V - c[i].V) / (c[i + 1].V - c[i].V); return { s: c[i], s2: c[i + 1], u: Math.max(0, Math.min(1, u)), i };
+  };
+  const lerp = (a, b, u) => a + (b - a) * u;
+  const defModel = () => cmutModel(20e-6, 1e-6, 0.2e-6, 0.1e-6);
+
+  /* ===================== drawing helpers ===================== */
+  function frame(ctx, box, xr, yr, o) { return Lab.axes(ctx, box, xr, yr, o); }
+  function poly(ctx, ax, xs, ys, col, wdt, dash) { Lab.line(ctx, ax, xs, ys, col, wdt, dash); }
+  function txt(ctx, s, x, y, col, al, font) { ctx.save(); ctx.fillStyle = col; ctx.font = font || ('11px ' + Lab.colors().mono); ctx.textAlign = al || 'left'; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y); ctx.restore(); }
+  function dot(ctx, x, y, col, rr) { ctx.save(); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, rr || 4, 0, 2 * PI); ctx.fill(); ctx.restore(); }
+  function rightAxis(ctx, box, yr, lab, col, fmt) { const t = Lab.ticks(yr[0], yr[1], 4), c = Lab.colors(); ctx.save(); ctx.fillStyle = col || c.muted; ctx.font = '11px ' + c.mono; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    t.forEach(v => { const y = box.y + box.h - (v - yr[0]) / (yr[1] - yr[0]) * box.h; ctx.fillText((fmt || Lab.fmt)(v), box.x + box.w + 5, y); });
+    if (lab) { ctx.translate(box.x + box.w + 42, box.y + box.h / 2); ctx.rotate(PI / 2); ctx.textAlign = 'center'; ctx.fillText(lab, 0, 0); } ctx.restore(); }
+  /* two panels side by side when wide, stacked when narrow */
+  function twoPanels(cv, hWide, hNarrow) { const w0 = cv.clientWidth || cv.parentElement.clientWidth || 600; const wide = w0 >= 620;
+    const { ctx, w, h } = Lab.canvas(cv, wide ? hWide : hNarrow);
+    if (wide) { const pw = (w - 70 - 80) / 2; return { ctx, w, h, A: { x: 54, y: 22, w: pw, h: h - 66 }, B: { x: 54 + pw + 96, y: 22, w: pw - 16, h: h - 66 } }; }
+    const ph = (h - 120) / 2; return { ctx, w, h, A: { x: 54, y: 20, w: w - 106, h: ph }, B: { x: 54, y: 20 + ph + 64, w: w - 106, h: ph } };
+  }
+
+  /* ===================== Demo 18.1 ===================== */
+  const plGeom = () => ({ a: +$('m18-pl-a').value * 1e-6, h: +$('m18-pl-h').value * 1e-6, g0: +$('m18-pl-g').value * 1e-6, ti: +$('m18-pl-t').value * 1e-6 });
+  function drawPl() {
+    $('m18-pl-a-o').textContent = $('m18-pl-a').value; $('m18-pl-h-o').textContent = (+$('m18-pl-h').value).toFixed(1);
+    $('m18-pl-g-o').textContent = (+$('m18-pl-g').value).toFixed(2); $('m18-pl-t-o').textContent = (+$('m18-pl-t').value).toFixed(2);
+    const vf = +$('m18-pl-v').value; $('m18-pl-v-o').textContent = vf.toFixed(2);
+    const G = plGeom(), M = cmutModel(G.a, G.h, G.g0, G.ti), c = Lab.colors();
+    const { ctx, A, B } = twoPanels($('m18-pl-cv'), 320, 600);
+    const Vmax = Math.max(1.6 * M.Vpi, 1.08 * M.Vl);
+    const ax = frame(ctx, A, [0, Vmax], [0, 0.8], { xlabel: 'bias V (V)', ylabel: 'average deflection / g_eff', title: 'Static branches' });
+    ax.clip();
+    const cv = M.conv, cl = M.coll.filter(s => s.V <= Vmax * 1.02);
+    poly(ctx, ax, cv.slice(0, M.ip + 1).map(s => s.V), cv.slice(0, M.ip + 1).map(s => s.wav / M.ge), c.accent, 2.2);
+    poly(ctx, ax, cv.slice(M.ip).map(s => s.V), cv.slice(M.ip).map(s => s.wav / M.ge), c.sig3, 1.6, [5, 4]);
+    poly(ctx, ax, cl.map(s => s.V), cl.map(s => s.wav / M.ge), c.bad, 2.2);
+    const xs = [], ys = []; for (let i = 0; i <= 120; i++) { const xi = i / 360; xs.push(M.Vl * Math.sqrt(27 / 4 * xi * (1 - xi) * (1 - xi))); ys.push(xi * M.ge / M.ge); } poly(ctx, ax, xs, ys, c.muted, 1.5, [2, 3]);
+    const st = interpConv(M, vf), wavNow = st.s2 ? lerp(st.s.wav, st.s2.wav, st.u) : st.s.wav; dot(ctx, ax.X(vf * M.Vpi), ax.Y(wavNow / M.ge), c.fg, 4.5);
+    ax.unclip();
+    txt(ctx, 'V_PI ' + F(M.Vpi, 1) + ' V', ax.X(M.Vpi) + 4, ax.Y(cv[M.ip].wav / M.ge) - 10, c.accent);
+    txt(ctx, 'V_SB ' + F(M.Vsb, 1) + ' V', ax.X(M.Vsb) + 4, ax.Y(M.coll[M.isb].wav / M.ge) + 12, c.bad);
+    // panel B: k2 and f/f0 vs V/Vpi
+    const bx = frame(ctx, B, [0, 1], [0, 1], { xlabel: 'V / V_PI (each model its own V_PI)', ylabel: 'k² ,  f / f₀', title: 'Coupling and resonance', nx: 4 });
+    const sv = cv.slice(0, M.ip + 1).filter(s => s.k2 !== undefined);
+    poly(ctx, bx, sv.map(s => s.V / M.Vpi), sv.map(s => Math.max(0, Math.min(1, s.k2))), c.accent, 2.2);
+    poly(ctx, bx, sv.map(s => s.V / M.Vpi), sv.map(s => s.f / M.f0), c.sig2, 2);
+    const lx = [], lk = [], lf = []; for (let i = 0; i <= 200; i++) { const xi = i / 600; lx.push(Math.sqrt(27 / 4 * xi * (1 - xi) * (1 - xi))); lk.push(2 * xi / (1 - xi)); lf.push(Math.sqrt((1 - 3 * xi) / (1 - xi))); }
+    poly(ctx, bx, lx, lk, c.muted, 1.5, [2, 3]); poly(ctx, bx, lx, lf, c.muted, 1.2, [6, 4]);
+    const k2n = st.s2 && st.s2.k2 !== undefined ? lerp(st.s.k2, st.s2.k2, st.u) : st.s.k2, fn = st.s2 && st.s2.f !== undefined ? lerp(st.s.f, st.s2.f, st.u) : st.s.f;
+    dot(ctx, bx.X(vf), bx.Y(k2n), c.accent, 4.5); dot(ctx, bx.X(vf), bx.Y(fn / M.f0), c.sig2, 4.5);
+    const xl = lumpXi(vf), k2l = 2 * xl / (1 - xl); dot(ctx, bx.X(vf), bx.Y(k2l), c.muted, 3.5);
+    const wc = st.s2 ? lerp(st.s.wc, st.s2.wc, st.u) : st.s.wc;
+    $('m18-pl-read').innerHTML = 'f₀ (vacuum) = <b>' + F(M.f0 / 1e6, 2) + ' MHz</b><br>V<sub>PI</sub> plate = <b>' + F(M.Vpi, 1) + ' V</b>, piston ' + F(M.Vl, 1) + ' V (ratio ' + (M.Vpi / M.Vl).toFixed(3) + ')<br>at pull-in: w(0) = ' + (M.conv[M.ip].wc / M.ge).toFixed(2) + ' g<sub>eff</sub>, w̄ = ' + (M.conv[M.ip].wav / M.ge).toFixed(3) + ' g<sub>eff</sub><br>snap-back V<sub>SB</sub> = <b>' + F(M.Vsb, 1) + ' V</b> (' + (M.Vsb / M.Vpi).toFixed(2) + ' V<sub>PI</sub>)<br>at ' + vf.toFixed(2) + ' V<sub>PI</sub> = ' + F(vf * M.Vpi, 1) + ' V: w(0) = ' + (wc / M.ge).toFixed(3) + ' g<sub>eff</sub><br>k² = <b>' + k2n.toFixed(3) + '</b> (piston ' + k2l.toFixed(3) + '), f = ' + F(fn / 1e6, 2) + ' MHz';
+  }
+
+  /* ===================== Demo 18.2 ===================== */
+  let hyState = { coll: false }, hyAnim = null;
+  function hyLocate(M, vf) {
+    const V = vf * M.Vpi;
+    if (!hyState.coll && V > M.Vpi) hyState.coll = true;
+    if (hyState.coll && V < M.Vsb) hyState.coll = false;
+    if (!hyState.coll) { const st = interpConv(M, Math.min(vf, 1)); return { coll: false, s: st.s, s2: st.s2, u: st.u }; }
+    const cl = M.coll; let i = M.isb; while (i < cl.length - 1 && cl[i + 1].V < V) i++;
+    if (i >= cl.length - 1) return { coll: true, s: cl[cl.length - 1], u: 0 };
+    const u = (V - cl[i].V) / (cl[i + 1].V - cl[i].V); return { coll: true, s: cl[i], s2: cl[i + 1], u: Math.max(0, Math.min(1, u)) };
+  }
+  function drawHy() {
+    const vf = +$('m18-hy-v').value; $('m18-hy-v-o').textContent = vf.toFixed(2);
+    const G = plGeom(), M = cmutModel(G.a, G.h, G.g0, G.ti), c = Lab.colors();
+    const L = hyLocate(M, vf);
+    const { ctx, A, B } = twoPanels($('m18-hy-cv'), 300, 580);
+    const cmax = Math.max(...M.coll.filter(s => s.V < 2.05 * M.Vpi).map(s => s.C / M.C0), 1.5);
+    const ax = frame(ctx, A, [0, 2], [1, Math.ceil(cmax * 2) / 2], { xlabel: 'V / V_PI', ylabel: 'C / C(0)', title: 'C–V loop', nx: 4 });
+    ax.clip();
+    const cv = M.conv.slice(0, M.ip + 1), cl = M.coll.slice(M.isb).filter(s => s.V < 2.1 * M.Vpi);
+    poly(ctx, ax, [0].concat(cv.map(s => s.V / M.Vpi)), [1].concat(cv.map(s => s.C / M.C0)), c.accent, 2.2);
+    poly(ctx, ax, cl.map(s => s.V / M.Vpi), cl.map(s => s.C / M.C0), c.bad, 2.2);
+    const cu = M.conv[M.ip], cd = M.coll.find(s => s.V >= M.Vpi) || M.coll[M.coll.length - 1];
+    poly(ctx, ax, [1, 1], [cu.C / M.C0, interpC(M, M.Vpi)], c.muted, 1.2, [3, 3]);
+    const cs = M.coll[M.isb]; poly(ctx, ax, [M.Vsb / M.Vpi, M.Vsb / M.Vpi], [cs.C / M.C0, interpConvC(M, M.Vsb)], c.muted, 1.2, [3, 3]);
+    const Cn = L.s2 ? lerp(L.s.C, L.s2.C, L.u) : L.s.C; dot(ctx, ax.X(vf), ax.Y(Cn / M.C0), c.fg, 5);
+    ax.unclip();
+    txt(ctx, 'up at V_PI', ax.X(1) + 4, ax.Y(1.02), c.muted); txt(ctx, 'down at V_SB', ax.X(M.Vsb / M.Vpi) + 4, ax.Y(cs.C / M.C0) - 10, c.muted);
+    // profile panel
+    const N = M.N, w = new Float64Array(N + 1); for (let i = 0; i < N; i++) w[i] = L.s2 ? lerp(L.s.w[i], L.s2.w[i], L.u) : L.s.w[i];
+    const bx = frame(ctx, B, [-1, 1], [-1.2, 0.1], { xlabel: 'r / a', ylabel: '−w / g₀', title: 'Membrane cross-section', nx: 4 });
+    const xs = [], ys = []; for (let i = N; i >= 0; i--) { xs.push(-M.r[i] / M.a); ys.push(-w[i] / M.g0); } for (let i = 1; i <= N; i++) { xs.push(M.r[i] / M.a); ys.push(-w[i] / M.g0); }
+    poly(ctx, bx, [-1, 1], [-1, -1], c.sig3, 3); txt(ctx, 'insulator surface (w = g₀)', bx.X(-0.95), bx.Y(-1.1), c.sig3);
+    poly(ctx, bx, xs, ys, L.coll ? c.bad : c.accent, 2.4);
+    let nc = 0; if (L.coll) { nc = L.s.nc; const bb = M.r[nc - 1] / M.a; poly(ctx, bx, [-bb, bb], [-1, -1], c.bad, 5); }
+    let fr, extra = '';
+    if (L.coll) { const m = M.modal(L.s.w, L.s.lam, L.s.nc, true); fr = m.f; extra = ' (mechanical annulus)'; }
+    else { fr = L.s2 && L.s2.f !== undefined ? lerp(L.s.f, L.s2.f, L.u) : L.s.f; extra = ' (with softening)'; }
+    $('m18-hy-read').innerHTML = 'state: <b>' + (L.coll ? 'collapsed' : 'conventional') + '</b><br>V = ' + F(vf * M.Vpi, 1) + ' V (V<sub>PI</sub> ' + F(M.Vpi, 1) + ', V<sub>SB</sub> ' + F(M.Vsb, 1) + ' V)<br>C / C(0) = <b>' + (Cn / M.C0).toFixed(3) + '</b>' + (L.coll ? '<br>contact radius b = <b>' + (M.r[nc - 1] / M.a).toFixed(2) + ' a</b>' : '') + '<br>resonance ' + F(fr / 1e6, 2) + ' MHz' + extra + ' = ' + (fr / M.f0).toFixed(2) + ' f₀';
+  }
+  function interpC(M, V) { const cl = M.coll; for (let i = M.isb; i < cl.length - 1; i++) if (cl[i + 1].V >= V) { const u = (V - cl[i].V) / (cl[i + 1].V - cl[i].V); return lerp(cl[i].C, cl[i + 1].C, u) / M.C0; } return cl[cl.length - 1].C / M.C0; }
+  function interpConvC(M, V) { const st = interpConv(M, V / M.Vpi); return (st.s2 ? lerp(st.s.C, st.s2.C, st.u) : st.s.C) / M.C0; }
+  function sweep(to) {
+    if (hyAnim) cancelAnimationFrame(hyAnim); const el = $('m18-hy-v'), from = +el.value, t0 = performance.now(), T = 2200;
+    const step = t => { const u = Math.min(1, (t - t0) / T); el.value = (from + (to - from) * u).toFixed(2); drawHy(); if (u < 1 && Lab.current === 'm18') hyAnim = requestAnimationFrame(step); else hyAnim = null; };
+    hyAnim = requestAnimationFrame(step);
+  }
+
+  /* ===================== Demo 18.3: CMUT vs PZT (approximate 1D) ===================== */
+  const cx = (re, im) => [re, im || 0], cadd = (a, b) => [a[0] + b[0], a[1] + b[1]], csub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+  const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]], cdiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+  const csc = (a, s) => [a[0] * s, a[1] * s], cab = a => Math.hypot(a[0], a[1]);
+  function csolve3(M, b) { // complex Gaussian elimination, 3x3
+    const A = M.map((r, i) => r.concat([b[i]])); const n = 3;
+    for (let k = 0; k < n; k++) { let im = k, mx = cab(A[k][k]); for (let i = k + 1; i < n; i++) if (cab(A[i][k]) > mx) { mx = cab(A[i][k]); im = i; } const t = A[k]; A[k] = A[im]; A[im] = t;
+      for (let i = k + 1; i < n; i++) { const f = cdiv(A[i][k], A[k][k]); for (let j = k; j <= n; j++) A[i][j] = csub(A[i][j], cmul(f, A[k][j])); } }
+    const x = [0, 0, 0]; for (let i = n - 1; i >= 0; i--) { let s = A[i][n]; for (let j = i + 1; j < n; j++) s = csub(s, cmul(A[i][j], x[j])); x[i] = cdiv(s, A[i][i]); } return x;
+  }
+  const AEL = 0.27e-3 * 5e-3, RS = 50, ZLe = ZW * AEL, DF = 12.5e3, NFb = 4096, NB = 2000;
+  function pztS(f, ZBm, nL) {
+    const v = 4580, rho = 7500, kt = 0.51, er = 1470, fa = 5e6, d = v / (2 * fa), Z0 = rho * v * AEL, C0 = er * E0 * AEL / d, hh = kt * Math.sqrt(rho * v * v / (er * E0)), Zp = rho * v / 1e6;
+    const Zm = nL === 2 ? [Math.pow(Zp, 4 / 7) * Math.pow(1.5, 3 / 7), Math.pow(Zp, 1 / 7) * Math.pow(1.5, 6 / 7)] : nL === 1 ? [Math.cbrt(Zp * 2.25)] : [];
+    const w = 2 * PI * f, th = w * d / v, a = cx(0, -Z0 / Math.tan(th)), b = cx(0, -Z0 / Math.sin(th)), c = cx(0, -hh / w), ZB = cx(ZBm * 1e6 * AEL);
+    let Zin = cx(ZLe); const t = w / (4 * fa);
+    for (let m = Zm.length - 1; m >= 0; m--) { const Zc = Zm[m] * 1e6 * AEL, tn = Math.tan(t); Zin = csc(cdiv(cadd(Zin, cx(0, Zc * tn)), cadd(cx(Zc), cmul(cx(0, tn), Zin))), Zc); }
+    const x = csolve3([[cadd(a, ZB), b, c], [b, cadd(a, Zin), c], [c, c, cadd(cx(RS), cdiv(cx(1), cx(0, w * C0)))]], [cx(0), cx(0), cx(1)]);
+    let Fz = csc(cmul(Zin, x[1]), -1), vz = csc(x[1], -1);
+    for (let m = 0; m < Zm.length; m++) { const Zc = Zm[m] * 1e6 * AEL, co = Math.cos(t), si = Math.sin(t);
+      const Fn = cadd(csc(Fz, co), cmul(cx(0, -Zc * si), vz)), vn = cadd(cmul(cx(0, -si / Zc), Fz), csc(vz, co)); Fz = Fn; vz = vn; }
+    return csc(Fz, 2 * Math.sqrt(RS / ZLe));
+  }
+  function cmutS(f, vf, a, madd) {
+    const E = 169e9, nus = 0.22, rs = 2330, hm = 1e-6, g0 = 0.15e-6, ti = 0.1e-6, eta = 0.8, Dm = E * hm ** 3 / (12 * (1 - nus * nus)), ge = g0 + ti / 7.5;
+    const k = 192 * Dm / a ** 4 * AEL * eta, m = 1.8 * rs * hm * AEL * eta + (madd ? (8 / 3) * RW * a / PI * AEL * eta : 0);
+    const Vpi = Math.sqrt(8 * k * ge ** 3 / (27 * E0 * eta * AEL)), xi = lumpXi(vf), x = xi * ge, Vdc = vf * Vpi;
+    const C0 = E0 * eta * AEL / (ge - x), n = C0 * Vdc / (ge - x), keff = k * (1 - 2 * xi / (1 - xi));
+    const w = 2 * PI * f, Zm = cx(0, w * m - keff / w);
+    const A = cx(1 / n), B = csc(Zm, 1 / n), C = cx(0, w * C0 / n), D = cadd(csc(cmul(cx(0, w * C0), Zm), 1 / n), cx(n));
+    const den = cadd(cadd(csc(A, ZLe), B), csc(cadd(csc(C, ZLe), D), RS));
+    return { S: cdiv(cx(2 * Math.sqrt(RS * ZLe)), den), Vpi, Vdc };
+  }
+  function analyzeH(Hs) { // Hs: array of [re,im] at k*DF, k=1..NB
+    const mag = Hs.map(cab); let ip = 0; mag.forEach((v, i) => { if (v > mag[ip]) ip = i; }); const pk = mag[ip];
+    let lo = ip; while (lo > 0 && mag[lo] > pk / 2) lo--; let hi = ip; while (hi < NB - 1 && mag[hi] > pk / 2) hi++;
+    const fl = (lo + 1) * DF + (mag[lo] < pk / 2 ? DF * (pk / 2 - mag[lo]) / (mag[lo + 1] - mag[lo]) : 0), fh = hi < NB - 1 ? (hi) * DF + DF * (mag[hi - 1] - pk / 2) / (mag[hi - 1] - mag[hi]) : NB * DF;
+    return { mag, pk, fl, fh, fc: (fl + fh) / 2, fbw: (fh - fl) / ((fh + fl) / 2), edge: hi >= NB - 1 };
+  }
+  function pulse(Hs) { const re = new Float64Array(NFb), im = new Float64Array(NFb);
+    for (let k = 1; k <= NB && k < NFb / 2; k++) { const f = k * DF, g = f < 9e6 ? 1 : f < 12e6 ? Math.cos(PI / 2 * (f - 9e6) / 3e6) ** 2 : 0, ph = -2 * PI * f * 0.5e-6;
+      const H = cmul(Hs[k - 1], cx(Math.cos(ph) * g, Math.sin(ph) * g)); re[k] = H[0]; im[k] = H[1]; re[NFb - k] = H[0]; im[NFb - k] = -H[1]; }
+    Lab.fft(re, im, true); let mx = 0; for (let i = 0; i < NFb; i++) mx = Math.max(mx, Math.abs(re[i])); return { y: re, mx }; }
+  const BW = {};
+  function bwModels(vf, a, madd, zb, nL) {
+    const kp = 'p' + zb + '|' + nL, kc = 'c' + vf + '|' + a + '|' + madd;
+    if (!BW[kp]) { const H = []; for (let k = 1; k <= NB; k++) { const S = pztS(k * DF, zb, nL); H.push(cmul(S, S)); } BW[kp] = { H, A: analyzeH(H), P: pulse(H) }; }
+    if (!BW[kc]) { const H = []; let info; for (let k = 1; k <= NB; k++) { const r = cmutS(k * DF, vf, a, madd); info = r; H.push(cmul(r.S, r.S)); } BW[kc] = { H, A: analyzeH(H), P: pulse(H), Vpi: info.Vpi }; }
+    return { P: BW[kp], C: BW[kc] };
+  }
+  function drawBw() {
+    const vf = +$('m18-bw-v').value, a = +$('m18-bw-a').value, madd = $('m18-bw-m').checked, zb = +$('m18-bw-zb').value, nL = +$('m18-bw-l').value;
+    $('m18-bw-v-o').textContent = vf.toFixed(2); $('m18-bw-a-o').textContent = a; $('m18-bw-zb-o').textContent = zb;
+    const R = bwModels(vf, a * 1e-6, madd, zb, nL), c = Lab.colors();
+    const { ctx, A, B } = twoPanels($('m18-bw-cv'), 300, 580);
+    const ax = frame(ctx, A, [0, 20], [-30, 2], { xlabel: 'frequency (MHz)', ylabel: 'pulse-echo |H| (dB, own peak)', title: 'Spectra' });
+    ax.clip();
+    const fx = []; for (let k = 1; k <= NB; k++) fx.push(k * DF / 1e6);
+    const db = (A0) => A0.mag.map(v => 20 * Math.log10(v / A0.pk + 1e-12));
+    poly(ctx, ax, fx, db(R.P.A), c.accent, 2.2); poly(ctx, ax, fx, db(R.C.A), c.bad, 2.2);
+    poly(ctx, ax, [0, 20], [-6, -6], c.muted, 1, [4, 4]);
+    const fcm = 4.59, fbm = 0.96, flm = fcm * (1 - fbm / 2), fhm = fcm * (1 + fbm / 2); poly(ctx, ax, [flm, fhm], [-7.5, -7.5], c.sig3, 4);
+    ax.unclip();
+    const T = []; for (let i = 0; i < NFb; i++) T.push(i / (NFb * DF) * 1e6);
+    const bx = frame(ctx, B, [0.3, 2.0], [-2.4, 1.2], { xlabel: 'time (µs)', ylabel: 'normalized (offset)', title: 'Impulse responses', noYLabels: true });
+    bx.clip();
+    const i0 = Math.floor(0.3e-6 * NFb * DF), i1 = Math.ceil(2.0e-6 * NFb * DF);
+    poly(ctx, bx, T.slice(i0, i1), Array.from(R.P.P.y.slice(i0, i1)).map(v => v / R.P.P.mx * 0.55 + 0.6), c.accent, 1.6);
+    poly(ctx, bx, T.slice(i0, i1), Array.from(R.C.P.y.slice(i0, i1)).map(v => v / R.C.P.mx * 0.55 - 1.0), c.bad, 1.6);
+    bx.unclip();
+    txt(ctx, 'PZT', bx.X(1.85), bx.Y(1.0), c.accent, 'right'); txt(ctx, 'CMUT', bx.X(1.85), bx.Y(-0.5), c.bad, 'right');
+    const row = (n, Q, col) => '<span style="color:' + col + '">' + n + '</span>: f<sub>c</sub> ' + F(Q.fc / 1e6, 2) + ' MHz, band ' + F(Q.fl / 1e6, 2) + '–' + (Q.edge ? '&gt;25' : F(Q.fh / 1e6, 2)) + ' MHz, <b>FBW ' + (Q.edge ? '&gt; ' : '') + Math.round(Q.fbw * 100) + ' %</b>, peak ' + F(20 * Math.log10(Q.pk), 1) + ' dB';
+    $('m18-bw-read').innerHTML = row('PZT', R.P.A, c.accent) + '<br>' + row('CMUT', R.C.A, c.bad) + '<br>CMUT V<sub>PI</sub> = ' + F(R.C.Vpi, 1) + ' V (g₀ 0.15 µm, h 1 µm), bias ' + F(vf * R.C.Vpi, 1) + ' V';
+  }
+
+  /* ===================== Demo 18.4: interface wave ===================== */
+  function xtParams(state, vf, ba, a) {
+    const h = 1e-6, D = 169e9 * h ** 3 / (12 * (1 - 0.22 ** 2)), ma = 1.8 * 2330 * h, ka0 = 192 * D / a ** 4, f0 = 10.2158 / (2 * PI * a * a) * Math.sqrt(D / (2330 * h));
+    let ka; if (state === 'c') { const xi = lumpXi(vf); ka = ka0 * (1 - 2 * xi / (1 - xi)); } else { const fc = annRatio(ba) * f0, wc = 2 * PI * fc; ka = ma * wc * wc; }
+    return { ka, ma, fc: Math.sqrt(ka / ma) / (2 * PI), f0 };
+  }
+  const xtC = (P, f) => { const w = 2 * PI * f; if (w * w * P.ma >= P.ka) return { c: 0, depth: 0 }; const al = w * w * RW / (P.ka - w * w * P.ma), kw = w / CW; return { c: w / Math.sqrt(kw * kw + al * al) / CW, depth: 1 / al, al }; };
+  function drawXt() {
+    const st = $('m18-xt-st').value, vf = +$('m18-xt-v').value, ba = +$('m18-xt-b').value, a = +$('m18-xt-a').value;
+    $('m18-xt-v-o').textContent = vf.toFixed(2); $('m18-xt-b-o').textContent = ba.toFixed(2); $('m18-xt-a-o').textContent = a;
+    const P = xtParams(st, vf, ba, a * 1e-6), c = Lab.colors();
+    const { ctx, w, h } = Lab.canvas($('m18-xt-cv'), 280); const box = { x: 54, y: 22, w: w - 120, h: h - 66 };
+    const fmax = Math.max(1.25 * P.fc, 2e6) / 1e6, dmax = 200;
+    const ax = frame(ctx, box, [0, fmax], [0, 1.05], { xlabel: 'frequency (MHz)', ylabel: 'c_ph / c_w', title: 'Interface wave on a membrane surface' });
+    rightAxis(ctx, box, [0, dmax], 'decay depth 1/α (µm)', c.sig2);
+    ax.clip();
+    const fs = [], cs = [], ds = []; for (let i = 1; i <= 400; i++) { const f = i / 400 * fmax * 1e6; if (f >= P.fc) break; const r = xtC(P, f); fs.push(f / 1e6); cs.push(r.c); ds.push(Math.min(r.depth * 1e6, dmax * 1.2) / dmax * 1.05); }
+    poly(ctx, ax, fs, cs, c.accent, 2.3); poly(ctx, ax, fs, ds, c.sig2, 1.8, [5, 3]);
+    poly(ctx, ax, [P.fc / 1e6, P.fc / 1e6], [0, 1.05], c.muted, 1.2, [3, 3]);
+    ax.unclip(); txt(ctx, 'cutoff ' + F(P.fc / 1e6, 2) + ' MHz', ax.X(P.fc / 1e6) - 4, ax.Y(0.95), c.muted, 'right');
+    const fh = P.fc / 2, rh = xtC(P, fh), lam = rh.c * CW / fh;
+    $('m18-xt-read').innerHTML = 'cutoff f<sub>c</sub> = √(k<sub>a</sub>/m<sub>a</sub>)/2π = <b>' + F(P.fc / 1e6, 2) + ' MHz</b><br>(unbiased plate f₀ = ' + F(P.f0 / 1e6, 2) + ' MHz)<br>at f<sub>c</sub>/2 = ' + F(fh / 1e6, 2) + ' MHz: c<sub>ph</sub> = <b>' + F(rh.c * CW, 0) + ' m/s</b>, λ = ' + F(lam * 1e6, 0) + ' µm, depth 1/α = ' + F(rh.depth * 1e6, 0) + ' µm<br>R = Z<sub>w</sub>/(m<sub>a</sub>ω<sub>c</sub>) = ' + F(ZW / (P.ma * 2 * PI * P.fc), 2);
+  }
+
+  /* ===================== Demo 18.5: PMUT ===================== */
+  const FILMS = [{ n: 'AlN', E: 390e9, nu: 0.24, rho: 3260, e31: 1.05, er: 10.5 }, { n: 'ScAlN', E: 200e9, nu: 0.24, rho: 3300, e31: 1.6, er: 12 }, { n: 'PZT film', E: 65e9, nu: 0.30, rho: 7600, e31: 14, er: 1200 }];
+  function pmut(fl, a, hp, hs, be) {
+    const E1 = 169e9 / (1 - 0.22 ** 2), E2 = fl.E / (1 - fl.nu ** 2), z1 = hs / 2, z2 = hs + hp / 2;
+    const zn = (E1 * hs * z1 + E2 * hp * z2) / (E1 * hs + E2 * hp), D = E1 * (hs ** 3 / 12 + hs * (z1 - zn) ** 2) + E2 * (hp ** 3 / 12 + hp * (z2 - zn) ** 2);
+    const mh = 2330 * hs + fl.rho * hp, fv = 10.2158 / (2 * PI * a * a) * Math.sqrt(D / mh), bL = 0.67 * RW * a / mh, fw = fv / Math.sqrt(1 + bL), zp = z2 - zn;
+    const wcV = 0.375 * fl.e31 * zp * a * a * be * be * (1 - be * be) / D, Ce = E0 * fl.er * PI * (be * a) ** 2 / hp;
+    return { zn, D, mh, fv, bL, fw, zp, wcV, Ce };
+  }
+  function drawPm() {
+    const fi = +$('m18-pm-film').value, a = +$('m18-pm-a').value, hp = +$('m18-pm-hp').value, hs = +$('m18-pm-hs').value, be = +$('m18-pm-be').value;
+    $('m18-pm-a-o').textContent = a; $('m18-pm-hp-o').textContent = hp.toFixed(1); $('m18-pm-hs-o').textContent = hs.toFixed(1); $('m18-pm-be-o').textContent = be.toFixed(2);
+    const fl = FILMS[fi], R = pmut(fl, a * 1e-6, hp * 1e-6, hs * 1e-6, be), c = Lab.colors();
+    const { ctx, A, B } = twoPanels($('m18-pm-cv'), 300, 580);
+    const lg = Math.log10, xr = [1, lg(300)], yr = [-1.5, 2.3];
+    const ax = frame(ctx, A, xr, yr, { xlabel: 'radius a (µm, log)', ylabel: 'f (MHz, log)', title: 'Resonance', xticks: [1, lg(20), lg(50), 2, lg(200)], yticks: [-1, 0, 1, 2], xfmt: v => F(Math.pow(10, v), 0), yfmt: v => F(Math.pow(10, v), 2) });
+    ax.clip(); const xs = [], yv = [], yw = [];
+    for (let i = 0; i <= 120; i++) { const aa = Math.pow(10, xr[0] + (xr[1] - xr[0]) * i / 120), r = pmut(fl, aa * 1e-6, hp * 1e-6, hs * 1e-6, be); xs.push(lg(aa)); yv.push(lg(r.fv / 1e6)); yw.push(lg(r.fw / 1e6)); }
+    poly(ctx, ax, xs, yv, c.sig3, 1.8, [5, 3]); poly(ctx, ax, xs, yw, c.accent, 2.3);
+    if (R.fv > 0) { dot(ctx, ax.X(lg(a)), ax.Y(lg(R.fw / 1e6)), c.accent, 4.5); dot(ctx, ax.X(lg(a)), ax.Y(lg(R.fv / 1e6)), c.sig3, 3.5); }
+    ax.unclip();
+    // actuation vs passive thickness
+    const hsv = [], act = []; let amax = 0; for (let i = 0; i <= 160; i++) { const s = i / 160 * 8, r = pmut(fl, a * 1e-6, hp * 1e-6, s * 1e-6, be); hsv.push(s); act.push(r.wcV); if (r.wcV > amax) amax = r.wcV; }
+    const bx = frame(ctx, B, [0, 8], [0, 1.1], { xlabel: 'Si passive thickness h_s (µm)', ylabel: 'w_c per volt (rel.)', title: 'Lever arm' });
+    bx.clip(); poly(ctx, bx, hsv, act.map(v => v / amax), c.sig2, 2.2); dot(ctx, bx.X(hs), bx.Y(R.wcV / amax), c.sig2, 4.5); bx.unclip();
+    let ib = 0; act.forEach((v, i) => { if (v > act[ib]) ib = i; }); txt(ctx, 'optimum ' + F(hsv[ib], 1) + ' µm', bx.X(hsv[ib]) + 4, bx.Y(1.05), c.muted);
+    const fom = fl.e31 ** 2 / (E0 * fl.er) / 1e9, rx = fl.e31 / (E0 * fl.er) / 1e9;
+    $('m18-pm-read').innerHTML = (hs === 0 ? '<span class="bad">no passive layer: z<sub>p</sub> = 0, no bending</span><br>' : '') + 'f vacuum = ' + F(R.fv / 1e6, 2) + ' MHz, <b>f water = ' + F(R.fw / 1e6, 2) + ' MHz</b><br>Lamb β = ' + F(R.bL, 2) + ' (÷' + F(Math.sqrt(1 + R.bL), 2) + ')<br>neutral axis z<sub>n</sub> = ' + F(R.zn * 1e6, 2) + ' µm, lever arm z<sub>p</sub> = ' + F(R.zp * 1e6, 2) + ' µm<br>static w<sub>c</sub>/V = <b>' + F(R.wcV * 1e9, 2) + ' nm/V</b>, electrode factor ' + (be * be * (1 - be * be) / 0.25).toFixed(2) + ' of max<br>electrode C = ' + F(R.Ce * 1e12, 2) + ' pF per cell<br>film FOM e²/ε = ' + F(fom, 1) + ' GPa, e/ε = ' + F(rx, 1) + ' GV/m';
+  }
+
+  /* ===================== Smith–Auld (Demo 18.6) ===================== */
+  const CER = { pzt: { c11: 12.6e10, c12: 7.95e10, c13: 8.41e10, c33: 11.7e10, e31: -6.5, e33: 23.3, eS: 1470, rho: 7500 }, pmn: { c11: 14.7e10, c12: 13.1e10, c13: 11.4e10, c33: 11.4e10, e31: -6.88, e33: 21.4, eS: 885, rho: 8084 } };
+  const POL = (() => { const rho = 1150, c11 = rho * 2500 * 2500, c44 = rho * 1100 * 1100; return { c11, c12: c11 - 2 * c44, er: 4, rho }; })();
+  function smithAuld(nu, c) { const p = POL, Dn = nu * (p.c11 + p.c12) + (1 - nu) * (c.c11 + c.c12);
+    const c33E = nu * (c.c33 - 2 * (1 - nu) * (c.c13 - p.c12) ** 2 / Dn) + (1 - nu) * p.c11, e33 = nu * (c.e33 - 2 * (1 - nu) * c.e31 * (c.c13 - p.c12) / Dn);
+    const eS = nu * (c.eS * E0 + 2 * (1 - nu) * c.e31 ** 2 / Dn) + (1 - nu) * p.er * E0, c33D = c33E + e33 * e33 / eS, rho = nu * c.rho + (1 - nu) * p.rho, v = Math.sqrt(c33D / rho);
+    return { kt: Math.sqrt(e33 * e33 / (c33D * eS)), Z: rho * v / 1e6, v, eps: eS / E0 }; }
+  function drawCp() {
+    const nu = +$('m18-cp-nu').value, f0 = +$('m18-cp-f').value, ar = +$('m18-cp-ar').value;
+    $('m18-cp-nu-o').textContent = nu.toFixed(2); $('m18-cp-f-o').textContent = f0.toFixed(1); $('m18-cp-ar-o').textContent = ar.toFixed(2);
+    const c = Lab.colors(); const { ctx, w, h } = Lab.canvas($('m18-cp-cv'), 280); const box = { x: 54, y: 22, w: w - 120, h: h - 66 };
+    const ax = frame(ctx, box, [0.05, 1], [0.4, 0.9], { xlabel: 'ceramic volume fraction ν', ylabel: 'k_t', title: 'Smith–Auld: coupling and impedance' });
+    rightAxis(ctx, box, [0, 40], 'Z (MRayl)', c.sig2);
+    const xs = [], k1 = [], k2 = [], z1 = [], z2 = []; for (let i = 5; i <= 100; i++) { const n = i / 100, a = smithAuld(n, CER.pmn), b = smithAuld(n, CER.pzt); xs.push(n); k1.push(a.kt); k2.push(b.kt); z1.push(0.4 + a.Z / 40 * 0.5); z2.push(0.4 + b.Z / 40 * 0.5); }
+    ax.clip(); poly(ctx, ax, xs, k1, c.accent, 2.3); poly(ctx, ax, xs, k2, c.sig3, 2.3); poly(ctx, ax, xs, z1, c.sig2, 2); poly(ctx, ax, xs, z2, c.sig2, 1.6, [5, 4]);
+    const A = smithAuld(nu, CER.pmn), B = smithAuld(nu, CER.pzt); dot(ctx, ax.X(nu), ax.Y(A.kt), c.accent, 4.5); dot(ctx, ax.X(nu), ax.Y(B.kt), c.sig3, 4.5); dot(ctx, ax.X(nu), ax.Y(0.4 + A.Z / 80), c.sig2, 4); ax.unclip();
+    const t = A.v / (2 * f0 * 1e6), wp = ar * t, p = wp / Math.sqrt(nu), kerf = p - wp;
+    $('m18-cp-read').innerHTML = 'PMN-PT pillars: k<sub>t</sub> = <b>' + A.kt.toFixed(3) + '</b>, Z = ' + F(A.Z, 1) + ' MRayl, v = ' + F(A.v, 0) + ' m/s, ε<sup>S</sup> = ' + F(A.eps, 0) + 'ε₀<br>PZT-5H pillars: k<sub>t</sub> = <b>' + B.kt.toFixed(3) + '</b>, Z = ' + F(B.Z, 1) + ' MRayl, ε<sup>S</sup> = ' + F(B.eps, 0) + 'ε₀<br>PMN-PT at ' + f0.toFixed(1) + ' MHz: t = λ/2 = ' + F(t * 1e6, 0) + ' µm, pillar ' + F(wp * 1e6, 0) + ' µm, pitch ' + F(p * 1e6, 0) + ' µm, ' + (kerf < 15e-6 ? '<span class="bad">kerf ' + F(kerf * 1e6, 1) + ' µm: below a saw kerf</span>' : 'kerf ' + F(kerf * 1e6, 1) + ' µm');
+  }
+
+  /* ===================== Demo 18.7: materials ===================== */
+  const BULK = [
+    { n: 'PZT-5H', kt: [0.51], d33: [593, 650], eps: [3800], Z: [36.0], T: [230], g33: [18.5] },
+    { n: 'PMN-PT', kt: [0.55, 0.59], d33: [1500, 2400], eps: [5000, 7000], Z: [36.4, 39.2], T: [86, 100], g33: [36.7] },
+    { n: 'PIN-PMN-PT', kt: [0.52, 0.58], d33: [1200, 2100], eps: [4000, 6000], Z: [35.2, 37.7], T: [105, 130], g33: [37.3] },
+    { n: 'AC-poled PMN-PT', d33: [2100, 2100] },
+    { n: '1-3 PZT/epoxy', kt: [0.67, 0.69], Z: [11.0, 21.9] },
+    { n: '1-3 PMN-PT/epoxy', kt: [0.81, 0.83], Z: [11.3, 22.8] },
+    { n: 'KNN (Saito 2004)', d33: [300, 416] },
+    { n: 'LiNbO₃', kt: [0.49], d33: [6], Z: [34] },
+    { n: 'PVDF', kt: [0.14], d33: [30, 33], eps: [8, 12], Z: [4.0], T: [70, 80], g33: [330] }];
+  const FILM = [{ n: 'AlN', fom: [11.9], rx: [11.3] }, { n: 'Sc0.15AlN', fom: [24], rx: [15] }, { n: 'PZT sol-gel', fom: [5.6, 54.2], rx: [0.7, 1.8] }, { n: 'PZT epitaxial', fom: [74, 110], rx: [5.3, 7.9] }, { n: 'KNN film', fom: [18.3, 53], rx: [2.2, 3.6] }];
+  const PROPS = { kt: { lab: 'k_t', log: false, r: [0, 1] }, d33: { lab: 'd33 (pC/N)', log: true, r: [0.5, 3.6] }, eps: { lab: 'ε33T/ε0', log: true, r: [0.5, 4] }, Z: { lab: 'Z (MRayl)', log: false, r: [0, 42] }, T: { lab: 'temperature limit (°C)', log: false, r: [0, 260] }, g33: { lab: 'g33 (mV·m/N)', log: true, r: [0.8, 2.8] }, fom: { lab: 'e31,f²/(ε0ε33) (GPa)', log: false, r: [0, 120], film: true }, rx: { lab: 'e31,f/(ε0ε33) (GV/m)', log: false, r: [0, 17], film: true } };
+  function rangeBars(cv, key, height) {
+    const P = PROPS[key], rows = (P.film ? FILM : BULK).filter(m => m[key]), c = Lab.colors();
+    const { ctx, w, h } = Lab.canvas(cv, height || Math.max(150, 30 + rows.length * 26)); const lw = Math.min(150, w * 0.38);
+    const box = { x: lw, y: 10, w: w - lw - 14, h: h - 40 };
+    const tr = v => P.log ? Math.log10(v) : v;
+    const ax = frame(ctx, box, P.r, [0, rows.length], { xlabel: P.lab + (P.log ? ', log' : ''), yticks: [], nx: box.w < 300 ? 4 : 6, xfmt: P.log ? (v => F(Math.pow(10, v), 0)) : undefined, xticks: P.log ? Lab.ticks(P.r[0], P.r[1], 4).filter(v => Math.abs(v - Math.round(v)) < 1e-9) : undefined });
+    rows.forEach((m, i) => { const y = ax.Y(rows.length - i - 0.5), v = m[key]; txt(ctx, m.n, lw - 8, y, c.fg, 'right');
+      if (v.length === 2 && v[1] !== v[0]) { ctx.save(); ctx.strokeStyle = c.accent; ctx.lineWidth = 9; ctx.lineCap = 'butt'; ctx.beginPath(); ctx.moveTo(ax.X(tr(v[0])), y); ctx.lineTo(ax.X(tr(v[1])), y); ctx.stroke(); ctx.restore(); }
+      else { ctx.save(); ctx.strokeStyle = c.sig2; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(ax.X(tr(v[0])), y - 8); ctx.lineTo(ax.X(tr(v[0])), y + 8); ctx.stroke(); ctx.restore(); }
+      txt(ctx, v.map(x => F(x, x < 10 ? 2 : 0)).join('–'), Math.min(ax.X(tr(v[v.length - 1])) + 8, box.x + box.w - 2), y - 10, c.muted, ax.X(tr(v[v.length - 1])) + 60 > box.x + box.w ? 'right' : 'left'); });
+    return rows;
+  }
+  const MCNOTE = { kt: 'Highest: single-crystal 1-3 composite (model), then PZT composite; PVDF lowest.', d33: 'Crystals 1200–2400 pC/N, AC poling above 2100; PZT-5H about 600; KNN 300–416; LiNbO₃ 6.', eps: 'Crystals 4000–7000; PZT-5H 3800; PVDF about 10: the electrical-impedance spread spans three decades.', Z: 'Composites and PVDF are easiest to match to 1.5 MRayl; crystals are slightly above PZT.', T: 'The crystal advantage reverses: PMN-PT depoles near T_rt 86–100 °C; PIN-PMN-PT 105–130 °C.', g33: 'Receive constant: PVDF 330 mV·m/N, about 18 × PZT-5H.', fom: 'Energy FOM: epitaxial PZT leads; ScAlN doubles AlN.', rx: 'Receive FOM: ScAlN and AlN lead because their permittivity is about 10.' };
+  function drawMc() { const k = $('m18-mc-p').value; rangeBars($('m18-mc-cv'), k); $('m18-mc-read').innerHTML = MCNOTE[k] + '<br><span class="muted">Sources: Tables 18.1 and 18.2.</span>'; }
+
+  /* ===================== mini figures (cards and rule figures) ===================== */
+  function mfig(cv, h, xr, yr, o) { const s = MM.size(cv, h || 140), b = { x: 34, y: 16, w: s.w - 44, h: s.h - 40 }; const m = MM.panel(s.x, b, xr, yr, o); return { x: s.x, m, w: s.w, h: s.h, b }; }
+  function mline(x, m, xs, ys, col, o) { o = o || {}; x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.beginPath(); xs.forEach((v, i) => { const px = m.X(v), py = m.Y(ys[i]); i ? x.lineTo(px, py) : x.moveTo(px, py); }); x.strokeStyle = col; x.lineWidth = o.w || 1.8; if (o.dash) x.setLineDash(o.dash); x.stroke(); x.restore(); }
+  function ylab(x, b, s, col) { MM.text(x, s, b.x - 4, b.y - 8, col || MM.col().mu, 'left'); }
+  const FIG = {
+    pullin(cv) { const M = defModel(), k = MM.col(), q = mfig(cv, 140, [0, 1.6 * M.Vl], [0, 0.6], { ticks: [[M.Vpi, F(M.Vpi, 0) + ' V'], [M.Vl, F(M.Vl, 0) + ' V']] });
+      const cvv = M.conv.slice(0, M.ip + 1); mline(q.x, q.m, cvv.map(s => s.V), cvv.map(s => s.wav / M.ge), k.a, { w: 2.2 });
+      const cl = M.coll.slice(M.isb).filter(s => s.V < 1.6 * M.Vl); mline(q.x, q.m, cl.map(s => s.V), cl.map(s => s.wav / M.ge), Lab.colors().bad, { w: 1.6 });
+      const xs = [], ys = []; for (let i = 0; i <= 100; i++) { const xi = i / 300; xs.push(M.Vl * Math.sqrt(27 / 4 * xi * (1 - xi) ** 2)); ys.push(xi); } mline(q.x, q.m, xs, ys, k.mu, { dash: [4, 3] });
+      ylab(q.x, q.b, 'w̄/g_eff vs V: plate, collapsed (red), piston (dashed)'); },
+    profile(cv) { const M = defModel(), k = MM.col(), q = mfig(cv, 140, [-1, 1], [0, 0.6], { ticks: [[-1, '−a'], [0, '0'], [1, 'a']], hlines: [[1 / 3, 'piston w = g/3'], [M.conv[M.ip].wav / M.ge, 'plate mean']] });
+      const s = M.conv[M.ip], xs = [], ys = []; for (let i = M.N; i >= 0; i--) { xs.push(-M.r[i] / M.a); ys.push(i < M.N ? s.w[i] / M.ge : 0); } for (let i = 1; i <= M.N; i++) { xs.push(M.r[i] / M.a); ys.push(i < M.N ? s.w[i] / M.ge : 0); }
+      mline(q.x, q.m, xs, ys, k.a, { w: 2.2 }); ylab(q.x, q.b, 'w(r)/g_eff at pull-in (centre ≈ 0.46)'); },
+    k2(cv) { const M = defModel(), k = MM.col(), q = mfig(cv, 140, [0, 1], [0, 1], { ticks: [[0.5, '0.5'], [0.9, '0.9'], [1, 'V/V_PI']] });
+      const sv = M.conv.slice(0, M.ip + 1).filter(s => s.k2 !== undefined); mline(q.x, q.m, sv.map(s => s.V / M.Vpi), sv.map(s => s.k2), k.a, { w: 2.2 });
+      const xs = [], ys = []; for (let i = 0; i <= 200; i++) { const xi = i / 600; xs.push(Math.sqrt(27 / 4 * xi * (1 - xi) ** 2)); ys.push(2 * xi / (1 - xi)); } mline(q.x, q.m, xs, ys, k.mu, { dash: [4, 3] }); ylab(q.x, q.b, 'k² vs bias: plate, piston (dashed)'); },
+    cv(cv) { const M = defModel(), k = MM.col(), cm = M.coll.slice(M.isb).filter(s => s.V < 2 * M.Vpi), top = Math.max(...cm.map(s => s.C / M.C0)), q = mfig(cv, 140, [0, 2], [0.95, top * 1.05], { base: 0.95, ticks: [[M.Vsb / M.Vpi, 'V_SB'], [1, 'V_PI'], [2, '2']] });
+      const cvv = M.conv.slice(0, M.ip + 1); mline(q.x, q.m, [0].concat(cvv.map(s => s.V / M.Vpi)), [1].concat(cvv.map(s => s.C / M.C0)), k.a, { w: 2.2 });
+      mline(q.x, q.m, cm.map(s => s.V / M.Vpi), cm.map(s => s.C / M.C0), Lab.colors().bad, { w: 2.2 }); ylab(q.x, q.b, 'C/C(0): up blue, down red'); },
+    ann(cv) { const k = MM.col(), q = mfig(cv, 140, [0, 0.65], [0, 15], { ticks: [[0, '0'], [0.3, '0.3'], [0.5, '0.5'], [0.6, 'b/a']], hlines: [[1, 'f₀']] }); const xs = [], ys = []; for (let i = 0; i <= 31; i++) { const b = i / 48; xs.push(b); ys.push(annRatio(b)); }
+      mline(q.x, q.m, xs, ys, k.c, { w: 2.2 }); ylab(q.x, q.b, 'annulus f / f₀ vs contact radius'); },
+    band(cv) { const k = MM.col(), q = mfig(cv, 140, [-2, 2], [0, 1.1], { ticks: [[-2, '0.01'], [-1, '0.1'], [0, 'f₀'], [1, '10'], [2, '100']] });
+      [[0.18, k.a], [3, k.b]].forEach(([Q, col]) => { const xs = [], ys = []; for (let i = 0; i <= 300; i++) { const lx = -2 + 4 * i / 300, fr = Math.pow(10, lx); xs.push(lx); ys.push(1 / Math.hypot(1, Q * (fr - 1 / fr))); } mline(q.x, q.m, xs, ys, col, { w: 2 }); });
+      ylab(q.x, q.b, '|H|, Q = 0.18 (CMUT) and 3, log f'); },
+    spectra(cv) { const k = MM.col(), R = bwModels(0.9, 20e-6, true, 5, 2), q = mfig(cv, 140, [0, 20], [-30, 2], { base: -30, ticks: [[5, '5'], [10, '10'], [15, '15'], [20, 'MHz']], hlines: [[-6, '−6 dB']] });
+      const fx = []; for (let i = 1; i <= NB; i++) fx.push(i * DF / 1e6);
+      mline(q.x, q.m, fx, R.P.A.mag.map(v => 20 * Math.log10(v / R.P.A.pk + 1e-12)), k.a, { w: 2 }); mline(q.x, q.m, fx, R.C.A.mag.map(v => 20 * Math.log10(v / R.C.A.pk + 1e-12)), k.c, { w: 2 });
+      ylab(q.x, q.b, 'PZT ' + Math.round(R.P.A.fbw * 100) + ' %, CMUT ' + Math.round(R.C.A.fbw * 100) + ' % (model)'); },
+    stroke(cv) { const k = MM.col(), q = mfig(cv, 140, [0, 10], [0, 10], { ticks: [[2, '2'], [5, '5'], [10, 'MHz']], hlines: [[2.36, '2.4 MPa']] });
+      [[25, k.b], [50, k.a], [100, k.c]].forEach(([x, col]) => MM.curve(q.x, q.m, f => ZW * 2 * PI * f * 1e6 * x * 1e-9 / 1e6, col)); ylab(q.x, q.b, 'p (MPa) for x̄ = 25, 50, 100 nm'); },
+    harm(cv) { const k = MM.col(), q = mfig(cv, 140, [0, 1], [-50, 0], { base: -50, ticks: [[0.1, '0.1'], [0.4, '0.4'], [1, 'v/V_DC']], hlines: [[-32, '−32'], [-20, '−20']] });
+      MM.curve(q.x, q.m, r => 20 * Math.log10(Math.max(r, 1e-4) / 4), k.a, { w: 2 }); ylab(q.x, q.b, '2nd-harmonic force (dB)'); },
+    xt(cv) { const k = MM.col(), q = mfig(cv, 140, [0, 1.05], [0, 1.05], { ticks: [[0.5, '0.5'], [1, 'f/f_c']] });
+      [[2, k.b], [5.6, k.a], [15, k.c]].forEach(([R, col]) => MM.curve(q.x, q.m, W => W >= 1 ? 0 : 1 / Math.sqrt(1 + (R * W / (1 - W * W)) ** 2), col, { w: 2 })); ylab(q.x, q.b, 'c_ph/c_w, R = 2, 5.6, 15'); },
+    charge(cv) { const k = MM.col(), q = mfig(cv, 140, [-1.1, 1.3], [0.95, 1.55], { base: 0.95, ticks: [[-1, '−V_PI'], [0, '0'], [1, 'V_PI']] });
+      [[0, k.a], [0.2, k.c]].forEach(([vq, col]) => MM.curve(q.x, q.m, V => { const u = Math.abs(V - vq); return u >= 0.999 ? NaN : 1 / (1 - lumpXi(u)); }, col, { w: 2 })); ylab(q.x, q.b, 'C/C₀: V_q = 0 and 0.2 V_PI'); },
+    plate(cv) { const k = MM.col(), lg = Math.log10, q = mfig(cv, 140, [1, 2], [-0.3, 2], { base: -0.3, ticks: [[1, '10'], [lg(20), '20'], [lg(50), '50'], [2, '100 µm']] });
+      [[1e-6, k.a], [2e-6, k.b]].forEach(([h, col]) => { const D = 169e9 * h ** 3 / (12 * (1 - 0.0484)); MM.curve(q.x, q.m, la => lg(10.2158 / (2 * PI * (Math.pow(10, la) * 1e-6) ** 2) * Math.sqrt(D / (2330 * h)) / 1e6), col, { w: 2 }); });
+      ylab(q.x, q.b, 'f (MHz, log) vs a, Si 1 and 2 µm'); },
+    water(cv) { const k = MM.col(), q = mfig(cv, 140, [0, 60], [0, 1.05], { ticks: [[10, '10'], [17, '17'], [40, '40'], [60, 'a/h']] });
+      MM.curve(q.x, q.m, r => 1 / Math.sqrt(1 + 0.67 * RW / 2640 * r), k.a, { w: 2.2 }); ylab(q.x, q.b, 'f_water / f_vac (AlN on Si)'); },
+    elec(cv) { const k = MM.col(), q = mfig(cv, 140, [0, 1], [0, 1.1], { ticks: [[0.5, '0.5'], [0.707, '0.71'], [1, 'r_e/a']] });
+      MM.curve(q.x, q.m, b => 4 * b * b * (1 - b * b), k.a, { w: 2.2 }); ylab(q.x, q.b, 'actuation ∝ β²(1 − β²)'); },
+    lever(cv) { const k = MM.col(), q = mfig(cv, 140, [0, 8], [0, 1.1], { ticks: [[0, '0'], [2, '2'], [4, '4'], [8, 'h_s µm']] }); const xs = [], ys = []; let mx = 0;
+      for (let i = 0; i <= 160; i++) { const s = i / 20, r = pmut(FILMS[0], 50e-6, 1e-6, s * 1e-6, 0.707); xs.push(s); ys.push(r.wcV); mx = Math.max(mx, r.wcV); } mline(q.x, q.m, xs, ys.map(v => v / mx), k.b, { w: 2.2 }); ylab(q.x, q.b, 'w_c/V vs Si thickness, AlN 1 µm'); },
+    comp(cv) { const k = MM.col(), q = mfig(cv, 140, [0.05, 1], [0.4, 0.9], { base: 0.4, ticks: [[0.2, '0.2'], [0.5, '0.5'], [1, 'ν']] });
+      MM.curve(q.x, q.m, n => smithAuld(Math.max(n, 0.05), CER.pmn).kt, k.a, { w: 2.2 }); MM.curve(q.x, q.m, n => smithAuld(Math.max(n, 0.05), CER.pzt).kt, k.c, { w: 2.2 }); ylab(q.x, q.b, 'k_t: PMN-PT (blue) vs PZT-5H pillars'); },
+    filmbar(cv) { rangeBars(cv, 'fom', 150); },
+    gbar(cv) { rangeBars(cv, 'g33', 150); },
+    pitch(cv) { const k = MM.col(), q = mfig(cv, 140, [1, 10], [0, 40], { ticks: [[2, '2'], [3, '3'], [5, '5'], [10, 'MHz']], hlines: [[(2 * 20e-3 / (1540 / 3e6)) ** 2 / 1000, '6.1k at 3 MHz']] });
+      MM.curve(q.x, q.m, f => (2 * 20e-3 / (1540 / (f * 1e6))) ** 2 / 1000, k.a, { w: 2.2 }); ylab(q.x, q.b, 'elements (thousands), 20 mm square at λ/2'); }
+  };
+
+  /* ===================== card grids ===================== */
+  const S = (q, a, prov, fn) => ({ q, a, prov, draw: cv => FIG[fn](cv) });
+  Lab.cardGrid('m18', 'm18-g4', [
+    S('How strong is the transmit harmonic?', 'Force ∝ (V<sub>DC</sub> + v)<sup>2</sup>: second harmonic <b>v/(4V<sub>DC</sub>)</b>, −32 dB at v = 0.1 V<sub>DC</sub>.', 'exact', 'harm'),
+    S('What does the gap allow?', 'Surface pressure <b>Z<sub>w</sub>ωx̄</b>: 50 nm at 5 MHz is 2.4 MPa.', 'exact', 'stroke'),
+    S('Why must 2D arrays carry electronics?', 'A 20 mm square at λ/2 has <b>(2D/λ)<sup>2</sup></b> elements: 6100 at 3 MHz, 17 000 at 5 MHz.', 'exact', 'pitch')
+  ]);
+  Lab.cardGrid('m18', 'm18-vis', [
+    S('How far does a plate move before it pulls in?', 'Centre ≈ <b>0.46 g<sub>eff</sub></b>, average only <b>0.15 g<sub>eff</sub></b>, not the piston\'s g/3.', 'sim', 'profile'),
+    S('Plate or piston pull-in?', 'Plate <b>V<sub>PI</sub> = 0.699 × piston</b>: 53 V versus 76 V for the default cell.', 'sim', 'pullin'),
+    S('How much coupling at 0.9 V<sub>PI</sub>?', 'Plate <b>k<sup>2</sup> ≈ 0.26</b>, piston 0.43; k<sup>2</sup> = 1 − K<sub>V</sub>/K<sub>Q</sub>.', 'sim', 'k2'),
+    S('What does a C–V meter show?', 'A loop: collapse at V<sub>PI</sub>, release at <b>V<sub>SB</sub> ≈ 0.49 V<sub>PI</sub></b> (0.2 µm gap).', 'sim', 'cv'),
+    S('How high does a collapsed cell ring?', 'Annulus: <b>8.7 f<sub>0</sub> at b/a = 0.5</b>, tuned by bias.', 'sim', 'ann'),
+    S('Why is a CMUT broadband?', 'Over-damped by water: <b>Q ≈ 0.18</b>, band from k/Z to Z/m.', 'exact', 'band'),
+    S('CMUT or PZT bandwidth?', 'Model: <b>PZT 63 %</b> with two layers, CMUT &gt; 150 %; measured CMUTs ≈ 100 %.', 'model', 'spectra'),
+    S('What carries CMUT crosstalk?', 'A slow interface wave, <b>c<sub>ph</sub> &lt; c<sub>w</sub></b>, cut off at the membrane resonance.', 'model', 'xt'),
+    S('What does charging do?', 'Shifts the C–V curve by <b>V<sub>q</sub></b>: the bias point moves.', 'model', 'charge'),
+    S('What sets a cell\'s frequency?', '<b>f = 10.22/(2πa<sup>2</sup>)·√(D/ρh)</b> ∝ h/a<sup>2</sup>.', 'exact', 'plate'),
+    S('How much does water slow a PMUT?', '<b>1/√(1 + 0.67ρ<sub>w</sub>a/ρ̄h)</b>: about ÷2.3 at a/h = 17.', 'model', 'water'),
+    S('How large should the PMUT electrode be?', 'Radius <b>0.71 a</b>; a full electrode gives zero.', 'model', 'elec'),
+    S('Why does a PMUT need a passive layer?', 'Moment = <b>e<sub>31,f</sub>Vz<sub>p</sub></b>; z<sub>p</sub> = 0 without one.', 'model', 'lever'),
+    S('What do crystal pillars buy?', '<b>k<sub>t</sub> 0.83 vs 0.69</b> at the same Z ≈ 17 MRayl (ν = 0.5).', 'model', 'comp'),
+    S('Which film for a PMUT?', 'Energy FOM e<sup>2</sup>/ε: <b>AlN 12, ScAlN 24, epitaxial PZT 74–110 GPa</b>.', 'exact', 'filmbar')
+  ]);
+
+  /* ===================== rule figures ===================== */
+  const RF = ['pullin', 'cv', 'k2', 'ann', 'band', 'spectra', 'stroke', 'harm', 'xt', 'charge', 'plate', 'water', 'elec', 'lever', 'filmbar', 'comp', 'gbar'];
+  function drawRules() { RF.forEach((fn, i) => { const cv = $('m18-rf-' + (i + 1)); if (cv) { try { FIG[fn](cv); } catch (e) { console.error(e); } } }); }
+
+  /* ===================== wiring ===================== */
+  let raf = 0; const later = fn => () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); };
+  const plRedraw = () => { drawPl(); drawHy(); };
+  ['m18-pl-a', 'm18-pl-h', 'm18-pl-g', 'm18-pl-t'].forEach(id => $(id).addEventListener('input', later(plRedraw)));
+  $('m18-pl-v').addEventListener('input', drawPl);
+  $('m18-hy-v').addEventListener('input', () => { if (hyAnim) { cancelAnimationFrame(hyAnim); hyAnim = null; } drawHy(); });
+  $('m18-hy-up').addEventListener('click', () => sweep(2)); $('m18-hy-dn').addEventListener('click', () => sweep(0));
+  ['m18-bw-v', 'm18-bw-a', 'm18-bw-zb'].forEach(id => $(id).addEventListener('input', later(drawBw))); ['m18-bw-m', 'm18-bw-l'].forEach(id => $(id).addEventListener('change', drawBw));
+  ['m18-xt-v', 'm18-xt-b', 'm18-xt-a'].forEach(id => $(id).addEventListener('input', drawXt)); $('m18-xt-st').addEventListener('change', drawXt);
+  ['m18-pm-a', 'm18-pm-hp', 'm18-pm-hs', 'm18-pm-be'].forEach(id => $(id).addEventListener('input', drawPm)); $('m18-pm-film').addEventListener('change', drawPm);
+  ['m18-cp-nu', 'm18-cp-f', 'm18-cp-ar'].forEach(id => $(id).addEventListener('input', drawCp));
+  $('m18-mc-p').addEventListener('change', drawMc);
+  Lab.onShow('m18', () => { [drawPl, drawHy, drawBw, drawXt, drawPm, drawCp, drawMc, drawRules].forEach(f => { try { f(); } catch (e) { console.error(e); } }); });
+})();
+</script>

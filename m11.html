@@ -1,0 +1,1388 @@
+<section class="view" id="m11" data-title="Correlation &amp; time-delay estimation" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part II · Module 11</div>
+    <h1>Correlation &amp; time-delay estimation</h1>
+    <p class="lede">Speckle tracking, element-to-element aberration delays, sound-speed phase shifts and ULM bubble pairing all come down to one task: estimate a small shift between two noisy, partly decorrelated echoes. This module covers the estimators (normalized cross-correlation, subsample fits, phase of the complex correlation, Kasai), how biased they are, how small their variance can get (the Walker–Trahey bound), and where they fail (false peaks).</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>Explain why the cross-correlation peak is the ML delay estimate in white Gaussian noise, and when NCC is a usable quality metric</li>
+        <li>Choose a subsample interpolator and predict its bias curve (zero at 0 and 0.5 samples, maximal in between)</li>
+        <li>Evaluate the Walker–Trahey bound for given \(f_0\), \(B\), \(T\), SNR and \(\rho\), and recognise the false-peak threshold</li>
+        <li>Use lag-one autocorrelation (Kasai) on IQ, compute the Nyquist velocity, and reason about phase wrapping</li>
+        <li>Size a tracking kernel against strain decorrelation, and explain cumulative drift in neighbour-element phase-screen estimates</li>
+      </ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 03</a> · Convolution, LTI systems and filters and <a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 04</a>: circular vs linear convolution, DFT, zero padding</li>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 07</a> · Random vectors, covariance &amp; correlation: correlation coefficient, covariance</li>
+        <li><a href="#m8">Module 08</a> · Analytic signal &amp; IQ demodulation: analytic signal, IQ demodulation, phase of a complex signal</li>
+        <li>Pulse-echo geometry: two-way delay \(\tau\) ↔ axial displacement \(\Delta z = c\tau/2\)</li>
+      </ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>Monte Carlo or estimator runs in this page (JS) or in the MATLAB/Octave scripts; solver named under the badge</span><span><span class="prov model">Approx. model</span>simplified physics (e.g. expected correlation of a Gaussian-spectrum speckle, a bound evaluated with an assumed decorrelation law); assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not computed</span><span>Speckle is synthesized in the frequency domain from a Gaussian pulse spectrum with seeded random scatterers. No Field II or measured channel data are used in the figures.</span></div>
+
+  <!-- ======================= 11.1 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">11.1</span>Cross-correlation as a delay estimator</h2>
+    <p>Model two echo segments from the same speckle region before and after a shift \(D\) (two-way time). With \(s(t)\) the common speckle signal and \(n_1\), \(n_2\) independent noise:</p>
+    <div class="eqn" id="m11-eq1">
+      <div class="eqn-body"><div class="eqn-math">\[ x(t) = s(t) + n_1(t), \qquad y(t) = s(t - D) + n_2(t), \qquad t \in [0, T] \]</div><span class="eqn-no">(11.1)</span></div>
+    <dl class="where"><dt>\(x(t),\ y(t)\)</dt><dd>reference and delayed records, V</dd><dt>\(s(t)\)</dt><dd>common speckle (or point-target) signal</dd><dt>\(n_1,\ n_2\)</dt><dd>independent electronic noise in the two records</dd><dt>\(D\)</dt><dd>true two-way delay of the second record, s</dd><dt>\(T\)</dt><dd>window (kernel) duration, s</dd><dt>\(t\)</dt><dd>time, s</dd></dl>
+      <span class="note">The same model covers a displaced tissue window (elastography, ARFI), the signal on element \(i+1\) relative to element \(i\) (phase screen), and a bubble patch in frame \(k+1\) relative to frame \(k\) (ULM).</span>
+    </div>
+    <p>The cross-correlation function and its normalized form are</p>
+    <div class="eqn" id="m11-eq2">
+      <div class="eqn-body"><div class="eqn-math">\[ R_{xy}(\tau) = \mathrm{E}\bigl[\, x(t)\, y(t + \tau) \,\bigr] = R_{ss}(\tau - D) \qquad \text{(noise independent ⇒ cross terms vanish)} \]</div><span class="eqn-no">(11.2)</span></div>
+    <dl class="where"><dt>\(R_{xy}(\tau)\)</dt><dd>cross-correlation of \(x\) and \(y\) at lag \(\tau\)</dd><dt>\(\mathrm{E}[\cdot]\)</dt><dd>expectation over the noise and speckle ensemble</dd><dt>\(R_{ss}\)</dt><dd>autocorrelation of the common signal \(s\), maximal at zero lag</dd><dt>\(\tau\)</dt><dd>lag, s</dd><dt>\(x,\ y,\ D,\ t\)</dt><dd>records, delay and time, as in (11.1)</dd></dl>
+    </div>
+    <div class="eqn key" id="m11-eq3">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat{\rho}(k) = \frac{\sum_{n \in W} x[n]\, y[n+k]}{\sqrt{\sum_{n \in W} x[n]^2 \;\cdot\; \sum_{n \in W} y[n+k]^2}}, \qquad \hat{D} = T_s \cdot \arg\max_k \hat{\rho}(k) \]</div><span class="eqn-no">(11.3)</span></div>
+    <dl class="where"><dt>\(\hat{\rho}(k)\)</dt><dd>normalized cross-correlation (NCC) at lag \(k\), \(\lvert\hat\rho\rvert \le 1\)</dd><dt>\(x[n],\ y[n]\)</dt><dd>sampled reference and delayed records, as in (11.1)</dd><dt>\(W\)</dt><dd>set of sample indices in the kernel window</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(k\)</dt><dd>integer lag, samples</dd><dt>\(T_s\)</dt><dd>sampling interval \(1/f_s\), s</dd><dt>\(\hat{D}\)</dt><dd>delay estimate, s</dd><dt>\(\arg\max\)</dt><dd>lag at which \(\hat\rho\) is largest</dd></dl>
+      <span class="note">The kernel \(x\) stays fixed; \(y\) slides. Because \(R_{ss}(\tau)\) is maximal at \(\tau = 0\) (Cauchy–Schwarz), the peak of \(R_{xy}\) sits at \(\tau = D\).</span>
+    </div>
+
+    <h3>Why the peak is the maximum-likelihood estimate (sketch)</h3>
+    <p>Treat \(s\) as known for a moment and only \(y\) as noisy (white Gaussian, variance \(\sigma^2\) per sample). The log-likelihood of the delay is</p>
+    <div class="eqn" id="m11-eq4">
+      <div class="eqn-body"><div class="eqn-math">\[ \ln p(y; D) = -\frac{1}{2\sigma^2} \sum_n \bigl( y[n] - s[n - D] \bigr)^2 + \mathrm{const} \]</div><span class="eqn-no">(11.4)</span></div>
+    <dl class="where"><dt>\(\ln p(y;D)\)</dt><dd>log-likelihood of the delay \(D\) given the record \(y\)</dd><dt>\(\sigma^2\)</dt><dd>variance of the white Gaussian noise per sample</dd><dt>\(y[n],\ s[n-D]\)</dt><dd>noisy record and delayed signal, as in (11.1)</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(\mathrm{const}\)</dt><dd>terms independent of \(D\)</dd></dl>
+    </div>
+    <div class="eqn" id="m11-eq5">
+      <div class="eqn-body"><div class="eqn-math">\[ = -\frac{1}{2\sigma^2} \Bigl[ \sum y^2 + \sum s^2[n - D] - 2 \sum y[n]\, s[n - D] \Bigr] \]</div><span class="eqn-no">(11.5)</span></div>
+    <dl class="where"><dt>\(\sigma^2,\ y,\ s,\ D\)</dt><dd>noise variance, record, signal and delay, as in (11.4)</dd><dt>\(\sum\)</dt><dd>sum over the sample index \(n\)</dd><dt>\(n\)</dt><dd>sample index</dd></dl>
+      <span class="note">For a record longer than the signal, \(\sum s^2[n - D]\) does not depend on \(D\), so maximising the likelihood equals maximising the correlation \(\sum y[n]\, s[n - D]\): a matched filter evaluated over all candidate delays.</span>
+    </div>
+    <p>With \(s\) unknown and both records noisy, the ML estimator (Knapp &amp; Carter, 1976) is a <em>generalized</em> cross-correlation: multiply the cross-spectrum \(G_{xy}(f)\) by the weight \(\lvert\gamma(f)\rvert^2 / \bigl[\lvert G_{xy}(f)\rvert\,(1 - \lvert\gamma(f)\rvert^2)\bigr]\) before the inverse transform, where \(\gamma\) is the coherence between \(x\) and \(y\). For white electronic noise and an in-band SNR well above 1, \(\lvert\gamma\rvert^2/(1 - \lvert\gamma\rvert^2) \approx S(f)/(2N_0)\) and \(\lvert G_{xy}\rvert = S(f)\), so the weight is nearly flat inside the transducer band and falls off outside it: plain correlation of band-pass-filtered RF is already close to ML. Filter out-of-band noise first; that is the pre-whitening step of the GCC.</p>
+
+    <h3>NCC as a quality metric</h3>
+    <p>For a long window, the expected NCC peak is the correlation coefficient between the two windows:</p>
+    <div class="eqn" id="m11-eq6">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathrm{E}\bigl[\hat{\rho}_{\max}\bigr] \approx \rho \cdot \frac{\mathrm{SNR}}{1 + \mathrm{SNR}} \]</div><span class="eqn-no">(11.6)</span></div>
+    <dl class="where"><dt>\(\hat{\rho}_{\max}\)</dt><dd>peak of the NCC over lag</dd><dt>\(\rho\)</dt><dd>correlation of the noise-free signals (speckle decorrelation), 0 to 1</dd><dt>\(\mathrm{SNR}\)</dt><dd>signal-to-noise power ratio, equal in both records</dd><dt>\(\mathrm{E}[\cdot]\)</dt><dd>expectation</dd></dl>
+      <span class="note">The second factor is the coherence loss due to noise. Thresholding the peak NCC (often 0.7–0.9) rejects unreliable estimates; Section 11.3 shows why that works: the jitter grows as \(\sqrt{1/\rho^2 - 1}\).</span>
+    </div>
+
+    <h3>Biased vs unbiased correlation estimates, and FFT correlation</h3>
+    <p>For a single record of length \(N\) the sample correlation can be normalized two ways:</p>
+    <div class="eqn" id="m11-eq7">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \hat{R}_b(k) &amp;= \frac{1}{N} \sum_{n=0}^{N-1-\lvert k\rvert} x[n]\, y[n+k] \\ \hat{R}_u(k) &amp;= \frac{1}{N - \lvert k\rvert} \sum_{n=0}^{N-1-\lvert k\rvert} x[n]\, y[n+k] \end{aligned} \]</div><span class="eqn-no">(11.7)</span></div>
+    <dl class="where"><dt>\(\hat{R}_b(k),\ \hat{R}_u(k)\)</dt><dd>biased and unbiased sample cross-correlation at lag \(k\)</dd><dt>\(x[n],\ y[n]\)</dt><dd>records of length \(N\), as in (11.3)</dd><dt>\(N\)</dt><dd>record length, samples</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(k\)</dt><dd>lag, samples</dd><dt>\(\lvert k\rvert\)</dt><dd>absolute value of the lag</dd></dl>
+      <span class="note">\(\mathrm{E}[\hat{R}_b(k)] = (1 - \lvert k\rvert/N)\, R(k)\): a triangular taper that pulls the peak toward \(k = 0\) (a delay bias that is small only when \(\lvert D\rvert \ll N\)). \(\hat{R}_u\) is unbiased but its variance blows up at large lags, and it is not guaranteed positive semidefinite. NCC with a fixed kernel and a sliding search window (as used in the demos) avoids both: every lag uses exactly \(W\) products.</span>
+    </div>
+  </div>
+  <div class="rf-grid" id="m11-vis61"></div>
+  <div class="prose">
+    <p>FFT correlation computes \(X^*(f)\,Y(f)\) and inverts it. The DFT makes this a <strong>circular</strong> correlation (Module 04): lags beyond the record wrap around. Zero-pad both records to length \(\ge N_x + N_y - 1\) to obtain the linear correlation. For kernel \(W = 80\) and search ±24 lags, a direct sum costs 80 × 49 ≈ 3.9k multiply–adds per estimate; FFT correlation wins only for long windows or many lags (cost \(\propto N\log N\)).</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 11.1</span><h3>NCC delay estimate on two speckle segments</h3><span class="prov sim">Simulation</span><span class="prov-note">Seeded speckle synthesized from a Gaussian pulse spectrum (FFT, JS), shifted by \(D\), partly decorrelated and noised; NCC (11.3) and parabolic fit computed in the page.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m11-c1a" aria-label="Two RF speckle segments, reference and delayed"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>x(t) reference (kernel window shaded)</span><span><i style="background:var(--sig2)"></i>y(t) delayed + noise + decorrelation</span></div>
+        <canvas id="m11-c1b" aria-label="Normalized cross-correlation versus lag, full and zoomed"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>NCC samples ρ̂(k)</span><span><i style="background:var(--sig4)"></i>parabolic fit</span><span><i style="background:var(--sig3)"></i>true shift</span><span><i style="background:var(--sig2)"></i>estimate</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m11-1f0"><span>f<sub>0</sub></span><output id="m11-1f0-o">5 MHz</output></label><input type="range" id="m11-1f0" min="2" max="10" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m11-1bw"><span>Fractional BW (−6 dB)</span><output id="m11-1bw-o">60 %</output></label><input type="range" id="m11-1bw" min="0.2" max="1.2" step="0.05" value="0.6"></div>
+        <div class="ctrl"><label for="m11-1d"><span>True shift D</span><output id="m11-1d-o">13.7 ns</output></label><input type="range" id="m11-1d" min="-60" max="60" step="0.1" value="13.7"></div>
+        <div class="ctrl"><label for="m11-1snr"><span>SNR</span><output id="m11-1snr-o">20 dB</output></label><input type="range" id="m11-1snr" min="-5" max="40" step="1" value="20"></div>
+        <div class="ctrl"><label for="m11-1rho"><span>Speckle correlation ρ</span><output id="m11-1rho-o">0.95</output></label><input type="range" id="m11-1rho" min="0.5" max="1" step="0.01" value="0.95"></div>
+        <div class="btn-row"><button class="btn" id="m11-1seed">Reseed</button></div>
+        <div class="readout" id="m11-1read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> \(f_s\) = 40 MHz, kernel 2 µs (80 samples). Set SNR to 0 dB and \(\rho\) to 0.6, then reseed a few times: the global maximum sometimes jumps to a neighbouring peak one RF period (\(1/f_0\)) away. Narrow the bandwidth to 20 % and the side peaks rise toward the main peak, so these jumps get more frequent.</div>
+  </div>
+
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Two-way geometry: \(\Delta z = cD/2\), so 1 ns of delay is 0.77 µm of axial displacement at \(c\) = 1540 m/s, and one sample at \(f_s\) = 40 MHz (25 ns) is 19.3 µm. ARFI displacements are 1–20 µm, which means 0.05–1 sample. Every practical tracker is therefore a <em>subsample</em> estimator, and its bias (Section 11.2) matters as much as its jitter (Section 11.3).</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>A high peak NCC does not guarantee a correct delay. With narrowband RF the side peaks at \(\pm 1/f_0\) can be 0.8 or higher. NCC tells you the two windows are similar at the chosen lag, not that you chose the right lobe. Use envelope or IQ-magnitude correlation for a coarse search and RF or phase for refinement, or regularize with neighbours.</p></div>
+
+  <!-- ======================= 11.2 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">11.2</span>Subsample estimation and its bias</h2>
+    <p>The NCC is only known at integer lags. Let \(k_0\) be the integer peak and \(R_-\), \(R_0\), \(R_+\) the values at \(k_0 - 1\), \(k_0\), \(k_0 + 1\). Each interpolator fits a model to these three points (or to more) and returns \(k_0 + \delta\).</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Estimator</th><th>Fractional offset \(\delta\)</th><th>Model assumed for the peak</th></tr></thead>
+      <tbody>
+        <tr><td>Parabolic</td><td>\(\delta = \dfrac{R_- - R_+}{2(R_- - 2R_0 + R_+)}\)</td><td>2nd-order Taylor expansion; exact only for a quadratic peak</td></tr>
+        <tr><td>Cosine (Céspedes et al. 1995)</td><td>\(\omega = \arccos\dfrac{R_- + R_+}{2R_0}\), \(\delta = \dfrac{1}{\omega}\arctan\dfrac{R_+ - R_-}{2R_0\sin\omega}\)</td><td>\(R(k) \propto \cos(\omega(k - \delta))\): exact for a narrowband RF correlation</td></tr>
+        <tr><td>Gaussian</td><td>parabolic fit applied to \(\ln R\)</td><td>Gaussian peak: exact for the magnitude \(\lvert C(\tau)\rvert\) of the complex correlation of a Gaussian spectrum, close for envelope correlation, poor for RF</td></tr>
+        <tr><td>Upsample ×U (sinc)</td><td>band-limited interpolation of \(R\) on a \(1/U\) grid, then a parabolic fit on that fine grid</td><td>\(R\) band-limited (true when \(f_s\) exceeds twice the highest RF frequency); the residual parabolic bias falls as \(U^{-3}\) in original samples (0.012 → 0.0014 → 0.00018 for U = 1, 2, 4), until the finite interpolation kernel sets a floor (\(3.5\times10^{-4}\) sample here with a 12-lag Hann-tapered sinc)</td></tr>
+        <tr><td>Phase zero-crossing</td><td>\(\delta = -\angle C(k_0)/(2\pi f_0 T_s)\), with \(C\) the complex correlation of the analytic signals (Module 08)</td><td>\(C(\tau) = R_{\mathrm{env}}(\tau)\, e^{j2\pi f_0\tau}\) with \(R_{\mathrm{env}}\) real when the spectrum is symmetric about \(f_0\): the phase is exactly linear in \(\tau\), so there is no bias if \(f_0\) equals the spectral centroid</td></tr>
+      </tbody></table></div>
+    <h3>Why the bias is zero at 0 and 0.5 samples</h3>
+    <div class="eqn" id="m11-eq8">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} R(k) = R_{ss}\bigl((k - d)\,T_s\bigr), \quad R_{ss} \text{ even} \\ d = 0:\ R_- = R_+ \;\Rightarrow\; \delta = 0 \qquad d = \tfrac{1}{2}:\ R(0) = R(1) \;\Rightarrow\; \text{any symmetric fit returns } \tfrac{1}{2} \end{gathered} \]</div><span class="eqn-no">(11.8)</span></div>
+    <dl class="where"><dt>\(R(k)\)</dt><dd>correlation function sampled at integer lag \(k\)</dd><dt>\(d\)</dt><dd>true fractional delay in samples, \(0 \le d &lt; 1\)</dd><dt>\(R_{ss}\)</dt><dd>expected (noise-free, long-window) correlation of the speckle, even in its argument</dd><dt>\(T_s\)</dt><dd>sampling interval, s</dd><dt>\(R_-,\ R_+\)</dt><dd>correlation values at the lags \(-1\) and \(+1\) around the integer peak</dd><dt>\(\delta\)</dt><dd>fractional offset returned by the subsample fit, samples</dd></dl>
+    </div>
+    <div class="eqn" id="m11-eq9">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathrm{bias}(d) = -\,\mathrm{bias}(1 - d) \;\Rightarrow\; \mathrm{bias}(d) \text{ is odd about } d = \tfrac{1}{2}, \text{ with zeros at } d \in \bigl\{0, \tfrac{1}{2}, 1\bigr\} \]</div><span class="eqn-no">(11.9)</span></div>
+    <dl class="where"><dt>\(\mathrm{bias}(d)\)</dt><dd>subsample estimator bias at true fractional delay \(d\), samples</dd><dt>\(d\)</dt><dd>true fractional delay in samples, as in (11.8)</dd></dl>
+      <span class="note">The extremes sit in between, near \(d \approx 0.3\) and 0.7 for the RF fits here. The parabolic and cosine fits underestimate \(\lvert d - k_0\rvert\), so the estimates cluster toward integer lags. That is <strong>pixel locking</strong> (in PIV and speckle-tracking terms, "peak locking"), and it shows up as a sawtooth-like texture in displacement maps. The Gaussian fit applied to RF errs the other way (toward half-samples), with twice the parabolic magnitude.</span>
+    </div>
+    <p>The parabolic bias depends on the peak curvature relative to the sampling interval, so on \(f_0/f_s\). With \(f_0\) = 5 MHz and \(f_s\) = 40 MHz, the RF correlation completes a cycle in 8 samples and the parabola underestimates \(\lvert\delta\rvert\) by about 0.012 samples (0.3 ns, 0.23 µm) at worst. That is small, but it is systematic: averaging does not remove it, and it does not cancel when you take spatial derivatives for strain.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 11.2</span><h3>Bias curves of five subsample estimators</h3><span class="prov model">Approx. model</span><span class="prov-note">Each estimator is run on the expected RF correlation of Gaussian-spectrum speckle (noise-free, infinite window), sampled at \(k - d\) for 41 values of \(d\) (JS). Real kernels scatter around these curves.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m11-c2" aria-label="Estimator bias versus true fractional shift"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>parabolic</span><span><i style="background:var(--sig2)"></i>cosine</span><span><i style="background:var(--sig3)"></i>Gaussian</span><span><i style="background:var(--sig4)"></i>upsample ×8 (sinc)</span><span><i style="background:var(--ink)"></i>phase (complex corr.)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m11-2f0"><span>f<sub>0</sub></span><output id="m11-2f0-o">5 MHz</output></label><input type="range" id="m11-2f0" min="2" max="12" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m11-2bw"><span>Fractional BW</span><output id="m11-2bw-o">60 %</output></label><input type="range" id="m11-2bw" min="0.2" max="1.2" step="0.05" value="0.6"></div>
+        <div class="ctrl"><label for="m11-2fs"><span>Sampling rate fs</span></label><select id="m11-2fs"><option value="20">20 MHz</option><option value="40" selected>40 MHz</option><option value="62.5">62.5 MHz</option></select></div>
+        <div class="ctrl"><label for="m11-2fe"><span>f<sub>0</sub> error assumed by phase estimator</span><output id="m11-2fe-o">0 %</output></label><input type="range" id="m11-2fe" min="-20" max="20" step="1" value="0"></div>
+        <label class="check"><input type="checkbox" id="m11-2gau" checked> show Gaussian fit</label>
+        <div class="readout" id="m11-2read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> drop \(f_s\) to 20 MHz at \(f_0\) = 5 MHz: the parabolic bias grows from 0.012 to 0.052 sample (4.4×, about \((f_0/f_s)^2\)), 2.6 ns. Raise \(f_0\) to 7.5 MHz at 20 MHz (\(f_s/f_0\) = 2.7) and the integer maximum lands on the wrong RF lobe for part of the \(d\) range: every interpolator then fails by whole periods, which the readout flags. Then set the \(f_0\) error to +10 % (the assumed frequency is 10 % above the echo's centre frequency, as after an attenuation downshift): the phase estimator, unbiased until now, picks up a bias \((k_0 - d)\,e/(1+e)\) proportional to the distance from the integer lag, up to 0.045 sample, and its curve jumps at \(d = \tfrac{1}{2}\) instead of crossing zero.</div>
+  </div>
+
+  <div class="callout intuit"><span class="label">Intuition</span><p>An RF correlation peak looks like a cosine under a Gaussian envelope. A parabola fitted through three points of a cosine is too flat at the top, so it pulls the estimate toward the centre sample. The cosine fit has the right shape and is nearly exact; residual bias comes only from the envelope. The phase estimator skips the shape question: it reads the delay from the angle of the complex correlation, which is linear in \(\tau\).</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>The phase estimator converts angle to delay with an assumed \(f_0\). Frequency-dependent attenuation lowers the received centre frequency with depth (Module 08: at 0.5 dB/cm/MHz and 60 % bandwidth, 5 MHz drops by 0.75 MHz at 4 cm), so a fixed \(f_0\) gives a depth-dependent scale error. Loupas' 2D autocorrelator (Section 11.4) estimates the local mean RF frequency from the same data and removes this error.</p></div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Pinton, Dahl &amp; Trahey (2006) compared normalized cross-correlation and phase-shift estimators for ARFI-scale displacements (below half a wavelength). Loupas' 2D autocorrelator generally matched NCC accuracy at a fraction of the computational cost. Upsampled or sinc-interpolated NCC is the bias-free reference you would use for a phase-screen ground truth.</p></div>
+
+  <!-- ======================= 11.3 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">11.3</span>Variance limits: the Walker–Trahey bound and the threshold effect</h2>
+    <p>Bias is systematic; jitter is random. For two jointly Gaussian records with coherence \(\gamma(f)\), the Cramér–Rao bound on any unbiased delay estimate from a window of duration \(T\) is (Carter 1987, building on Knapp &amp; Carter 1976):</p>
+    <div class="eqn" id="m11-eq10">
+      <div class="eqn-body"><div class="eqn-math">\[ \sigma_D^2 \;\ge\; \Bigl[\, 2T \int_0^\infty (2\pi f)^2\, \frac{\lvert\gamma(f)\rvert^2}{1 - \lvert\gamma(f)\rvert^2}\, df \,\Bigr]^{-1} \]</div><span class="eqn-no">(11.10)</span></div>
+    <dl class="where"><dt>\(\sigma_D\)</dt><dd>standard deviation of the delay estimate, s</dd><dt>\(\gamma(f)\)</dt><dd>complex coherence between the two records at frequency \(f\)</dd><dt>\(f\)</dt><dd>frequency, Hz</dd><dt>\(T\)</dt><dd>observation window, s</dd></dl>
+      <span class="note">The Fisher information grows with window length \(T\), with the second moment of frequency (high frequencies give sharp peaks), and with \(\lvert\gamma\rvert^2/(1 - \lvert\gamma\rvert^2)\), which diverges as the records become identical.</span>
+    </div>
+    <p>Walker &amp; Trahey (1995) applied this to speckle: a rectangular band of centre \(f_0\) and fractional width \(B\), with the coherence set by both the electronic SNR and the speckle correlation \(\rho\):</p>
+    <div class="eqn" id="m11-eq11">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} \lvert\gamma\rvert = \rho \cdot \frac{\mathrm{SNR}_p}{1 + \mathrm{SNR}_p} \quad\Rightarrow\quad \frac{1}{\lvert\gamma\rvert^2} - 1 = \frac{1}{\rho^2}\Bigl(1 + \frac{1}{\mathrm{SNR}^2}\Bigr)^2 - 1 \\ (\mathrm{SNR} = \text{amplitude ratio}, \ \mathrm{SNR}_p = \mathrm{SNR}^2) \end{gathered} \]</div><span class="eqn-no">(11.11)</span></div>
+    <dl class="where"><dt>\(\lvert\gamma\rvert\)</dt><dd>coherence magnitude over the band</dd><dt>\(\rho\)</dt><dd>speckle correlation, as in (11.6)</dd><dt>\(\mathrm{SNR}\)</dt><dd>electronic signal-to-noise amplitude ratio</dd><dt>\(\mathrm{SNR}_p\)</dt><dd>signal-to-noise power ratio, \(\mathrm{SNR}^2\)</dd></dl>
+    </div>
+    <div class="eqn" id="m11-eq12">
+      <div class="eqn-body"><div class="eqn-math">\[ \int_{f_0(1 - B/2)}^{f_0(1 + B/2)} (2\pi f)^2\, df = 4\pi^2 f_0^3 \Bigl(B + \frac{B^3}{12}\Bigr) = \frac{\pi^2}{3}\, f_0^3\, \bigl(B^3 + 12B\bigr) \]</div><span class="eqn-no">(11.12)</span></div>
+    <dl class="where"><dt>\(f\)</dt><dd>frequency, Hz</dd><dt>\(f_0\)</dt><dd>centre frequency, Hz</dd><dt>\(B\)</dt><dd>fractional bandwidth (band width divided by \(f_0\)), dimensionless</dd><dt>\((2\pi f)^2\)</dt><dd>squared angular frequency weight from (11.10), rad²/s²</dd></dl>
+    </div>
+    <div class="eqn key" id="m11-eq13">
+      <div class="eqn-body"><div class="eqn-math">\[ \sigma_D \;\ge\; \sqrt{ \frac{3}{2\pi^2 f_0^3\, T\, \bigl(B^3 + 12B\bigr)} \;\Bigl[ \frac{1}{\rho^2}\Bigl(1 + \frac{1}{\mathrm{SNR}^2}\Bigr)^2 - 1 \Bigr] } \]</div><span class="eqn-no">(11.13)</span></div>
+    <dl class="where"><dt>\(\sigma_D\)</dt><dd>lower bound on the delay standard deviation, s</dd><dt>\(f_0\)</dt><dd>centre frequency, Hz</dd><dt>\(B\)</dt><dd>fractional bandwidth, dimensionless</dd><dt>\(T\)</dt><dd>window duration, s</dd><dt>\(\rho\)</dt><dd>speckle correlation, 0 to 1</dd><dt>\(\mathrm{SNR}\)</dt><dd>electronic signal-to-noise amplitude ratio</dd></dl>
+      <span class="note">This is the Walker–Trahey bound: the Carter form evaluated with flat coherence across the band, derived by <span class="eqref">(11.10)</span>–<span class="eqref">(11.12)</span>. \(f_0\) in Hz and \(T\) in s give \(\sigma_D\) in s. Example: \(f_0\) = 5 MHz, \(B\) = 0.6, \(T\) = 2 µs, SNR = 30 dB, \(\rho\) = 1 gives \(\sigma_D \ge\) 0.41 ns (0.31 µm); \(\rho\) = 0.99 gives 1.35 ns.</span>
+    </div>
+    <p>The bound shows four scalings: \(\sigma \propto f_0^{-3/2}\), \(\propto T^{-1/2}\), \(\approx \propto B^{-1/2}\) (for \(B \lesssim 1\)), and at high SNR a floor \(\sigma \propto \sqrt{1/\rho^2 - 1} \approx \sqrt{2(1-\rho)}\) set by decorrelation. Once \(\rho &lt; 1\), raising the SNR stops helping beyond the point where \(1/\mathrm{SNR}_p \approx 1 - \rho\).</p>
+    <h3>The threshold effect</h3>
+    <p>The CRLB is a <em>local</em> bound: it describes small errors around the true peak. The RF correlation has side peaks at \(\tau \approx \pm m/f_0\). When noise or decorrelation makes a side peak exceed the main peak, the error jumps by a whole RF period (200 ns, or 154 µm in displacement at 5 MHz). The error distribution becomes a mixture: CRLB-like jitter plus outliers spaced \(1/f_0\) apart, ending in a uniform distribution over the search range. Below a threshold SNR (or \(\rho\), or \(T\cdot B\)) the variance rises far above the CRLB. Global bounds that account for these "ambiguity" errors, the Ziv–Zakai and Barankin bounds (Weiss &amp; Weinstein 1983), reproduce this knee. Narrow bandwidth, short kernels and large search ranges all move the threshold to higher SNR.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 11.3</span><h3>Monte Carlo jitter vs SNR against the CRLB</h3><span class="prov sim">Simulation</span><span class="prov-note">300 seeded Monte Carlo trials per SNR: speckle pairs synthesized in the frequency domain, NCC + parabola and complex-correlation phase estimators (JS); CRLB from the Carter integral (11.10) for the same spectrum, numerically integrated.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m11-c3a" aria-label="Estimator standard deviation versus SNR on a log scale with CRLB"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>NCC + parabolic (MC)</span><span><i style="background:var(--sig2)"></i>phase of complex corr. (MC)</span><span><i style="background:var(--sig4)"></i>CRLB, Carter integral for this spectrum</span><span><i style="background:var(--sig3)"></i>Walker–Trahey closed form</span></div>
+        <canvas id="m11-c3b" aria-label="Fraction of outliers versus SNR"></canvas>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m11-3T"><span>Kernel length T</span><output id="m11-3T-o">2 µs</output></label><input type="range" id="m11-3T" min="0.5" max="4" step="0.25" value="2"></div>
+        <div class="ctrl"><label for="m11-3bw"><span>Fractional BW</span><output id="m11-3bw-o">60 %</output></label><input type="range" id="m11-3bw" min="0.2" max="1.2" step="0.05" value="0.6"></div>
+        <div class="ctrl"><label for="m11-3rho"><span>Speckle correlation ρ</span><output id="m11-3rho-o">1.000</output></label><input type="range" id="m11-3rho" min="0.9" max="1" step="0.0025" value="1"></div>
+        <div class="btn-row"><button class="btn solid" id="m11-3run">Run 300 trials</button><button class="btn" id="m11-3seed">Reseed</button></div>
+        <div class="readout" id="m11-3read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> \(f_0\) = 5 MHz, \(f_s\) = 40 MHz, true shift uniform in [0, 1) sample per trial, SNR from −10 to 40 dB in 5 dB steps. From 15 to 30 dB both estimators follow the bound to within about 25 %. At 10 dB about 5 % of trials hop and \(\sigma\) is roughly 18× the CRLB; at 5 dB more than a third hop. That knee is the threshold. Shorten \(T\) to 0.5 µs (2.5 periods): hops reach about a quarter of trials at 15 dB and 1–3 % remain even at 40 dB, because a window that short looks almost sinusoidal and neighbouring RF cycles match it nearly as well. Narrow the bandwidth to 20 % (side peaks at 0.93) and about 9 % of trials still hop at 30 dB. Set \(\rho\) = 0.99 and both curves flatten into the decorrelation floor (the Carter bound includes \(\rho\), so the ratio stays near 1.1–1.5). At very high SNR with \(\rho\) = 1 the simulation sits above the bound: parabolic bias and window-edge decorrelation (the kernels overlap only on \(W - \lvert D\rvert\) samples) add a floor of about 0.3 ns. The Walker–Trahey closed form assumes a rectangular band: for this Gaussian spectrum it matches the Carter integral at \(\rho\) = 1 and is about 20 % higher at \(\rho\) = 0.99.</div>
+  </div>
+
+  <div class="callout us"><span class="label">Ultrasound link</span><p>The bound covers all three targets. Phase-screen estimation uses neighbouring elements with \(\rho\) set by the van Cittert–Zernike coherence (Module 07). For diffuse scatter at the transmit focus, adjacent elements have \(\rho = 1 - 1/N\) for a uniform \(N\)-element transmit (0.984 for \(N\) = 64), lower away from focus or through an aberrator, so \(\rho \approx\) 0.9–0.98 and the floor term dominates. Sound-speed methods average many such delays. ULM localizes isolated bubbles with high SNR and \(\rho \approx 1\), which is why it can beat \(\lambda\) by a factor of 10.</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Do not report "\(\sigma\) = CRLB" from simulations that never leave the high-SNR regime. Real data contain a mix of good and threshold-region kernels. Report the outlier fraction separately, or use a robust spread (median absolute deviation) together with the plain standard deviation.</p></div>
+
+  <!-- ======================= 11.4 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">11.4</span>Phase-based estimators on IQ: Kasai and Loupas</h2>
+    <p>After IQ demodulation (Module 08), a scatterer moving axially at \(v\) rotates the phase of the slow-time sample at a fixed depth by a constant step per pulse:</p>
+    <div class="eqn" id="m11-eq14">
+      <div class="eqn-body"><div class="eqn-math">\[ z[m] = A\, e^{j\varphi_0}\, e^{\,j m \Delta\varphi} + n[m], \qquad \Delta\varphi = 2\pi f_0 \cdot \frac{2v}{c} \cdot T_{\mathrm{PRF}} = \frac{4\pi f_0 v}{c \cdot \mathrm{PRF}} \]</div><span class="eqn-no">(11.14)</span></div>
+    <dl class="where"><dt>\(z[m]\)</dt><dd>slow-time IQ sample of pulse \(m\) at one depth gate</dd><dt>\(A,\ \varphi_0\)</dt><dd>amplitude and initial phase of the echo, rad</dd><dt>\(m\)</dt><dd>pulse (slow-time) index</dd><dt>\(n[m]\)</dt><dd>additive noise</dd><dt>\(\Delta\varphi\)</dt><dd>phase step per pulse, rad</dd><dt>\(f_0\)</dt><dd>transmit centre frequency, Hz</dd><dt>\(v\)</dt><dd>axial velocity, m/s</dd><dt>\(c\)</dt><dd>sound speed, 1540 m/s</dd><dt>\(\mathrm{PRF}\)</dt><dd>pulse repetition frequency, Hz; \(T_{\mathrm{PRF}} = 1/\mathrm{PRF}\)</dd><dt>\(j\)</dt><dd>imaginary unit</dd></dl>
+    </div>
+    <div class="eqn key" id="m11-eq15">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat{R}(1) = \sum_g \sum_{m=0}^{M-2} z_g[m+1]\, z_g^*[m], \qquad \hat{v} = \frac{c \cdot \mathrm{PRF}}{4\pi f_0} \cdot \angle \hat{R}(1) \]</div><span class="eqn-no">(11.15)</span></div>
+    <dl class="where"><dt>\(\hat{R}(1)\)</dt><dd>lag-one slow-time autocorrelation</dd><dt>\(z_g[m]\)</dt><dd>slow-time samples of the \(g\)th gate, as in (11.14)</dd><dt>\((\cdot)^*\)</dt><dd>complex conjugate</dd><dt>\(M\)</dt><dd>ensemble length (pulses)</dd><dt>\(g\)</dt><dd>index of the averaged gates (spatial or channel)</dd><dt>\(\hat{v}\)</dt><dd>axial velocity estimate, m/s</dd><dt>\(c,\ f_0,\ \mathrm{PRF}\)</dt><dd>sound speed, centre frequency and pulse repetition frequency, as in (11.14)</dd><dt>\(\angle\)</dt><dd>phase angle, rad, wrapped to \((-\pi, \pi]\)</dd></dl>
+      <span class="note">This is the Kasai lag-one autocorrelation estimator (1985). \(\angle R(1)/(2\pi T_{\mathrm{PRF}})\) is the mean Doppler frequency (the centroid of the slow-time power spectrum, exactly for a symmetric spectrum). It costs one complex multiply–add per sample. It is not the ML frequency estimator: for a stationary tone at high SNR the sum telescopes, so it effectively uses only the first and last pulses, and its variance exceeds the CRLB by 1.8× at \(M\) = 8 and 14× at \(M\) = 64 (m11_kasai_doppler.m, 20 dB; the high-SNR limit is \(M(M+1)/(6(M-1))\), 1.7× and 11×).</span>
+    </div>
+    <p>\(\angle\hat{R}(1)\) is only defined modulo \(2\pi\), so velocities alias when \(\lvert\Delta\varphi\rvert &gt; \pi\):</p>
+    <div class="eqn key" id="m11-eq16">
+      <div class="eqn-body"><div class="eqn-math">\[ v_{\mathrm{Nyq}} = \frac{c \cdot \mathrm{PRF}}{4 f_0} \qquad \text{(displacement per pulse limited to } \pm\lambda/4) \]</div><span class="eqn-no">(11.16)</span></div>
+    <dl class="where"><dt>\(v_{\mathrm{Nyq}}\)</dt><dd>Nyquist (aliasing) velocity, m/s</dd><dt>\(c,\ f_0,\ \mathrm{PRF}\)</dt><dd>as in (11.14)</dd><dt>\(\lambda\)</dt><dd>wavelength \(c/f_0\), m</dd></dl>
+      <span class="note">\(f_0\) = 5 MHz, PRF = 5 kHz: \(v_{\mathrm{Nyq}} = 1540 \cdot 5000 / (2\times10^7)\) = 0.385 m/s. The same \(\pm\lambda/4\) wrap limits phase-based displacement tracking between any two acquisitions, so ARFI uses PRFs of 5–10 kHz.</span>
+    </div>
+    <p><strong>Loupas 2D autocorrelation</strong> (1995) also takes the lag-one correlation along depth, \(R\)(fast-time lag 1, slow-time lag 0), to estimate the local mean RF frequency \(\bar{f}\). It then uses \(\hat{v} = (c\cdot\mathrm{PRF}/4\pi)\cdot\angle R(0,1)/\bar{f}\). This removes the \(f_0\)-mismatch bias shown in Demo 11.2 and is a common choice for ARFI/SWE displacement tracking.</p>
+    <p><strong>Speed–accuracy tradeoff.</strong> A higher PRF raises \(v_{\mathrm{Nyq}}\) but makes \(\Delta\varphi\) per pulse smaller, so for fixed phase noise the velocity jitter \(\sigma_v \propto \mathrm{PRF}\cdot\sigma_\varphi\) grows. A longer ensemble \(M\) lowers \(\sigma_\varphi\), as \(1/(M-1)\) for a stationary tone at high SNR and roughly as \(M^{-1/2}\) for a random Doppler signal with a finite spectral width (blood, decorrelating speckle), but it costs frame rate and admits more decorrelation.</p>
+  </div>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Property</th><th>Time-domain (NCC + interpolation)</th><th>Phase-domain (Kasai / Loupas on IQ)</th></tr></thead>
+    <tbody>
+      <tr><td>Bias</td><td>interpolator bias, ~0.01 sample (parabolic), ≪ with cosine or upsampling</td><td>none if \(f_0\) (Kasai) or \(\bar{f}\) (Loupas) is right; scale error \(\propto f_0\) mismatch</td></tr>
+      <tr><td>Variance</td><td>near CRLB above threshold</td><td>near CRLB above threshold for small shifts; similar to NCC</td></tr>
+      <tr><td>Aliasing / ambiguity</td><td>false peaks at \(\pm 1/f_0\) (peak hopping); range limited by search window, not by \(\lambda/4\)</td><td>hard wrap at \(\pm\lambda/4\) per lag; needs unwrapping or a coarse NCC stage</td></tr>
+      <tr><td>Large displacements</td><td>yes (search \(\pm K\) lags)</td><td>no (\(\lvert D\rvert &lt; 1/(2f_0)\))</td></tr>
+      <tr><td>Cost per estimate</td><td>\(W\cdot(2K+1)\) MACs (≈4k for \(W\) = 80, \(K\) = 24) or FFT</td><td>≈ \(W\) complex MACs (≈80)</td></tr>
+      <tr><td>Typical use</td><td>speckle tracking, large strain, phase screens with large delays, ULM patch matching</td><td>colour Doppler, ARFI, SWE, small-displacement tracking</td></tr>
+    </tbody></table></div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 11.4</span><h3>Kasai velocity estimator and aliasing</h3><span class="prov sim">Simulation</span><span class="prov-note">Seeded slow-time ensembles (constant phase step per pulse plus complex white noise, 8 gates) and the estimator (11.15), computed in the page (JS).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m11-c4a" aria-label="Estimated versus true velocity with aliasing sawtooth"></canvas>
+        <div class="legend"><span><i style="background:var(--sig3)"></i>theory: wrapped v</span><span><i style="background:var(--accent)"></i>Kasai estimates (one ensemble each)</span><span><i style="background:var(--sig2)"></i>current v</span></div>
+        <canvas id="m11-c4b" aria-label="Slow-time IQ phasors of one gate on the complex plane"></canvas>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m11-4v"><span>True axial velocity v</span><output id="m11-4v-o">0.25 m/s</output></label><input type="range" id="m11-4v" min="-1.5" max="1.5" step="0.01" value="0.25"></div>
+        <div class="ctrl"><label for="m11-4prf"><span>PRF</span><output id="m11-4prf-o">5 kHz</output></label><input type="range" id="m11-4prf" min="1" max="10" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m11-4M"><span>Ensemble length M</span><output id="m11-4M-o">8</output></label><input type="range" id="m11-4M" min="3" max="32" step="1" value="8"></div>
+        <div class="ctrl"><label for="m11-4snr"><span>SNR</span><output id="m11-4snr-o">15 dB</output></label><input type="range" id="m11-4snr" min="-5" max="40" step="1" value="15"></div>
+        <div class="btn-row"><button class="btn" id="m11-4seed">Reseed</button></div>
+        <div class="readout" id="m11-4read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> \(f_0\) = 5 MHz, 8 axial gates. Push \(v\) past \(v_{\mathrm{Nyq}}\): in the lower plot the phasor step exceeds 180°, so the estimator reads it as a smaller step the other way, and the estimate jumps to the opposite sign. Lower the PRF to 2 kHz and \(v_{\mathrm{Nyq}}\) falls to 0.15 m/s. Lower the SNR to 0 dB with \(M\) = 3 and the scatter grows near \(\pm v_{\mathrm{Nyq}}\), where wrap errors flip the sign.</div>
+  </div>
+
+  <div class="callout us"><span class="label">Ultrasound link</span><p>In ULM, bubbles are separated from tissue by SVD clutter filtering (Module 06), then localized frame by frame. Phase-based velocity is rarely used for the bubbles themselves, because each bubble is a point target, not stationary speckle. Tissue motion accumulated over a ULM acquisition (breathing, pulsation, seconds of data) spans many wavelengths, far beyond the \(\pm\lambda/4\) wrap, so motion correction usually registers images (NCC or phase correlation of B-mode blocks) rather than tracking phase.</p></div>
+
+  <!-- ======================= 11.5 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">11.5</span>Decorrelation sources and kernel length</h2>
+    <p>\(\rho\) in the bound collects every way the second window differs from a shifted copy of the first:</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Source</th><th>Mechanism</th><th>Scaling / rule of thumb</th></tr></thead>
+      <tbody>
+        <tr><td>Electronic noise</td><td>independent noise in each record</td><td>\(\lvert\gamma\rvert = \mathrm{SNR}_p/(1+\mathrm{SNR}_p)\); enters as \((1 + 1/\mathrm{SNR}^2)^2\)</td></tr>
+        <tr><td>Axial strain \(\varepsilon\)</td><td>window is compressed: local shift varies as \(\varepsilon t\) across the kernel</td><td>\(\rho(\varepsilon, T) \approx \frac{1}{T}\int_{-T/2}^{T/2} R_n(\varepsilon t)\, dt\); collapses once \(\varepsilon T \gtrsim 1/(2f_0)\)</td></tr>
+        <tr><td>Lateral / elevational motion</td><td>scatterers leave the PSF</td><td>\(\rho \approx\) normalized autocorrelation of the lateral PSF; Gaussian PSF of amplitude FWHM \(w\): \(\rho = \exp[-2\ln 2\,(\Delta x/w)^2]\), so \(\rho\) = 0.92 at \(w/4\), 0.71 at \(w/2\), 0.25 at \(w\)</td></tr>
+        <tr><td>Shear, rotation</td><td>different parts of the kernel move differently</td><td>like strain, but in the lateral direction</td></tr>
+        <tr><td>Bandwidth</td><td>narrow band: broad envelope, but high side peaks</td><td>lower threshold SNR at large \(B\); \(f_0^3 B\) scaling of the Fisher information</td></tr>
+        <tr><td>Element-to-element (aberration)</td><td>different paths through tissue and different spatial positions</td><td>van Cittert–Zernike: \(\rho(\Delta)\) is the autocorrelation of the transmit apodization</td></tr>
+      </tbody></table></div>
+    <p>Kernel length is a three-way tradeoff. A longer \(T\) reduces jitter as \(T^{-1/2}\), but (i) axial resolution of the displacement or strain map worsens to about \(cT/2\), and (ii) under strain the decorrelation term grows with \(T\). The combined \(\sigma(T)\) has a minimum: the kernel analogue of the elastographic <em>strain filter</em> (Varghese &amp; Ophir 1997).</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 11.5</span><h3>Kernel length vs strain: finding the optimum window</h3><span class="prov model">Approx. model</span><span class="prov-note">Walker–Trahey bound (11.13) with \(\rho(\varepsilon, T)\) = window average of the expected Gaussian-pulse RF correlation under uniform strain, no companding; ignores the threshold effect.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m11-c5" aria-label="Walker-Trahey bound versus kernel length with and without strain"></canvas>
+        <div class="legend"><span><i style="background:var(--sig3)"></i>ε = 0 (∝ T<sup>−1/2</sup>)</span><span><i style="background:var(--accent)"></i>with strain ε</span><span><i style="background:var(--sig4)"></i>ρ(ε, T) (right axis)</span><span><i style="background:var(--sig2)"></i>optimum</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m11-5eps"><span>Axial strain ε</span><output id="m11-5eps-o">1.0 %</output></label><input type="range" id="m11-5eps" min="0" max="5" step="0.1" value="1"></div>
+        <div class="ctrl"><label for="m11-5snr"><span>SNR</span><output id="m11-5snr-o">20 dB</output></label><input type="range" id="m11-5snr" min="0" max="50" step="1" value="20"></div>
+        <div class="ctrl"><label for="m11-5f0"><span>f<sub>0</sub></span><output id="m11-5f0-o">5 MHz</output></label><input type="range" id="m11-5f0" min="2" max="12" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m11-5bw"><span>Fractional BW</span><output id="m11-5bw-o">60 %</output></label><input type="range" id="m11-5bw" min="0.2" max="1.2" step="0.05" value="0.6"></div>
+        <div class="readout" id="m11-5read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> at \(\varepsilon\) = 1 % and 20 dB SNR the optimum is about 1.5 µs (\(\sigma \approx\) 2.1 ns). At 3 % it shrinks to about 0.5 µs (\(\sigma \approx\) 3.6 ns). Raise the SNR to 40 dB and the optimum shortens further, because the noise term no longer needs a long window to average down. The bound ignores the threshold effect, so kernels shorter than about two RF periods (shaded) are not usable in practice. This is why large-strain elastography uses companding (pre-stretching one record) or multi-step tracking.</div>
+  </div>
+
+  <div class="callout intuit"><span class="label">Intuition</span><p>Under strain, a long kernel compares an accordion with a stretched accordion: the centres line up while the ends drift apart by \(\varepsilon T/2\). The bound balances two terms in its bracket: the noise term \(1/\mathrm{SNR}_p\) and the decorrelation term \(1 - \rho^2\), which grows as \((\varepsilon T f_0)^2\). The optimum sits where they are comparable, so it lies well before the ends drift by a full period. At 20 dB SNR it falls near \(\varepsilon T \approx 0.075/f_0\) (end drift ≈ 4 % of a period); at 30 dB, near \(0.025/f_0\).</p></div>
+
+  <!-- ======================= 11.6 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">11.6</span>Ultrasound applications</h2>
+    <h3>(a) Near-field phase-screen estimation (Flax &amp; O'Donnell 1988)</h3>
+    <p>Model the aberrator as a thin time-delay screen \(\tau_i\) at the aperture. Flax &amp; O'Donnell cross-correlated signals from adjacent elements, from point reflectors or diffuse speckle, to estimate the differences \(\Delta\tau_i = \tau_{i+1} - \tau_i\). They integrated these into a profile and applied it as a correction, iterating because the transmit focus improves too. Adjacent elements are used because their speckle is highly correlated (van Cittert–Zernike, Module 07), while distant elements are not.</p>
+    <figure class="m11-fig">
+      <figcaption><span class="prov schem">Schematic</span><span class="prov-note">Geometry of a near-field phase screen, not to scale (depth compressed, screen thickness exaggerated). Typical values: 0.3 mm pitch (≈ \(\lambda\) at 5 MHz), screen 20–80 ns rms with 3–6 mm correlation length (a fat–muscle body wall), target 20–60 mm deep. The right panel is an illustrative estimate, not a computed run (Demo 11.6 computes one).</span></figcaption>
+      <div class="mx-scroll"><svg class="m11-dia" viewBox="0 0 820 330" role="img" aria-label="Phase-screen geometry: a linear array above a thin aberrating layer of varying thickness, a point target below, adjacent channels cross-correlated to give delay differences, and a right panel comparing the true screen with the cumulative sum of the estimated differences">
+        <defs><marker id="m11-ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 Z" style="fill:var(--ink)"/></marker></defs>
+        <text x="10" y="18" class="t">Thin delay screen at the aperture</text>
+        <rect x="60" y="70" width="22" height="14" class="el"/><rect x="90" y="70" width="22" height="14" class="el"/><rect x="120" y="70" width="22" height="14" class="el"/><rect x="150" y="70" width="22" height="14" class="el"/><rect x="180" y="70" width="22" height="14" class="el"/><rect x="210" y="70" width="22" height="14" class="el"/><rect x="240" y="70" width="22" height="14" class="el"/><rect x="270" y="70" width="22" height="14" class="el"/><rect x="300" y="70" width="22" height="14" class="el"/><rect x="330" y="70" width="22" height="14" class="el"/><rect x="360" y="70" width="22" height="14" class="el"/><rect x="390" y="70" width="22" height="14" class="el"/><rect x="420" y="70" width="22" height="14" class="el"/><rect x="450" y="70" width="22" height="14" class="el"/><rect x="480" y="70" width="22" height="14" class="el"/><rect x="510" y="70" width="22" height="14" class="el"/>
+        <path d="M50 92 H530 V98.9 L530 98.9 L524 99.9 L518 101.0 L512 102.3 L506 103.6 L500 104.7 L494 105.6 L488 106.3 L482 106.6 L476 106.7 L470 106.5 L464 106.1 L458 105.7 L452 105.3 L446 105.1 L440 105.1 L434 105.5 L428 106.2 L422 107.3 L416 108.7 L410 110.3 L404 112.1 L398 113.9 L392 115.6 L386 117.1 L380 118.2 L374 118.8 L368 119.0 L362 118.7 L356 117.8 L350 116.6 L344 115.0 L338 113.3 L332 111.5 L326 109.7 L320 108.1 L314 106.8 L308 105.9 L302 105.3 L296 105.0 L290 105.1 L284 105.4 L278 105.8 L272 106.2 L266 106.5 L260 106.6 L254 106.5 L248 106.1 L242 105.3 L236 104.3 L230 103.2 L224 101.9 L218 100.6 L212 99.6 L206 98.7 L200 98.3 L194 98.3 L188 98.7 L182 99.7 L176 101.1 L170 102.8 L164 104.8 L158 106.9 L152 109.0 L146 110.9 L140 112.6 L134 113.9 L128 114.8 L122 115.3 L116 115.3 L110 115.0 L104 114.4 L98 113.6 L92 112.8 L86 112.0 L80 111.4 L74 111.1 L68 111.0 L62 111.2 L56 111.6 L50 112.2 Z" style="fill:var(--sig3);fill-opacity:0.35;stroke:var(--sig3);stroke-width:1.2"/>
+        <text x="50" y="140" class="m">aberrating layer: τ<tspan baseline-shift="sub" font-size="9">i</tspan> ∝ thickness × (1/c<tspan baseline-shift="sub" font-size="9">layer</tspan> − 1/c)</text>
+        <text x="540" y="78" class="m">array, pitch 0.3 mm</text>
+        <path d="M206 46 Q221 32 236 46" class="w" marker-start="url(#m11-ah)" marker-end="url(#m11-ah)"/><text x="276" y="44">NCC(i, i+1) → Δτ̂<tspan baseline-shift="sub" font-size="9">i</tspan></text>
+        <path d="M236 46 Q251 58 266 46" class="w" marker-end="url(#m11-ah)" style="stroke:var(--muted)"/>
+        <path d="M120 232 Q290 186 460 232" class="wf"/><path d="M150 252 Q290 214 430 252" class="wf"/><path d="M190 272 Q290 244 390 272" class="wf"/>
+        <circle cx="290" cy="300" r="5" style="fill:var(--ink)"/><text x="302" y="304">point target or speckle region, z ≈ 20–60 mm</text>
+        <path d="M60 158 C120 150 170 168 230 156 C290 146 340 170 400 160 C440 152 480 166 520 158" class="dist"/>
+        <text x="60" y="196" class="m">wavefront after the screen: delayed by τ<tspan baseline-shift="sub" font-size="9">i</tspan> per element</text>
+        <rect x="566" y="100" width="240" height="196" rx="4" class="box"/>
+        <text x="574" y="118" class="m">τ (ns) vs element n</text>
+        <path d="M576 196 H800" style="stroke:var(--rule);stroke-width:1"/>
+        <path d="M584 181.1 L598 166.0 L612 163.9 L626 206.8 L640 243.9 L654 229.7 L668 204.4 L682 208.1 L696 204.5 L710 165.1 L724 141.1 L738 171.0 L752 207.0 L766 206.5 L780 206.1 L794 233.8" class="tr"/>
+        <path d="M584 181.1 L598 165.6 L612 157.8 L626 204.9 L640 237.5 L654 224.5 L668 200.4 L682 195.6 L696 191.2 L710 152.1 L724 124.8 L738 149.6 L752 185.8 L766 182.6 L780 186.5 L794 215.9" class="es"/>
+        <text x="574" y="268" style="fill:var(--sig3)">— true τ<tspan baseline-shift="sub" font-size="9">n</tspan></text><text x="574" y="286" style="fill:var(--accent)">‒ ‒ Σ Δτ̂, drifts as √n σ<tspan baseline-shift="sub" font-size="9">Δ</tspan></text>
+      </svg></div>
+    </figure>
+    <div class="eqn key" id="m11-eq17">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat{\tau}_n = \sum_{i=0}^{n-1} \Delta\hat{\tau}_i \quad\Rightarrow\quad \mathrm{Var}\bigl(\hat{\tau}_n - \tau_n\bigr) = n\, \sigma_\Delta^2 \qquad \text{(independent errors: a random walk)} \]</div><span class="eqn-no">(11.17)</span></div>
+    <dl class="where"><dt>\(\hat{\tau}_n\)</dt><dd>accumulated delay estimate at element \(n\), s</dd><dt>\(\tau_n\)</dt><dd>true delay at element \(n\), s</dd><dt>\(\Delta\hat{\tau}_i\)</dt><dd>estimated delay between neighbouring elements \(i\) and \(i+1\), s</dd><dt>\(\sigma_\Delta\)</dt><dd>standard deviation of each neighbour estimate, s</dd><dt>\(n,\ i\)</dt><dd>element indices</dd><dt>\(\mathrm{Var}\)</dt><dd>variance</dd></dl>
+      <span class="note">With \(\sigma_\Delta\) = 2 ns per pair, the error at element 64 is about 16 ns (≈ 29° at 5 MHz). A single peak hop adds a \(1/f_0\) step to every element after it. Cures: correlate each element against a beamsum reference (errors no longer accumulate), least-squares integration of multiple lags (\(\Delta\tau\) from \(i\) to \(i+1\), \(i+2\), …), and NCC-weighted integration.</span>
+    </div>
+    <p>The constant and linear terms of \(\tau_i\) are not observable from diffuse speckle (they shift or steer the image without defocusing it), so compare profiles after removing the mean and linear trend.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 11.6</span><h3>Element-to-element delay estimation across a 64-element aperture</h3><span class="prov sim">Simulation</span><span class="prov-note">Seeded Gaussian-correlated random screen; per-element speckle with adjacent correlation \(\rho\) and noise synthesized in the frequency domain; adjacent NCC + parabola and cumulative sum (JS).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m11-c6a" aria-label="True and estimated phase screen across elements"></canvas>
+        <div class="legend"><span><i style="background:var(--sig3)"></i>true screen τ<sub>i</sub></span><span><i style="background:var(--accent)"></i>cumulative sum of adjacent NCC delays</span></div>
+        <canvas id="m11-c6b" aria-label="Accumulated error versus element with random-walk envelope"></canvas>
+        <div class="legend"><span><i style="background:var(--sig2)"></i>error τ̂<sub>n</sub> − τ<sub>n</sub> (anchored at element 0)</span><span><i style="background:var(--muted)"></i>±√n σ<sub>Δ</sub> random-walk envelope (CRLB)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m11-6snr"><span>Channel SNR</span><output id="m11-6snr-o">20 dB</output></label><input type="range" id="m11-6snr" min="-5" max="40" step="1" value="20"></div>
+        <div class="ctrl"><label for="m11-6rho"><span>Adjacent-element ρ</span><output id="m11-6rho-o">0.95</output></label><input type="range" id="m11-6rho" min="0.6" max="0.995" step="0.005" value="0.95"></div>
+        <div class="ctrl"><label for="m11-6rms"><span>Screen rms</span><output id="m11-6rms-o">30 ns</output></label><input type="range" id="m11-6rms" min="5" max="80" step="1" value="30"></div>
+        <div class="ctrl"><label for="m11-6L"><span>Screen correlation length</span><output id="m11-6L-o">6 el.</output></label><input type="range" id="m11-6L" min="2" max="16" step="0.5" value="6"></div>
+        <div class="btn-row"><button class="btn" id="m11-6seed">Reseed</button></div>
+        <div class="readout" id="m11-6read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> \(f_0\) = 5 MHz, \(B\) = 60 %, \(f_s\) = 40 MHz, 2 µs kernel, pitch 0.3 mm. The error curve wanders like a random walk inside the \(\pm\sqrt{n}\) envelope. Lower the SNR to 0 dB or \(\rho\) to 0.7: some adjacent estimates hop a full period (200 ns), and every later element inherits the step. Raise the screen rms with a short correlation length and adjacent delays approach the \(\pm K\) search limit.</div>
+  </div>
+
+  <div class="prose">
+    <h3>(b) Speckle tracking and elastography</h3>
+    <p>Quasi-static elastography estimates displacement \(u(z)\) with NCC or phase tracking and differentiates it to get strain, \(\varepsilon \approx \Delta u/\Delta z\). Differentiation amplifies jitter: for two independent estimates spaced \(\Delta z\) apart, \(\sigma_\varepsilon \approx \sqrt{2}\,\sigma_u/\Delta z\). With \(\sigma_u\) = 0.3 µm and \(\Delta z\) = 1 mm, \(\sigma_\varepsilon \approx\) 0.04 % strain. ARFI and SWE track 1–20 µm displacements at PRFs of 5–10 kHz with Loupas or Kasai. For SWE on the uML15-3F class of probes, the shear-wave arrival time is itself a time-delay estimate between lateral positions, and the same bias/variance machinery applies to cross-correlating particle-velocity traces.</p>
+  </div>
+  <div class="rf-grid" id="m11-vis66" style="max-width:560px"></div>
+  <div class="prose">
+    <h3>(c) Sound-speed estimation from delays and phase shifts</h3>
+    <p>Computed ultrasound tomography in echo mode (CUTE; Jaeger et al. 2015) beamforms the same region with several transmit steering angles under an assumed \(c\). If the true \(c\) differs locally, echoes from a given point arrive with angle-dependent delay errors. The phase shift between complex (IQ) images from neighbouring angles, estimated with a Kasai-type lag-one product across angles, is a line integral of the slowness error along the two paths. A linear inverse problem (Batch 2) then recovers the local \(c\). The phase estimator's \(\pm\lambda/4\) wrap and its noise set the usable angle spacing; at 5 MHz, 1 ns corresponds to 1.8° of phase.</p>
+    <h3>(d) ULM bubble tracking and pairing</h3>
+    <p>After localization, ULM links the bubble positions in frame \(k\) to those in frame \(k+1\). Two families of methods: (i) NCC of small image patches around each detection, the 2D version of 11.1, and (ii) global assignment that minimises total travel distance, solved with the Hungarian (Kuhn–Munkres) algorithm or a Kalman-filter variant. At 1 kHz and 10 mm/s the displacement per frame is 10 µm (≈ \(\lambda/30\) at 5 MHz). The search radius must exceed the maximum flow displacement but stay small enough to avoid mispairing in dense bubble populations. That is the same threshold effect as in 11.3, now in assignment space. See Target A (ULM).</p>
+  </div>
+
+  <div class="callout us"><span class="label">Ultrasound link</span><p>A 128-element, 0.3 mm pitch array at 5 MHz (\(\lambda\) = 0.31 mm) samples the aperture at about \(\lambda\). Flax &amp; O'Donnell-style integration over 128 elements gives \(\sqrt{128} \approx 11\) times the adjacent-pair jitter at the far edge. Distortion-matrix and reflection-matrix methods (Module 33) instead estimate the screen from the whole set of element pairs at once.</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Adjacent-element correlation measures the <em>difference</em> of the screen. A large-scale sound-speed error (a smooth quadratic delay profile) has tiny adjacent differences that are easily dominated by bias. Such focusing errors are better estimated with a global metric (coherence factor, Module 07) or with tomographic sound-speed estimation.</p></div>
+
+  <!-- ======================= 11.7 Visual summary ======================= -->
+  <h2><span class="sec">11.7</span>Visual summary</h2>
+  <div class="prose"><p>Ten pictures that carry the module, each computed from the same correlation, bound and Monte Carlo models as the demos above. Each card is a question you should answer in five seconds, the answer with its number, and the figure to keep in mind. The slider sets the fractional bandwidth used by the correlation-shape cards: narrow bands give broad envelopes but tall false peaks.</p></div>
+  <div class="demo"><div class="demo-body stack"><div class="controls">
+    <div class="ctrl"><label for="m11-vis-T">Fractional bandwidth B (−6 dB) <output id="m11-vis-T-o">60 %</output></label><input type="range" id="m11-vis-T" min="0.15" max="1.2" step="0.05" value="0.6"></div>
+    <div class="readout" id="m11-vis-read"></div>
+  </div></div></div>
+  <div class="rf-grid" id="m11-vis"></div>
+
+  <!-- ======================= 11.8 ======================= -->
+  <h2><span class="sec">11.8</span>How experts think about it</h2>
+  <div class="prose"><p>Every delay estimator is a peak finder on a correlation function shaped like a cosine at \(f_0\) under an envelope of width ~\(1/B\). Experts separate three error types and size each before trusting a number: <strong>bias</strong> (interpolator shape mismatch, wrong \(f_0\)), <strong>jitter</strong> (the local CRLB, set by \(f_0\), \(B\), \(T\), SNR and \(\rho\)), and <strong>false peaks</strong> (whole RF periods, which no bound describes). Then they convert to µm with the two-way factor and ask which of the three dominates.</p></div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">The correlation peak is the maximum-likelihood delay in white Gaussian noise.</div>
+      <div class="keynum"><span>matched filter</span><span>GCC weight \(\lvert\gamma\rvert^2/(\lvert G_{xy}\rvert(1-\lvert\gamma\rvert^2))\)</span></div>
+      <div class="why"><p>With a known template \(s\) and white Gaussian noise of variance \(\sigma^2\), \(\ln p(y; D)\) \(= -\frac{1}{2\sigma^2}\sum (y[n] - s[n-D])^2\) + const <span class="eqref">(11.4)</span>. The energy term \(\sum s^2[n-D]\) does not depend on \(D\), so maximizing the likelihood means maximizing \(\sum y[n]\,s[n-D]\): the cross-correlation. With both records noisy (speckle tracking), Knapp &amp; Carter's ML processor weights the cross-spectrum first; for white noise and in-band SNR ≫ 1 that weight is flat across the band, so correlation of band-passed RF is near ML.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">One seeded noisy realization of a 5 MHz, 60 % pulse at 40 MHz; both curves computed over trial delays (JS).</span><canvas id="m11-rf-0" aria-label="Cross-correlation and log-likelihood versus trial delay peaking at the same delay"></canvas></div></div>
+      <div class="limits">Coloured noise or clutter (pre-whiten or filter first); unequal spectra; low SNR, where the ML estimate is dominated by false peaks and is no longer near-unbiased; signal that changes shape between records (strain, decorrelation), which the shift model ignores.</div>
+    </div>
+    <div class="rule">
+      <div class="say">One nanosecond of delay is 0.77 µm of axial displacement; one sample at 40 MHz is 19.25 µm.</div>
+      <div class="keynum"><span>\(\Delta z = cD/2\)</span><span>1 ns ↔ 0.77 µm</span><span>1 ns ↔ 1.8° at 5 MHz</span></div>
+      <div class="why"><p>Pulse-echo delay covers the path twice, so \(\Delta z = cD/2 = 1540 \times 10^{-9}/2\) = 0.77 µm. At \(f_s\) = 40 MHz, \(T_s\) = 25 ns ↔ 19.25 µm, so ARFI displacements of 1–20 µm are 0.05–1 sample: every tracker is a subsample estimator. Phase: 360° × \(f_0\) × 1 ns = 1.8° at 5 MHz.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m11-rf-1" aria-label="Axial displacement versus delay with one sample at 40 MHz marked"></canvas></div></div>
+      <div class="limits">Assumes the delay is a round trip at one sound speed. Element-to-element receive delays in phase-screen work are one-way (1 ns ↔ 1.54 µm of path); transmit-angle delays in sound-speed tomography mix both.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Parabolic interpolation is biased toward the integer sample; the cosine fit is nearly unbiased on RF; any symmetric fit is exact at 0 and ½ sample.</div>
+      <div class="keynum"><span>parabolic 0.012 smp at \(f_s/f_0\) = 8</span><span>0.052 at \(f_s/f_0\) = 4</span><span>cosine 0.0014</span></div>
+      <div class="why"><p>\(R(k) = R_{ss}((k-d)T_s)\) with \(R_{ss}\) even, so \(d = 0\) gives \(R_- = R_+\) and \(d = \tfrac{1}{2}\) gives \(R(0) = R(1)\): symmetric fits return 0 and ½ exactly, and \(\mathrm{bias}(d) = -\mathrm{bias}(1-d)\) <span class="eqref">(11.9)</span>. In between, a parabola through three points of a cosine is too flat at the top and pulls toward \(k_0\): worst 0.012 sample (0.30 ns) at 5 MHz, 40 MHz, rising about as \((f_0/f_s)^2\). The cosine model matches the carrier and leaves only envelope error.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Fits run on the expected correlation of Gaussian-spectrum speckle (5 MHz, 60 %), noise-free, infinite window.</span><canvas id="m11-rf-2" aria-label="Bias of parabolic and cosine subsample fits versus true shift"></canvas></div></div>
+      <div class="limits">The Gaussian fit on RF errs the other way (0.025 sample, toward half-samples). The curves are expectations: one noise-free kernel's error varies by ±0.011 sample with its local spectrum (m11_ncc_subsample_bias.m), so you cannot subtract the mean curve. Below \(f_s/f_0 \approx 3\) the integer peak can land on the wrong lobe.</div>
+    </div>
+    <div class="rule">
+      <div class="say">For sub-nanosecond precision, upsample RF to at least ~\(8f_0\), or work on the phase of complex baseband.</div>
+      <div class="keynum"><span>\(f_s/f_0\) = 4: 2.6 ns bias</span><span>\(f_s/f_0\) = 8: 0.30 ns</span><span>upsample ×U: bias \(\propto U^{-3}\)</span></div>
+      <div class="why"><p>Parabolic bias scales with the peak curvature per sample, \((2\pi f_0/f_s)^2\). At 5 MHz, \(f_s\) = 20 MHz leaves 0.052 sample × 50 ns = 2.6 ns; \(f_s\) = 40 MHz leaves 0.30 ns. Band-limited (sinc) upsampling of the correlation by \(U\) before the parabola cuts the residual as \(U^{-3}\) in original samples (0.012, 0.0014, 0.00018 for U = 1, 2, 4). The phase of the complex correlation needs no shape model at all, so a modest IQ rate suffices as long as the residual after the integer search stays inside \(\pm 1/(2f_0)\), i.e. an IQ sample period shorter than \(1/f_0\).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Maximum parabolic bias on the expected Gaussian-spectrum correlation, swept over \(f_s/f_0\).</span><canvas id="m11-rf-3" aria-label="Maximum parabolic bias in nanoseconds versus sampling ratio on log axes"></canvas></div></div>
+      <div class="limits">Upsampling cannot create information: it fixes bias, not jitter. A short interpolation kernel sets a floor (\(3.5\times10^{-4}\) sample for a 12-lag tapered sinc). The phase route needs the right \(f_0\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Phase-based estimators on IQ are cheap and nearly unbiased, but they wrap at \(\pm\lambda/4\) of displacement.</div>
+      <div class="keynum"><span>\(\lvert D\rvert &lt; 1/(2f_0)\) = 100 ns at 5 MHz</span><span>±77 µm</span><span>~\(W\) vs \(W(2K+1)\) MACs</span></div>
+      <div class="why"><p>The complex correlation of analytic signals is \(C(\tau) = R_{\mathrm{env}}(\tau)\,e^{j2\pi f_0\tau}\), so \(\hat{D} = -\angle C/(2\pi f_0)\) with no interpolation model. \(\angle C\) is known only modulo \(2\pi\), so the unambiguous range is ±half a period: ±100 ns of delay, \(\pm\lambda/4\) = ±77 µm of displacement at 5 MHz. Cost: one complex multiply–add per sample (≈80) versus 80 × 49 ≈ 3.9k for a ±24-lag NCC search.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m11-rf-4" aria-label="Phase-based delay estimate wrapping at plus and minus 100 ns"></canvas></div></div>
+      <div class="limits">An \(f_0\) error \(e\) gives a bias \((k_0 - d)\,e/(1+e)\), up to 0.024 sample for 5 %; attenuation downshift makes this depth dependent (Loupas estimates the local \(\bar{f}\)). Large motion needs a coarse NCC stage or unwrapping.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Jitter follows the Walker–Trahey bound: \(\sigma\) falls as \(f_0^{-3/2}\), \(T^{-1/2}\) and roughly \(B^{-1/2}\).</div>
+      <div class="keynum"><span>0.41 ns at 5 MHz, 60 %, 2 µs, 30 dB</span><span>1.35 ns at \(\rho\) = 0.99</span></div>
+      <div class="why"><p>Exact form used on this page, <span class="eqref">(11.13)</span> (rectangular band of fractional width \(B\), SNR as amplitude ratio):</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m11-rf-5" aria-label="Walker-Trahey bound versus SNR for correlation 1 and 0.99"></canvas></div><div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ \sigma_D \ge \sqrt{ \frac{3}{2\pi^2 f_0^3 T (B^3 + 12B)} \Bigl[ \frac{(1 + 1/\mathrm{SNR}^2)^2}{\rho^2} - 1 \Bigr] } \]</div></div>
+    <dl class="where"><dt>\(\sigma_D,\ f_0,\ B,\ T,\ \rho,\ \mathrm{SNR}\)</dt><dd>as in (11.13)</dd></dl></div><p>Since \(f_0^3(B^3 + 12B)\) \(= B_{\mathrm{abs}}^3 + 12 f_0^2 B_{\mathrm{abs}}\), the \(12B\) term dominates for any \(B &lt; 2\sqrt{3}\): \(\sigma \propto 1/(f_0\sqrt{B_{\mathrm{abs}} T})\), not \(1/\sqrt{B^3 T}\). Worked: \(3/(2\pi^2 \cdot 1.25\times10^{20} \cdot 2\times10^{-6} \cdot 7.416)\) = \(8.2\times10^{-17}\) s²; bracket 0.002 at 30 dB, \(\rho\) = 1 → 0.41 ns.</p></div>
+      <div class="limits">Local (small-error) bound for unbiased estimators; flat coherence across a rectangular band; Gaussian statistics; no strain inside the kernel. Above threshold only.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Below a threshold SNR or correlation, false peaks dominate and the CRLB is meaningless.</div>
+      <div class="keynum"><span>knee ≈ 10 dB (2 µs, 60 %)</span><span>errors in steps of \(1/f_0\)</span><span>ceiling 346 ns (uniform ±24 lags)</span></div>
+      <div class="why"><p>The CRLB uses only the curvature of the main peak. When noise lifts a side peak at \(\pm m/f_0\) above the main one, the error jumps by 200 ns (154 µm at 5 MHz). The error distribution becomes a mixture, and its variance \(p\cdot(200\ \mathrm{ns})^2\) swamps the local term: at 10 dB 3–5 % of trials hop and \(\sigma\) is 10–18× the CRLB (m11_jitter_vs_crlb.m, Demo 11.3); at 5 dB a third hop. Global bounds (Ziv–Zakai, Barankin) reproduce the knee.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Local bound (11.13) against the jitter floor \(\sqrt{p}\cdot 200\) ns of a hop fraction \(p\) (4 % and 33 %, the Monte Carlo values near 10 and 5 dB).</span><canvas id="m11-rf-6" aria-label="Local bound versus SNR against the jitter set by peak hops"></canvas></div></div>
+      <div class="limits">The knee moves up with short kernels (2.5 periods: hops persist at 40 dB), narrow bands, large search ranges and low \(\rho\). Report outlier fraction and a robust spread (1.48 MAD) next to \(\sigma\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">False peaks sit at multiples of the RF period because the RF correlation is a cosine under its envelope.</div>
+      <div class="keynum"><span>side peak \(\approx \exp(-\pi^2 B^2/(8\ln 2))\)</span><span>0.53 at 60 %</span><span>0.93 at 20 %</span></div>
+      <div class="why"><p>For a Gaussian pulse of −6 dB fractional bandwidth \(B\), the expected RF autocorrelation is \(\exp(-\tau^2/4\sigma_t^2)\cos(2\pi f_0\tau)\) with \(\sigma_t = \sqrt{2\ln 2}/(\pi B f_0)\). Every maximum of the cosine, near \(\tau = m/f_0\), is a candidate peak whose height is the envelope there: \(\exp(-\pi^2 B^2/(8\ln 2))\) at \(\tau = 1/f_0\). At 60 % that is 0.53 (the exact local maximum, pulled slightly inward by the envelope, is 0.54); at 20 % it is 0.93, so a little noise or decorrelation suffices to flip the choice.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m11-rf-7" aria-label="Expected RF correlation with side peaks for 60 and 20 percent bandwidth"></canvas></div></div>
+      <div class="limits">Exact for the expected correlation of a Gaussian spectrum; a single finite kernel fluctuates around it. Envelope (\(\lvert\mathrm{IQ}\rvert\)) correlation has no side peaks, which is why it is used for the coarse search.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Normalize the correlation so the peak value becomes a quality metric.</div>
+      <div class="keynum"><span>\(\mathrm{E}[\hat{\rho}_{\max}] \approx \rho\,\mathrm{SNR}_p/(1+\mathrm{SNR}_p)\)</span><span>\(\sigma \propto \sqrt{1/\hat{\rho}^2 - 1}\)</span><span>threshold 0.7–0.9</span></div>
+      <div class="why"><p>NCC divides by the energies of the two windows, so its peak estimates the correlation coefficient between them: speckle similarity \(\rho\) times the noise coherence \(\mathrm{SNR}_p/(1+\mathrm{SNR}_p)\). The Walker–Trahey bracket is \(1/\lvert\gamma\rvert^2 - 1\), so the expected jitter is a monotone function of the peak: a peak of 0.99 predicts about 2.5× less jitter than 0.94 (\(\sqrt{0.0203/0.1317} \approx 0.39\)). Masking or weighting by peak NCC is therefore principled, not cosmetic.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m11-rf-8" aria-label="Predicted relative jitter versus normalized cross-correlation peak"></canvas></div></div>
+      <div class="limits">A high peak does not prove the right lobe (side peaks can exceed 0.9 in narrowband data). Short kernels inflate the NCC of unrelated windows; the peak is a biased, noisy estimate of \(\rho\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Decorrelation sets a jitter floor that no amount of SNR removes.</div>
+      <div class="keynum"><span>floor \(\propto \sqrt{1/\rho^2 - 1} \approx \sqrt{2(1-\rho)}\)</span><span>SNR stops helping at \(1/\mathrm{SNR}_p \approx 1 - \rho\)</span></div>
+      <div class="why"><p>Expand the bracket: \((1 + 1/\mathrm{SNR}_p)^2/\rho^2 - 1\) \(\approx 2/\mathrm{SNR}_p + 2(1-\rho)\). The two terms are equal when \(\mathrm{SNR}_p = 1/(1-\rho)\): for \(\rho\) = 0.99 that is 20 dB, and at 30 dB the bound is already 1.35 ns against 0.41 ns at \(\rho\) = 1. Strain, lateral or elevational motion, and inter-element distance in phase-screen work all act through \(\rho\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m11-rf-9" aria-label="Walker-Trahey bracket versus SNR showing the decorrelation floor"></canvas></div></div>
+      <div class="limits">Treats decorrelation as an extra additive, independent component with the same spectrum as the signal; strain-induced decorrelation is structured (companding can undo much of it).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Kasai: \(v = \frac{c\cdot\mathrm{PRF}}{4\pi f_0}\angle R(1)\), and the Nyquist velocity is \(c\cdot\mathrm{PRF}/(4f_0)\).</div>
+      <div class="keynum"><span>0.385 m/s at 5 MHz, 5 kHz</span><span>\(\lambda/4\) = 77 µm per pulse</span><span>var 1.8× CRLB at \(M\) = 8</span></div>
+      <div class="why"><p>A scatterer moving at \(v\) changes the two-way path by \(2v/\mathrm{PRF}\) per pulse, rotating the slow-time IQ phase by \(\Delta\varphi = 4\pi f_0 v/(c\cdot\mathrm{PRF})\) <span class="eqref">(11.14)</span>. \(R(1) = \sum z[m+1]\,z^*[m]\) averages that rotation over pulses and gates; invert for \(v\). \(\angle R(1)\) wraps at \(\pm\pi\), so \(\lvert v\rvert &lt; c\cdot\mathrm{PRF}/(4f_0)\) = 1540·5000/(2·10⁷) = 0.385 m/s. At high SNR the phase sum telescopes to \((\varphi_{M-1} - \varphi_0)/(M-1)\): \(\sigma \propto 1/(M-1)\), equal to the CRLB at \(M\) = 2–3 and 14× above it in variance at \(M\) = 64 (20 dB).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m11-rf-10" aria-label="Slow-time IQ phasors rotating by a fixed angle per pulse"></canvas></div></div>
+      <div class="limits">Uses the nominal \(f_0\) (downshift biases \(v\) low); clutter must be filtered first; spectral broadening and low SNR add a \(1/M\) variance term; aliasing beyond \(v_{\mathrm{Nyq}}\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Bigger kernels lower jitter but blur displacement and decorrelate under strain: there is an optimum kernel length.</div>
+      <div class="keynum"><span>1 % strain, 20 dB: \(T_{\mathrm{opt}} \approx\) 1.5 µs</span><span>\(\varepsilon T_{\mathrm{opt}} f_0 \approx 0.075\)</span><span>Monte Carlo 2.5 ns vs bound 2.1 ns</span></div>
+      <div class="why"><p>The noise term in the bound falls as \(1/T\), while strain decorrelation \(1 - \rho^2\) grows as \((\varepsilon T f_0)^2\), so \(\sigma(T)\) has a minimum where the two are comparable. At \(\varepsilon\) = 1 %, 20 dB, 5 MHz, 60 %: \(T_{\mathrm{opt}}\) = 1.5 µs (7.5 periods, \(\sigma\) = 2.09 ns = 1.6 µm) and axial kernel \(cT/2\) = 1.16 mm. The Monte Carlo in m11_kernel_strain.m finds its minimum at 1–1.5 µs (2.5 ns). At 3 % strain the optimum falls to 0.5 µs.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Bound (11.13) with \(\rho(\varepsilon, T)\) from the window-averaged Gaussian-pulse correlation under uniform strain.</span><canvas id="m11-rf-11" aria-label="Jitter bound versus kernel length with and without strain"></canvas></div></div>
+      <div class="limits">Uniform strain, no companding, bound-based. Short kernels (&lt; ~5 periods here) enter the false-peak regime, so the practical optimum sits at or above the bound's. Resolution, not jitter, may set \(T\) in a heterogeneous target.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Cumulative summation of adjacent-element delays is a random walk: the error grows as \(\sqrt{n}\).</div>
+      <div class="keynum"><span>\(\sigma_n = \sqrt{n}\,\sigma_\Delta\)</span><span>2 ns → 16 ns (29°) at element 64</span><span>one hop = \(1/f_0\) step</span></div>
+      <div class="why"><p>Flax &amp; O'Donnell integrate \(\Delta\hat{\tau}_i = \hat{\tau}_{i+1} - \hat{\tau}_i\). If the pair errors are independent, \(\mathrm{Var}(\hat{\tau}_n) = n\sigma_\Delta^2\) <span class="eqref">(11.17)</span>. With \(\sigma_\Delta\) = 2 ns, \(\sqrt{63} \times 2\) = 16 ns, 29° at 5 MHz. In m11_phase_screen_estimation.m (\(\rho\) = 0.984, the VCZ value for a uniform 64-element transmit) \(\sigma_\Delta\) = 1.7 ns and the far-end error is 12 ns against \(\sqrt{63}\,\sigma_\Delta\) = 13.8 ns. A single side-peak hop adds 200 ns to every later element.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Three seeded Gaussian random walks with \(\sigma_\Delta\) = 2 ns per step (JS).</span><canvas id="m11-rf-12" aria-label="Random-walk growth of accumulated element-to-element delay errors"></canvas></div></div>
+      <div class="limits">Independence fails when noise is shared between pairs. Cures: beamsum reference (no accumulation), multi-lag least squares (helps when electronic noise dominates; little when speckle decorrelation dominates), NCC weighting, iteration. Constant and linear terms are unobservable.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Lateral decorrelation scales with the beam width: half a FWHM of lateral motion already costs \(\rho\) = 0.71.</div>
+      <div class="keynum"><span>\(\rho = \exp[-2\ln 2\,(\Delta x/w)^2]\)</span><span>0.92 at \(w/4\)</span><span>0.25 at \(w\)</span></div>
+      <div class="why"><p>Moving the scatterers laterally by \(\Delta x\) changes the speckle by the overlap of the PSF with its shifted copy. For a Gaussian pulse-echo amplitude PSF of FWHM \(w\), \(\rho = \exp(-\Delta x^2/4\sigma_x^2)\) \(= \exp[-2\ln 2\,(\Delta x/w)^2]\). With \(w\) = 0.6 mm, 0.15 mm of motion gives 0.92, which by itself caps the axial jitter at the \(\rho\) = 0.92 floor. Keep inter-frame motion small compared with the beam (raise the frame rate) or track laterally too.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m11-rf-13" aria-label="Speckle correlation versus lateral shift in units of beam width"></canvas></div></div>
+      <div class="limits">Gaussian, shift-invariant PSF and pure translation. Elevational motion follows the slice-thickness profile, usually wider; rotation and shear decorrelate parts of the kernel differently.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Lateral tracking is an order of magnitude worse than axial, and on RF the axial peak should be fitted before the lateral one.</div>
+      <div class="keynum"><span>\(\sqrt{\text{curvature ratio}}\) 15 (RF), 2.6 (envelope)</span><span>lateral 15.5 → 2.7 µm with axial-first</span></div>
+      <div class="why"><p>Jitter scales as \(1/\sqrt{-R''(0)}\). Axially the RF correlation has the carrier: \(-R'' = (2\pi f_{z0})^2 + 1/(2\sigma_z^2)\); laterally only the beam envelope: \(1/(2\sigma_x^2)\). For 5 MHz and 0.6 mm FWHM, \(\sqrt{\text{ratio}}\) = 14.9. In m11_block_matching_2d.m a separable fit on the integer axial row gives 15.5 µm lateral rms; fitting axial parabolas per column first and the lateral parabola through their peak heights gives 2.7 µm, a ratio of 13 to the axial 0.21 µm.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m11-rf-14" aria-label="Axial RF, axial envelope and lateral correlation functions"></canvas></div></div>
+      <div class="limits">The coupling arises because the integer axial row sits up to half a sample off a carrier-modulated ridge. Transverse-oscillation beamforming or angle compounding add a lateral carrier and change the ratio.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Differentiating displacement into strain amplifies jitter by \(\sqrt{2}/\Delta z\).</div>
+      <div class="keynum"><span>\(\sigma_\varepsilon \approx \sqrt{2}\,\sigma_u/\Delta z\)</span><span>0.3 µm, 1 mm → 0.04 %</span></div>
+      <div class="why"><p>A two-point difference of independent estimates has variance \(2\sigma_u^2\), divided by \(\Delta z^2\). With \(\sigma_u\) = 0.3 µm (about the 0.4 ns bound) and \(\Delta z\) = 1 mm, \(\sigma_\varepsilon\) = 0.042 % strain, so 1 % applied strain gives a strain SNR near 24 before decorrelation. This is the logic behind the strain filter: the usable strain range is bounded below by jitter and above by decorrelation.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m11-rf-15" aria-label="Strain noise versus gauge length"></canvas></div></div>
+      <div class="limits">Overlapping kernels make neighbouring estimates correlated (a least-squares strain estimator over several points does better); interpolator bias does not average out and adds a periodic strain artefact.</div>
+    </div>
+  </div>
+
+  <!-- ======================= 11.9 ======================= -->
+  <h2><span class="sec">11.9</span>Cheat sheet</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Concept</th><th>Formula</th><th>Ultrasound use</th></tr></thead>
+    <tbody>
+      <tr><td>Two-way delay ↔ displacement</td><td>\(\Delta z = cD/2\); 1 ns ↔ 0.77 µm; 1 sample (40 MHz) ↔ 19.3 µm</td><td>converting tracking output to µm</td></tr>
+      <tr><td>NCC</td><td>\(\hat{\rho}(k) = \sum x\,y_k \big/ \sqrt{\sum x^2 \sum y_k^2}\)</td><td>speckle tracking, ULM patch matching, quality mask</td></tr>
+      <tr><td>Expected NCC peak</td><td>\(\rho\cdot\mathrm{SNR}_p/(1+\mathrm{SNR}_p)\)</td><td>reject kernels with low peak NCC</td></tr>
+      <tr><td>Linear correlation via FFT</td><td>zero-pad to \(\ge N_x + N_y - 1\)</td><td>long kernels, many lags</td></tr>
+      <tr><td>Parabolic fit</td><td>\(\delta = (R_- - R_+)/\bigl(2(R_- - 2R_0 + R_+)\bigr)\)</td><td>default, bias ≈ 0.01 sample at \(f_0/f_s = 1/8\)</td></tr>
+      <tr><td>Cosine fit</td><td>\(\delta = \arctan\bigl((R_+ - R_-)/(2R_0\sin\omega)\bigr)/\omega\)</td><td>low-bias RF correlation interpolation</td></tr>
+      <tr><td>Phase-zero estimate</td><td>\(\delta = -\angle C(k_0)/(2\pi f_0 T_s)\)</td><td>IQ tracking; needs correct \(f_0\)</td></tr>
+      <tr><td>Bias symmetry</td><td>\(\mathrm{bias}(0) = \mathrm{bias}(\tfrac{1}{2}) = 0\); \(\mathrm{bias}(d) = -\mathrm{bias}(1-d)\)</td><td>pixel-locking texture in displacement maps</td></tr>
+      <tr><td>Walker–Trahey bound</td><td>\(\sigma_D \ge \sqrt{\frac{3}{2f_0^3\pi^2 T(B^3+12B)}\bigl[\frac{(1+1/\mathrm{SNR}^2)^2}{\rho^2} - 1\bigr]}\)</td><td>predicting jitter for ARFI, SWE, phase screens</td></tr>
+      <tr><td>Threshold / false peaks</td><td>errors in steps of \(1/f_0\); dominate below ~10 dB (\(T\) = 2 µs, \(B\) = 60 %)</td><td>outlier rejection, coarse-to-fine search</td></tr>
+      <tr><td>Kasai</td><td>\(v = \frac{c\cdot\mathrm{PRF}}{4\pi f_0}\,\angle R(1)\)</td><td>colour Doppler, ARFI, SWE</td></tr>
+      <tr><td>Nyquist velocity</td><td>\(v_{\mathrm{Nyq}} = c\cdot\mathrm{PRF}/(4f_0)\)</td><td>PRF choice; \(\pm\lambda/4\) per pulse</td></tr>
+      <tr><td>Phase-screen integration</td><td>\(\sigma(\hat{\tau}_n) = \sqrt{n}\,\sigma_\Delta\)</td><td>use beamsum reference or multi-lag LS to avoid drift</td></tr>
+      <tr><td>Kernel optimum under strain</td><td>min over \(T\) of \(\sigma_{\mathrm{WT}}(T, \rho(\varepsilon, T))\); \(\varepsilon T \approx 0.075/f_0\) at 20 dB</td><td>elastography kernel design, strain filter</td></tr>
+      <tr><td>False-peak height (Gaussian pulse)</td><td>\(\exp(-\pi^2 B^2/(8\ln 2))\): 0.53 at \(B\) = 60 %, 0.93 at 20 %</td><td>predicting peak hopping, choosing coarse search</td></tr>
+      <tr><td>Phase-estimator range</td><td>\(\lvert D\rvert &lt; 1/(2f_0)\) (\(\pm\lambda/4\) displacement); bias \((k_0 - d)\,e/(1+e)\) for \(f_0\) error \(e\)</td><td>ARFI/SWE tracking, Loupas vs Kasai</td></tr>
+      <tr><td>Lateral decorrelation</td><td>\(\rho = \exp[-2\ln 2\,(\Delta x/w)^2]\), \(w\) = amplitude FWHM</td><td>frame-rate and lateral-tracking design</td></tr>
+      <tr><td>Strain noise</td><td>\(\sigma_\varepsilon \approx \sqrt{2}\,\sigma_u/\Delta z\)</td><td>elastography SNR</td></tr>
+      <tr><td>Ziv–Zakai (uniform prior, width \(A\))</td><td>\(\mathrm{MSE} \ge \frac{1}{A}\int_0^A h\,(A - h)\, P_{\min}(h)\, dh\)</td><td>threshold analysis beyond the CRLB</td></tr>
+    </tbody></table></div>
+
+  <!-- ======================= 11.10 ======================= -->
+  <h2><span class="sec">11.10</span>Interview and qualifying-exam questions</h2>
+  <details class="quiz"><summary><span class="q">I1</span><span>Why is the cross-correlation peak the maximum-likelihood delay estimate, and when is it not? <span class="muted">· screen</span></span></summary><div class="a"><p>For a known template in white Gaussian noise, the log-likelihood is \(-\sum (y - s_D)^2/2\sigma^2\); the energy of the shifted template does not depend on \(D\), so the likelihood is maximized by maximizing \(\sum y\,s_D\), the correlation. With both records noisy and the signal unknown, the ML processor is Knapp &amp; Carter's generalized cross-correlation: weight the cross-spectrum by \(\lvert\gamma\rvert^2/[\lvert G_{xy}\rvert(1 - \lvert\gamma\rvert^2)]\). For white noise and high in-band SNR that is flat in band and small outside, so band-pass filtering plus plain correlation is close to ML. It fails for coloured noise or clutter (pre-whiten), for shape changes between records (strain, decorrelation), and below threshold, where the ML estimate is dominated by false peaks. <em>Follow-up:</em> what does PHAT weighting (\(1/\lvert G_{xy}\rvert\)) do? It whitens to phase only: sharp peaks and robustness to reverberation, but it amplifies low-SNR bands, so it is ML only when the coherence is constant across the band.</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>Compare parabolic, cosine and phase-zero subsample estimators: bias, variance, cost, failure modes. <span class="muted">· onsite</span></span></summary><div class="a"><p>All three start from the integer NCC peak. <strong>Parabolic</strong>: model-free and cheap, but the wrong shape for an RF peak; bias 0.012 sample at \(f_s/f_0\) = 8 and 0.052 at \(f_s/f_0\) = 4, toward the integer sample (pixel locking). <strong>Cosine</strong>: fits \(R \propto \cos(\omega(k - \delta))\), estimates \(\omega\) from the data, bias ≈ 0.0014 sample, residual from the envelope; same cost. <strong>Phase-zero</strong>: \(\delta = -\angle C(k_0)/(2\pi f_0 T_s)\) on the analytic signals, no interpolation bias if \(f_0\) equals the spectral centroid; biased by \((k_0 - d)\,e/(1+e)\) for an \(f_0\) error \(e\). Above threshold all three have jitter near the CRLB (Demo 11.3); bias, not jitter, separates them. Every symmetric fit is exact at \(d\) = 0 and ½. <em>Follow-up:</em> why is the Gaussian fit the worst on RF and the best on envelope data? Because it models a Gaussian peak: right for \(\lvert\mathrm{IQ}\rvert\) correlation, too sharp-shouldered for a cosine, so on RF it overshoots toward half-samples with 0.025 sample bias.</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>Derive the Kasai estimator and its Nyquist velocity. <span class="muted">· screen</span></span></summary><div class="a"><p>Slow-time IQ at a fixed gate: \(z[m] = A\,e^{j(\varphi_0 + m\Delta\varphi)} + n\), with the two-way path change per pulse \(2v/\mathrm{PRF}\), so \(\Delta\varphi = 2\pi f_0 (2v/c)/\mathrm{PRF}\) \(= 4\pi f_0 v/(c\cdot\mathrm{PRF})\). The lag-one autocorrelation \(R(1) = \sum z[m+1]\,z^*[m]\) \(\approx \lvert A\rvert^2 (M-1)\, e^{j\Delta\varphi}\), so \(\hat{v} = c\cdot\mathrm{PRF}\cdot\angle R(1)/(4\pi f_0)\). \(\angle R(1) \in (-\pi, \pi]\), so \(\lvert v\rvert &lt; c\cdot\mathrm{PRF}/(4f_0)\): 0.385 m/s at 5 MHz, 5 kHz, i.e. \(\lambda/4\) = 77 µm per pulse. Equivalently \(\angle R(1)/(2\pi T_{\mathrm{PRF}})\) is the mean Doppler frequency of the slow-time spectrum. <em>Follow-up:</em> is it optimal? Not for a tone at high SNR: the sum telescopes to the first and last pulses, \(\sigma \propto 1/(M-1)\), variance 1.8× the CRLB at \(M\) = 8. Loupas adds the fast-time lag to estimate the local \(\bar{f}\) and remove downshift bias.</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>Why do false peaks appear at multiples of the RF period, and how do you suppress them? <span class="muted">· onsite</span></span></summary><div class="a"><p>The expected RF correlation is the inverse transform of the power spectrum: an envelope of width ~\(1/B\) times \(\cos(2\pi f_0\tau)\). Each cosine maximum near \(\tau = m/f_0\) is a local peak with height equal to the envelope there; for a Gaussian pulse, \(\exp(-\pi^2 B^2/(8\ln 2))\) at \(m = 1\): 0.53 at 60 % bandwidth, 0.93 at 20 %. Noise, decorrelation and the finite kernel can push one above the main peak, giving errors of exactly one period (200 ns, 154 µm at 5 MHz). Suppression: wider bandwidth; longer kernels (at least ~5 periods); a coarse search on envelope or \(\lvert\mathrm{IQ}\rvert\) correlation, then RF or phase refinement; small search ranges guided by neighbours or a previous frame; spatial regularization or median filtering of the displacement field; rejecting low-NCC kernels. <em>Follow-up:</em> why do hops persist at high SNR with a 2.5-period kernel? A short window of speckle is nearly a sinusoid, so the window one period away matches it almost as well; the finite-kernel fluctuation, not the noise, decides.</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>State the Walker–Trahey bound and give its scalings. What jitter do you expect at 5 MHz, 60 % bandwidth, 2 µs kernel, 30 dB? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(\sigma_D \ge \sqrt{\frac{3}{2\pi^2 f_0^3 T(B^3+12B)}\bigl[\frac{(1+1/\mathrm{SNR}^2)^2}{\rho^2} - 1\bigr]}\) <span class="eqref">(11.13)</span>, the Carter coherence CRLB for a rectangular band with flat coherence \(\rho\cdot\mathrm{SNR}_p/(1+\mathrm{SNR}_p)\). Scalings: \(f_0^{-3/2}\), \(T^{-1/2}\), \(\approx B^{-1/2}\) for \(B &lt; 1\), and a decorrelation floor \(\propto \sqrt{1/\rho^2 - 1}\). Numbers: prefactor \(8.2\times10^{-17}\) s², bracket 0.002 → 0.41 ns (0.31 µm); with \(\rho\) = 0.99, 1.35 ns. <em>Follow-up:</em> your simulation reaches 0.3 ns at 40 dB but the bound says 0.13 ns. Why? Interpolator bias and window-edge decorrelation (\(W - \lvert D\rvert\) overlap) set a floor; the bound assumes an unbiased estimator and an infinite stationary record.</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>How do the CRLB and the Ziv–Zakai bound relate, and what is the threshold? <span class="muted">· research</span></span></summary><div class="a"><p>The CRLB is local: it uses the Fisher information, the curvature of the log-likelihood at the true delay, so it only describes small errors around the right peak. The Ziv–Zakai bound converts estimation into binary detection: for a delay with a uniform prior of width \(A\), \(\mathrm{MSE} \ge \frac{1}{A}\int_0^A h\,(A - h)\,P_{\min}(h)\,dh\), where \(P_{\min}(h)\) is the minimum error probability of deciding between delays \(D\) and \(D + h\) (a valley-filling refinement tightens it). At high SNR only small \(h\) contribute and it converges to the CRLB. At low SNR \(P_{\min}(h)\) stays near ½ even for large \(h\), notably near \(h = m/f_0\) where the correlation side peaks are high, and the bound rises toward the prior variance \(A^2/12\) (a standard deviation of 346 ns for ±24 lags at 40 MHz). The SNR where the side-peak terms switch on is the threshold. <em>Follow-up:</em> how would you design around it? Increase \(T\cdot B\) or SNR until the side-peak error probability is negligible, shrink \(A\) with prior information (tracking, coarse-to-fine), and report outlier rates separately.</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>How do you choose the kernel length for quasi-static elastography or speckle tracking? <span class="muted">· onsite</span></span></summary><div class="a"><p>Three constraints. (1) Jitter: \(\sigma \propto T^{-1/2}\) through the bound. (2) Decorrelation: under strain \(\varepsilon\) the window ends drift by \(\varepsilon T/2\), and \(1 - \rho^2\) grows as \((\varepsilon T f_0)^2\); the optimum is where the noise and decorrelation terms balance, about \(\varepsilon T f_0 \approx 0.075\) at 20 dB (\(T \approx\) 1.5 µs at 1 %, 5 MHz, \(\sigma \approx\) 2.1 ns; Monte Carlo 2.5 ns). (3) Resolution and false peaks: axial resolution ≈ \(cT/2\) (1.16 mm for 1.5 µs), and kernels below ~5 periods hop. In practice: 5–15 periods with 50–80 % overlap, companding or multi-step (coarse-to-fine) tracking for strains above 2–3 %, and a final displacement-gradient estimator over several points. <em>Follow-up:</em> what is the strain filter? Varghese &amp; Ophir's curve of elastographic SNR versus applied strain: bounded at low strain by jitter and at high strain by decorrelation.</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>How would you estimate a near-field phase screen from channel data, and what limits it? <span class="muted">· research</span></span></summary><div class="a"><p>Model a thin delay screen \(\tau_i\) at the aperture. Cross-correlate each element with its neighbour (Flax &amp; O'Donnell) on speckle or a point target, integrate the \(\Delta\hat{\tau}\), apply the correction, re-transmit and iterate, since a better transmit focus raises the inter-element coherence. Limits: (1) \(\rho\) between neighbours is set by van Cittert–Zernike (\(1 - 1/N\) at focus for a uniform \(N\)-element transmit), so jitter has a decorrelation floor; (2) integration is a random walk, \(\sqrt{n}\,\sigma_\Delta\) (\(\sqrt{63} \times 2\) ns ≈ 16 ns at element 64 for \(\sigma_\Delta\) = 2 ns), and one false peak adds a \(1/f_0\) step to every later element; (3) mean and linear terms are unobservable from diffuse speckle; (4) the thin-screen, single-isoplanatic-patch assumption fails for distributed aberrators, where the correction is only valid near the region used. Better: correlate against a beamsum reference, multi-lag least squares with NCC weights, or estimate from the full set of pairs (distortion or reflection matrix methods). <em>Follow-up:</em> why does multi-lag LS sometimes not help? If pair errors are dominated by Markov-like speckle decorrelation, a lag-\(l\) pair is as noisy as \(l\) adjacent pairs and carries little new information; longer lags also hop more.</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>A displacement map shows a faint sawtooth texture with a period of one axial sample. What is it, and how do you remove it? <span class="muted">· screen</span></span></summary><div class="a"><p>Pixel (peak) locking: the subsample interpolator is biased toward integer lags, with zero bias at 0 and ½ sample and extremes in between, so a smoothly varying true displacement acquires a periodic error of one-sample period. At \(f_s/f_0\) = 8 the parabolic amplitude is ~0.012 sample (0.23 µm); after differentiation it becomes a strain artefact. Fixes: cosine fit or band-limited upsampling of the correlation, phase-zero estimation on IQ with the local \(\bar{f}\) (Loupas), or a higher sampling rate. Averaging does not help because the error is deterministic in \(d\). <em>Follow-up:</em> can you calibrate and subtract the bias curve? Only approximately: each kernel's interpolation error varies with its own local spectrum (±0.011 sample in m11_ncc_subsample_bias.m), comparable to the mean bias.</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>Your ARFI phase tracker underestimates displacement by about 15 % at 4 cm depth in liver, but not near the surface. Why? <span class="muted">· onsite</span></span></summary><div class="a"><p>Frequency-dependent attenuation shifts the received centre frequency down with depth (\(f_c = f_0 - 2\alpha_0\sigma_f^2 z\) for a Gaussian spectrum: 0.75 MHz at 4 cm for 0.5 dB/cm/MHz, 5 MHz, 60 %). The phase measures \(2\pi f_c D\), and dividing by the nominal \(f_0\) gives \(\hat{D} = D\cdot f_c/f_0 = 0.85\,D\). Fix: Loupas' 2D autocorrelator, which estimates the local mean frequency from the fast-time lag-one correlation, or a depth-dependent \(f_c(z)\) from the spectral centroid. <em>Follow-up:</em> does NCC with parabolic interpolation have the same problem? No scale error, because it measures time directly; its bias depends on \(f_s/f_c\) and is small at 40 MHz.</p></div></details>
+  <details class="quiz"><summary><span class="q">I11</span><span>Why is lateral speckle tracking so much worse than axial, and what would you do about it? <span class="muted">· onsite</span></span></summary><div class="a"><p>Jitter scales as \(1/\sqrt{-R''(0)}\). Axially the RF correlation carries the \(f_0\) carrier, so its curvature is \((2\pi f_{z0})^2 + 1/(2\sigma_z^2)\); laterally there is only the beam envelope, \(1/(2\sigma_x^2)\). For 5 MHz and a 0.6 mm lateral FWHM the predicted ratio is about 15. Lateral sampling is also coarse (line spacing comparable to the beam), and on RF a separable 2D fit through the integer axial row couples axial subsample offsets into the lateral estimate (15.5 µm vs 2.7 µm with axial-first fitting in m11_block_matching_2d.m). Remedies: fit axially first or fit a 2D model with a cross term; denser lateral sampling or interpolated beams; transverse-oscillation beamforming or angle compounding to create a lateral carrier; combine axial estimates from several steering angles. <em>Follow-up:</em> why does the envelope help laterally but hurt axially? It removes the carrier: the axial curvature drops (axial error 3–4× worse) and the coupling disappears.</p></div></details>
+  <details class="quiz"><summary><span class="q">I12</span><span>How would you use time-delay estimation to measure local sound speed? <span class="muted">· research</span></span></summary><div class="a"><p>Beamform the same region from several transmit (or receive) steering angles with an assumed \(c\). A local sound-speed error makes the echo from a given point arrive with angle-dependent delay errors, a line integral of the slowness error along each path. Measure the phase shift between complex images from neighbouring angles with a Kasai-type lag-one product (CUTE, Jaeger et al. 2015), stack these into a linear system relating phase shifts to the slowness map, and solve it with regularization. At 5 MHz, 1 ns of delay is 1.8° of phase, so the \(\pm\lambda/4\) wrap and the phase jitter fix the usable angle step and the averaging region; the Walker–Trahey bound with the inter-angle coherence predicts the noise. <em>Follow-up:</em> what limits it? Decorrelation between angles (larger steps lower \(\rho\)), the ill-conditioning of limited-angle tomography (poor axial resolution of \(c\)), and the \(f_0\) used to convert phase to delay.</p></div></details>
+
+  <!-- ======================= 11.11 ======================= -->
+  <h2><span class="sec">11.11</span>MATLAB lab</h2>
+  <div class="prose"><p class="code-note">Base MATLAB only (no toolboxes); each script runs as-is in MATLAB R2019b+ and GNU Octave 8. Paste into the editor and press Run. Runtimes are Octave timings; MATLAB is usually faster.</p></div>
+  <details class="code">
+    <summary><span class="fname">m11_ncc_subsample_bias.m</span><button class="copy" type="button">Copy</button><span class="what">Bias curves of parabolic, cosine, Gaussian and upsampled-sinc fits on noise-free shifted speckle · change fs, f0, B6 · runtime ≈ 15 s</span></summary>
+    <pre><code data-file="matlab/m11_ncc_subsample_bias.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for.</strong> At 5 MHz, 40 MHz, 60 %: max |bias| 0.0123 sample (0.31 ns) parabolic at \(d\) = 0.30, 0.0017 cosine, 0.0251 Gaussian (opposite sign), 0.0003 upsample ×8, matching Demo 11.2. The bias at \(d\) = 0 and ½ is zero within the Monte Carlo standard error (\(5.5\times10^{-4}\)). The noise-free "std over speckle" column (0.011 sample for the parabola) is the kernel-to-kernel variation of the interpolation error. Set fs = 20e6 to see the parabolic bias grow about 4×.</p></div>
+  <details class="code">
+    <summary><span class="fname">m11_jitter_vs_crlb.m</span><button class="copy" type="button">Copy</button><span class="what">Monte Carlo σ of NCC + parabola and phase estimators vs SNR, against the Carter CRLB and the Walker–Trahey form · change W, B6, rho · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m11_jitter_vs_crlb.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for.</strong> \(\sigma_{\mathrm{par}}/\mathrm{CRLB}\) = 1.21, 1.04, 1.20, 1.27 at 15–30 dB (CRLB 0.405 ns at 30 dB); at 10 dB 2.7 % outliers and 9.6× the bound; at 5 dB 36 % outliers; below 0 dB \(\sigma\) approaches the uniform-search ceiling of 346 ns. Above 35 dB a floor near 0.3 ns appears. The Carter integral and the WT closed form agree within 5 % for this spectrum at \(\rho\) = 1.</p></div>
+  <details class="code">
+    <summary><span class="fname">m11_kernel_strain.m</span><button class="copy" type="button">Copy</button><span class="what">Monte Carlo jitter vs kernel length under 1 % axial strain, against the WT bound with ρ(ε, T) · change epsStrain, snrdB · runtime ≈ 22 s</span></summary>
+    <pre><code data-file="matlab/m11_kernel_strain.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for.</strong> The bound minimum is at \(T\) = 1.48 µs (2.09 ns), as in Demo 11.5. The simulated rms error is lowest at 1–1.5 µs (2.5 ns) and climbs to 3.9 ns at 5 µs. At 0.25–0.75 µs the rms error is 15–54 ns because 0.5–7 % of trials hop, while the robust 1.48 MAD (2.4–3.7 ns) still tracks the bound. Set epsStrain = 0 and the error falls monotonically as \(T^{-1/2}\) (0.80 ns at 5 µs).</p></div>
+  <details class="code">
+    <summary><span class="fname">m11_kasai_doppler.m</span><button class="copy" type="button">Copy</button><span class="what">Kasai estimate vs true velocity with aliasing; velocity σ vs ensemble length against a high-SNR formula and the tone CRLB · change PRF, f0, M · runtime ≈ 1.5 s</span></summary>
+    <pre><code data-file="matlab/m11_kasai_doppler.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for.</strong> \(v_{\mathrm{Nyq}}\) = 0.385 m/s; 0.5 m/s reads as −0.270 m/s. In part 2 the Monte Carlo \(\sigma\) follows \(\mathrm{var}(\Delta\varphi) = 1/(\mathrm{SNR}(M-1)^2)\) \(+\, 1/(2\,\mathrm{SNR}^2 (M-1))\); the variance ratio to the CRLB is 1.01 and 1.03 at \(M\) = 2, 3, then 1.83 at \(M\) = 8 and 14.3 at \(M\) = 64: the telescoping sum discards the middle pulses.</p></div>
+  <details class="code">
+    <summary><span class="fname">m11_phase_screen_estimation.m</span><button class="copy" type="button">Copy</button><span class="what">Adjacent-element NCC delays on a 64-element aperture, cumulative sum vs weighted multi-lag least squares · change rho, snrdB, nLagLS · runtime ≈ 11 s</span></summary>
+    <pre><code data-file="matlab/m11_phase_screen_estimation.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for.</strong> With \(\rho\) = 0.984 (VCZ value for a uniform 64-element transmit) and 20 dB, \(\sigma_\Delta\) = 1.74 ns, near the decorrelation floor of 1.6 ns. The cumulative-sum error reaches 12.2 ns (22°) at element 64, against \(\sqrt{63}\,\sigma_\Delta\) = 13.8 ns; least squares over lags 1–3 gives 11.7 ns. Set rho = 0.95: lag-3 pairs start to hop and LS becomes worse than the cumulative sum. Set rho = 0.9999, snrdB = 10: noise dominates and LS wins clearly.</p></div>
+  <details class="code">
+    <summary><span class="fname">m11_block_matching_2d.m</span><button class="copy" type="button">Copy</button><span class="what">2D block matching on RF speckle: separable, axial-first and 2D quadratic subsample fits, NCC vs SSD · change FWHMx, dx, useEnv · runtime ≈ 6 s</span></summary>
+    <pre><code data-file="matlab/m11_block_matching_2d.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for.</strong> Rms axial / lateral error: separable 0.59 / 15.5 µm, axial-first 0.21 / 2.7 µm, 2D quadratic LSQ 0.19 / 4.8 µm; SSD behaves like NCC. The axial-first lateral/axial ratio (≈ 13) approaches the curvature prediction of 14.9. The errors barely change at 60 dB: they come from the finite kernel and axial–lateral coupling. With useEnv = 1 the axial error grows 3–4×.</p></div>
+
+
+  <!-- ======================= 11.12 ======================= -->
+  <h2><span class="sec">11.12</span>Self-check</h2>
+  <details class="quiz"><summary><span class="q">Q1</span><span>An ARFI tracker reports a peak displacement of 0.4 samples at \(f_s\) = 40 MHz. What is that in ns of two-way delay and in µm of axial displacement (\(c\) = 1540 m/s)?</span></summary><div class="a"><p>0.4 × 25 ns = 10 ns of two-way delay. \(\Delta z = cD/2 = 1540 \times 10\times10^{-9}/2\) = 7.7 µm. Forgetting the factor 1/2 (treating the delay as one-way) doubles the displacement: a common error when porting radar or sonar code.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>Compute the Nyquist velocity for \(f_0\) = 5 MHz and PRF = 5 kHz. What is the maximum displacement between pulses before the Kasai phase wraps?</span></summary><div class="a"><p>\(v_{\mathrm{Nyq}} = c\cdot\mathrm{PRF}/(4f_0)\) \(= 1540 \cdot 5000 / (4 \cdot 5\times10^6)\) = 0.385 m/s. Per pulse this is \(v_{\mathrm{Nyq}}/\mathrm{PRF}\) = 77 µm = \(\lambda/4\) (\(\lambda\) = 308 µm). In two-way delay that is half an RF period, 100 ns: the phase step reaches \(\pi\).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>Why is the bias of every symmetric three-point interpolator exactly zero at \(d\) = 0 and \(d\) = 0.5 samples, and largest in between?</span></summary><div class="a"><p>\(R(k) = R_{ss}((k-d)T_s)\) with \(R_{ss}\) even. At \(d = 0\) the samples are symmetric about \(k = 0\) (\(R_- = R_+\)), so any symmetric fit returns 0. At \(d = 0.5\) the samples are symmetric about \(k = 0.5\) (\(R(0) = R(1)\), \(R(-1) = R(2)\)), so the fit returns 0.5. Mirroring the whole configuration about ½ gives \(\mathrm{bias}(d) = -\mathrm{bias}(1-d)\), so the bias is odd about ½. A smooth odd function with zeros at 0, ½ and 1 has its extremes in between: near 0.3 and 0.7 for the RF parabola at \(f_s/f_0\) = 8. (In expectation: one finite speckle kernel is not exactly symmetric.)</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>For broadband RF speckle at \(f_s/f_0\) = 8, rank parabolic, Gaussian, cosine, upsample ×8 and phase-zero estimators by worst-case bias.</span></summary><div class="a"><p>From Demo 11.2 at 5 MHz, 60 %, 40 MHz: phase-zero (0, if \(f_0\) is exact) &lt; upsample ×8 + parabolic (≈ \(4\times10^{-4}\) sample) &lt; cosine (≈ \(1.4\times10^{-3}\)) &lt; parabolic (≈ 0.012) &lt; Gaussian (≈ 0.025). The Gaussian fit models an envelope peak, not an RF cosine peak, so it is the worst choice on RF and the right one on envelope or \(\lvert\mathrm{IQ}\rvert\) correlation. Céspedes et al. (1995) reached the same ordering for parabolic vs cosine on RF echoes. With an \(f_0\) error the phase estimator loses its advantage (5 % error gives about 0.025 sample).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>Evaluate the Walker–Trahey bound for \(f_0\) = 5 MHz, \(B\) = 0.6, \(T\) = 2 µs, SNR = 30 dB, \(\rho\) = 1, then for \(\rho\) = 0.99. What does doubling \(T\) do in each case?</span></summary><div class="a"><p>\(3/(2 f_0^3 \pi^2 T (B^3+12B))\) = 3/(2 · 1.25·10²⁰ · 9.87 · 2·10⁻⁶ · 7.416) = \(8.2\times10^{-17}\) s². With \(\mathrm{SNR}_p\) = 1000 the bracket is \((1.001)^2 - 1\) = 0.002, so \(\sigma \ge \sqrt{1.64\times10^{-19}}\) = 0.41 ns. With \(\rho\) = 0.99 the bracket is 1.002/0.9801 − 1 = 0.0223, so \(\sigma \ge\) 1.35 ns: decorrelation dominates. Doubling \(T\) divides both by \(\sqrt{2}\) (0.29 ns, 0.96 ns), but only if \(\rho\) does not fall with \(T\), which it does under strain (Section 11.5).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>Monte Carlo at 5 dB SNR gives \(\sigma\) = 100 ns while the CRLB is 8 ns. Is the estimator broken?</span></summary><div class="a"><p>No. This is the threshold region: some trials pick a side peak one or more periods (200 ns at 5 MHz) away, so the error distribution is a mixture and its variance is dominated by those outliers (e.g. a quarter of trials hopping one period: \(0.25 \times 200^2 \approx (100\ \mathrm{ns})^2\); m11_jitter_vs_crlb.m sees 36 % outliers, some multi-period, and 202 ns at 5 dB). The CRLB only describes local errors. Lengthen the kernel, widen the bandwidth, shrink the search range, use envelope correlation for the coarse search, or reject low-NCC kernels.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>Adjacent-element delay estimates have \(\sigma_\Delta\) = 3 ns. After integrating across 64 elements, what is the expected error at the far end, and how would you reduce it?</span></summary><div class="a"><p>A random walk: \(\sigma_{64} \approx \sqrt{63} \times 3 \approx\) 24 ns, about 43° of phase at 5 MHz, comparable to a moderate aberrator. Remedies: correlate each element against a beamsum (or a running corrected sum) reference so errors do not accumulate; solve a least-squares problem using lags 1, 2, 3 (overdetermined, which damps the drift); weight each \(\Delta\tau\) by its NCC; iterate the correction, since a better focus raises \(\rho\).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q8</span><span>Why does FFT-based correlation of two 256-sample records without zero padding give wrong delays for large shifts?</span></summary><div class="a"><p>The inverse DFT of \(X^*Y\) is the circular cross-correlation (Module 04): the lag-\(k\) value includes products of samples that wrapped around from the other end. For large \(k\) most products are wrapped, unrelated content, and the peak can move. Zero-padding to ≥ 511 samples (use 512) makes circular equal linear. Normalizing by \(\sqrt{\text{energy}}\) of the actually overlapping segments gives true NCC.</p></div></details>
+
+  <!-- ======================= 11.13 ======================= -->
+  <h2><span class="sec">11.13</span>Figures from the literature</h2>
+  <div class="prose"><p>Measured or benchmark data to hold this module's models against. Images are not reproduced; open the linked figure. Figure numbers were checked against the linked full text or the publisher's figure list.</p></div>
+  <div class="litfig">
+    <h4>Inter-element coherence versus lag: theory against in vivo tissue</h4>
+    <p class="cite">M. A. Lediju, G. E. Trahey, B. C. Byram, J. J. Dahl, "Short-lag spatial coherence of backscattered echoes: imaging characteristics," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em> 58(7):1377–1388, 2011. <a href="https://doi.org/10.1109/TUFFC.2011.1957">doi:10.1109/TUFFC.2011.1957</a> (author copy: <a href="https://pulselab.jhu.edu/wp-content/uploads/2016/01/Lediju_SLSC.pdf">PULSE Lab</a>). <b>Fig. 1</b>.</p>
+    <p>Fig. 1 plots the correlation of RF echoes between receive elements against their separation (lag) for a point target, for diffuse speckle and for in vivo thyroid tissue. Diffuse scatter gives the van Cittert–Zernike triangle falling from 1 at zero lag to 0 at lag \(N-1\); the thyroid curve falls below it, which the authors attribute to clutter, phase aberration and noise, with the largest coherence losses at short lags. That short-lag value is exactly the adjacent-element \(\rho\) that sets the decorrelation floor of <span class="eqref">(11.13)</span> in phase-screen estimation: the theoretical \(1 - 1/N\) is a best case that real tissue does not reach.</p>
+  </div>
+  <div class="litfig">
+    <h4>Subpixel localization errors of seven ULM algorithms, benchmarked</h4>
+    <p class="cite">B. Heiles, A. Chavignon, V. Hingot et al., "Performance benchmarking of microbubble-localization algorithms for ultrasound localization microscopy," <em>Nature Biomedical Engineering</em> 6:605–616, 2022. <a href="https://doi.org/10.1038/s41551-021-00824-8">doi:10.1038/s41551-021-00824-8</a>. <b>Fig. 4</b> and <b>Fig. 5</b>.</p>
+    <p>Fig. 4 shows the directional localization errors and statistical indices of each algorithm on the "in silico flow" dataset at 30 dB; Fig. 5 studies how a non-uniform PSF in different directions affects localization. Read them as the 2D, single-frame version of Section 11.2: a localizer is a subsample peak estimator on an envelope image, its errors depend on the assumed peak shape (weighted average, interpolation, Gaussian fit), and directional bias toward pixel centres is the localization analogue of pixel locking.</p>
+  </div>
+  <div class="litfig">
+    <h4>Localization and frame-to-frame tracking of bubbles in the rat brain</h4>
+    <p class="cite">C. Errico, J. Pierre, S. Pezet et al., "Ultrafast ultrasound localization microscopy for deep super-resolution vascular imaging," <em>Nature</em> 527:499–502, 2015. <a href="https://doi.org/10.1038/nature16066">doi:10.1038/nature16066</a>. <b>Fig. 1</b> and <b>Fig. 2</b>.</p>
+    <p>Fig. 1 gives the principle of ultrafast ULM (plane-wave acquisition, clutter rejection, localization, tracking); Fig. 2 quantifies spatial resolution and flow in the rat cortex through a thinned skull. The pairing step of Section 11.6(d) is what turns localizations into the velocities of Fig. 2: at kilohertz frame rates bubbles move a small fraction of a wavelength per frame, so the search radius, not the localization precision, decides whether neighbours are mispaired.</p>
+  </div>
+  <div class="litfig">
+    <h4>Phase-shift tracking between transmit angles for sound-speed maps</h4>
+    <p class="cite">P. Stähli, M. Kuriakose, M. Frenz, M. Jaeger, "Forward model for quantitative pulse-echo speed-of-sound imaging," <a href="https://arxiv.org/abs/1902.10639v2">arXiv:1902.10639v2</a> (2019); published as "Improved forward model for quantitative pulse-echo speed-of-sound imaging," <em>Ultrasonics</em> 108, 2020. <b>Fig. 2</b> and <b>Fig. 7</b> (arXiv numbering).</p>
+    <p>The delay estimator here is the phase of the kernel-averaged Hermitian product of complex images from two transmit angles (2 × 2 mm kernel), tracked in 2° steps and accumulated over 10° to stay inside the \(\pm\pi\) wrap; Fig. 2 relates the measured phase shift to the shift of the echo-envelope centroid, and Fig. 7 shows the resulting B-mode and speed-of-sound images of a volunteer's abdominal wall and liver. Every design choice maps onto this module: kernel size against the bound <span class="eqref">(11.13)</span>, angle step against the wrap <span class="eqref">(11.16)</span>, and inter-angle decorrelation as the \(\rho\) that limits the jitter.</p>
+  </div>
+
+  <!-- ======================= 11.14 ======================= -->
+  <h2><span class="sec">11.14</span>Go deeper</h2>
+  <ul class="refs">
+    <li>S. M. Kay, <em>Fundamentals of Statistical Signal Processing, Vol. I: Estimation Theory</em>, Prentice Hall, 1993: Ch. 3 (CRLB), Ch. 7 (MLE). Batch 2's estimation module builds on these.</li>
+    <li>W. F. Walker, G. E. Trahey, "A fundamental limit on delay estimation using partially correlated speckle signals," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em>, 42(2), 301–308, 1995.</li>
+    <li>C. H. Knapp, G. C. Carter, "The generalized correlation method for estimation of time delay," <em>IEEE Trans. Acoust. Speech Signal Process.</em>, 24(4), 320–327, 1976.</li>
+    <li>G. C. Carter, "Coherence and time delay estimation," <em>Proc. IEEE</em>, 75(2), 236–255, 1987.</li>
+    <li>A. J. Weiss, E. Weinstein, "Fundamental limitations in passive time delay estimation, Part I: Narrow-band systems," <em>IEEE Trans. Acoust. Speech Signal Process.</em>, 31(2), 472–486, 1983 (Ziv–Zakai / Barankin and the threshold).</li>
+    <li>J. Ziv, M. Zakai, "Some lower bounds on signal parameter estimation," <em>IEEE Trans. Inf. Theory</em>, 15(3), 386–391, 1969.</li>
+    <li>I. Céspedes, Y. Huang, J. Ophir, S. Spratt, "Methods for estimation of subsample time delays of digitized echo signals," <em>Ultrasonic Imaging</em>, 17(2), 142–171, 1995.</li>
+    <li>F. Viola, W. F. Walker, "A comparison of the performance of time-delay estimators in medical ultrasound," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em>, 50(4), 392–401, 2003.</li>
+    <li>G. F. Pinton, J. J. Dahl, G. E. Trahey, "Rapid tracking of small displacements with ultrasound," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em>, 53(6), 1103–1117, 2006.</li>
+    <li>C. Kasai, K. Namekawa, A. Koyano, R. Omoto, "Real-time two-dimensional blood flow imaging using an autocorrelation technique," <em>IEEE Trans. Sonics Ultrason.</em>, 32(3), 458–464, 1985.</li>
+    <li>T. Loupas, J. T. Powers, R. W. Gill, "An axial velocity estimator for ultrasound blood flow imaging, based on a full evaluation of the Doppler equation by means of a two-dimensional autocorrelation approach," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em>, 42(4), 672–688, 1995.</li>
+    <li>T. Varghese, J. Ophir, "A theoretical framework for performance characterization of elastography: the strain filter," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em>, 44(1), 164–172, 1997.</li>
+    <li>S. W. Flax, M. O'Donnell, "Phase-aberration correction using signals from point reflectors and diffuse scatterers: basic principles," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em>, 35(6), 758–767, 1988.</li>
+    <li>M. Jaeger, G. Held, S. Peeters, S. Preisser, M. Grünig, M. Frenz, "Computed ultrasound tomography in echo mode for imaging speed of sound using pulse-echo sonography: proof of principle," <em>Ultrasound Med. Biol.</em>, 41(1), 235–250, 2015.</li>
+    <li>C. Errico et al., "Ultrafast ultrasound localization microscopy for deep super-resolution vascular imaging," <em>Nature</em>, 527, 499–502, 2015.</li>
+  </ul>
+  <div class="next"><a href="#m10">← 10 Matched filtering</a><a href="#m12">12 Estimation &amp; CRLB →</a></div>
+</section>
+
+<style>
+#m11 .m11-twocol { display: grid; grid-template-columns: 1fr; gap: 6px; }
+#m11 .readout table { background: transparent; font: inherit; width: auto; }
+#m11 .readout td { padding: 1px 8px 1px 0; border: 0; }
+#m11 .demo-head .prov-note { flex-basis: 100%; margin-top: 0; }
+#m11 .eqn-math mjx-container[display="true"] > svg { max-width: 100%; height: auto; }
+#m11 mjx-assistive-mml { font-size: 2px !important; } /* visually hidden MathML for screen readers: keep its layout box inside the column */
+#m11 .m11-fig { margin: 16px 0; }
+#m11 .m11-fig figcaption { margin-bottom: 6px; }
+#m11 .m11-fig figcaption .prov { margin-left: 0; }
+#m11 .m11-dia { display: block; width: 100%; min-width: 600px; height: auto; }
+#m11 .m11-dia text { font: 12px var(--f-mono); fill: var(--ink); }
+#m11 .m11-dia text.t { font: 600 13px var(--f-display); }
+#m11 .m11-dia text.m { fill: var(--muted); font-size: 11px; }
+#m11 .m11-dia .w { fill: none; stroke: var(--ink); stroke-width: 1.3; }
+#m11 .m11-dia .box { fill: var(--panel); stroke: var(--rule); stroke-width: 1.2; }
+#m11 .m11-dia .el { fill: var(--accent); fill-opacity: 0.55; stroke: var(--accent); }
+#m11 .m11-dia .wf { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 3; }
+#m11 .m11-dia .dist { fill: none; stroke: var(--sig2); stroke-width: 1.8; }
+#m11 .m11-dia .tr { fill: none; stroke: var(--sig3); stroke-width: 2; }
+#m11 .m11-dia .es { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 5 3; }
+#m11 .litfig .cite { display: block; margin-top: 4px; }
+#m11 .rule-fig .prov-note { margin-bottom: 4px; }
+</style>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const TAU = 2 * Math.PI;
+  /* Gaussian pulse: B = -6 dB fractional bandwidth of the (amplitude) pulse spectrum */
+  function sigT(f0, B) { return Math.sqrt(2 * Math.LN2) / (Math.PI * B * f0); }
+  function Hamp(f, f0, B) { const s = sigT(f0, B); return Math.exp(-2 * Math.PI * Math.PI * s * s * (f - f0) * (f - f0)); }
+  /* Generate analytic records x and y (length N, power of 2) in the frequency domain.
+     x = s + n1 ; y = [rho*s + sqrt(1-rho^2)*u](t - d) + n2.  Real-part signal power = 1.
+     Noise is white; snr = signal power / noise power inside the -6 dB band f0(1 +- B/2). d in samples. */
+  function makePair(r, N, fs, f0, B, d, snr, rho, buf) {
+    const key = [N, fs, f0, B].join();
+    if (buf.key !== key) {
+      buf.H = new Float64Array(N / 2); let e = 0;
+      for (let k = 1; k < N / 2; k++) { buf.H[k] = Hamp(k * fs / N, f0, B); e += buf.H[k] * buf.H[k]; }
+      buf.cs = N / Math.sqrt(2 * e); buf.Mb = Math.max(1, B * f0 * N / fs); buf.key = key;
+      buf.xr = new Float64Array(N); buf.xi = new Float64Array(N); buf.yr = new Float64Array(N); buf.yi = new Float64Array(N);
+    }
+    const Hk = buf.H, cs = buf.cs, xr = buf.xr, xi = buf.xi, yr = buf.yr, yi = buf.yi;
+    const cn = snr === Infinity ? 0 : N / Math.sqrt(2 * buf.Mb * snr);
+    xr.fill(0); xi.fill(0); yr.fill(0); yi.fill(0);
+    const a = rho, b = Math.sqrt(Math.max(0, 1 - rho * rho)), s2 = Math.SQRT1_2, hn = cn * s2;
+    for (let k = 1; k < N / 2; k++) {
+      const h = cs * Hk[k] * s2;
+      const sr = r.g() * h, si = r.g() * h;
+      let pr = 0, pi = 0; if (b > 0) { pr = r.g() * h; pi = r.g() * h; }
+      const ph = -TAU * k * d / N, c = Math.cos(ph), sn = Math.sin(ph);
+      const ur = a * sr + b * pr, ui = a * si + b * pi;
+      let n1r = 0, n1i = 0, n2r = 0, n2i = 0; if (cn) { n1r = r.g() * hn; n1i = r.g() * hn; n2r = r.g() * hn; n2i = r.g() * hn; }
+      xr[k] = 2 * (sr + n1r); xi[k] = 2 * (si + n1i);
+      yr[k] = 2 * (ur * c - ui * sn + n2r); yi[k] = 2 * (ur * sn + ui * c + n2i);
+    }
+    Lab.fft(xr, xi, true); Lab.fft(yr, yi, true);
+    return buf;
+  }
+  /* NCC of fixed x window [n0, n0+W) against y shifted by k, lags -K..K */
+  function ncc(x, y, n0, W, K, out) {
+    let ex = 0; for (let n = n0; n < n0 + W; n++) ex += x[n] * x[n];
+    let ey = 0; for (let n = n0 - K; n < n0 - K + W; n++) ey += y[n] * y[n];
+    for (let k = -K; k <= K; k++) {
+      if (k > -K) { const o = n0 + k - 1, i = n0 + k + W - 1; ey += y[i] * y[i] - y[o] * y[o]; }
+      let s = 0; for (let n = 0; n < W; n++) s += x[n0 + n] * y[n0 + n + k];
+      out[k + K] = s / Math.sqrt(ex * Math.max(ey, 1e-30));
+    }
+    return out;
+  }
+  function argmax(R) { let m = 0; for (let i = 1; i < R.length; i++) if (R[i] > R[m]) m = i; return m; }
+  /* three-point subsample fits; return fractional offset in (-1, 1) samples relative to the integer peak */
+  function fitPar(Rm, R0, Rp) { const den = Rm - 2 * R0 + Rp; return den >= 0 ? 0 : 0.5 * (Rm - Rp) / den; }
+  function fitCos(Rm, R0, Rp) { let c = (Rm + Rp) / (2 * R0); if (!(c < 1) || !(c > -1)) return fitPar(Rm, R0, Rp); const w = Math.acos(c); if (w < 1e-6) return fitPar(Rm, R0, Rp); return Math.atan((Rp - Rm) / (2 * R0 * Math.sin(w))) / w; }
+  function fitGau(Rm, R0, Rp) { if (Rm <= 0 || Rp <= 0 || R0 <= 0) return fitPar(Rm, R0, Rp); const a = Math.log(Rm), b = Math.log(R0), c = Math.log(Rp); const den = a - 2 * b + c; return den >= 0 ? 0 : 0.5 * (a - c) / den; }
+  /* band-limited interpolation of the sampled correlation near the peak: evaluate at im + j/U (|j| <= U) with a Hann-tapered sinc, pick the max */
+  function fitUps(R, im, U) {
+    const L = Math.min(12, Math.floor((R.length - 1) / 2));
+    const val = t => { let s = 0; for (let k = Math.max(0, Math.ceil(t - L)); k <= Math.min(R.length - 1, Math.floor(t + L)); k++) { const u = t - k; const sc = Math.abs(u) < 1e-12 ? 1 : Math.sin(Math.PI * u) / (Math.PI * u); s += R[k] * sc * (0.5 + 0.5 * Math.cos(Math.PI * u / (L + 1))); } return s; };
+    const v = []; for (let j = -U - 1; j <= U + 1; j++) v.push(val(im + j / U));
+    let m = 1; for (let j = 2; j < v.length - 1; j++) if (v[j] > v[m]) m = j;
+    return (m - U - 1 + fitPar(v[m - 1], v[m], v[m + 1])) / U;
+  }
+  /* complex correlation C(k) = sum_n y_a[n+k] conj(x_a[n]) over the window */
+  function cplxCorr(xr, xi, yr, yi, n0, W, k) {
+    let cr = 0, ci = 0;
+    for (let n = n0; n < n0 + W; n++) { const ar = yr[n + k], ai = yi[n + k], br = xr[n], bi = xi[n]; cr += ar * br + ai * bi; ci += ai * br - ar * bi; }
+    return [cr, ci];
+  }
+  /* all estimators on one pair, return estimated shift in samples */
+  function estimateAll(P, n0, W, K, R, fs, f0) {
+    ncc(P.xr, P.yr, n0, W, K, R);
+    let im = argmax(R); if (im === 0) im = 1; if (im === R.length - 1) im = R.length - 2;
+    const k0 = im - K, Rm = R[im - 1], R0 = R[im], Rp = R[im + 1];
+    const C = cplxCorr(P.xr, P.xi, P.yr, P.yi, n0, W, k0);
+    const ph = Math.atan2(C[1], C[0]);
+    return { k0, par: k0 + fitPar(Rm, R0, Rp), cos: k0 + fitCos(Rm, R0, Rp), gau: k0 + fitGau(Rm, R0, Rp), pha: k0 - ph * fs / (TAU * f0), peak: R0 };
+  }
+  /* CRLB (seconds) from Carter's coherence form, white-noise floor, Gaussian spectrum: var >= [2T * int (2 pi f)^2 g^2/(1-g^2) df]^-1, g = rho S/(S+N0) */
+  function crlbCarter(fs, f0, B, T, snr, rho) {
+    const M = 1500, df = fs / 2 / M; const S = new Float64Array(M); let eS = 0;
+    for (let i = 0; i < M; i++) { const f = (i + 0.5) * df; S[i] = Math.pow(Hamp(f, f0, B), 2); eS += S[i] * df; }
+    const N0 = 1 / (snr * B * f0);
+    let J = 0;
+    for (let i = 0; i < M; i++) { const f = (i + 0.5) * df; const s = S[i] / eS; const g = rho * s / (s + N0); const g2 = g * g; if (g2 >= 1 - 1e-15) return 0; J += TAU * TAU * f * f * g2 / (1 - g2) * df; }
+    return 1 / Math.sqrt(2 * T * J);
+  }
+  /* Walker & Trahey (1995) closed form (rectangular band of fractional width B, flat coherence), snrP = power ratio = SNR_amp^2 */
+  function crlbWT(f0, B, T, snrP, rho) {
+    const g = Math.pow(1 + 1 / snrP, 2) / (rho * rho) - 1;
+    return Math.sqrt(3 / (2 * Math.pow(f0, 3) * Math.PI * Math.PI * T * (B * B * B + 12 * B)) * Math.max(g, 0));
+  }
+  /* expected RF autocorrelation of speckle for the Gaussian pulse (PSD ~ |H|^2) */
+  function acfRF(tau, f0, B) { const s = sigT(f0, B); return Math.exp(-tau * tau / (4 * s * s)) * Math.cos(TAU * f0 * tau); }
+  /* deterministic bias curves from the expected NCC sampled at lags k - d. f0err: fractional error of the f0 assumed by the phase estimator */
+  function biasCurve(fs, f0, B, steps, f0err) {
+    const K = 16, Ts = 1 / fs, est = { par: [], cos: [], gau: [], ups: [], pha: [] }, ds = []; let hops = 0, gauNA = 0;
+    const R = new Float64Array(2 * K + 1), fa = f0 * (1 + (f0err || 0));
+    for (let s = 0; s < steps; s++) {
+      const d = s / (steps - 1); ds.push(d);
+      for (let k = -K; k <= K; k++) R[k + K] = acfRF((k - d) * Ts, f0, B);
+      const im = argmax(R), k0 = im - K, Rm = R[im - 1], R0 = R[im], Rp = R[im + 1];
+      est.par.push(k0 + fitPar(Rm, R0, Rp) - d);
+      est.cos.push(k0 + fitCos(Rm, R0, Rp) - d);
+      if (Math.abs(k0 - d) > 1) hops++;
+      if (Rm > 0 && R0 > 0 && Rp > 0) est.gau.push(k0 + fitGau(Rm, R0, Rp) - d); else { est.gau.push(NaN); gauNA++; }
+      est.ups.push(k0 + fitUps(R, im, 8) - d);
+      est.pha.push(k0 - TAU * f0 * (k0 - d) * Ts / (TAU * fa * Ts) - d);
+    }
+    return { d: ds, est, hops, gauNA };
+  }
+  const C = 1540, FS = 40e6;
+  const fmt = Lab.fmt;
+  const db2p = x => Math.pow(10, x / 10);
+  /* log-y axes helper: yr given in log10 units */
+  function logAxes(ctx, box, xr, lyr, opts) {
+    const yt = []; for (let k = Math.ceil(lyr[0]); k <= Math.floor(lyr[1]); k++) yt.push(k);
+    return Lab.axes(ctx, box, xr, lyr, Object.assign({ yticks: yt, yfmt: v => fmt(Math.pow(10, v), v < 0 ? -v : 0) }, opts));
+  }
+  const lg = v => Math.log10(Math.max(v, 1e-30));
+  function shadeX(ctx, ax, x0, x1, col, alpha) {
+    ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = col;
+    const a = Math.max(ax.box.x, ax.X(x0)), b = Math.min(ax.box.x + ax.box.w, ax.X(x1));
+    if (b > a) ctx.fillRect(a, ax.box.y, b - a, ax.box.h); ctx.restore();
+  }
+  function vline(ctx, ax, x, col, w, dash) {
+    ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w || 1.5; if (dash) ctx.setLineDash(dash);
+    ctx.beginPath(); ctx.moveTo(ax.X(x), ax.box.y); ctx.lineTo(ax.X(x), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore();
+  }
+  function txt(ctx, s, x, y, col, align, base) {
+    const c = Lab.colors(); ctx.save(); ctx.fillStyle = col || c.muted; ctx.font = '11px ' + c.mono; ctx.textAlign = align || 'left'; ctx.textBaseline = base || 'top'; ctx.fillText(s, x, y); ctx.restore();
+  }
+
+  /* ================= Demo 11.1 ================= */
+  const D1 = { seed: 8, buf: {}, N: 512, n0: 200, W: 80, K: 24 };
+  D1.R = new Float64Array(2 * D1.K + 1);
+  function draw1() {
+    const c = Lab.colors();
+    const f0 = +$('m11-1f0').value * 1e6, B = +$('m11-1bw').value, Dns = +$('m11-1d').value, sdB = +$('m11-1snr').value, rho = +$('m11-1rho').value;
+    $('m11-1f0-o').textContent = fmt(f0 / 1e6) + ' MHz'; $('m11-1bw-o').textContent = Math.round(B * 100) + ' %';
+    $('m11-1d-o').textContent = Dns.toFixed(1) + ' ns'; $('m11-1snr-o').textContent = sdB + ' dB'; $('m11-1rho-o').textContent = rho.toFixed(2);
+    const d = Dns * 1e-9 * FS, snr = db2p(sdB);
+    const r = Lab.rng(1000 + D1.seed);
+    const P = makePair(r, D1.N, FS, f0, B, d, snr, rho, D1.buf);
+    const q = estimateAll(P, D1.n0, D1.W, D1.K, D1.R, FS, f0);
+    const R = D1.R, K = D1.K;
+    // traces
+    { const { ctx, w } = Lab.canvas($('m11-c1a'), 230);
+      const i0 = 150, i1 = 340, ts = [], xs = [], ys = [];
+      let m = 0; for (let n = i0; n < i1; n++) m = Math.max(m, Math.abs(P.xr[n]), Math.abs(P.yr[n]));
+      const off = 1.2 * m;
+      for (let n = i0; n < i1; n++) { ts.push(n / FS * 1e6); xs.push(P.xr[n] + off); ys.push(P.yr[n] - off); }
+      const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 62, h: 230 - 54 }, [i0 / FS * 1e6, i1 / FS * 1e6], [-2.3 * m, 2.3 * m], { xlabel: 'fast time (µs)', ylabel: 'RF (a.u.)', noYLabels: true });
+      shadeX(ctx, ax, D1.n0 / FS * 1e6, (D1.n0 + D1.W) / FS * 1e6, c.accent, 0.08);
+      Lab.line(ctx, ax, ts, xs, c.accent, 1.3); Lab.line(ctx, ax, ts, ys, c.sig2, 1.3);
+      txt(ctx, 'x', ax.box.x + 4, ax.Y(off) - 18, c.accent); txt(ctx, 'y', ax.box.x + 4, ax.Y(-off) - 18, c.sig2);
+      txt(ctx, 'kernel W = ' + D1.W + ' samples (2 µs)', ax.X(D1.n0 / FS * 1e6) + 3, ax.box.y + 2, c.muted);
+    }
+    // NCC: full + zoom
+    { const { ctx, w } = Lab.canvas($('m11-c1b'), 330);
+      const Ts = 1e9 / FS, lags = [], vals = []; for (let k = -K; k <= K; k++) { lags.push(k * Ts); vals.push(R[k + K]); }
+      const ax = Lab.axes(ctx, { x: 50, y: 20, w: w - 62, h: 120 }, [-K * Ts, K * Ts], [-1, 1], { xlabel: 'lag (ns)', ylabel: 'NCC', title: 'NCC over the search range ±' + K + ' samples' });
+      Lab.line(ctx, ax, lags, vals, c.accent, 1.2); Lab.dots(ctx, ax, lags, vals, c.accent, 2);
+      vline(ctx, ax, Dns, c.sig3, 1.5, [4, 3]); vline(ctx, ax, q.par * Ts, c.sig2, 1.5);
+      // zoom +-2 samples around integer peak
+      const k0 = q.k0, zl = [], zv = [];
+      for (let k = k0 - 2; k <= k0 + 2; k++) if (k >= -K && k <= K) { zl.push(k * Ts); zv.push(R[k + K]); }
+      const lo = Math.min(...zv), hi = Math.max(...zv, q.peak);
+      const pad = (hi - lo) * 0.12 + 1e-3;
+      const az = Lab.axes(ctx, { x: 50, y: 196, w: w - 62, h: 92 }, [(k0 - 2) * Ts, (k0 + 2) * Ts], [lo - pad, hi + pad], { xlabel: 'lag (ns), zoom around peak', ylabel: 'NCC', title: 'Zoom: integer samples and parabolic fit', ny: 3 });
+      az.clip();
+      // parabola through k0-1,k0,k0+1
+      const Rm = R[k0 - 1 + K], R0 = R[k0 + K], Rp = R[k0 + 1 + K];
+      const a2 = (Rm + Rp - 2 * R0) / 2, a1 = (Rp - Rm) / 2, px = [], py = [];
+      for (let i = 0; i <= 80; i++) { const u = -1.6 + 3.2 * i / 80; px.push((k0 + u) * Ts); py.push(R0 + a1 * u + a2 * u * u); }
+      Lab.line(ctx, az, px, py, c.sig4, 1.6);
+      // band-limited interpolation of NCC for reference
+      const ix = [], iy = []; for (let i = 0; i <= 120; i++) { const t = k0 - 2 + 4 * i / 120; let s = 0; for (let k = -K; k <= K; k++) { const u = t - k; s += R[k + K] * (Math.abs(u) < 1e-9 ? 1 : Math.sin(Math.PI * u) / (Math.PI * u)); } ix.push(t * Ts); iy.push(s); }
+      Lab.line(ctx, az, ix, iy, c.muted, 1, [3, 3]);
+      Lab.dots(ctx, az, zl, zv, c.accent, 3.2);
+      vline(ctx, az, Dns, c.sig3, 1.5, [4, 3]); vline(ctx, az, q.par * Ts, c.sig2, 1.5);
+      az.unclip();
+    }
+    const est = q.par, Tsn = 1e9 / FS, err = (est - d) * Tsn;
+    const snrBB = snr * B * f0 / (FS / 2);
+    const peakExp = rho * snrBB / (1 + snrBB);
+    const hop = Math.abs(err) > 0.5e9 / f0;
+    $('m11-1read').innerHTML =
+      'true D = <b>' + fmt(d, 3) + '</b> smp = ' + fmt(Dns, 2) + ' ns<br>' +
+      'est. (parabolic) = <b>' + fmt(est, 3) + '</b> smp<br>  = <b>' + fmt(est * Tsn, 2) + '</b> ns = <b>' + fmt(est * Tsn * 1e-9 * C / 2 * 1e6, 2) + '</b> µm<br>' +
+      'error = <b>' + fmt(err, 2) + '</b> ns' + (hop ? ' <b style="color:var(--bad)">peak hop</b>' : '') + '<br>' +
+      'cosine / phase = ' + fmt(q.cos * Tsn, 2) + ' / ' + fmt(q.pha * Tsn, 2) + ' ns<br>' +
+      'peak NCC = <b>' + q.peak.toFixed(3) + '</b><br>' +
+      'expected ρ·S/(1+S) = ' + peakExp.toFixed(3) + '<br><span class="muted">S = full-band SNR (' + fmt(10 * Math.log10(snrBB), 1) + ' dB)</span>';
+  }
+  ['m11-1f0', 'm11-1bw', 'm11-1d', 'm11-1snr', 'm11-1rho'].forEach(id => $(id).addEventListener('input', draw1));
+  $('m11-1seed').addEventListener('click', () => { D1.seed++; draw1(); });
+
+  /* ================= Demo 11.2 ================= */
+  let t2 = 0, bc = null;
+  function compute2() {
+    const f0 = +$('m11-2f0').value * 1e6, B = +$('m11-2bw').value, fs = +$('m11-2fs').value * 1e6, fe = +$('m11-2fe').value / 100;
+    bc = biasCurve(fs, f0, B, 41, fe); bc.fs = fs; bc.f0 = f0; return bc;
+  }
+  function draw2() {
+    const c = Lab.colors();
+    const f0 = +$('m11-2f0').value, B = +$('m11-2bw').value, fs = +$('m11-2fs').value, fe = +$('m11-2fe').value;
+    $('m11-2f0-o').textContent = fmt(f0) + ' MHz'; $('m11-2bw-o').textContent = Math.round(B * 100) + ' %'; $('m11-2fe-o').textContent = (fe > 0 ? '+' : '') + fe + ' %';
+    if (!bc) compute2();
+    const showG = $('m11-2gau').checked;
+    const keys = [['par', c.accent, 'parabolic'], ['cos', c.sig2, 'cosine'], ['gau', c.sig3, 'Gaussian'], ['ups', c.sig4, 'upsample ×8'], ['pha', c.fg, 'phase']];
+    let m = 1e-4; keys.forEach(([k]) => { if (k === 'gau' && !showG) return; bc.est[k].forEach(v => { if (isFinite(v)) m = Math.max(m, Math.abs(v)); }); });
+    m *= 1.12;
+    const { ctx, w } = Lab.canvas($('m11-c2'), 320);
+    const Ts = 1e9 / bc.fs;
+    const ax = Lab.axes(ctx, { x: 58, y: 22, w: w - 124, h: 320 - 64 }, [0, 1], [-m, m], { xlabel: 'true fractional shift d (samples)', ylabel: 'bias (samples)', yfmt: v => (+v).toPrecision(2).replace(/\.?0+$/, ''), title: 'bias = estimate − true' });
+    // right axis in ns
+    { const yt = Lab.ticks(-m * Ts, m * Ts, 4); ctx.save(); ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      yt.forEach(v => ctx.fillText((+v).toPrecision(2).replace(/\.?0+$/, ''), ax.box.x + ax.box.w + 6, ax.Y(v / Ts)));
+      ctx.translate(ax.box.x + ax.box.w + 46, ax.box.y + ax.box.h / 2); ctx.rotate(Math.PI / 2); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('bias (ns)', 0, 0); ctx.restore(); }
+    Lab.line(ctx, ax, [0, 1], [0, 0], c.rule, 1);
+    [0.5].forEach(x => vline(ctx, ax, x, c.rule, 1, [3, 3]));
+    /* draw finite runs only; break the curve at NaN (Gaussian fit undefined) and at jumps (phase estimator with f0 error) */
+    const seg = (ys, col, w, dash) => { let xs = [], yy = []; const flush = () => { if (xs.length > 1) Lab.line(ctx, ax, xs, yy, col, w, dash); xs = []; yy = []; };
+      ys.forEach((v, i) => { if (!isFinite(v)) { flush(); return; } if (yy.length && Math.abs(v - yy[yy.length - 1]) > 0.5 * m) flush(); xs.push(bc.d[i]); yy.push(v); }); flush(); };
+    ax.clip();
+    keys.forEach(([k, col]) => { if (k === 'gau' && !showG) return; seg(bc.est[k], col, k === 'pha' ? 1.4 : 1.9, k === 'pha' ? [5, 3] : null); });
+    ax.unclip();
+    let html = '<table><tr><td></td><td>max|bias|</td><td></td></tr>';
+    keys.forEach(([k, col, nm]) => { const fin = bc.est[k].filter(isFinite); const mx = fin.length ? Math.max(...fin.map(Math.abs)) : NaN;
+      html += '<tr><td><span style="color:' + col + '">' + nm + '</span></td>' + (isFinite(mx) ? '<td><b>' + mx.toExponential(1) + '</b> smp</td><td>' + fmt(mx * Ts, 3) + ' ns</td>' : '<td colspan="2">n/a</td>') + '</tr>'; });
+    html += '</table>fs/f<sub>0</sub> = ' + fmt(fs / f0, 2) + ' samples per RF period<br>1 smp = ' + fmt(Ts, 2) + ' ns = ' + fmt(Ts * 1e-9 * C / 2 * 1e6, 2) + ' µm';
+    if (f0 * (1 + B / 2) > fs / 2) html += '<br><b style="color:var(--bad)">band edge f<sub>0</sub>(1+B/2) above fs/2: aliased</b>';
+    if (bc.hops) html += '<br><b style="color:var(--bad)">wrong-lobe integer peak for ' + Math.round(100 * bc.hops / bc.d.length) + ' % of d</b>: bias here is whole periods';
+    if (bc.gauNA) html += '<br><span class="muted">Gaussian fit undefined where a neighbour sample is ≤ 0 (' + Math.round(100 * bc.gauNA / bc.d.length) + ' % of d)</span>';
+    $('m11-2read').innerHTML = html;
+  }
+  function sched2() { $('m11-2f0-o').textContent = fmt(+$('m11-2f0').value) + ' MHz'; clearTimeout(t2); t2 = setTimeout(() => { compute2(); draw2(); }, 30); }
+  ['m11-2f0', 'm11-2bw', 'm11-2fe'].forEach(id => $(id).addEventListener('input', sched2));
+  $('m11-2fs').addEventListener('change', sched2); $('m11-2gau').addEventListener('change', draw2);
+
+  /* ================= Demo 11.3 ================= */
+  const D3 = { seed: 7, res: null, running: false, buf: {}, N: 512, n0: 200, K: 24, f0: 5e6, snrs: [] };
+  for (let s = -10; s <= 40; s += 5) D3.snrs.push(s);
+  D3.R = new Float64Array(2 * D3.K + 1);
+  function p3() { return { T: +$('m11-3T').value * 1e-6, B: +$('m11-3bw').value, rho: +$('m11-3rho').value }; }
+  function key3() { const p = p3(); return [p.T, p.B, p.rho, D3.seed].join(); }
+  function run3() {
+    if (D3.running) return; D3.running = true;
+    const p = p3(), W = Math.round(p.T * FS), key = key3(), r = Lab.rng(5000 + D3.seed), out = { key, sd: { par: [], pha: [] }, mad: { par: [], pha: [] }, out: [] };
+    const thr = 0.5 / D3.f0 * FS;
+    let i = 0;
+    $('m11-3run').disabled = true;
+    function step() {
+      const snr = db2p(D3.snrs[i]), ep = [], eh = []; let no = 0;
+      for (let t = 0; t < 300; t++) {
+        const d = r.u();
+        makePair(r, D3.N, FS, D3.f0, p.B, d, snr, p.rho, D3.buf);
+        const q = estimateAll(D3.buf, D3.n0, W, D3.K, D3.R, FS, D3.f0);
+        ep.push((q.par - d) / FS); eh.push((q.pha - d) / FS); if (Math.abs(q.par - d) > thr) no++;
+      }
+      const sd = a => { let m = 0; a.forEach(v => m += v); m /= a.length; let s = 0; a.forEach(v => s += (v - m) * (v - m)); return Math.sqrt(s / a.length); };
+      out.sd.par.push(sd(ep)); out.sd.pha.push(sd(eh)); out.out.push(no / 300);
+      i++; D3.res = out; D3.partial = i < D3.snrs.length; draw3();
+      if (i < D3.snrs.length) setTimeout(step, 0); else { D3.running = false; $('m11-3run').disabled = false; draw3(); }
+    }
+    setTimeout(step, 0);
+  }
+  function draw3() {
+    const c = Lab.colors(), p = p3();
+    $('m11-3T-o').textContent = fmt(p.T * 1e6) + ' µs (' + fmt(p.T * D3.f0, 1) + ' periods)'; $('m11-3bw-o').textContent = Math.round(p.B * 100) + ' %'; $('m11-3rho-o').textContent = p.rho.toFixed(4).replace(/0$/, '');
+    const fresh = D3.res && D3.res.key === key3();
+    const { ctx, w } = Lab.canvas($('m11-c3a'), 300);
+    const ax = logAxes(ctx, { x: 54, y: 22, w: w - 66, h: 300 - 62 }, [-10, 40], [-2, 3], { xlabel: 'SNR in −6 dB band (dB)', ylabel: 'σ of delay error (ns)', title: 'σ vs SNR, 300 trials per point, f0 = 5 MHz' });
+    const xs = [], cr = [], wt = [];
+    for (let s = -10; s <= 40; s += 0.5) { xs.push(s); cr.push(lg(crlbCarter(FS, D3.f0, p.B, p.T, db2p(s), p.rho) * 1e9)); wt.push(lg(crlbWT(D3.f0, p.B, p.T, db2p(s), p.rho) * 1e9)); }
+    ax.clip();
+    // outlier ceiling: uniform over the search range
+    const uni = D3.K * 2 / FS / Math.sqrt(12) * 1e9;
+    Lab.line(ctx, ax, [-10, 40], [lg(uni), lg(uni)], c.muted, 1, [2, 4]);
+    Lab.line(ctx, ax, xs, cr, c.sig4, 2.2); Lab.line(ctx, ax, xs, wt, c.sig3, 1.4, [6, 4]);
+    if (fresh) {
+      const n = D3.res.sd.par.length, sx = D3.snrs.slice(0, n);
+      Lab.line(ctx, ax, sx, D3.res.sd.par.map(v => lg(v * 1e9)), c.accent, 1.4); Lab.dots(ctx, ax, sx, D3.res.sd.par.map(v => lg(v * 1e9)), c.accent, 3.5);
+      Lab.line(ctx, ax, sx, D3.res.sd.pha.map(v => lg(v * 1e9)), c.sig2, 1.2, [4, 3]); Lab.dots(ctx, ax, sx, D3.res.sd.pha.map(v => lg(v * 1e9)), c.sig2, 2.6);
+    }
+    ax.unclip();
+    txt(ctx, 'uniform over ±' + D3.K + ' lags', ax.box.x + ax.box.w - 4, ax.Y(lg(uni)) - 14, c.muted, 'right');
+    // outlier fraction
+    const g = Lab.canvas($('m11-c3b'), 150);
+    const a2 = Lab.axes(g.ctx, { x: 54, y: 22, w: g.w - 66, h: 150 - 62 }, [-12.5, 42.5], [0, 1], { xlabel: 'SNR (dB)', ylabel: 'outliers', title: g.w > 520 ? 'fraction of trials with |error| > 1/(2f0) = 100 ns (λ/4 displacement)' : 'outliers: |error| > 100 ns', xticks: [-10, 0, 10, 20, 30, 40], yticks: [0, 0.5, 1] });
+    if (fresh) { g.ctx.save(); g.ctx.fillStyle = c.sig2; D3.res.out.forEach((f, i) => { const x = a2.X(D3.snrs[i]), bw = Math.max(4, (a2.X(5) - a2.X(0)) * 0.6); g.ctx.fillRect(x - bw / 2, a2.Y(f), bw, a2.Y(0) - a2.Y(f)); }); g.ctx.restore(); }
+    else txt(g.ctx, D3.running ? 'running…' : 'parameters changed: press Run', a2.box.x + 8, a2.box.y + 8, c.muted);
+    let html = '';
+    if (fresh) {
+      html += '<table><tr><td>SNR</td><td>σ<sub>par</sub>/CRLB</td><td>out</td></tr>';
+      D3.res.sd.par.forEach((s, i) => { const cb = crlbCarter(FS, D3.f0, p.B, p.T, db2p(D3.snrs[i]), p.rho); html += '<tr><td>' + D3.snrs[i] + ' dB</td><td><b>' + (s / cb).toFixed(2) + '</b></td><td>' + Math.round(D3.res.out[i] * 100) + ' %</td></tr>'; });
+      html += '</table>';
+    } else html += D3.running ? 'running…<br>' : 'press <b>Run 300 trials</b><br>';
+    html += 'CRLB @30 dB = <b>' + fmt(crlbCarter(FS, D3.f0, p.B, p.T, 1000, p.rho) * 1e9, 3) + '</b> ns<br>WT form @30 dB = ' + fmt(crlbWT(D3.f0, p.B, p.T, 1000, p.rho) * 1e9, 3) + ' ns';
+    $('m11-3read').innerHTML = html;
+  }
+  ['m11-3T', 'm11-3bw', 'm11-3rho'].forEach(id => $(id).addEventListener('input', draw3));
+  $('m11-3run').addEventListener('click', run3);
+  $('m11-3seed').addEventListener('click', () => { D3.seed++; draw3(); run3(); });
+
+  /* ================= Demo 11.4 ================= */
+  const D4 = { seed: 3, f0: 5e6, G: 8 };
+  function kasai(r, v, prf, M, snr) {
+    const dphi = 4 * Math.PI * D4.f0 * v / (C * prf), sn = 1 / Math.sqrt(snr);
+    let Rr = 0, Ri = 0; const z0 = [];
+    for (let g = 0; g < D4.G; g++) {
+      const a = r.cg(); let pr = 0, pi = 0;
+      for (let m = 0; m < M; m++) {
+        const n = r.cg(), cs = Math.cos(m * dphi), si = Math.sin(m * dphi);
+        const zr = a.re * cs - a.im * si + sn * n.re, zi = a.re * si + a.im * cs + sn * n.im;
+        if (g === 0) z0.push([zr, zi]);
+        if (m > 0) { Rr += zr * pr + zi * pi; Ri += zi * pr - zr * pi; }
+        pr = zr; pi = zi;
+      }
+    }
+    const ang = Math.atan2(Ri, Rr);
+    return { v: C * prf / (4 * Math.PI * D4.f0) * ang, ang, dphi, z0, Rr, Ri };
+  }
+  function draw4() {
+    const c = Lab.colors();
+    const v = +$('m11-4v').value, prf = +$('m11-4prf').value * 1e3, M = +$('m11-4M').value, sdB = +$('m11-4snr').value, snr = db2p(sdB);
+    $('m11-4v-o').textContent = v.toFixed(2) + ' m/s'; $('m11-4prf-o').textContent = fmt(prf / 1e3) + ' kHz'; $('m11-4M-o').textContent = M; $('m11-4snr-o').textContent = sdB + ' dB';
+    const vN = C * prf / (4 * D4.f0);
+    const wrap = x => { const p = 2 * vN; return x - p * Math.round(x / p); };
+    const { ctx, w } = Lab.canvas($('m11-c4a'), 260);
+    const ax = Lab.axes(ctx, { x: 54, y: 22, w: w - 66, h: 260 - 62 }, [-1.5, 1.5], [-1.6, 1.6], { xlabel: 'true axial velocity (m/s)', ylabel: 'estimate (m/s)', title: 'Kasai estimate: 8 gates × M pulses, f0 = 5 MHz' });
+    ax.clip();
+    shadeX(ctx, ax, -vN, vN, c.sig4, 0.07);
+    const tx = [], ty = [];
+    for (let i = 0; i <= 1200; i++) { const x = -1.5 + 3 * i / 1200; const y = wrap(x); if (tx.length && Math.abs(y - ty[ty.length - 1]) > vN) { Lab.line(ctx, ax, tx, ty, c.sig3, 1.6); tx.length = 0; ty.length = 0; } tx.push(x); ty.push(y); }
+    Lab.line(ctx, ax, tx, ty, c.sig3, 1.6);
+    const r = Lab.rng(300 + D4.seed), ex = [], ey = [];
+    for (let i = 0; i <= 120; i++) { const x = -1.5 + 3 * i / 120; ex.push(x); ey.push(kasai(r, x, prf, M, snr).v); }
+    Lab.dots(ctx, ax, ex, ey, c.accent, 2.4);
+    const cur = kasai(Lab.rng(900 + D4.seed), v, prf, M, snr);
+    vline(ctx, ax, v, c.sig2, 1.4, [4, 3]);
+    Lab.dots(ctx, ax, [v], [cur.v], c.sig2, 5);
+    ax.unclip();
+    txt(ctx, '±v_Nyq', ax.X(vN) + 3, ax.box.y + 3, c.sig4);
+    // phasor plot
+    { const cw = $('m11-c4b').clientWidth || 300; const g = Lab.canvas($('m11-c4b'), cw < 420 ? 262 : 230); const s = Math.min(g.w, 400);
+      const L = Math.max(1.5, ...cur.z0.map(z => Math.hypot(z[0], z[1]))) * 1.1;
+      const bx = { x: g.w < 420 ? 40 : (g.w - Math.min(s - 60, 190)) / 2, y: 22, w: Math.min(s - 60, 190), h: Math.min(s - 60, 190) };
+      const a2 = Lab.axes(g.ctx, bx, [-L, L], [-L, L], { title: 'gate 1 slow-time IQ, z[0..M−1]', nx: 3, ny: 3, xfmt: () => '', yfmt: () => '' });
+      const xs = cur.z0.map(z => z[0]), ys = cur.z0.map(z => z[1]);
+      Lab.line(g.ctx, a2, xs, ys, c.muted, 1); Lab.dots(g.ctx, a2, xs, ys, c.accent, 3);
+      Lab.dots(g.ctx, a2, [xs[0]], [ys[0]], c.sig2, 4.5);
+      const ra = Math.hypot(cur.Rr, cur.Ri) || 1, rl = L * 0.8;
+      Lab.arrow(g.ctx, a2.X(0), a2.Y(0), a2.X(rl * cur.Rr / ra), a2.Y(rl * cur.Ri / ra), c.sig4, 2);
+      const side = bx.x + bx.w + 140 <= g.w, tx0 = side ? bx.x + bx.w + 8 : bx.x, ty0 = side ? bx.y + 4 : bx.y + bx.h + 6;
+      txt(g.ctx, '∠R(1) = ' + fmt(cur.ang * 180 / Math.PI, 1) + '°', tx0, ty0, c.sig4);
+      txt(g.ctx, 'true Δφ = ' + fmt(cur.dphi * 180 / Math.PI, 1) + '°', side ? tx0 : tx0 + 110, side ? ty0 + 16 : ty0, c.sig3);
+      txt(g.ctx, '● z[0]', side ? tx0 : tx0, side ? ty0 + 32 : ty0 + 16, c.sig2);
+    }
+    // stats at current v
+    const rr = Lab.rng(77 + D4.seed); let s1 = 0, s2 = 0; const NT = 200;
+    for (let t = 0; t < NT; t++) { const e = kasai(rr, v, prf, M, snr).v; s1 += e; s2 += e * e; }
+    const mu = s1 / NT, sd = Math.sqrt(Math.max(0, s2 / NT - mu * mu));
+    const aliased = Math.abs(v) > vN;
+    $('m11-4read').innerHTML = 'v<sub>Nyq</sub> = c·PRF/(4f<sub>0</sub>) = <b>' + vN.toFixed(3) + '</b> m/s<br>Δφ/pulse = <b>' + fmt(cur.dphi * 180 / Math.PI, 1) + '</b>°<br>displacement/pulse = ' + fmt(v / prf * 1e6, 1) + ' µm (λ/4 = ' + fmt(C / D4.f0 / 4 * 1e6, 1) + ' µm)<br>' +
+      'v̂ (this ensemble) = <b>' + cur.v.toFixed(3) + '</b> m/s<br>mean ± sd (200 ens.) = <b>' + mu.toFixed(3) + ' ± ' + sd.toFixed(3) + '</b><br>' +
+      'expected (wrapped) = ' + wrap(v).toFixed(3) + (aliased ? ' <b style="color:var(--bad)">aliased</b>' : '');
+  }
+  ['m11-4v', 'm11-4prf', 'm11-4M', 'm11-4snr'].forEach(id => $(id).addEventListener('input', draw4));
+  $('m11-4seed').addEventListener('click', () => { D4.seed++; draw4(); });
+
+  /* ================= Demo 11.5 ================= */
+  function rhoStrain(eps, T, f0, B) { const M = 120; let s = 0; for (let i = 0; i < M; i++) { const t = -T / 2 + (i + 0.5) * T / M; s += acfRF(eps * t, f0, B); } return s / M; }
+  function draw5() {
+    const c = Lab.colors();
+    const eps = +$('m11-5eps').value / 100, sdB = +$('m11-5snr').value, f0 = +$('m11-5f0').value * 1e6, B = +$('m11-5bw').value, snr = db2p(sdB);
+    $('m11-5eps-o').textContent = (eps * 100).toFixed(1) + ' %'; $('m11-5snr-o').textContent = sdB + ' dB'; $('m11-5f0-o').textContent = fmt(f0 / 1e6) + ' MHz'; $('m11-5bw-o').textContent = Math.round(B * 100) + ' %';
+    const Ts = [], s0 = [], se = [], rh = []; let best = Infinity, bt = 0, br = 1;
+    for (let i = 1; i <= 240; i++) {
+      const T = i * 0.025e-6; Ts.push(T * 1e6);
+      const r = rhoStrain(eps, T, f0, B); rh.push(Math.max(0, r));
+      s0.push(lg(crlbWT(f0, B, T, snr, 1) * 1e9));
+      const s = r > 0.02 ? crlbWT(f0, B, T, snr, r) * 1e9 : 1e4; se.push(lg(s));
+      if (T >= 2 / f0 && s < best) { best = s; bt = T; br = r; }
+    }
+    const { ctx, w } = Lab.canvas($('m11-c5'), 300);
+    const ax = logAxes(ctx, { x: 54, y: 22, w: w - 104, h: 300 - 62 }, [0, 6], [-2, 3], { xlabel: 'kernel length T (µs)', ylabel: 'σ bound (ns)', title: 'Walker–Trahey bound vs kernel length' });
+    ax.clip();
+    shadeX(ctx, ax, 0, 2 / f0 * 1e6, c.muted, 0.12);
+    Lab.line(ctx, ax, Ts, s0, c.sig3, 1.6, [6, 4]);
+    Lab.line(ctx, ax, Ts, se, c.accent, 2.2);
+    const rY = v => -2 + 5 * v; // map rho in [0,1] to the log range
+    Lab.line(ctx, ax, Ts, rh.map(rY), c.sig4, 1.4);
+    if (bt) { Lab.dots(ctx, ax, [bt * 1e6], [lg(best)], c.sig2, 5); vline(ctx, ax, bt * 1e6, c.sig2, 1, [3, 3]); }
+    ax.unclip();
+    ctx.save(); ctx.fillStyle = c.sig4; ctx.font = '11px ' + c.mono; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    [0, 0.5, 1].forEach(v => ctx.fillText(v.toFixed(1), ax.box.x + ax.box.w + 6, ax.Y(rY(v))));
+    ctx.translate(ax.box.x + ax.box.w + 38, ax.box.y + ax.box.h / 2); ctx.rotate(Math.PI / 2); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ρ(ε,T)', 0, 0); ctx.restore();
+    txt(ctx, 'T < 2/f0', ax.box.x + 3, ax.box.y + ax.box.h - 16, c.muted);
+    const res = bt * C / 2 * 1e3;
+    $('m11-5read').innerHTML = (eps > 0 ? 'optimum T = <b>' + fmt(bt * 1e6, 2) + '</b> µs (' + fmt(bt * f0, 1) + ' periods)<br>σ<sub>min</sub> = <b>' + fmt(best, 3) + '</b> ns = ' + fmt(best * 1e-9 * C / 2 * 1e6, 3) + ' µm<br>ρ at optimum = ' + br.toFixed(4) + '<br>εT·f<sub>0</sub> = ' + fmt(eps * bt * f0, 3) + '<br>axial kernel size cT/2 = ' + fmt(res, 2) + ' mm'
+      : 'ε = 0: σ ∝ T<sup>−1/2</sup>, no optimum<br>σ(T = 2 µs) = <b>' + fmt(crlbWT(f0, B, 2e-6, snr, 1) * 1e9, 3) + '</b> ns');
+  }
+  ['m11-5eps', 'm11-5snr', 'm11-5f0', 'm11-5bw'].forEach(id => $(id).addEventListener('input', draw5));
+
+  /* ================= Demo 11.6 ================= */
+  const D6 = { seed: 2, N: 256, n0: 88, W: 80, K: 12, E: 64, f0: 5e6, B: 0.6 };
+  D6.R = new Float64Array(2 * D6.K + 1);
+  function screen(r, E, rms, L) {
+    const w = []; for (let i = 0; i < E + 40; i++) w.push(r.g());
+    const t = []; const hw = Math.ceil(2.5 * L);
+    for (let i = 0; i < E; i++) { let s = 0; for (let k = -hw; k <= hw; k++) { const j = i + 20 + k; if (j >= 0 && j < w.length) s += w[j] * Math.exp(-k * k / (2 * L * L)); } t.push(s); }
+    let m = 0; t.forEach(v => m += v); m /= E; let q = 0; t.forEach(v => q += (v - m) * (v - m)); q = Math.sqrt(q / E) || 1;
+    return t.map(v => (v - m) / q * rms);
+  }
+  function draw6() {
+    const c = Lab.colors();
+    const sdB = +$('m11-6snr').value, rho = +$('m11-6rho').value, rms = +$('m11-6rms').value * 1e-9, L = +$('m11-6L').value, snr = db2p(sdB);
+    $('m11-6snr-o').textContent = sdB + ' dB'; $('m11-6rho-o').textContent = rho.toFixed(3); $('m11-6rms-o').textContent = Math.round(rms * 1e9) + ' ns'; $('m11-6L-o').textContent = fmt(L) + ' el.';
+    const { N, E, K, n0, W, f0, B } = D6;
+    const r = Lab.rng(4000 + D6.seed), rs = Lab.rng(8000 + D6.seed);
+    const tau = screen(rs, E, rms, L);
+    // spectra
+    const H = new Float64Array(N / 2); let e = 0; for (let k = 1; k < N / 2; k++) { H[k] = Hamp(k * FS / N, f0, B); e += H[k] * H[k]; }
+    const cs = N / Math.sqrt(2 * e), cn = N / Math.sqrt(2 * Math.max(1, B * f0 * N / FS) * snr), b = Math.sqrt(1 - rho * rho);
+    const Ur = new Float64Array(N / 2), Ui = new Float64Array(N / 2);
+    const rec = [];
+    for (let i = 0; i < E; i++) {
+      const re = new Float64Array(N), im = new Float64Array(N); const d = tau[i] * FS;
+      for (let k = 1; k < N / 2; k++) {
+        const h = cs * H[k] * Math.SQRT1_2;
+        if (i === 0) { Ur[k] = r.g(); Ui[k] = r.g(); } else { Ur[k] = rho * Ur[k] + b * r.g(); Ui[k] = rho * Ui[k] + b * r.g(); }
+        const ph = -2 * Math.PI * k * d / N, cc = Math.cos(ph), ss = Math.sin(ph);
+        const sr = h * Ur[k], si = h * Ui[k];
+        re[k] = 2 * (sr * cc - si * ss + r.g() * cn * Math.SQRT1_2); im[k] = 2 * (sr * ss + si * cc + r.g() * cn * Math.SQRT1_2);
+      }
+      Lab.fft(re, im, true); rec.push(re);
+    }
+    const est = [tau[0]], dErr = []; let hops = 0;
+    for (let i = 0; i < E - 1; i++) {
+      ncc(rec[i], rec[i + 1], n0, W, K, D6.R);
+      let im = argmax(D6.R); if (im === 0) im = 1; if (im === 2 * K) im = 2 * K - 1;
+      const dd = (im - K + fitPar(D6.R[im - 1], D6.R[im], D6.R[im + 1])) / FS;
+      est.push(est[i] + dd);
+      const de = dd - (tau[i + 1] - tau[i]); dErr.push(de); if (Math.abs(de) > 0.5 / f0) hops++;
+    }
+    const err = est.map((v, i) => v - tau[i]);
+    const sD = crlbCarter(FS, f0, B, W / FS, snr, rho);
+    let rmsD = 0; dErr.forEach(v => rmsD += v * v); rmsD = Math.sqrt(rmsD / dErr.length);
+    const el = [...Array(E).keys()];
+    { const { ctx, w } = Lab.canvas($('m11-c6a'), 240);
+      const all = tau.concat(est).map(v => v * 1e9); const m = Math.max(20, ...all.map(Math.abs)) * 1.1;
+      const ax = Lab.axes(ctx, { x: 54, y: 22, w: w - 66, h: 240 - 62 }, [0, E - 1], [-m, m], { xlabel: 'element index (pitch 0.3 mm)', ylabel: 'delay (ns)', title: 'phase screen: true vs integrated adjacent NCC estimates' });
+      Lab.line(ctx, ax, el, tau.map(v => v * 1e9), c.sig3, 2.4);
+      Lab.line(ctx, ax, el, est.map(v => v * 1e9), c.accent, 1.5); Lab.dots(ctx, ax, el, est.map(v => v * 1e9), c.accent, 1.8);
+    }
+    { const { ctx, w } = Lab.canvas($('m11-c6b'), 200);
+      const env = el.map(n => Math.sqrt(n) * sD * 1e9);
+      const m = Math.max(3 * env[E - 1], ...err.map(v => Math.abs(v) * 1e9)) * 1.1 || 1;
+      const ax = Lab.axes(ctx, { x: 54, y: 22, w: w - 66, h: 200 - 62 }, [0, E - 1], [-m, m], { xlabel: 'element index', ylabel: 'error (ns)', title: 'accumulated error (random walk)' });
+      [1, 2].forEach(k => { Lab.line(ctx, ax, el, env.map(v => k * v), c.muted, 1, k === 1 ? null : [3, 3]); Lab.line(ctx, ax, el, env.map(v => -k * v), c.muted, 1, k === 1 ? null : [3, 3]); });
+      Lab.line(ctx, ax, el, err.map(v => v * 1e9), c.sig2, 1.8);
+      txt(ctx, 'solid ±1σ, dashed ±2σ', ax.box.x + 4, ax.box.y + 3, c.muted);
+    }
+    $('m11-6read').innerHTML = 'adjacent CRLB σ<sub>Δ</sub> = <b>' + fmt(sD * 1e9, 3) + '</b> ns<br>adjacent rms error = <b>' + fmt(rmsD * 1e9, 3) + '</b> ns<br>error at el. 63 = <b>' + fmt(err[E - 1] * 1e9, 2) + '</b> ns<br>predicted √63·σ<sub>Δ</sub> = ' + fmt(Math.sqrt(63) * sD * 1e9, 2) + ' ns<br>' +
+      'peak hops = <b>' + hops + '</b> of 63<br>screen rms = ' + fmt(rms * 1e9, 1) + ' ns = ' + fmt(rms * f0 * 360, 0) + '° at 5 MHz';
+  }
+  ['m11-6snr', 'm11-6rho', 'm11-6rms', 'm11-6L'].forEach(id => $(id).addEventListener('input', draw6));
+  $('m11-6seed').addEventListener('click', () => { D6.seed++; draw6(); });
+
+  let first = true;
+  Lab.onShow('m11', () => {
+    draw1(); if (!bc) compute2(); draw2(); draw3(); draw4(); draw5(); draw6();
+    if (first) { first = false; setTimeout(run3, 50); }
+  });
+})();
+</script>
+
+<script>
+/* ===== Module 11 visuals: Visual summary grid (m11-vis) and inline grids (m11-vis61, m11-vis66) ===== */
+(function () {
+  const $ = id => document.getElementById(id), PI = Math.PI, TAU = 2 * PI;
+  const M = Lab.mini, { col, size, panel, curve, text } = M;
+  const FS = 40e6, F0 = 5e6;
+  function dots(x, m, pts, colr, r, stem) { x.save(); x.strokeStyle = colr; x.fillStyle = colr; x.lineWidth = 1.2;
+    pts.forEach(([t, v]) => { if (t < m.xr[0] - 1e-9 || t > m.xr[1] + 1e-9) return; const px = m.X(t), py = m.Y(Math.max(m.yr[0], Math.min(m.yr[1], v)));
+      if (stem) { x.beginPath(); x.moveTo(px, m.y0); x.lineTo(px, py); x.stroke(); } x.beginPath(); x.arc(px, py, r || 2.6, 0, 7); x.fill(); }); x.restore(); }
+  function vline(x, m, v, colr, dash) { x.save(); x.strokeStyle = colr; x.lineWidth = 1; if (dash) x.setLineDash(dash); x.beginPath(); x.moveTo(m.X(v) + 0.5, m.b.y); x.lineTo(m.X(v) + 0.5, m.b.y + m.b.h); x.stroke(); x.restore(); }
+  const one = (cv, h) => { const s = size(cv, h || 140); s.B = { x: 4, y: 16, w: s.w - 8, h: s.h - 36 }; return s; };
+  const lg = v => Math.log10(Math.max(v, 1e-12)), wrap = p => p - TAU * Math.round(p / TAU), db2p = v => Math.pow(10, v / 10);
+  /* same models as the demos above: Gaussian pulse, B = -6 dB fractional bandwidth of the amplitude spectrum */
+  const sigT = (f0, B) => Math.sqrt(2 * Math.LN2) / (PI * B * f0);
+  const Hamp = (f, f0, B) => { const s = sigT(f0, B); return Math.exp(-2 * PI * PI * s * s * (f - f0) * (f - f0)); };
+  const acfRF = (tau, f0, B) => { const s = sigT(f0, B); return Math.exp(-tau * tau / (4 * s * s)) * Math.cos(TAU * f0 * tau); };
+  const acfEnv = (tau, f0, B) => { const s = sigT(f0, B); return Math.exp(-tau * tau / (4 * s * s)); };
+  function crlbCarter(fs, f0, B, T, snr, rho) { const Mn = 1500, df = fs / 2 / Mn, S = new Float64Array(Mn); let eS = 0;
+    for (let i = 0; i < Mn; i++) { const f = (i + 0.5) * df; S[i] = Hamp(f, f0, B) ** 2; eS += S[i] * df; }
+    const N0 = 1 / (snr * B * f0); let J = 0;
+    for (let i = 0; i < Mn; i++) { const f = (i + 0.5) * df, s = S[i] / eS, g = rho * s / (s + N0), g2 = g * g; if (g2 >= 1 - 1e-15) return 0; J += TAU * TAU * f * f * g2 / (1 - g2) * df; }
+    return 1 / Math.sqrt(2 * T * J); }
+  function crlbWT(f0, B, T, snrP, rho) { const g = Math.pow(1 + 1 / snrP, 2) / (rho * rho) - 1; return Math.sqrt(3 / (2 * Math.pow(f0, 3) * PI * PI * T * (B * B * B + 12 * B)) * Math.max(g, 0)); }
+  function rhoStrain(eps, T, f0, B) { const n = 120; let s = 0; for (let i = 0; i < n; i++) { const t = -T / 2 + (i + 0.5) * T / n; s += acfRF(eps * t, f0, B); } return s / n; }
+  const fitPar = (a, b, c) => { const d = a - 2 * b + c; return d >= 0 ? 0 : 0.5 * (a - c) / d; };
+  const fitCos = (a, b, c) => { const q = (a + c) / (2 * b); if (!(q < 1) || !(q > -1)) return fitPar(a, b, c); const w = Math.acos(q); return w < 1e-6 ? fitPar(a, b, c) : Math.atan((c - a) / (2 * b * Math.sin(w))) / w; };
+  /* noise-free bias of a 3-point fit applied to the expected RF correlation sampled on a grid of 1/U samples */
+  function bias(d, U, fit) { const Ts = 1 / FS; let best = -1e9, ib = 0; const R = k => acfRF((k / U - d) * Ts, F0, 0.6);
+    for (let k = -2 * U; k <= 2 * U; k++) { const v = R(k); if (v > best) { best = v; ib = k; } } return (ib + fit(R(ib - 1), R(ib), R(ib + 1))) / U - d; }
+  /* side-peak height: local maximum of the RF correlation near one period */
+  function sidePeak(B) { let mx = -1; for (let i = 0; i <= 400; i++) { const t = (0.5 + i / 400) / F0; mx = Math.max(mx, acfRF(t, F0, B)); } return mx; }
+
+  /* ---- small Monte Carlo for the threshold card (same signal and noise model as Demo 11.3, NCC + parabola) ---- */
+  let MC = null;
+  function runMC() { if (MC) return MC; const N = 512, n0 = 200, W = 80, K = 24, B = 0.6, r = Lab.rng(606), snrs = [-5, 0, 5, 10, 15, 20, 25, 30, 35, 40], trials = 200;
+    const H = new Float64Array(N / 2); let e = 0; for (let k = 1; k < N / 2; k++) { H[k] = Hamp(k * FS / N, F0, B); e += H[k] * H[k]; }
+    const cs = N / Math.sqrt(2 * e), Mb = Math.max(1, B * F0 * N / FS), xr = new Float64Array(N), xi = new Float64Array(N), yr = new Float64Array(N), yi = new Float64Array(N), R = new Float64Array(2 * K + 1), s2 = Math.SQRT1_2;
+    const out = snrs.map(sdB => { const snr = db2p(sdB), cn = N / Math.sqrt(2 * Mb * snr), hn = cn * s2; let ss = 0, hops = 0;
+      for (let t = 0; t < trials; t++) { const d = r.u(); xr.fill(0); xi.fill(0); yr.fill(0); yi.fill(0);
+        for (let k = 1; k < N / 2; k++) { const h = cs * H[k] * s2, sr = r.g() * h, si = r.g() * h, ph = -TAU * k * d / N, c = Math.cos(ph), sn = Math.sin(ph);
+          xr[k] = 2 * (sr + r.g() * hn); xi[k] = 2 * (si + r.g() * hn); yr[k] = 2 * (sr * c - si * sn + r.g() * hn); yi[k] = 2 * (sr * sn + si * c + r.g() * hn); }
+        Lab.fft(xr, xi, true); Lab.fft(yr, yi, true);
+        let ex = 0; for (let n = n0; n < n0 + W; n++) ex += xr[n] * xr[n];
+        for (let k = -K; k <= K; k++) { let sxy = 0, ey = 0; for (let n = n0; n < n0 + W; n++) { sxy += xr[n] * yr[n + k]; ey += yr[n + k] * yr[n + k]; } R[k + K] = sxy / Math.sqrt(ex * ey); }
+        let im = 0; for (let i = 1; i < R.length; i++) if (R[i] > R[im]) im = i; im = Math.max(1, Math.min(R.length - 2, im));
+        const est = im - K + fitPar(R[im - 1], R[im], R[im + 1]), err = (est - d) / FS * 1e9; ss += err * err; if (Math.abs(est - d) > 0.5 * FS / F0) hops++; }
+      return { sdB, rms: Math.sqrt(ss / trials), hops: hops / trials }; });
+    MC = out; return out; }
+
+  const VIS = [
+    { prov: 'exact', q: 'What does the RF cross-correlation look like?', scaled: true, a: 'Envelope correlation (dashed) times cos(2πf<sub>0</sub>τ): the peak sits at the true delay D, with <b>side peaks one RF period away (±200 ns at 5 MHz)</b>. At 60 % bandwidth (slider default, blue) they reach 0.54; at 20 % (pink) 0.93, so noise easily promotes one. The slider sets the blue bandwidth.',
+      draw: (cv, T) => { const c = col(), { x, B } = one(cv, 140); const D = 60e-9, Bw = T;
+        const m = panel(x, B, [-460, 580], [-1.05, 1.15], { lab: 'normalized R(τ − D) vs τ (ns), D = 60 ns', yaxis: false, ticks: [[-140, '−140'], [60, 'D'], [260, '260']] });
+        curve(x, m, t => acfRF(t * 1e-9 - D, F0, 0.2), c.b, { w: 1.2 }); curve(x, m, t => acfEnv(t * 1e-9 - D, F0, Bw), c.mu, { w: 1, dash: [3, 3] }); curve(x, m, t => acfRF(t * 1e-9 - D, F0, Bw), c.a, { w: 1.7 });
+        text(x, sidePeak(Bw).toFixed(2), m.X(270) + 6, m.Y(sidePeak(Bw)) + 6, c.a); text(x, '0.93', m.X(260) + 6, m.Y(0.93) - 4, c.b); } },
+
+    { prov: 'exact', q: 'How high is the first false peak?', a: 'For a Gaussian spectrum it is ≈ <b>exp(−2π²σ<sub>p</sub>²/f<sub>0</sub>²)</b>, σ<sub>p</sub> the power-spectrum std. This is what noise must beat to cause a one-period hop: <b>0.93 at 20 %, 0.54 at 60 %, 0.19 at 100 %</b> fractional bandwidth (numerical maxima; the closed form at τ = 1/f<sub>0</sub> gives 0.93, 0.53, 0.17).',
+      scaled: true, draw: (cv, T) => { const c = col(), { x, B } = one(cv, 140);
+        const m = panel(x, B, [0.1, 1.2], [0, 1.05], { lab: 'first side-peak height vs fractional bandwidth (−6 dB)', yaxis: false, ticks: [[0.2, '20 %'], [0.6, '60 %'], [1, '100 %']] });
+        curve(x, m, sidePeak, c.a, { fill: true }); dots(x, m, [0.2, 0.6, 1].map(b => [b, sidePeak(b)]), c.b, 3.4); vline(x, m, T, c.fg, [2, 3]); dots(x, m, [[T, sidePeak(T)]], c.fg, 3.6); } },
+
+    { prov: 'model', q: 'Why does parabolic interpolation lock to integer lags?', a: 'A parabola through three samples of a cosine-like peak is too flat at the top: <b>bias up to 0.012 sample</b> (0.30 ns) at 5 MHz, 40 MHz (blue; expected correlation of Gaussian-spectrum speckle), zero at d = 0, ½, 1 and odd about ½. The cosine fit (pink) matches the carrier: 0.0014 sample.',
+      draw: (cv) => { const c = col(), { x, B } = one(cv, 140);
+        const m = panel(x, B, [0, 1], [-0.015, 0.015], { lab: 'bias (samples) vs true fractional shift d', yaxis: false, hlines: [[0.0118, '+0.012']], ticks: [[0.3, '0.3'], [0.5, '½'], [0.7, '0.7'], [1, '1']] });
+        curve(x, m, d => bias(d, 1, fitPar), c.a, { w: 1.8 }); curve(x, m, d => bias(d, 1, fitCos), c.b, { w: 1.6 }); } },
+
+    { prov: 'model', q: 'How fast does upsampling remove the bias?', a: 'Interpolating the correlation by U (band-limited) before the parabola shrinks the worst-case bias (expected Gaussian-spectrum correlation) as <b>U<sup>−3</sup></b>: 0.012, 0.0014, 0.00018, 0.00002 sample for U = 1, 2, 4, 8 (dots; dashed slope −3). A finite interpolation kernel adds its own floor.',
+      draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const Us = [1, 2, 4, 8], mb = Us.map(U => { let mx = 0; for (let i = 1; i < 100; i++) mx = Math.max(mx, Math.abs(bias(i / 100, U, fitPar))); return mx; });
+        const m = panel(x, B, [-0.2, 3.2], [-5, -1.5], { lab: 'log₁₀ max |bias| (samples) vs U', base: -5, yaxis: false, ticks: Us.map((U, i) => [i, 'U = ' + U]) });
+        curve(x, m, u => lg(mb[0]) - 3 * u * Math.log10(2), c.mu, { w: 1, dash: [4, 3] }); dots(x, m, mb.map((v, i) => [i, lg(v)]), c.a, 3.6);
+        mb.forEach((v, i) => text(x, v.toExponential(1), m.X(i) + 7, m.Y(lg(v)) - 6, c.a)); } },
+
+    { prov: 'sim', q: 'Where does the threshold effect start?', a: 'Monte Carlo (dots: NCC + parabola, 5 MHz, 60 %, T = 2 µs, 200 trials per point) stays within 10–20 % of the <b>CRLB</b> (line) from 15 to 30 dB. At 10 dB 2.5 % of trials hop a period and σ is <b>16× the bound</b>; at 5 dB 37 % hop; below 0 dB σ approaches the uniform-search ceiling of 346 ns (±24 lags). Above 35 dB a ≈ 0.3 ns floor appears (interpolation bias, window edges).',
+      draw: (cv) => { const c = col(), { x, B } = one(cv, 156); const mc = runMC(), ceil = 48 / Math.sqrt(12) / FS * 1e9;
+        const m = panel(x, B, [-7, 42], [-1, 3], { lab: 'log₁₀ σ (ns) vs in-band SNR (dB)', base: -1, yaxis: false, hlines: [[lg(ceil), '346 ns'], [0, '1 ns']], ticks: [[0, '0'], [10, '10'], [20, '20'], [30, '30'], [40, '40']] });
+        curve(x, m, s => lg(crlbCarter(FS, F0, 0.6, 2e-6, db2p(s), 1) * 1e9), c.d, { w: 1.6 });
+        dots(x, m, mc.map(p => [p.sdB, lg(p.rms)]), c.a, 3.3); } },
+
+    { prov: 'exact', q: 'How quickly does lateral motion decorrelate speckle?', a: 'For a Gaussian PSF of amplitude FWHM w, <b>ρ = exp[−2 ln 2 (Δx/w)²]</b>: 0.92 at w/4, 0.71 at w/2, 0.25 at w. At high SNR the jitter floor grows as √(1/ρ² − 1) (dashed, drawn ×½): 1.0 at w/2, so tracking needs Δx well below w/2.',
+      draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const rho = u => Math.exp(-2 * Math.LN2 * u * u);
+        const m = panel(x, B, [0, 1.5], [0, 1.08], { lab: 'ρ vs lateral shift Δx / w', yaxis: false, ticks: [[0.25, 'w/4'], [0.5, 'w/2'], [1, 'w'], [1.5, '1.5w']] });
+        curve(x, m, u => Math.min(1.08, 0.5 * Math.sqrt(1 / (rho(u) ** 2) - 1)), c.b, { w: 1.2, dash: [3, 3] }); curve(x, m, rho, c.a, { w: 1.8 }); dots(x, m, [0.25, 0.5, 1].map(u => [u, rho(u)]), c.a, 3.2); } },
+
+    { prov: 'exact', q: 'When does the Kasai estimator alias?', a: '<b>v<sub>Nyq</sub> = c·PRF/(4f<sub>0</sub>)</b>: 0.385 m/s at PRF 5 kHz (blue), 0.154 m/s at 2 kHz (pink), 5 MHz. Past it the phase step per pulse exceeds π, and ∠R(1) reads a smaller step of the opposite sign.',
+      draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const vn = p => 1540 * p / (4 * F0);
+        const m = panel(x, B, [-1, 1], [-0.45, 0.45], { lab: 'Kasai v̂ vs true v (m/s)', ticks: [[-0.77, '−0.77'], [-0.385, '−.385'], [0.385, '.385'], [0.77, '0.77']] });
+        curve(x, m, v => v, c.mu, { w: 1, dash: [3, 3] });
+        [[5000, c.a], [2000, c.b]].forEach(([p, cc]) => curve(x, m, v => vn(p) * wrap(PI * v / vn(p)) / PI, cc, { w: 1.6 })); } },
+
+    { prov: 'exact', q: 'Why is the phase estimator free of interpolation bias?', a: 'For a spectrum symmetric about f<sub>0</sub>, <b>C(τ) = R<sub>env</sub>(τ) e<sup>j2πf<sub>0</sub>τ</sup></b>: the magnitude is the envelope, the phase is exactly linear (2π per 200 ns at 5 MHz). δ = −∠C(k<sub>0</sub>)/(2πf<sub>0</sub>T<sub>s</sub>) needs no peak-shape model, only the right f<sub>0</sub>.',
+      scaled: true, draw: (cv, T) => { const c = col(), { x, w, h } = size(cv, 140); const bw = (w - 26) / 2 - 4, L = { x: 2, y: 18, w: bw, h: h - 38 }, R = { x: bw + 28, y: 18, w: bw, h: h - 38 };
+        const ml = panel(x, L, [-300, 300], [-1.1, 1.1], { lab: '|C| and Re C (τ in ns)', ticks: [[-200, '−200'], [200, '200']] });
+        curve(x, ml, t => acfEnv(t * 1e-9, F0, T), c.b, { w: 1.2 }); curve(x, ml, t => acfRF(t * 1e-9, F0, T), c.a, { w: 1.5 });
+        const mr = panel(x, R, [-300, 300], [-3.5, 3.5], { lab: '∠C (rad)', hlines: [[PI, 'π'], [-PI, '−π']], ticks: [[-200, '−200'], [200, '200']] });
+        curve(x, mr, t => wrap(TAU * F0 * t * 1e-9), c.a, { w: 1.6 }); } },
+
+    { prov: 'model', q: 'Is there a best kernel length under strain?', a: 'Yes. Noise falls as 1/T, strain decorrelation 1 − ρ² grows as (εTf<sub>0</sub>)², so the bound σ(T) has a minimum: <b>1.5 µs, 2.1 ns at ε = 1 %</b> (blue) and <b>0.5 µs, 3.6 ns at 3 %</b> (pink), 20 dB, 5 MHz, 60 % (Walker–Trahey bound with the window-averaged Gaussian-pulse ρ(ε, T)). Dashed: no strain, σ ∝ T<sup>−1/2</sup>. Shaded: T &lt; 2/f<sub>0</sub>.',
+      draw: (cv) => { const c = col(), { x, B } = one(cv, 150); const snr = 100, B6 = 0.6;
+        const sig = (eps, T) => { const r = eps ? rhoStrain(eps, T * 1e-6, F0, B6) : 1; return r > 0.02 ? crlbWT(F0, B6, T * 1e-6, snr, r) * 1e9 : 1e4; };
+        const m = panel(x, B, [0.05, 4], [-0.5, 2], { lab: 'log₁₀ σ bound (ns) vs kernel T (µs)', base: -0.5, yaxis: false, ticks: [[0.4, '0.4'], [0.5, ''], [1.5, '1.5'], [3, '3'], [4, '4']] });
+        x.save(); x.globalAlpha = 0.14; x.fillStyle = c.mu; x.fillRect(m.X(0.05), m.b.y, m.X(0.4) - m.X(0.05), m.b.h); x.restore();
+        curve(x, m, T => lg(sig(0, T)), c.mu, { w: 1, dash: [4, 3] });
+        [[0.01, c.a], [0.03, c.b]].forEach(([eps, cc]) => { curve(x, m, T => lg(sig(eps, T)), cc, { w: 1.7 }); let bt = 0, bs = 1e9; for (let T = 0.4; T <= 4; T += 0.025) { const s = sig(eps, T); if (s < bs) { bs = s; bt = T; } } dots(x, m, [[bt, lg(bs)]], cc, 3.6); }); } },
+
+    { prov: 'sim', q: 'Why do element-to-element delay errors grow across the aperture?', a: '<b>τ̂<sub>n</sub> = Σ<sub>i&lt;n</sub> Δτ̂<sub>i</sub></b> integrates independent errors: a random walk with σ = σ<sub>Δ</sub>√n (dashed ±1σ). σ<sub>Δ</sub> = 2 ns per pair gives <b>16 ns at element 64</b> (29° at 5 MHz). Six seeded realizations shown; correlating against a beamsum reference avoids the accumulation.',
+      draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const r = Lab.rng(64), cols = [c.a, c.b, c.c, c.d, c.a, c.b];
+        const m = panel(x, B, [0, 64], [-40, 40], { lab: 'accumulated delay error (ns) vs element n', yaxis: false, ticks: [[16, '16'], [32, '32'], [48, '48'], [64, '64']] });
+        curve(x, m, n => 2 * Math.sqrt(n), c.mu, { w: 1, dash: [3, 3] }); curve(x, m, n => -2 * Math.sqrt(n), c.mu, { w: 1, dash: [3, 3] });
+        cols.forEach((cc, j) => { const p = [0]; for (let n = 1; n <= 64; n++) p.push(p[n - 1] + 2 * r.g()); curve(x, m, t => { const i = Math.floor(t), f = t - i; return i >= 64 ? p[64] : p[i] * (1 - f) + p[i + 1] * f; }, cc, { w: j < 4 ? 1.3 : 0.9 }); }); } }
+  ];
+
+  const V61 = [
+    { prov: 'exact', q: 'Why does the biased correlation estimate pull the peak toward zero?', a: '<b>E[R̂<sub>b</sub>(k)] = (1 − |k|/N) R(k)</b>: a triangular taper (dashed). Envelope-like peak of std 6 samples at D = 12, N = 40: the maximum of the tapered curve (blue) moves to <b>k = 10.8</b>. A fixed kernel with a sliding search window avoids the taper.',
+      draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const N = 40, D = 12, s = 6, R = k => Math.exp(-((k - D) ** 2) / (2 * s * s)), Rb = k => (1 - Math.abs(k) / N) * R(k);
+        let bk = 0, bv = -1; for (let k = 0; k <= 30; k += 0.01) if (Rb(k) > bv) { bv = Rb(k); bk = k; }
+        const m = panel(x, B, [-10, 34], [0, 1.1], { lab: 'R(k) (gray), taper, and E[R̂_b(k)] (blue)', ticks: [[0, '0'], [bk, bk.toFixed(1)], [30, '30']] });
+        curve(x, m, k => 1 - Math.abs(k) / N, c.mu, { w: 1, dash: [3, 3] }); curve(x, m, R, c.mu, { w: 1.3 }); curve(x, m, Rb, c.a, { w: 1.8 }); vline(x, m, bk, c.a, [2, 3]); text(x, 'D = 12', m.X(D) + 6, m.Y(1) + 4, c.mu); } },
+    { prov: 'exact', q: 'What NCC peak should I expect at a given SNR?', a: '<b>E[ρ̂<sub>max</sub>] ≈ ρ·SNR/(1 + SNR)</b> (power SNR, equal in both records): 0.50 at 0 dB, 0.91 at 10 dB, 0.99 at 20 dB for ρ = 1 (blue). With ρ = 0.9 (pink) it saturates at 0.9 however high the SNR, so an NCC threshold mixes noise and decorrelation.',
+      draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const q = (s, r) => { const S = db2p(s); return r * S / (1 + S); };
+        const m = panel(x, B, [-10, 40], [0, 1.08], { lab: 'expected peak NCC vs SNR (dB)', yaxis: false, hlines: [[0.9, '0.9']], ticks: [[0, '0'], [10, '10'], [20, '20'], [30, '30'], [40, '40']] });
+        curve(x, m, s => q(s, 1), c.a, { w: 1.8 }); curve(x, m, s => q(s, 0.9), c.b, { w: 1.6 }); dots(x, m, [[0, 0.5], [10, q(10, 1)], [20, q(20, 1)]], c.a, 3.2); } }
+  ];
+  const V66 = [
+    { prov: 'exact', q: 'How much does differentiation amplify displacement jitter?', a: 'Strain from two independent displacement estimates Δz apart: <b>σ<sub>ε</sub> ≈ √2 σ<sub>u</sub>/Δz</b>. σ<sub>u</sub> = 0.3 µm (blue) gives <b>0.042 % at Δz = 1 mm</b>; σ<sub>u</sub> = 1 µm (pink) needs Δz ≈ 3.3 mm for the same strain noise. Resolution and strain SNR trade directly.',
+      draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const se = (su, dz) => Math.SQRT2 * su * 1e-3 / dz * 100;
+        const m = panel(x, B, [0.25, 4], [0, 0.3], { lab: 'strain noise σ_ε (%) vs estimate spacing Δz (mm)', yaxis: false, hlines: [[se(0.3, 1), '0.042 %']], ticks: [[1, '1'], [2, '2'], [3.33, '3.3'], [4, '4']] });
+        curve(x, m, dz => se(0.3, dz), c.a, { w: 1.8 }); curve(x, m, dz => se(1, dz), c.b, { w: 1.6 }); dots(x, m, [[1, se(0.3, 1)], [3.33, se(1, 3.33)]], c.fg, 3); } }
+  ];
+
+  Lab.cardGrid('m11', 'm11-vis', VIS, 'm11-vis-T');
+  function readT() { const Bw = +$('m11-vis-T').value; $('m11-vis-T-o').textContent = Math.round(Bw * 100) + ' %';
+    $('m11-vis-read').innerHTML = 'B = <b>' + Math.round(Bw * 100) + ' %</b>: first side peak <b>' + sidePeak(Bw).toFixed(2) + '</b>, envelope-correlation −6 dB width 4σ<sub>t</sub>√ln 2 = <b>' + (4 * sigT(F0, Bw) * Math.sqrt(Math.LN2) * 1e9).toFixed(0) + '</b> ns'; }
+  $('m11-vis-T').addEventListener('input', readT);
+  Lab.onShow('m11', readT);
+  Lab.cardGrid('m11', 'm11-vis61', V61);
+  Lab.cardGrid('m11', 'm11-vis66', V66);
+})();
+</script>
+
+<script>
+/* ===== Module 11: figures in the expert rule cards (m11-rf-K) ===== */
+(function () {
+  const $ = id => document.getElementById(id), PI = Math.PI, TAU = 2 * PI;
+  const { sinc, tri, db, col, size, panel, curve, stems, text } = Lab.mini;
+  /* layout: frame() wraps the legend row(s) and the label line(s) to the canvas width, then the plot box starts below them */
+  function frame(cv, h, items, lab) { const c = col(), w0 = Math.max(200, cv.clientWidth || 300), mc = document.createElement('canvas').getContext('2d'); mc.font = '10.5px ' + c.mono;
+    const rows = []; let row = [], px = 6; (items || []).forEach(it => { const iw = (it[0] ? 18 : 0) + mc.measureText(it[1]).width; if (row.length && px + iw > w0 - 4) { rows.push(row); row = []; px = 6; } row.push([it, px]); px += iw + 12; }); if (row.length) rows.push(row);
+    const ll = []; if (lab) { let cur = ''; lab.split(' ').forEach(wd => { const s = cur ? cur + ' ' + wd : wd; if (cur && mc.measureText(s).width > w0 - 8) { ll.push(cur); cur = wd; } else cur = s; }); if (cur) ll.push(cur); }
+    const top = 8 + 12 * (rows.length + ll.length), s = size(cv, h + top - 32), x = s.x;
+    x.save(); x.font = '10.5px ' + c.mono; x.textBaseline = 'middle'; x.textAlign = 'left';
+    rows.forEach((r, i) => r.forEach(([it, p]) => { const y = 7 + 12 * i; let q = p; if (it[0]) { x.strokeStyle = it[0]; x.lineWidth = 2; x.setLineDash(it[2] || []); x.beginPath(); x.moveTo(q, y); x.lineTo(q + 14, y); x.stroke(); x.setLineDash([]); q += 18; } x.fillStyle = it[0] ? c.mu : c.fg; x.fillText(it[1], q, y); }));
+    x.fillStyle = c.mu; ll.forEach((t, j) => x.fillText(t, 4, 7 + 12 * (rows.length + j))); x.restore();
+    s.top = top; s.B = { x: 4, y: top, w: s.w - 8, h: s.h - top - 20 }; return s; }
+  const two = (w, h, top, gap) => { gap = gap || 30; const bw = (w - gap) / 2 - 4; return [{ x: 2, y: top + 14, w: bw, h: h - top - 34 }, { x: 2 + bw + gap + 4, y: top + 14, w: bw, h: h - top - 34 }]; };
+  function dots(x, m, pts, colr, r, stem) { x.save(); x.strokeStyle = colr; x.fillStyle = colr; x.lineWidth = 1.2;
+    pts.forEach(([t, v]) => { if (t < m.xr[0] - 1e-9 || t > m.xr[1] + 1e-9) return; const px = m.X(t), py = m.Y(Math.max(m.yr[0], Math.min(m.yr[1], v)));
+      if (stem) { x.beginPath(); x.moveTo(px, m.y0); x.lineTo(px, py); x.stroke(); } x.beginPath(); x.arc(px, py, r || 2.6, 0, 7); x.fill(); }); x.restore(); }
+  function vline(x, m, v, colr, dash) { x.save(); x.strokeStyle = colr; x.lineWidth = 1; if (dash) x.setLineDash(dash); x.beginPath(); x.moveTo(m.X(v) + 0.5, m.b.y); x.lineTo(m.X(v) + 0.5, m.b.y + m.b.h); x.stroke(); x.restore(); }
+  function poly(x, m, pts, colr, o) { o = o || {}; x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.beginPath();
+    pts.forEach(([u, v], i) => i ? x.lineTo(m.X(u), m.Y(v)) : x.moveTo(m.X(u), m.Y(v))); if (o.close) x.closePath();
+    if (o.fill) { x.globalAlpha = o.alpha || 0.2; x.fillStyle = colr; x.fill(); x.globalAlpha = 1; }
+    if (o.w !== 0) { x.strokeStyle = colr; x.lineWidth = o.w || 1.6; if (o.dash) x.setLineDash(o.dash); x.stroke(); } x.restore(); }
+  function shade(x, m, a, b, colr, alpha) { x.save(); x.globalAlpha = alpha || 0.18; x.fillStyle = colr; const xa = m.X(Math.max(a, m.xr[0])), xb = m.X(Math.min(b, m.xr[1])); x.fillRect(xa, m.b.y, xb - xa, m.b.h); x.restore(); }
+  const part = (m, a, b) => Object.assign({}, m, { xr: [a, b], b: { x: m.X(a), y: m.b.y, w: m.X(b) - m.X(a), h: m.b.h } }); /* sub-range for partial fills */
+  /* complex-plane panel with equal axis scaling */
+  function cplane(x, b, r) { const ar = b.w / b.h; return panel(x, b, [-r * ar, r * ar], [-r, r], {}); }
+  function circle(x, m, R, colr, dash) { x.save(); x.strokeStyle = colr; x.lineWidth = 1; if (dash) x.setLineDash(dash); x.beginPath(); x.arc(m.X(0), m.Y(0), m.X(R) - m.X(0), 0, TAU); x.stroke(); x.restore(); }
+  function arrow(x, m, re, im, colr) { const x0 = m.X(0), y0 = m.Y(0), x1 = m.X(re), y1 = m.Y(im), a = Math.atan2(y1 - y0, x1 - x0); x.save(); x.strokeStyle = colr; x.fillStyle = colr; x.lineWidth = 1.8;
+    x.beginPath(); x.moveTo(x0, y0); x.lineTo(x1 - 5 * Math.cos(a), y1 - 5 * Math.sin(a)); x.stroke(); x.beginPath(); x.moveTo(x1, y1); x.lineTo(x1 - 8 * Math.cos(a - 0.4), y1 - 8 * Math.sin(a - 0.4)); x.lineTo(x1 - 8 * Math.cos(a + 0.4), y1 - 8 * Math.sin(a + 0.4)); x.closePath(); x.fill(); x.restore(); }
+  const F0 = 5e6, lg = v => Math.log10(Math.max(v, 1e-12)), db2p = v => Math.pow(10, v / 10);
+  /* same models as the demos above: Gaussian pulse, B = -6 dB fractional bandwidth of the amplitude spectrum */
+  const sigT = (f0, B) => Math.sqrt(2 * Math.LN2) / (PI * B * f0);
+  const acfRF = (tau, f0, B) => { const s = sigT(f0, B); return Math.exp(-tau * tau / (4 * s * s)) * Math.cos(TAU * f0 * tau); };
+  const acfEnv = (tau, f0, B) => { const s = sigT(f0, B); return Math.exp(-tau * tau / (4 * s * s)); };
+  const crlbWT = (f0, B, T, snrP, rho) => { const g = Math.pow(1 + 1 / snrP, 2) / (rho * rho) - 1; return Math.sqrt(3 / (2 * Math.pow(f0, 3) * PI * PI * T * (B * B * B + 12 * B)) * Math.max(g, 0)); };
+  const rhoStrain = (eps, T, f0, B) => { const n = 120; let s = 0; for (let i = 0; i < n; i++) { const t = -T / 2 + (i + 0.5) * T / n; s += acfRF(eps * t, f0, B); } return s / n; };
+  const fitPar = (a, b, c) => { const d = a - 2 * b + c; return d >= 0 ? 0 : 0.5 * (a - c) / d; };
+  const fitCos = (a, b, c) => { const q = (a + c) / (2 * b); if (!(q < 1) || !(q > -1)) return fitPar(a, b, c); const w = Math.acos(q); return w < 1e-6 ? fitPar(a, b, c) : Math.atan((c - a) / (2 * b * Math.sin(w))) / w; };
+  /* noise-free bias (samples) of a 3-point fit on the expected RF correlation (5 MHz, 60 %) sampled at fs = ratio * f0 */
+  const bias = (d, ratio, fit) => { const Ts = 1 / (ratio * F0), R = k => acfRF((k - d) * Ts, F0, 0.6); let best = -1e9, ib = 0;
+    for (let k = -2; k <= 2; k++) { const v = R(k); if (v > best) { best = v; ib = k; } } return ib + fit(R(ib - 1), R(ib), R(ib + 1)) - d; };
+  const F = {};
+  /* 0: ML = correlation peak */
+  let ML = null;
+  F[0] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'Σ y[n]·s[n − D]'], [c.b, 'log-likelihood', [4, 3]], [c.mu, 'true D']], 'normalized vs trial delay D (samples at 40 MHz), white noise');
+    const s = t => Math.exp(-PI * PI * (0.6 * 5 / 40) ** 2 * t * t / (4 * Math.LN2)) * Math.cos(TAU * 5 / 40 * t); /* 5 MHz, 60 % pulse, t in samples */
+    if (!ML) { const r = Lab.rng(6), N = 96, D0 = 7.3, y = []; for (let n = 0; n < N; n++) y.push(s(n - 48 - D0) + 0.25 * r.g());
+      const Ds = [], xc = [], ll = []; for (let D = 0; D <= 15; D += 0.05) { let a = 0, e = 0; for (let n = 0; n < N; n++) { const v = s(n - 48 - D); a += y[n] * v; e += (y[n] - v) ** 2; } Ds.push(D); xc.push(a); ll.push(-e); }
+      const nm = v => { const lo = Math.min(...v), hi = Math.max(...v); return v.map(q => (q - lo) / (hi - lo)); }; ML = { Ds, xc: nm(xc), ll: nm(ll), D0 }; }
+    const m = panel(x, B, [-0.4, 15.4], [0, 1.1], { yaxis: false, ticks: [[0, '0'], [5, '5'], [7.3, '7.3'], [10, '10'], [15, '15']] });
+    vline(x, m, ML.D0, c.mu, [2, 3]); poly(x, m, ML.Ds.map((D, i) => [D, ML.xc[i]]), c.a, { w: 2.6 }); poly(x, m, ML.Ds.map((D, i) => [D, ML.ll[i]]), c.b, { dash: [4, 3], w: 1.4 }); };
+  /* 1: delay to displacement */
+  F[1] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'Δz = cD/2 = 0.77 µm/ns'], [c.c, 'ARFI 1–20 µm']], 'axial displacement (µm) vs delay D (ns); 1 sample at 40 MHz = 25 ns');
+    const m = panel(x, B, [0, 31], [0, 25], { hlines: [[19.25, '19.25 µm']], ticks: [[1.3, '1.3'], [10, '10'], [25, '25']] });
+    x.save(); x.globalAlpha = 0.18; x.fillStyle = c.c; x.fillRect(m.b.x, m.Y(20), m.b.w, m.Y(1) - m.Y(20)); x.restore();
+    curve(x, m, D => 0.77 * D, c.a); dots(x, m, [[25, 19.25], [1.3, 1.0]], c.b, 3.2); };
+  /* 2: subsample bias curves */
+  F[2] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'parabolic'], [c.b, 'cosine fit']], 'bias (samples) vs true shift d, fs/f₀ = 8 (5 MHz, 60 %)');
+    const m = panel(x, B, [0, 1], [-0.016, 0.016], { yaxis: false, hlines: [[0.0118, '+0.012'], [-0.0118, '−0.012']], ticks: [[0, '0'], [0.25, '¼'], [0.5, '½'], [0.75, '¾'], [1, '1']] });
+    curve(x, m, d => bias(d, 8, fitPar), c.a); curve(x, m, d => bias(d, 8, fitCos), c.b); };
+  /* 3: bias vs sampling ratio (log-log) */
+  let BR = null;
+  F[3] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'max parabolic bias'], [null, 'slope −3: (f₀/fs)² samples × Ts']], 'max bias (ns, log) vs fs/f₀ at 5 MHz; upsampling raises fs/f₀');
+    if (!BR) { BR = []; for (let L = 1.6; L <= 5.01; L += 0.05) { const r = Math.pow(2, L); let mx = 0; for (let i = 0; i <= 100; i++) mx = Math.max(mx, Math.abs(bias(i / 100, r, fitPar))); BR.push([L, lg(mx / (r * F0) * 1e9)]); } }
+    const m = panel(x, B, [1.5, 5.15], [-2.3, 1.2], { base: -2.3, yaxis: false, hlines: [[1, '10 ns'], [0, '1 ns'], [-1, '0.1 ns'], [-2, '0.01 ns']], ticks: [[2, '4'], [3, '8'], [4, '16'], [5, '32']] });
+    poly(x, m, BR, c.a, { w: 1.8 }); const pts = [[2, lg(2.6)], [3, lg(0.30)], [4, lg(0.036)]]; dots(x, m, pts, c.b, 3.2);
+    text(x, '2.6', m.X(2) + 6, m.Y(lg(2.6)) - 8, c.b); text(x, '0.30', m.X(3) + 6, m.Y(lg(0.30)) - 8, c.b); text(x, '0.036', m.X(4) + 6, m.Y(lg(0.036)) - 8, c.b); };
+  /* 4: phase estimator wrap */
+  F[4] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'D̂ = −∠C/(2πf₀)'], [c.mu, 'truth', [4, 3]]], 'phase-based delay estimate vs true delay (ns), 5 MHz: ±100 ns = ±77 µm');
+    const m = panel(x, B, [-250, 250], [-115, 115], { yaxis: false, ticks: [[-200, '−200'], [-100, '−100'], [100, '100'], [200, '200']] });
+    curve(x, m, d => d, c.mu, { dash: [4, 3], w: 1 }); const wr = d => d - 200 * Math.round(d / 200);
+    for (let k = -2; k <= 2; k++) { const a = Math.max(-250, -100 + 200 * k), b = Math.min(250, 100 + 200 * k); if (b > a) curve(x, part(m, a + 0.01, b - 0.01), wr, c.a); } };
+  /* 5: Walker-Trahey bound vs SNR */
+  F[5] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'ρ = 1'], [c.b, 'ρ = 0.99']], 'σ_D bound (ns, log) vs SNR (dB), 5 MHz, 60 %, T = 2 µs');
+    const m = panel(x, B, [0, 51], [-1, 1.3], { base: -1, yaxis: false, hlines: [[1, '10 ns'], [0, '']], ticks: [[10, '10'], [20, '20'], [30, '30'], [40, '40'], [50, '50']] }); text(x, '1 ns', m.b.x + 2, m.Y(0) + 7, c.mu);
+    [[1, c.a], [0.99, c.b]].forEach(([r, cc]) => curve(x, m, s => lg(crlbWT(F0, 0.6, 2e-6, db2p(s), r) * 1e9), cc));
+    const a = crlbWT(F0, 0.6, 2e-6, 1000, 1) * 1e9, b = crlbWT(F0, 0.6, 2e-6, 1000, 0.99) * 1e9; dots(x, m, [[30, lg(a)]], c.a, 3.2); dots(x, m, [[30, lg(b)]], c.b, 3.2);
+    text(x, '0.41 ns', m.X(30) + 6, m.Y(lg(a)) + 8, c.a); text(x, '1.35 ns', m.X(30) + 6, m.Y(lg(b)) - 8, c.b); };
+  /* 6: threshold: hop variance swamps the local bound */
+  F[6] = cv => { const c = col(), { x, B } = frame(cv, 150, [[c.a, 'local CRLB (ρ = 1)'], [c.b, 'hop floor √p · 200 ns', [4, 3]]], 'σ (ns, log) vs SNR (dB), 5 MHz, 60 %, 2 µs, ±24 lags');
+    const m = panel(x, B, [-5, 41], [-0.7, 2.95], { base: -0.7, yaxis: false, hlines: [[0, '1 ns']], ticks: [[0, '0'], [10, '10'], [20, '20'], [30, '30'], [40, '40']] });
+    [[0.04, 'p = 4 %'], [0.33, 'p = 33 %']].forEach(([p, t]) => { const v = lg(Math.sqrt(p) * 200); poly(x, m, [[-5, v], [41, v]], c.b, { dash: [4, 3], w: 1.2 }); text(x, t, m.X(40.5), m.Y(v) + 7, c.b, 'right'); });
+    const ce = lg(1200 / Math.sqrt(12)); poly(x, m, [[-5, ce], [41, ce]], c.fg, { dash: [2, 3], w: 1 }); text(x, 'ceiling 346 ns', m.X(40.5), m.Y(ce) - 7, c.fg, 'right');
+    curve(x, m, s => lg(crlbWT(F0, 0.6, 2e-6, db2p(s), 1) * 1e9), c.a); const v10 = crlbWT(F0, 0.6, 2e-6, 10, 1) * 1e9; dots(x, m, [[10, lg(v10)]], c.a, 3.2); text(x, '4.1 ns at 10 dB', m.X(10) + 6, m.Y(lg(v10)) + 9, c.a); };
+  /* 7: false peaks at multiples of the RF period */
+  F[7] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'B = 60 %'], [c.b, 'B = 20 %']], 'expected RF correlation vs τ (RF periods)');
+    const m = panel(x, B, [-2.4, 2.4], [-1, 1.1], { yaxis: false, hlines: [[0.527, '0.53'], [0.931, '0.93']], ticks: [[-2, '−2'], [-1, '−1'], [1, '1'], [2, '2']] });
+    curve(x, m, u => acfRF(u / F0, F0, 0.2), c.b, { w: 1.3 }); curve(x, m, u => acfRF(u / F0, F0, 0.6), c.a); curve(x, m, u => acfEnv(u / F0, F0, 0.6), c.a, { dash: [3, 3], w: 1 }); };
+  /* 8: NCC peak as quality metric */
+  F[8] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, '√(1/ρ̂² − 1)'], [c.c, 'usual thresholds 0.7–0.9']], 'predicted relative jitter vs NCC peak ρ̂');
+    const m = panel(x, B, [0.68, 1.005], [0, 1.1], { yaxis: false, ticks: [[0.7, '0.7'], [0.8, '0.8'], [0.9, '0.9'], [0.94, '.94'], [0.99, '.99']] });
+    shade(x, m, 0.7, 0.9, c.c, 0.15); curve(x, m, r => Math.sqrt(Math.max(0, 1 / (r * r) - 1)), c.a);
+    const j = r => Math.sqrt(1 / (r * r) - 1); dots(x, m, [[0.94, j(0.94)], [0.99, j(0.99)]], c.b, 3.2); text(x, '×0.39', m.X(0.965), m.Y(0.4), c.b, 'center'); };
+  /* 9: decorrelation floor in the bracket */
+  F[9] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'ρ = 1'], [c.b, 'ρ = 0.99'], [c.mu, '2/SNRp', [4, 3]]], 'WT bracket (log) vs SNR (dB)');
+    const m = panel(x, B, [0, 51], [-3.5, 0.5], { base: -3.5, yaxis: false, hlines: [[lg(0.02), '2(1 − ρ) = 0.02'], [-3, '10⁻³']], ticks: [[10, '10'], [20, '20 dB'], [30, '30'], [40, '40'], [50, '50']] });
+    curve(x, m, s => lg(2 / db2p(s)), c.mu, { dash: [4, 3], w: 1 }); curve(x, m, s => lg((1 + 1 / db2p(s)) ** 2 - 1), c.a); curve(x, m, s => lg((1 + 1 / db2p(s)) ** 2 / 0.9801 - 1), c.b); vline(x, m, 20, c.mu, [2, 3]); };
+  /* 10: Kasai slow-time phasors */
+  F[10] = cv => { const c = col(), dp = PI * 0.2 / 0.385, { x, w, h, top } = frame(cv, 160, [[c.a, 'z[m], v = 0.2 m/s, M = 8'], [c.b, 'wrap at Δφ = ±π']], null);
+    const sz = Math.min(h - top - 8, w * 0.45), R = { x: 6, y: top + 2, w: sz, h: sz }, m = cplane(x, R, 1.25); circle(x, m, 1, c.rule);
+    x.save(); x.strokeStyle = c.b; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(m.X(0), m.Y(0)); x.lineTo(m.X(-1.2), m.Y(0)); x.stroke(); x.restore();
+    for (let k = 0; k < 8; k++) { const a = k * dp; dots(x, m, [[Math.cos(a), Math.sin(a)]], c.a, 3); text(x, String(k), m.X(1.18 * Math.cos(a)), m.Y(1.18 * Math.sin(a)), c.fg, 'center'); }
+    arrow(x, m, 1, 0, c.a); arrow(x, m, Math.cos(dp), Math.sin(dp), c.a);
+    const tx = R.x + sz + 12; [['Δφ = 4πf₀v/(c·PRF)', c.fg], ['= 93.5° per pulse', c.a], ['5 MHz, PRF 5 kHz', c.mu], ['v_Nyq = 0.385 m/s', c.b], ['(Δφ = π)', c.b]].forEach(([t, cc], i) => text(x, t, tx, top + 14 + 16 * i, cc)); };
+  /* 11: kernel length optimum under strain */
+  let KO = null;
+  F[11] = cv => { const c = col(), { x, B } = frame(cv, 150, [[c.mu, 'ε = 0', [4, 3]], [c.a, 'ε = 1 %'], [c.b, 'ε = 3 %']], 'σ bound (ns, log) vs kernel length T (µs), 20 dB, 5 MHz, 60 %');
+    if (!KO) { KO = {}; [0, 0.01, 0.03].forEach(e => { const p = []; let best = 1e9, bt = 0; for (let i = 4; i <= 160; i++) { const T = i * 0.025e-6, r = e ? rhoStrain(e, T, F0, 0.6) : 1; if (r <= 0.02) continue; const s = crlbWT(F0, 0.6, T, 100, r) * 1e9; p.push([T * 1e6, lg(s)]); if (T >= 2 / F0 && s < best) { best = s; bt = T * 1e6; } } KO[e] = { p, best, bt }; }); }
+    const m = panel(x, B, [0, 4.1], [-0.2, 1.3], { base: -0.2, yaxis: false, hlines: [[0, '1 ns'], [1, '10 ns']], ticks: [[0.5, '0.5'], [1.5, '1.5'], [3, '3'], [4, '4']] });
+    shade(x, m, 0, 0.4, c.mu, 0.15); poly(x, m, KO[0].p, c.mu, { dash: [4, 3], w: 1.2 }); poly(x, m, KO[0.01].p, c.a); poly(x, m, KO[0.03].p, c.b);
+    dots(x, m, [[KO[0.01].bt, lg(KO[0.01].best)]], c.a, 3.4); dots(x, m, [[KO[0.03].bt, lg(KO[0.03].best)]], c.b, 3.4);
+    text(x, '2.09 ns', m.X(KO[0.01].bt), m.Y(lg(KO[0.01].best)) + 10, c.a, 'center'); text(x, '3.61', m.X(KO[0.03].bt) + 6, m.Y(lg(KO[0.03].best)) - 8, c.b); };
+  /* 12: random walk of accumulated delays */
+  let RW = null;
+  F[12] = cv => { const c = col(), { x, B } = frame(cv, 150, [[c.mu, '±√(n − 1)·σ_Δ', [4, 3]], [c.a, 'three realizations']], 'accumulated delay error (ns) vs element n, σ_Δ = 2 ns');
+    if (!RW) { const r = Lab.rng(64); RW = [0, 1, 2].map(() => { let s = 0; const p = [[1, 0]]; for (let n = 2; n <= 64; n++) { s += 2 * r.g(); p.push([n, s]); } return p; }); }
+    const m = panel(x, B, [0, 66], [-32, 32], { yaxis: false, hlines: [[15.87, '16 ns'], [-15.87, '']], ticks: [[1, '1'], [16, '16'], [32, '32'], [48, '48'], [64, '64']] });
+    curve(x, part(m, 1, 66), n => 2 * Math.sqrt(n - 1), c.mu, { dash: [4, 3], w: 1.2 }); curve(x, part(m, 1, 66), n => -2 * Math.sqrt(n - 1), c.mu, { dash: [4, 3], w: 1.2 });
+    [c.a, c.b, c.c].forEach((cc, i) => poly(x, m, RW[i], cc, { w: 1.3 })); };
+  /* 13: lateral decorrelation */
+  F[13] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'ρ = exp[−2 ln2 (Δx/w)²]']], 'speckle correlation vs lateral shift Δx / FWHM w');
+    const m = panel(x, B, [0, 1.35], [0, 1.08], { yaxis: false, ticks: [[0.25, 'w/4'], [0.5, 'w/2'], [1, 'w']] });
+    const rho = u => Math.exp(-2 * Math.LN2 * u * u); curve(x, m, rho, c.a, { fill: true });
+    [[0.25, '0.92'], [0.5, '0.71'], [1, '0.25']].forEach(([u, t]) => { dots(x, m, [[u, rho(u)]], c.b, 3.2); text(x, t, m.X(u) + 6, m.Y(rho(u)) - 7, c.b); }); };
+  /* 14: axial vs lateral correlation curvature */
+  F[14] = cv => { const c = col(), sz = 1.54 * sigT(5, 0.6) / 2, kz = 2 * 5 / 1.54, { x, B } = frame(cv, 150, [[c.a, 'axial RF'], [c.a, 'axial envelope', [3, 3]], [c.b, 'lateral, w = 0.6 mm']], 'correlation vs shift (mm); √(curvature ratio) 14.9 RF, 2.6 envelope');
+    const m = panel(x, B, [-0.6, 0.6], [-1, 1.1], { yaxis: false, ticks: [[-0.5, '−0.5'], [0, '0'], [0.5, '0.5']] });
+    const ea = d => Math.exp(-d * d / (4 * sz * sz)); curve(x, m, ea, c.a, { dash: [3, 3], w: 1 }); curve(x, m, d => ea(d) * Math.cos(TAU * kz * d), c.a);
+    curve(x, m, d => Math.exp(-2 * Math.LN2 * (d / 0.6) ** 2), c.b, { w: 2 }); };
+  /* 15: strain noise from differentiation */
+  F[15] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'σε = √2·σu/Δz, σu = 0.3 µm']], 'strain noise (%) vs gauge length Δz (mm)');
+    const m = panel(x, B, [0, 4.2], [0, 0.2], { hlines: [[0.0424, '0.042 %'], [0.1, '0.1 %']], ticks: [[0.5, '0.5'], [1, '1'], [2, '2'], [4, '4']] });
+    curve(x, part(m, 0.2, 4.2), dz => Math.SQRT2 * 0.3e-3 / dz * 100, c.a); dots(x, m, [[1, 0.0424]], c.b, 3.4); };
+  function drawAll() { Object.keys(F).forEach(k => { const cv = $('m11-rf-' + k); if (cv) try { F[k](cv); } catch (e) { console.error(e); } }); }
+  Lab.onShow('m11', drawAll);
+})();
+</script>

@@ -1,0 +1,519 @@
+<title>Signal Processing Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: lab notebook — a module rail on the left, one module at a time in a ~70ch reading column, demo panels break wider. */
+:root {
+  --paper: #F3F5F8; --panel: #FFFFFF; --ink: #16202A; --muted: #586674; --rule: #D3DAE2; --grid: #E4E9EE;
+  --accent: #1F5FD1; --sig2: #C2366F; --sig3: #A86E05; --sig4: #0F7A63;
+  --good: #1E7F4F; --bad: #B3261E; --accent-wash: #E6EEFB; --sig2-wash: #F9E7EF;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --step--1: 0.84rem; --step-0: 1.02rem; --step-1: 1.22rem; --step-2: 1.5rem; --step-3: 2.05rem; --step-4: 2.8rem;
+  --radius: 6px; --code-bg: #F7F9FB;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #0E1318; --panel: #151C23; --ink: #DCE3EA; --muted: #8E9BA8; --rule: #28333E; --grid: #1E2730;
+  --accent: #7FA3FF; --sig2: #F07DAE; --sig3: #E3B04B; --sig4: #4CCFAE;
+  --good: #5CC98E; --bad: #FF8A80; --accent-wash: #1A2540; --sig2-wash: #33182A; --code-bg: #10161C; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #0E1318; --panel: #151C23; --ink: #DCE3EA; --muted: #8E9BA8; --rule: #28333E; --grid: #1E2730;
+  --accent: #7FA3FF; --sig2: #F07DAE; --sig3: #E3B04B; --sig4: #4CCFAE;
+  --good: #5CC98E; --bad: #FF8A80; --accent-wash: #1A2540; --sig2-wash: #33182A; --code-bg: #10161C; color-scheme: dark }
+
+html { -webkit-text-size-adjust: 100%; }
+body { background: var(--paper); color: var(--ink); font: 400 var(--step-0)/1.62 var(--f-body); }
+a { color: var(--accent); text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
+.rail { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; height: 100vh; overflow-y: auto;
+  border-right: 1px solid var(--rule); padding: 22px 16px 32px; display: flex; flex-direction: column; gap: 18px; }
+.brand { font: 700 1.05rem/1.15 var(--f-display); font-stretch: 78%; letter-spacing: 0.01em; text-transform: uppercase; color: var(--ink); text-decoration: none; }
+.brand small { display: block; font: 400 var(--step--1)/1.3 var(--f-mono); text-transform: none; color: var(--muted); margin-top: 4px; letter-spacing: 0; }
+.rail h4 { margin: 0 0 6px; font: 600 0.72rem/1 var(--f-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.rail nav { display: flex; flex-direction: column; gap: 2px; }
+.rail a.nav { display: grid; grid-template-columns: 2.2em 1fr; gap: 4px; padding: 6px 8px; border-radius: var(--radius); text-decoration: none; color: var(--ink); font: 500 0.9rem/1.3 var(--f-display); }
+.rail a.nav .num { font: 600 0.78rem/1.6 var(--f-mono); color: var(--muted); }
+.rail a.nav:hover { background: var(--grid); }
+.rail a.nav[aria-current="page"] { background: var(--accent-wash); color: var(--accent); }
+.rail a.nav[aria-current="page"] .num { color: var(--accent); }
+.rail .soon { padding: 4px 8px; font: 400 0.85rem/1.45 var(--f-display); color: var(--muted); }
+.rail a.xlink { display: block; text-decoration: none; border-radius: var(--radius); }
+.rail a.xlink:hover { background: var(--grid); }
+.rail a.xlink b { color: var(--accent); font-weight: 600; }
+
+main { min-width: 0; padding-inline: clamp(16px, 4vw, 56px); padding-block: 28px 80px; }
+.view { max-width: 980px; }
+.view[hidden] { display: none !important; }
+
+/* ---------- Shared lesson typography (modules use these classes) ---------- */
+.module-head { border-bottom: 1px solid var(--rule); padding-bottom: 18px; margin-bottom: 22px; }
+.eyebrow { font: 600 0.74rem/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; color: var(--ink); }
+h1 { font-size: var(--step-4); font-weight: 750; font-stretch: 72%; line-height: 1.02; letter-spacing: -0.01em; margin: 10px 0 12px; }
+h2 { font-size: var(--step-3); font-weight: 700; font-stretch: 80%; line-height: 1.1; margin: 56px 0 10px; }
+h3 { font-size: var(--step-1); font-weight: 650; font-stretch: 90%; line-height: 1.25; margin: 30px 0 6px; }
+h2 .sec { font: 600 0.9rem/1 var(--f-mono); color: var(--muted); margin-right: 10px; vertical-align: 0.35em; letter-spacing: 0; }
+.lede { font-size: var(--step-1); line-height: 1.5; color: var(--ink); max-width: 64ch; margin: 0; }
+.prose p, .prose li { max-width: 68ch; }
+.prose ul, .prose ol { padding-left: 1.3em; }
+.prose li + li { margin-top: 4px; }
+.muted { color: var(--muted); }
+code, .m { font-family: var(--f-mono); font-size: 0.88em; }
+strong { font-weight: 600; }
+
+/* Objectives / meta block */
+.objectives { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 28px; margin-top: 18px; }
+.objectives > div { min-width: 0; }
+.objectives h4 { margin: 0 0 6px; font: 600 0.72rem/1 var(--f-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.objectives ul { margin: 0; padding-left: 1.1em; font-size: 0.95rem; }
+
+/* Equations: monospace display block. Use <span class="v">x</span> for vectors (bold), <sub>, <sup>. */
+.eq { font: 400 1rem/1.7 var(--f-mono); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius);
+  padding: 12px 16px; margin: 14px 0; overflow-x: auto; white-space: nowrap; }
+.eq .note { font-family: var(--f-body); color: var(--muted); font-size: 0.9rem; white-space: normal; display: block; margin-top: 4px; }
+.v { font-weight: 700; }
+.mat { display: inline-grid; vertical-align: middle; border-left: 1.5px solid var(--ink); border-right: 1.5px solid var(--ink); border-radius: 3px; padding: 0 6px; gap: 0 12px; text-align: center; }
+
+/* Demo panel: the interactive lab bench */
+.demo { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; margin: 22px 0 28px; overflow: hidden; }
+.demo-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
+.demo-head .tag { font: 600 0.7rem/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--panel); background: var(--accent); padding: 4px 7px; border-radius: 3px; }
+.demo-head h3 { margin: 0; font-size: 1.05rem; }
+.demo-body { display: grid; grid-template-columns: minmax(0, 1fr) 260px; }
+.demo-body.stack { grid-template-columns: minmax(0, 1fr); }
+.stage { min-width: 0; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.stage canvas { display: block; width: 100%; touch-action: none; }
+.controls { border-left: 1px solid var(--rule); padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.demo-body.stack .controls { border-left: 0; border-top: 1px solid var(--rule); display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.ctrl { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ctrl label { font: 500 0.82rem/1.3 var(--f-display); display: flex; align-items: baseline; flex-wrap: wrap; color: var(--ink); }
+.ctrl label > output, .ctrl label > .val { margin-left: auto; padding-left: 8px; }
+.ctrl output, .ctrl .val { font: 600 0.8rem/1.3 var(--f-mono); color: var(--accent); font-variant-numeric: tabular-nums; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--accent); }
+.ctrl select { font: 0.88rem var(--f-display); padding: 5px 6px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); }
+.btn { font: 600 0.82rem/1 var(--f-display); padding: 8px 12px; border-radius: 5px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
+.btn:hover { background: var(--accent-wash); }
+.btn.solid { background: var(--accent); color: var(--panel); }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.check { display: flex; align-items: center; gap: 8px; font: 500 0.84rem var(--f-display); }
+.check input { accent-color: var(--accent); }
+.readout { font: 400 0.8rem/1.55 var(--f-mono); font-variant-numeric: tabular-nums; background: var(--paper); border: 1px solid var(--rule); border-radius: 5px; padding: 8px 10px; overflow-x: auto; }
+.readout b { color: var(--accent); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 400 0.78rem/1.3 var(--f-mono); color: var(--muted); }
+.legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+.demo-foot { padding: 10px 16px 12px; border-top: 1px solid var(--rule); font-size: 0.9rem; color: var(--muted); }
+.demo-foot strong { color: var(--ink); }
+
+/* Callouts by role */
+.callout { border-left: 3px solid var(--accent); background: var(--accent-wash); padding: 12px 16px; margin: 18px 0; border-radius: 0 var(--radius) var(--radius) 0; }
+.callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+.callout .label { display: block; font: 600 0.72rem/1 var(--f-display); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px; color: var(--accent); }
+.callout.us { border-color: var(--sig4); background: color-mix(in srgb, var(--sig4) 10%, var(--paper)); }
+.callout.us .label { color: var(--sig4); }
+.callout.pitfall { border-color: var(--sig2); background: var(--sig2-wash); }
+.callout.pitfall .label { color: var(--sig2); }
+.callout.intuit { border-color: var(--sig3); background: color-mix(in srgb, var(--sig3) 10%, var(--paper)); }
+.callout.intuit .label { color: var(--sig3); }
+
+/* Tables */
+.tbl-wrap { overflow-x: auto; margin: 14px 0; border: 1px solid var(--rule); border-radius: var(--radius); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; background: var(--panel); }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font: 600 0.76rem/1.3 var(--f-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--paper); }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* Self-check */
+.quiz { border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel); margin: 10px 0; }
+.quiz summary { cursor: pointer; padding: 10px 14px; font: 500 0.98rem/1.45 var(--f-body); list-style: none; display: grid; grid-template-columns: 2em 1fr; }
+.quiz summary::-webkit-details-marker { display: none; }
+.quiz summary .q { font: 600 0.8rem/1.8 var(--f-mono); color: var(--accent); }
+.quiz[open] summary { border-bottom: 1px solid var(--rule); }
+.quiz .a { padding: 10px 14px 12px calc(14px + 2em); font-size: 0.95rem; }
+.quiz .a > :first-child { margin-top: 0; } .quiz .a > :last-child { margin-bottom: 0; }
+
+.refs { font-size: 0.92rem; }
+.refs li { margin-bottom: 4px; }
+.next { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font: 600 0.95rem var(--f-display); }
+
+
+/* ---------- Expert rules of thumb ---------- */
+.rules { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 16px 0 22px; counter-reset: rule; }
+.rule { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px 12px; display: grid; grid-template-columns: 2.6em minmax(0, 1fr); gap: 4px 12px; counter-increment: rule; }
+.rule::before { content: counter(rule, decimal-leading-zero); grid-row: 1 / span 4; font: 600 0.8rem/1.9 var(--f-mono); color: var(--accent); }
+.rule .say { font: 650 1.06rem/1.35 var(--f-display); font-stretch: 92%; color: var(--ink); text-wrap: balance; }
+.rule .keynum { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; }
+.rule .keynum span { font: 600 0.76rem/1 var(--f-mono); padding: 5px 7px; border-radius: 4px; background: var(--accent-wash); color: var(--accent); font-variant-numeric: tabular-nums; }
+.rule .why { font-size: 0.95rem; line-height: 1.55; min-width: 0; }
+.rule .why > :first-child { margin-top: 2px; } .rule .why > :last-child { margin-bottom: 0; }
+.rule .why .eq { margin: 8px 0; }
+.rule .limits { font-size: 0.88rem; color: var(--muted); min-width: 0; }
+.rule .limits::before { content: "Breaks when: "; font: 600 0.72rem/1 var(--f-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--sig2); }
+
+/* ---------- MATLAB code blocks ---------- */
+.rule-fig { margin: 8px 0 4px; max-width: 520px; } .rule-fig canvas { display: block; width: 100%; }
+.prov { display: inline-block; font: 600 0.62rem/1 var(--f-mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 6px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; vertical-align: middle; margin-left: 6px; background: transparent; }
+.prov.exact { color: var(--good); } .prov.sim { color: var(--accent); } .prov.model { color: var(--sig3); } .prov.schem { color: var(--sig2); }
+.prov-note { display: block; font: 400 0.78rem/1.35 var(--f-body); color: var(--muted); margin-top: 3px; }
+.prov-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 0.86rem; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 14px; margin: 14px 0; }
+.prov-legend .prov { margin: 0 6px 0 0; }
+.litfig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 14px; margin: 10px 0; }
+.litfig img { max-width: 100%; height: auto; display: block; margin: 6px 0; }
+.litfig .cite { font-size: 0.86rem; color: var(--muted); }
+.stack-fig svg { width: 100%; height: auto; display: block; }
+
+/* ---- Typeset equations (MathJax SVG). .eqn = display equation block; .key = worth memorizing ---- */
+.eqn { position: relative; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 12px 16px 10px; margin: 16px 0; }
+.eqn.key { border: 2px solid var(--accent); background: var(--accent-wash); }
+.eqn.key::before { content: "Key equation"; position: absolute; top: -9px; left: 12px; font: 600 0.62rem/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); background: var(--paper); padding: 2px 6px; border-radius: 3px; }
+.eqn .eqn-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.eqn .eqn-math { overflow-x: auto; overflow-y: hidden; font-size: 1.12rem; color: var(--ink); min-width: 0; }
+.eqn .eqn-no { font: 600 0.8rem var(--f-mono); color: var(--muted); white-space: nowrap; }
+.eqn .where { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 10px 0 0; padding-top: 8px; border-top: 1px dashed var(--rule); font-size: 0.9rem; }
+.eqn .where::before { content: "where"; grid-column: 1 / -1; font: 600 0.68rem/1 var(--f-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.eqn .where dt { margin: 0; color: var(--ink); } .eqn .where dd { margin: 0; color: var(--muted); }
+.eqn .note { display: block; font-family: var(--f-body); color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+mjx-container { color: var(--ink); } mjx-container[display="true"] { margin: 0.3em 0 !important; }
+@media (max-width: 600px) { .eqn .eqn-body { grid-template-columns: minmax(0, 1fr); gap: 2px; } .eqn .eqn-no { justify-self: end; } .eqn .eqn-math { font-size: 1rem; } }
+.eqref { font-family: var(--f-mono); font-size: 0.86em; color: var(--accent); white-space: nowrap; }
+mjx-container > mjx-assistive-mml { max-width: 1px !important; max-height: 1px !important; overflow: hidden !important; }
+.eqn .where dt, .eqn .where dd { min-width: 0; overflow-wrap: anywhere; }
+.eqn .where mjx-container, p mjx-container:not([display="true"]), li mjx-container:not([display="true"]), td mjx-container:not([display="true"]) { display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden; vertical-align: middle; }
+details.code { border: 1px solid var(--rule); border-radius: 8px; background: var(--code-bg); margin: 12px 0; min-width: 0; }
+details.code > summary { cursor: pointer; list-style: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; align-items: baseline; padding: 10px 14px; }
+details.code > summary::-webkit-details-marker { display: none; }
+details.code > summary::before { content: "▸"; font: 600 0.8rem var(--f-mono); color: var(--accent); }
+details.code[open] > summary::before { content: "▾"; }
+details.code .fname { font: 600 0.86rem/1.3 var(--f-mono); color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+details.code .what { grid-column: 2 / span 2; font-size: 0.88rem; color: var(--muted); }
+details.code .copy { font: 600 0.74rem/1 var(--f-display); padding: 6px 10px; border-radius: 4px; border: 1px solid var(--rule); background: var(--panel); color: var(--accent); cursor: pointer; }
+details.code .copy:hover { border-color: var(--accent); }
+details.code pre { margin: 0; border-top: 1px solid var(--rule); padding: 12px 14px; overflow-x: auto; font: 400 0.8rem/1.55 var(--f-mono); color: var(--ink); tab-size: 4; max-height: 70vh; }
+details.code pre code { font: inherit; }
+.tk-c { color: var(--muted); font-style: italic; } .tk-s { color: var(--sig4); } .tk-k { color: var(--accent); font-weight: 600; } .tk-n { color: var(--sig3); }
+.code-note { font-size: 0.9rem; color: var(--muted); }
+
+/* ---------- Numeric matrix display ---------- */
+.mx-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 8px 0; }
+.mx-scroll { overflow-x: auto; max-width: 100%; }
+.mx { display: inline-flex; align-items: stretch; gap: 0; font: 400 0.82rem/1.5 var(--f-mono); font-variant-numeric: tabular-nums; vertical-align: middle; }
+.mx::before, .mx::after { content: ""; width: 6px; border: 1.5px solid var(--ink); }
+.mx::before { border-right: 0; border-radius: 3px 0 0 3px; } .mx::after { border-left: 0; border-radius: 0 3px 3px 0; }
+.mx table { border-collapse: collapse; width: auto; background: transparent; font: inherit; }
+.mx td { padding: 1px 7px; border: 0; text-align: right; white-space: nowrap; }
+.mx td.hl { background: var(--accent-wash); color: var(--accent); font-weight: 600; }
+.mx td.hl2 { background: var(--sig2-wash); color: var(--sig2); font-weight: 600; }
+.mx-cap { display: block; font: 600 0.72rem/1.4 var(--f-mono); color: var(--muted); text-align: center; margin-top: 2px; }
+.mx-op { font: 600 1.1rem var(--f-mono); color: var(--muted); }
+.mx-wrap { display: inline-flex; flex-direction: column; align-items: center; }
+
+/* ---------- Hub ---------- */
+.hub-hero { padding-block: 10px 6px; }
+.hub-hero h1 { font-size: clamp(2.3rem, 6vw, 3.6rem); }
+.map { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 18px; }
+.tier { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.tier h3 { margin: 0 0 2px; }
+.tier .sub { font: 400 0.82rem/1.35 var(--f-mono); color: var(--muted); margin: 0 0 10px; }
+.tier ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.tier li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: baseline; font-size: 0.93rem; line-height: 1.35; }
+.chip { font: 600 0.66rem/1 var(--f-mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 6px; border-radius: 3px; white-space: nowrap; }
+.chip.live { background: var(--accent); color: var(--panel); }
+.chip.queued { background: var(--grid); color: var(--muted); }
+.chip.later { background: transparent; color: var(--muted); border: 1px dashed var(--rule); }
+.tier li a { color: var(--ink); font-weight: 600; text-decoration-color: var(--accent); }
+.pathline { font: 400 0.86rem/1.6 var(--f-mono); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 12px 14px; overflow-x: auto; white-space: pre; margin: 14px 0; }
+
+@media (max-width: 860px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; height: auto; flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; gap: 14px; padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--rule); background: var(--paper); }
+  .rail .brand small, .rail h4, .rail .soon, .rail .grp-later { display: none; }
+  .rail .grp { display: contents; }
+  .rail nav { flex-direction: row; gap: 2px; }
+  .rail a.nav { grid-template-columns: auto; white-space: nowrap; padding: 6px 8px; }
+  .rail a.nav .t { display: none; }
+  .demo-body { grid-template-columns: minmax(0, 1fr); }
+  .controls { border-left: 0; border-top: 1px solid var(--rule); }
+  h1 { font-size: var(--step-3); }
+  h2 { font-size: var(--step-2); }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="app">
+  <!--RAIL-->
+
+  <main id="main">
+    <!--HOME-->
+
+<!--MODULES-->
+  </main>
+</div>
+
+<script>
+/* ============ Lab: shared helpers for every module ============ */
+(function () {
+  const Lab = {};
+  const css = () => getComputedStyle(document.documentElement);
+  Lab.colors = function () {
+    const s = css(); const g = n => s.getPropertyValue(n).trim();
+    return { bg: g('--panel'), paper: g('--paper'), fg: g('--ink'), muted: g('--muted'), rule: g('--rule'), grid: g('--grid'),
+      accent: g('--accent'), sig2: g('--sig2'), sig3: g('--sig3'), sig4: g('--sig4'), good: g('--good'), bad: g('--bad'),
+      mono: '"JetBrains Mono", ui-monospace, Menlo, monospace', display: '"Archivo", "Helvetica Neue", Arial, sans-serif' };
+  };
+  /* Size a canvas to its CSS width at device pixel ratio. height is CSS px (or aspect if <=3). Returns {ctx,w,h} in CSS px. */
+  Lab.canvas = function (cv, height) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const w = Math.max(10, cv.clientWidth || cv.parentElement.clientWidth || 300);
+    const h = height <= 3 ? Math.round(w * height) : height;
+    cv.style.height = h + 'px';
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    return { ctx, w, h };
+  };
+  /* Nice ticks */
+  Lab.ticks = function (a, b, n) {
+    n = n || 5; const span = Math.abs(b - a) || 1; const step0 = span / n; const p = Math.pow(10, Math.floor(Math.log10(step0)));
+    const m = step0 / p; const step = (m >= 5 ? 5 : m >= 2 ? 2 : 1) * p; const lo = Math.ceil(Math.min(a, b) / step) * step; const out = [];
+    for (let v = lo; v <= Math.max(a, b) + step * 1e-9; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return out;
+  };
+  Lab.fmt = function (v, d) { if (d === undefined) { const a = Math.abs(v); d = a >= 100 ? 0 : a >= 10 ? 1 : a >= 1 ? 2 : 3; } let s = (+v).toFixed(d); if (s.includes('.')) s = s.replace(/0+$/, '').replace(/\.$/, ''); return s === '-0' ? '0' : s; };
+  /* Axes: box = {x,y,w,h} plot rect in CSS px. xr=[x0,x1], yr=[y0,y1]. opts: {xlabel, ylabel, xticks, yticks, grid:true, title, xfmt, yfmt}
+     Returns {X, Y, box, clip()} where X/Y map data->px. Leave ~44px left, ~30px bottom margin outside the box for labels. */
+  Lab.axes = function (ctx, box, xr, yr, opts) {
+    opts = opts || {}; const c = Lab.colors();
+    const X = x => box.x + (x - xr[0]) / (xr[1] - xr[0]) * box.w;
+    const Y = y => box.y + box.h - (y - yr[0]) / (yr[1] - yr[0]) * box.h;
+    ctx.save(); ctx.font = '11px ' + c.mono; ctx.lineWidth = 1;
+    const xt = opts.xticks || Lab.ticks(xr[0], xr[1], opts.nx || 6); const yt = opts.yticks || Lab.ticks(yr[0], yr[1], opts.ny || 4);
+    if (opts.grid !== false) { ctx.strokeStyle = c.grid; ctx.beginPath();
+      xt.forEach(v => { const px = Math.round(X(v)) + 0.5; ctx.moveTo(px, box.y); ctx.lineTo(px, box.y + box.h); });
+      yt.forEach(v => { const py = Math.round(Y(v)) + 0.5; ctx.moveTo(box.x, py); ctx.lineTo(box.x + box.w, py); }); ctx.stroke(); }
+    ctx.strokeStyle = c.rule; ctx.strokeRect(box.x + 0.5, box.y + 0.5, box.w, box.h);
+    ctx.fillStyle = c.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const xf = opts.xfmt || (v => Lab.fmt(v)); const yf = opts.yfmt || (v => Lab.fmt(v));
+    if (!opts.noXLabels) xt.forEach(v => ctx.fillText(xf(v), X(v), box.y + box.h + 5));
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    if (!opts.noYLabels) yt.forEach(v => ctx.fillText(yf(v), box.x - 6, Y(v)));
+    if (opts.xlabel) { ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(opts.xlabel, box.x + box.w / 2, box.y + box.h + 19); }
+    if (opts.ylabel) { ctx.save(); ctx.translate(box.x - 40, box.y + box.h / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(opts.ylabel, 0, 0); ctx.restore(); }
+    if (opts.title) { ctx.fillStyle = c.fg; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.font = '600 12px ' + c.display; ctx.fillText(opts.title, box.x, box.y - 6); }
+    ctx.restore();
+    return { X, Y, box, clip() { ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip(); }, unclip() { ctx.restore(); } };
+  };
+  /* Polyline of arrays xs, ys through axes map ax */
+  Lab.line = function (ctx, ax, xs, ys, color, width, dash) {
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = width || 1.6; ctx.lineJoin = 'round'; if (dash) ctx.setLineDash(dash);
+    ctx.beginPath(); for (let i = 0; i < xs.length; i++) { const px = ax.X(xs[i]), py = ax.Y(ys[i]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.stroke(); ctx.restore();
+  };
+  Lab.dots = function (ctx, ax, xs, ys, color, r) {
+    ctx.save(); ctx.fillStyle = color; for (let i = 0; i < xs.length; i++) { ctx.beginPath(); ctx.arc(ax.X(xs[i]), ax.Y(ys[i]), r || 2.5, 0, 6.2832); ctx.fill(); } ctx.restore();
+  };
+  Lab.arrow = function (ctx, x0, y0, x1, y1, color, width) {
+    const a = Math.atan2(y1 - y0, x1 - x0), L = Math.hypot(x1 - x0, y1 - y0), hl = Math.min(10, L * 0.35);
+    ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width || 2; ctx.beginPath(); ctx.moveTo(x0, y0);
+    ctx.lineTo(x1 - Math.cos(a) * hl * 0.8, y1 - Math.sin(a) * hl * 0.8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - hl * Math.cos(a - 0.4), y1 - hl * Math.sin(a - 0.4)); ctx.lineTo(x1 - hl * Math.cos(a + 0.4), y1 - hl * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill(); ctx.restore();
+  };
+  /* Image/heatmap: data Float array (rows*cols, row-major), draws into rect with a colormap: 'gray' | 'diverge' | 'heat' */
+  Lab.image = function (ctx, data, rows, cols, rect, vmin, vmax, cmap) {
+    const c = document.createElement('canvas'); c.width = cols; c.height = rows; const g = c.getContext('2d'); const im = g.createImageData(cols, rows);
+    const map = Lab.cmap[cmap || 'gray'];
+    for (let i = 0; i < rows * cols; i++) { let t = (data[i] - vmin) / (vmax - vmin); t = t < 0 ? 0 : t > 1 ? 1 : t; const rgb = map(t); im.data[4 * i] = rgb[0]; im.data[4 * i + 1] = rgb[1]; im.data[4 * i + 2] = rgb[2]; im.data[4 * i + 3] = 255; }
+    g.putImageData(im, 0, 0); ctx.save(); ctx.imageSmoothingEnabled = !!(rect.smooth); ctx.drawImage(c, rect.x, rect.y, rect.w, rect.h); ctx.restore();
+  };
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const ramp = stops => t => { const n = stops.length - 1; const i = Math.min(n - 1, Math.floor(t * n)); const f = t * n - i; return [0, 1, 2].map(k => Math.round(lerp(stops[i][k], stops[i + 1][k], f))); };
+  Lab.cmap = {
+    gray: t => { const v = Math.round(255 * t); return [v, v, v]; },
+    heat: ramp([[8, 12, 30], [40, 40, 120], [150, 50, 120], [235, 120, 60], [252, 230, 160]]),
+    diverge: ramp([[31, 95, 209], [140, 175, 235], [245, 245, 245], [235, 140, 175], [194, 54, 111]])
+  };
+  /* Seeded RNG: Lab.rng(seed) -> {u(), g(), cg()} uniform [0,1), standard normal, complex normal {re,im} with E|z|^2=1 */
+  Lab.rng = function (seed) {
+    let a = (seed >>> 0) || 1; const u = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    let spare = null; const g = () => { if (spare !== null) { const s = spare; spare = null; return s; } let x, y, r; do { x = 2 * u() - 1; y = 2 * u() - 1; r = x * x + y * y; } while (!r || r >= 1); const f = Math.sqrt(-2 * Math.log(r) / r); spare = y * f; return x * f; };
+    return { u, g, cg: () => ({ re: g() * Math.SQRT1_2, im: g() * Math.SQRT1_2 }) };
+  };
+  /* In-place radix-2 FFT. re, im: Float64Array of length 2^k. inverse=true divides by N. */
+  Lab.fft = function (re, im, inverse) {
+    const n = re.length; if (n & (n - 1)) throw new Error('fft length must be power of 2');
+    for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+    for (let len = 2; len <= n; len <<= 1) { const ang = 2 * Math.PI / len * (inverse ? 1 : -1); const wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < n; i += len) { let cr = 1, ci = 0; for (let k = 0; k < len / 2; k++) { const a = i + k, b = a + len / 2; const xr = re[b] * cr - im[b] * ci, xi = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - xr; im[b] = im[a] - xi; re[a] += xr; im[a] += xi; const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t; } } }
+    if (inverse) for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+  };
+  Lab.nextPow2 = n => 1 << Math.ceil(Math.log2(Math.max(2, n)));
+  /* Symmetric eigendecomposition (cyclic Jacobi). A: array of rows (n x n, symmetric). Returns {values (desc), vectors: array of column vectors as arrays}. */
+  Lab.eigSym = function (A) {
+    const n = A.length; const a = A.map(r => r.slice()); const V = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => i === j ? 1 : 0));
+    for (let sweep = 0; sweep < 60; sweep++) { let off = 0; for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) off += a[p][q] * a[p][q]; if (off < 1e-22) break;
+      for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) { if (Math.abs(a[p][q]) < 1e-300) continue;
+        const th = (a[q][q] - a[p][p]) / (2 * a[p][q]); const t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1)); const c = 1 / Math.sqrt(t * t + 1), s = t * c;
+        for (let k = 0; k < n; k++) { const akp = a[k][p], akq = a[k][q]; a[k][p] = c * akp - s * akq; a[k][q] = s * akp + c * akq; }
+        for (let k = 0; k < n; k++) { const apk = a[p][k], aqk = a[q][k]; a[p][k] = c * apk - s * aqk; a[q][k] = s * apk + c * aqk; }
+        for (let k = 0; k < n; k++) { const vkp = V[k][p], vkq = V[k][q]; V[k][p] = c * vkp - s * vkq; V[k][q] = s * vkp + c * vkq; } } }
+    const idx = [...Array(n).keys()].sort((i, j) => a[j][j] - a[i][i]);
+    return { values: idx.map(i => a[i][i]), vectors: idx.map(i => V.map(r => r[i])) };
+  };
+
+
+  /* ---- Numeric matrix to HTML. M: array of rows (numbers or {re,im}). opts: {d: decimals, cap: caption, hl: [[i,j],...], hl2: [...]} */
+  Lab.matHTML = function (M, opts) {
+    opts = opts || {}; const d = opts.d === undefined ? 2 : opts.d;
+    const f = v => { if (typeof v === 'object' && v) { const re = (+v.re).toFixed(d), im = Math.abs(v.im).toFixed(d); return re.replace('-', '−') + (v.im < 0 ? '−' : '+') + im + 'j'; } return (Math.abs(v) < 0.5 * Math.pow(10, -d) ? 0 : v).toFixed(d).replace('-', '−'); };
+    const key = (arr, i, j) => (arr || []).some(p => p[0] === i && p[1] === j);
+    let h = '<span class="mx-wrap"><span class="mx"><table>';
+    M.forEach((row, i) => { h += '<tr>' + row.map((v, j) => '<td' + (key(opts.hl, i, j) ? ' class="hl"' : key(opts.hl2, i, j) ? ' class="hl2"' : '') + '>' + f(v) + '</td>').join('') + '</tr>'; });
+    h += '</table></span>' + (opts.cap ? '<span class="mx-cap">' + opts.cap + '</span>' : '') + '</span>';
+    return h;
+  };
+  /* ---- MATLAB syntax highlighting + copy buttons for every details.code on the page */
+  const KW = new Set('function end if else elseif for while switch case otherwise return break continue try catch parfor global persistent'.split(' '));
+  const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  function hlLine(line) {
+    let out = '', i = 0, prev = '';
+    while (i < line.length) {
+      const ch = line[i];
+      if (ch === '%') { out += '<span class="tk-c">' + esc(line.slice(i)) + '</span>'; break; }
+      if (ch === '"' || (ch === "'" && !/[\w\)\]\}\.'"]/.test(prev))) {
+        let j = i + 1; while (j < line.length) { if (line[j] === ch) { if (line[j + 1] === ch) { j += 2; continue; } break; } j++; }
+        out += '<span class="tk-s">' + esc(line.slice(i, j + 1)) + '</span>'; prev = ch; i = j + 1; continue;
+      }
+      const w = /^[A-Za-z_]\w*/.exec(line.slice(i));
+      if (w) { out += KW.has(w[0]) ? '<span class="tk-k">' + w[0] + '</span>' : w[0]; prev = 'a'; i += w[0].length; continue; }
+      const n = /^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?[ij]?/.exec(line.slice(i));
+      if (n) { out += '<span class="tk-n">' + n[0] + '</span>'; prev = '0'; i += n[0].length; continue; }
+      out += esc(ch); if (ch !== ' ' && ch !== '\t') prev = ch; i++;
+    }
+    return out;
+  }
+  Lab.highlightAll = function (root) {
+    (root || document).querySelectorAll('details.code pre code:not([data-hl])').forEach(el => {
+      const src = el.textContent.replace(/^\n/, ''); el.dataset.src = src; el.dataset.hl = '1';
+      el.innerHTML = src.split('\n').map(hlLine).join('\n');
+    });
+    (root || document).querySelectorAll('details.code .copy:not([data-wired])').forEach(btn => {
+      btn.dataset.wired = '1';
+      btn.addEventListener('click', ev => {
+        ev.preventDefault(); ev.stopPropagation();
+        const code = btn.closest('details').querySelector('pre code'); const txt = code.dataset.src || code.textContent;
+        const done = ok => { btn.textContent = ok ? 'Copied' : 'Press Ctrl/⌘+C'; setTimeout(() => { btn.textContent = 'Copy'; }, 1800); };
+        const fallback = () => { btn.closest('details').open = true; const r = document.createRange(); r.selectNodeContents(code); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); done(false); };
+        try { navigator.clipboard.writeText(txt).then(() => done(true), fallback); } catch (e) { fallback(); }
+      });
+    });
+  };
+  /* Lifecycle: Lab.onShow(viewId, fn) runs fn when that module becomes visible (and after resize / theme change while visible). */
+  const showers = {}; const themers = [];
+  Lab.onShow = function (id, fn) { (showers[id] = showers[id] || []).push(fn); if (Lab.current === id) requestAnimationFrame(() => fn()); };
+  Lab.onTheme = function (fn) { themers.push(fn); };
+  Lab.current = null;
+  function fire(id) { (showers[id] || []).forEach(f => { try { f(); } catch (e) { console.error(e); } }); }
+  function show(id) {
+    const views = document.querySelectorAll('.view'); let found = false;
+    views.forEach(v => { const on = v.id === id; v.hidden = !on; if (on) found = true; });
+    if (!found) { id = 'home'; document.getElementById('home').hidden = false; }
+    document.querySelectorAll('a.nav').forEach(a => a.setAttribute('aria-current', a.dataset.view === id ? 'page' : 'false'));
+    Lab.current = id; try { localStorage.setItem('sp-lab-view', id); } catch (e) {}
+    const v = document.getElementById(id); document.title = 'Signal Processing Lab';
+    requestAnimationFrame(() => fire(id));
+  }
+  Lab.show = show;
+  window.addEventListener('hashchange', () => { show(location.hash.slice(1) || 'home'); window.scrollTo(0, 0); });
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => Lab.current && fire(Lab.current), 120); });
+  const reTheme = () => { themers.forEach(f => { try { f(); } catch (e) {} }); if (Lab.current) fire(Lab.current); };
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', reTheme); } catch (e) {}
+  new MutationObserver(reTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  window.Lab = Lab;
+  document.addEventListener('DOMContentLoaded', () => {
+    let start = location.hash.slice(1); if (!start) { try { start = localStorage.getItem('sp-lab-view') || 'home'; } catch (e) { start = 'home'; } }
+    Lab.highlightAll();
+    show(start);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => Lab.current && fire(Lab.current));
+  });
+})();
+</script>
+<style>
+.rf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin: 14px 0 20px; }
+.rf-card { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px 12px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.rf-card h4 { margin: 0; font: 600 0.95rem/1.3 var(--f-display); color: var(--ink); }
+.rf-card canvas { display: block; width: 100%; }
+.rf-card p { margin: 0; font-size: 0.9rem; line-height: 1.45; }
+.rf-card p b { color: var(--accent); font-weight: 600; }
+</style>
+<script>
+/* Lab.mini: small-multiple figures. Lab.cardGrid(viewId, gridId, specs, sliderId?) builds illustrated cards.
+   Pair spec {q, a, tr, ty, fr, fy, tl, fl, tt(T), ft(T), time(x,m,c,T), freq(x,m,c,T), fixed}
+   Single spec {q, a, draw(cv, T)} using Lab.mini.size/panel/curve/stems/text. Colors c: a b c d (series), mu, fg. */
+(function () { const PI = Math.PI;
+const sinc = x => Math.abs(x) < 1e-9 ? 1 : Math.sin(PI * x) / (PI * x);
+  const rect = x => Math.abs(x) < 0.5 ? 1 : 0;
+  const tri = x => Math.max(0, 1 - Math.abs(x));
+  const J1 = x => { let s = 0; const n = 160; for (let i = 0; i < n; i++) { const t = (i + 0.5) * PI / n; s += Math.cos(t - x * Math.sin(t)); } return s / n; };
+  const jinc = x => Math.abs(x) < 1e-6 ? 1 : 2 * J1(PI * x) / (PI * x);
+  const db = (v, lo) => Math.max(lo, 20 * Math.log10(Math.abs(v) + 1e-12));
+  function col() { const s = getComputedStyle(document.documentElement), g = n => s.getPropertyValue(n).trim();
+    return { fg: g('--ink'), mu: g('--muted'), grid: g('--grid'), rule: g('--rule'), a: g('--accent'), b: g('--sig2'), c: g('--sig3'), d: g('--sig4'), mono: '"JetBrains Mono", ui-monospace, Menlo, monospace' }; }
+  function size(cv, h) { const d = Math.min(window.devicePixelRatio || 1, 2.5), w = Math.max(200, cv.clientWidth || 300);
+    cv.style.height = h + 'px'; cv.width = Math.round(w * d); cv.height = Math.round(h * d); const x = cv.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, w, h); return { x, w, h }; }
+  function panel(x, b, xr, yr, o) { o = o || {}; const c = col();
+    const X = v => b.x + (v - xr[0]) / (xr[1] - xr[0]) * b.w, Y = v => b.y + b.h - (v - yr[0]) / (yr[1] - yr[0]) * b.h;
+    const y0 = o.base !== undefined ? Y(o.base) : Y(Math.max(yr[0], Math.min(yr[1], 0)));
+    x.save(); x.strokeStyle = c.rule; x.lineWidth = 1; x.beginPath(); x.moveTo(b.x, Math.round(y0) + 0.5); x.lineTo(b.x + b.w, Math.round(y0) + 0.5);
+    if (o.yaxis !== false && xr[0] < 0 && xr[1] > 0) { x.moveTo(Math.round(X(0)) + 0.5, b.y); x.lineTo(Math.round(X(0)) + 0.5, b.y + b.h); }
+    x.stroke(); x.fillStyle = c.mu; x.font = '10.5px ' + c.mono;
+    if (o.lab) { x.textAlign = 'left'; x.textBaseline = 'top'; x.fillText(o.lab, b.x + 2, b.y - 13); }
+    (o.ticks || []).forEach(([v, t]) => { const px = X(v); x.beginPath(); x.moveTo(px + 0.5, y0 - 3); x.lineTo(px + 0.5, y0 + 3); x.stroke(); x.textAlign = 'center'; x.textBaseline = 'top'; x.fillText(t, px, y0 + 4); });
+    (o.hlines || []).forEach(([v, t]) => { const py = Y(v); x.setLineDash([3, 3]); x.beginPath(); x.moveTo(b.x, py); x.lineTo(b.x + b.w, py); x.stroke(); x.setLineDash([]); x.textAlign = 'right'; x.textBaseline = 'bottom'; x.fillText(t, b.x + b.w - 2, py - 1); });
+    x.restore(); return { X, Y, b, y0, xr, yr }; }
+  function curve(x, m, f, colr, o) { o = o || {}; const n = Math.max(240, Math.round(m.b.w * 2)), pts = [];
+    for (let i = 0; i <= n; i++) { const t = m.xr[0] + (m.xr[1] - m.xr[0]) * i / n; pts.push([m.X(t), m.Y(f(t))]); }
+    x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip();
+    if (o.fill) { x.beginPath(); x.moveTo(pts[0][0], m.y0); pts.forEach(p => x.lineTo(p[0], p[1])); x.lineTo(pts[n][0], m.y0); x.closePath(); x.globalAlpha = o.alpha || 0.18; x.fillStyle = colr; x.fill(); x.globalAlpha = 1; }
+    x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.strokeStyle = colr; x.lineWidth = o.w || 1.7; if (o.dash) x.setLineDash(o.dash); x.stroke(); x.restore(); }
+  function stems(x, m, pts, colr) { x.save(); x.strokeStyle = colr; x.fillStyle = colr; x.lineWidth = 1.7;
+    pts.forEach(([t, h]) => { if (t < m.xr[0] - 1e-9 || t > m.xr[1] + 1e-9) return; const px = m.X(t), py = m.Y(h);
+      x.beginPath(); x.moveTo(px, m.y0); x.lineTo(px, py + 4); x.stroke(); x.beginPath(); x.moveTo(px, py); x.lineTo(px - 3.5, py + 6); x.lineTo(px + 3.5, py + 6); x.closePath(); x.fill(); }); x.restore(); }
+  function text(x, s, px, py, colr, al) { x.save(); x.fillStyle = colr; x.font = '10.5px ' + col().mono; x.textAlign = al || 'left'; x.textBaseline = 'middle'; x.fillText(s, px, py); x.restore(); }
+
+  /* ---------- pair cards ---------- */
+  function drawPair(cv, s, T) { const c = col(); const { x, w, h } = size(cv, 132); const gap = 30, bw = (w - gap) / 2 - 4;
+    const L = { x: 2, y: 18, w: bw, h: h - 38 }, R = { x: 2 + bw + gap + 4, y: 18, w: bw, h: h - 38 };
+    const ml = panel(x, L, s.tr, s.ty, { lab: s.tl || 'x(t)', ticks: s.tt ? s.tt(T) : [] });
+    const mr = panel(x, R, s.fr, s.fy, { lab: s.fl || '|X(f)|', ticks: s.ft ? s.ft(T) : [] });
+    s.time(x, ml, c, T); s.freq(x, mr, c, T);
+    x.fillStyle = c.mu; x.font = '600 15px ' + c.mono; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('↔', L.x + L.w + gap / 2 + 2, L.y + L.h / 2); }
+  
+  function drawPair(cv, s, T) { const c = col(); const { x, w, h } = size(cv, 132); const gap = 30, bw = (w - gap) / 2 - 4;
+    const L = { x: 2, y: 18, w: bw, h: h - 38 }, R = { x: 2 + bw + gap + 4, y: 18, w: bw, h: h - 38 };
+    const ml = panel(x, L, s.tr, s.ty, { lab: s.tl || 'x(t)', ticks: s.tt ? s.tt(T) : [] });
+    const mr = panel(x, R, s.fr, s.fy, { lab: s.fl || '|X(f)|', ticks: s.ft ? s.ft(T) : [] });
+    s.time(x, ml, c, T); s.freq(x, mr, c, T);
+    x.fillStyle = c.mu; x.font = '600 15px ' + c.mono; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(s.arrow || '↔', L.x + L.w + gap / 2 + 2, L.y + L.h / 2); }
+  Lab.mini = { sinc, rect, tri, jinc, db, col, size, panel, curve, stems, text, pair: drawPair };
+  Lab.cardGrid = function (viewId, gridId, specs, sliderId) {
+    const grid = document.getElementById(gridId); if (!grid) return; const cards = [];
+    specs.forEach((s, i) => { const d = document.createElement('div'); d.className = 'rf-card';
+      const PV = { exact: 'Exact formula', sim: 'Simulation', model: 'Approx. model', schem: 'Schematic' }; d.innerHTML = '<h4>' + s.q + (s.prov ? ' <span class="prov ' + s.prov + '">' + PV[s.prov] + '</span>' : '') + '</h4><canvas id="' + gridId + '-c' + i + '" aria-label="' + s.q.replace(/<[^>]+>/g, '').replace(/"/g, '') + '"></canvas><p>' + s.a + '</p>'; grid.appendChild(d); cards.push([s, d.querySelector('canvas')]); });
+    const T = () => sliderId ? +document.getElementById(sliderId).value : 1;
+    const draw = (onlyScaled) => cards.forEach(([s, cv]) => { if (onlyScaled && (s.fixed || (s.draw && !s.scaled))) return; try { s.draw ? s.draw(cv, T()) : drawPair(cv, s, s.fixed ? 1 : T()); } catch (e) { console.error(e); } });
+    if (sliderId) document.getElementById(sliderId).addEventListener('input', () => draw(true));
+    Lab.onShow(viewId, () => draw(false));
+  };
+})();
+</script>
+<script>
+window.MathJax = { tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']], packages: { '[+]': ['ams'] }, tags: 'none' },
+  svg: { fontCache: 'global', scale: 1.05 }, options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'canvas', 'svg'], ignoreHtmlClass: 'no-mj' },
+  startup: { typeset: true } };
+window.Lab && (Lab.typeset = function (el) { try { if (window.MathJax && MathJax.typesetPromise) return MathJax.typesetPromise(el ? [el] : undefined).catch(function (e) { console.warn(e); }); } catch (e) {} });
+</script>
+<!--MATHJAX-->
+<!--MODULE-SCRIPTS-->

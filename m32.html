@@ -1,0 +1,1209 @@
+<section class="view" id="m32" data-title="Sound-speed estimation (capstone)" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part V · Module 32</div>
+    <h1>Sound-speed estimation (capstone)</h1>
+    <p class="lede">Every beamformer assumes a sound speed, and every quantitative ultrasound number inherits the error of that assumption. Estimating the speed from the echoes is a delay-estimation problem (Module 11) sitting inside an inverse problem (Module 13), solved with the beamformer itself as the forward model (Modules 07, 14, 25). This capstone builds the estimators from the global focus-optimal speed, through the average-to-local inversion of layered media and echo-mode tomography (CUTE), to differentiable beamforming, and closes with the error budget that decides whether a liver measurement can separate healthy from steatotic tissue.</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>Compute the focusing tolerance on sound speed for a given F-number, depth and frequency, and say what a 1 % error does to phase, depth and coherence</li>
+        <li>Explain why a focus-quality maximizer returns an <em>average</em> speed (the RMS speed of seismology, not the harmonic mean), and invert averages to local speeds with Dix's formula, straight-ray differencing or regularized least squares, with their noise amplification</li>
+        <li>Derive the CUTE measurement (echo phase shifts between steered acquisitions), its wrapping limit, the phase jitter of correlated speckle, and the difference between transmit-only and common-mid-angle data</li>
+        <li>Set up limited-angle sound-speed tomography as \(\mathbf{d} = \mathbf{A}\,\Delta\mathbf{s} + \mathbf{n}\), read its resolution matrix, and separate noise, regularization and forward-model errors</li>
+        <li>Recognize differentiable-beamforming autofocus as nonlinear tomography, predict where its losses have local minima, and place deep-learning and full-wave methods on the same map</li>
+        <li>Write an error budget (CRLB, calibration, layer bias, model error) for a clinical liver sound-speed measurement and compare it with the 10–40 m/s effects that matter</li>
+      </ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 07</a> · Random vectors, covariance &amp; correlation: coherence and the van Cittert–Zernike theorem; <a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 11</a> · Correlation &amp; time-delay estimation: delay estimation and its jitter</li>
+        <li><a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 12</a> · Estimation theory and the Cramér–Rao bound; <a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 13</a> · Inverse problems and regularization: Tikhonov, resolution matrices and Section 13.8 on limited-angle SoS tomography; <a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 14</a> · Optimization &amp; automatic differentiation: autofocus (Section 14.5) and cycle skipping (Section 14.4)</li>
+        <li><a href="{{PART4_URL}}" target="_blank" rel="noopener">Module 25</a> · Adaptive and coherence-based beamforming: coherence factor and SLSC; <a href="{{PART4_URL}}" target="_blank" rel="noopener">Module 23</a> · Beam patterns, k-space and compounding: plane-wave compounding</li>
+      </ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is, or published numbers re-plotted</span><span><span class="prov sim">Simulation</span>solvers that run here in JS: ray-traced channel delays, linear inversions, Monte Carlo</span><span><span class="prov model">Approx. model</span>simplified physics; assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not to scale</span><span>Defaults: \(c_0\) = 1540 m/s assumed by the beamformer, \(f_0\) = 5 MHz, pitch 0.3 mm, 128-element linear array (38.4 mm).</span></div>
+
+  <!-- ======================= 32.1 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">32.1</span>Why sound speed matters: focus, geometry and a biomarker</h2>
+    <p>Soft tissues span roughly 1450 m/s (fat) to 1600 m/s (muscle, healthy liver), a −6 % to +4 % band around the 1540 m/s that every scanner assumes. A wrong speed does three separate things. It <strong>defocuses</strong>: the receive delays have the wrong curvature, so the aperture sums out of phase. It <strong>misplaces</strong>: depth is computed as \(\hat c\,t/2\). And it <strong>hides a biomarker</strong>: fat lowers the sound speed of liver, so the speed itself is a quantitative measure of steatosis, and every downstream QUS estimate (attenuation, backscatter, Module 27) is computed from images formed with the assumed value.</p>
+    <p>Start with the defocus. Place the pixel by its two-way time, as every scanner does, so the on-axis delay is always right. A receive element at lateral offset \(x\) then sees a residual delay set by the error in the wavefront curvature. With \(\hat c = c + \Delta c\), depth \(\hat z = \hat c t_a\) (\(t_a\) the one-way apex time) and \(x \ll z\):</p>
+    <div class="eqn key" id="m32-eq1">
+      <div class="eqn-body"><div class="eqn-math">\[ \delta\tau(x) = \frac{\sqrt{z^{2}+x^{2}}-z}{c} - \frac{\sqrt{\hat z^{2}+x^{2}}-\hat z}{\hat c} \;\approx\; \frac{\Delta c}{c}\,\frac{x^{2}}{z\,c}, \qquad \left\lvert\frac{\Delta c}{c}\right\rvert &lt; \frac{\lambda F^{2}}{2z} \;\Longleftrightarrow\; \lvert\Delta c\rvert &lt; \frac{c^{2}F^{2}}{2 f_0 z} \]</div><span class="eqn-no">(32.1)</span></div>
+      <dl class="where"><dt>\(\delta\tau(x)\)</dt><dd>receive delay error of the element at offset \(x\) after the pixel is placed at the correct two-way time, s</dd><dt>\(c,\ \hat c,\ \Delta c\)</dt><dd>true, assumed and error of the sound speed, m/s</dd><dt>\(z,\ \hat z\)</dt><dd>true and displayed depth of the pixel, m (\(\hat z/z = \hat c/c\))</dd><dt>\(F\)</dt><dd>receive F-number \(z/D\), with \(D = 2X\) the active aperture</dd><dt>\(\lambda,\ f_0\)</dt><dd>wavelength \(c/f_0\) and centre frequency</dd></dl>
+      <span class="note">The tolerance is the λ/8 (π/4 phase) criterion at the aperture edge \(x = X\). At 5 MHz and 30 mm it is 7.9 m/s at F/1, 32 m/s at F/2 and 71 m/s at F/3: a large aperture is both what needs the right speed and what can measure it. The curvature error is twice that of a pixel held at fixed depth, because the time-tied pixel moves by \(\Delta c/c\) as well.</span>
+    </div>
+    <p>The geometry and the parameterization follow from the same travel times. Displayed depth scales as \(\hat z = (\hat c/c)\,z\): 1 % of speed is 0.3 mm at 30 mm, larger than the axial resolution at 5 MHz. And every travel time is linear in <em>slowness</em> \(s = 1/c\), not in speed, which is why all the inversions below are written for the slowness deviation:</p>
+    <div class="eqn" id="m32-eq2">
+      <div class="eqn-body"><div class="eqn-math">\[ \Delta s = \frac{1}{c} - \frac{1}{c_0}, \qquad \Delta c \approx -c_0^{2}\,\Delta s, \qquad 1\ \mathrm{ns/mm} \;\leftrightarrow\; 2.37\ \mathrm{m/s}\ \text{at}\ c_0 = 1540\ \mathrm{m/s} \]</div><span class="eqn-no">(32.2)</span></div>
+      <dl class="where"><dt>\(\Delta s\)</dt><dd>slowness deviation from the beamforming slowness, ns/mm (10<sup>−6</sup> s/m)</dd><dt>\(c_0\)</dt><dd>sound speed assumed by the beamformer</dd><dt>\(c\)</dt><dd>local sound speed of the medium, m/s</dd></dl>
+      <span class="note">A +40 m/s liver region is −16.4 ns/mm; 10 mm of it advances a one-way path by 164 ns, 0.8 of a period at 5 MHz (329 ns for the round trip of an echo from below it). The linearization error is \(\Delta c^{2}/c\): 1.0 m/s at 40 m/s, 2.5 % of the correction.</span>
+    </div>
+    <p><strong>The biomarker.</strong> Imbault et al. (Phys. Med. Biol., 2017) estimated local liver speed in 17 patients; the estimates correlated with MRI proton-density fat fraction (R² = 0.69) and separated biopsy-graded steatosis with an area under the ROC curve of 0.952. The working numbers used in this module (patient speeds of about 1490–1600 m/s, steatosis cut-offs near 1541 and 1555 m/s) are taken from that paper's results and should be checked against it before reuse. Those numbers set the scale for everything in this module: a useful estimator must resolve about 10 m/s in a liver that sits under 10–30 mm of fat and muscle at 1450–1580 m/s. The overlying layers bias any average by tens of m/s (Section 32.3), so the hard part of liver sound speed is not precision, it is locality.</p>
+  </div>
+  <div class="rf-grid" id="m32-g1"></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Family</th><th>Measures</th><th>Output</th><th>Key assumption</th><th>Where in this module</th></tr></thead><tbody>
+    <tr><td>Focus-quality maximization (CF, coherence, brightness, sharpness)</td><td>focus metric versus assumed \(\hat c\)</td><td>one average speed per region</td><td>homogeneous medium above the region</td><td>32.2, Demo 32.1</td></tr>
+    <tr><td>Wavefront curvature (Anderson and Trahey, 1998)</td><td>arrival-time profile across the aperture</td><td>average speed to a depth</td><td>hyperbolic moveout</td><td>32.2, 32.7</td></tr>
+    <tr><td>Average-to-local inversion (Jakovljevic et al., 2018)</td><td>averages at many depths</td><td>local speed per layer or depth</td><td>layered medium, straight vertical rays</td><td>32.3, Demo 32.2</td></tr>
+    <tr><td>Echo-mode tomography: CUTE and spatial-domain methods</td><td>echo phase shifts between steered acquisitions</td><td>2D map of \(\Delta s\)</td><td>straight rays, linearized, limited angle</td><td>32.4–32.5, Demos 32.3–32.4</td></tr>
+    <tr><td>Differentiable beamforming autofocus</td><td>gradient of a focus or phase loss</td><td>2D map</td><td>differentiable forward model (usually straight rays)</td><td>32.6, Demo 32.5</td></tr>
+    <tr><td>Learned and full-wave inversion</td><td>channel data to map, or wave-equation migration velocity analysis</td><td>2D map</td><td>training distribution, or the wave equation</td><td>32.6</td></tr>
+  </tbody></table></div>
+
+  <!-- ======================= 32.2 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">32.2</span>Global sound speed by focus-quality maximization, and which average it returns</h2>
+    <p>The oldest estimators sweep \(\hat c\), beamform, and keep the speed that maximizes a focus metric. Module 07 showed why that works: the van Cittert–Zernike theorem makes the aperture-domain coherence of speckle peak when the delays are right, and Module 14 turned the sweep into gradient ascent. The usual metrics, all evaluated on delayed channel signals \(s_i\) of a pixel or a region tied to two-way time:</p>
+    <div class="eqn" id="m32-eq3">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathrm{CF}(\hat c) = \frac{\left\lvert \sum_{i=1}^{N} s_i(\hat c) \right\rvert^{2}}{N \sum_{i=1}^{N} \lvert s_i(\hat c)\rvert^{2}}, \qquad R_1(\hat c) = \frac{\mathrm{Re}\sum_i s_i\, s_{i+1}^{*}}{\sqrt{\sum_i \lvert s_i\rvert^{2} \sum_i \lvert s_{i+1}\rvert^{2}}}, \qquad B(\hat c) = \sum_{\mathrm{ROI}} \Bigl\lvert \sum_i s_i \Bigr\rvert^{2} \]</div><span class="eqn-no">(32.3)</span></div>
+      <dl class="where"><dt>\(s_i(\hat c)\)</dt><dd>complex (IQ) signal of element \(i\) after delaying with speed \(\hat c\)</dd><dt>\(\mathrm{CF}\)</dt><dd>coherence factor, 1 for perfectly aligned equal signals, ≈ 1/N for noise (Module 25)</dd><dt>\(R_1\)</dt><dd>lag-one spatial coherence</dd><dt>\(B\)</dt><dd>speckle brightness (energy) of a region</dd><dt>\(\hat c\)</dt><dd>trial (assumed) sound speed used for the delays, m/s</dd><dt>\(i,\ N\)</dt><dd>element index and number of elements</dd><dt>\(\mathrm{Re},\ (\cdot)^{*}\)</dt><dd>real part, complex conjugate</dd><dt>\(\mathrm{ROI}\)</dt><dd>region of interest (set of pixels summed)</dd></dl>
+      <span class="note">For a quadratic residual phase with edge value \(\Phi\) across a uniform aperture, \(\mathrm{CF} = \lvert\langle e^{j\Phi u^{2}}\rangle\rvert^{2}\): 0.95 at \(\Phi = \pi/4\), 0.5 at 2.73 rad, 0.39 at π. The CF peak is therefore broad (half-width about 67 m/s for a 19.2 mm aperture at 30 mm, F/1.6), and its centre, not its width, carries the estimate.</span>
+    </div>
+    <p>Anderson and Trahey (J. Acoust. Soc. Am., 1998) estimated the speed more directly from the arrival-time profile of the echoes across the aperture: in a homogeneous medium the profile is a hyperbola whose curvature fixes \(\hat c\) once the apex time is known. Both families answer the same question, "which homogeneous speed best explains the wavefront?", and both are exact only for a homogeneous medium. Under a fat layer they return an average. Which one?</p>
+    <p>Write the vertical one-way time through layers of thickness \(d_i\) and speed \(c_i\) as \(T = \sum_i \Delta T_i\), \(\Delta T_i = d_i/c_i\), and the time weights \(w_i = \Delta T_i/T\). Two averages are natural:</p>
+    <div class="eqn key" id="m32-eq4">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} V_h = \frac{z}{T} = \sum_i w_i\, c_i, \qquad V_{\mathrm{rms}}^{2} = \sum_i w_i\, c_i^{2} \\ V_{\mathrm{rms}} - V_h \approx \frac{\operatorname{Var}_w(c)}{2V_h} \;\overset{\text{two layers}}{=}\; \frac{w_1 w_2\,(c_2 - c_1)^{2}}{2V_h} \end{gathered} \]</div><span class="eqn-no">(32.4)</span></div>
+      <dl class="where"><dt>\(V_h\)</dt><dd>harmonic (time-average) speed: depth over one-way time, m/s</dd><dt>\(V_{\mathrm{rms}}\)</dt><dd>root-mean-square speed, time-weighted, m/s</dd><dt>\(w_i\)</dt><dd>fraction of the vertical travel time spent in layer \(i\)</dd><dt>\(\operatorname{Var}_w(c)\)</dt><dd>time-weighted variance of the layer speeds</dd><dt>\(z,\ T\)</dt><dd>depth (m) and one-way travel time (s)</dd><dt>\(c_i\)</dt><dd>sound speed of layer \(i\), m/s</dd><dt>\(w_1,\ w_2,\ c_1,\ c_2\)</dt><dd>time fractions and speeds of the two layers</dd></dl>
+      <span class="note">For small offsets the moveout of a reflection under flat layers is \(t^{2}(x) \approx t_0^{2} + x^{2}/V_{\mathrm{rms}}^{2}\) (Dix, Geophysics, 1955), so a curvature fit or a focus maximizer returns \(V_{\mathrm{rms}}\), not \(z/T\). For 10 mm of fat (1450) over liver (1580) at 40 mm: \(V_h\) = 1545.4, \(V_{\mathrm{rms}}\) = 1546.4 m/s. The difference (1.1 m/s) is small; the difference from the liver itself (33 m/s) is not.</span>
+    </div>
+    <p>m32_global_sos_focus.m checks this on simulated channel data with Snell refraction: the CF-optimal speed lands 0.6–1.0 m/s above \(V_{\mathrm{rms}}\) at every depth from 15 to 50 mm (1547.1 m/s at 40 mm), while the liver below is at 1580. Demo 32.1 runs the same physics on a point target and shows the residual phase across the aperture: at the optimum the quadratic part vanishes and only the non-hyperbolic (quartic) moveout of the layered medium is left.</p>
+  </div>
+
+  <div class="demo" id="m32-d1">
+    <div class="demo-head"><span class="tag">Demo 32.1</span><h3>Focus quality versus assumed speed under a fat layer: average, not local</h3><span class="prov sim">Simulation</span><span class="prov-note">Point target on axis under a flat fat layer. True receive times by Snell ray tracing (bisection on the ray parameter, JS); 0° plane-wave transmit (vertical, exact through flat layers). Beamformer: homogeneous \(\hat c\), pixel tied to the two-way apex time. Each element contributes a Gaussian pulse (60 % bandwidth) at its residual delay; CF <span class="eqref">(32.3)</span> of those signals. Same physics as m32_global_sos_focus.m without noise or the ROI average. No attenuation, no element directivity.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m32-d1-cf" aria-label="Coherence factor versus assumed sound speed"></canvas>
+        <canvas id="m32-d1-ph" aria-label="Residual phase across the aperture"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>CF(ĉ)</span><span><i style="background:var(--sig2)"></i>V<sub>h</sub> = z/T</span><span><i style="background:var(--sig4)"></i>V<sub>rms</sub></span><span><i style="background:var(--muted)"></i>local speed at the target</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m32-d1-df">Fat thickness <output id="m32-d1-df-out">10 mm</output></label><input type="range" id="m32-d1-df" min="0" max="30" step="1" value="10"></div>
+        <div class="ctrl"><label for="m32-d1-cf1">Fat speed <output id="m32-d1-cf1-out">1450 m/s</output></label><input type="range" id="m32-d1-cf1" min="1400" max="1540" step="5" value="1450"></div>
+        <div class="ctrl"><label for="m32-d1-cl">Liver speed <output id="m32-d1-cl-out">1580 m/s</output></label><input type="range" id="m32-d1-cl" min="1480" max="1640" step="5" value="1580"></div>
+        <div class="ctrl"><label for="m32-d1-z">Target depth <output id="m32-d1-z-out">40 mm</output></label><input type="range" id="m32-d1-z" min="8" max="90" step="1" value="40"></div>
+        <div class="ctrl"><label for="m32-d1-F">Receive F-number <output id="m32-d1-F-out">1.0</output></label><input type="range" id="m32-d1-F" min="0.6" max="4" step="0.1" value="1"></div>
+        <div class="ctrl"><label for="m32-d1-ch">Assumed speed ĉ (phase panel) <output id="m32-d1-ch-out">1540 m/s</output></label><input type="range" id="m32-d1-ch" min="1400" max="1650" step="1" value="1540"></div>
+        <div class="readout" id="m32-d1-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> with the defaults the CF peaks within about a metre per second of V<sub>rms</sub>, 33 m/s below the liver it is meant to measure. Set the fat to 0: the peak moves onto the liver speed. Push the target to 90 mm: the average approaches the liver but never reaches it, and the peak broadens (the aperture is capped at 38.4 mm, so F grows). Raise the F-number to 3: the peak widens as F² predicts <span class="eqref">(32.1)</span>. In the phase panel, move ĉ off the optimum: the residual is a parabola; at the optimum only a small quartic term remains, the non-hyperbolic moveout of the layered medium.</div>
+  </div>
+  <div class="rf-grid" id="m32-g2"></div>
+
+  <!-- ======================= 32.3 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">32.3</span>From average to local: layered media, Dix and the price of differentiation</h2>
+    <p>A focus maximizer applied at many depths returns an average profile \(\bar c(z)\). The local speed is hidden in how that average changes with depth. In the vertical straight-ray model the one-way time to depth \(z\) is the integral of slowness, and the measured average is \(\bar c(z) = z/T(z)\). Written in slowness, the relation is linear, and inverting it is a derivative:</p>
+    <div class="eqn key" id="m32-eq5">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} z\,\bar s(z) = \int_0^{z} s(z')\,dz' \;\Longrightarrow\; s(z) = \frac{d}{dz}\bigl[z\,\bar s(z)\bigr] \\ s_k \approx \frac{z_k \bar s_k - z_{k-1}\bar s_{k-1}}{\Delta z}, \qquad \sigma_{c,\mathrm{loc}} \approx \frac{\sqrt{z_k^{2} + z_{k-1}^{2}}}{\Delta z}\,\sigma_{\bar c} \approx \sqrt2\,\frac{z}{\Delta z}\,\sigma_{\bar c} \end{gathered} \]</div><span class="eqn-no">(32.5)</span></div>
+      <dl class="where"><dt>\(\bar s(z) = 1/\bar c(z)\)</dt><dd>average slowness from the surface to depth \(z\), s/m</dd><dt>\(s(z)\)</dt><dd>local slowness at depth \(z\)</dd><dt>\(\Delta z\)</dt><dd>spacing of two average measurements, m</dd><dt>\(\sigma_{\bar c},\ \sigma_{c,\mathrm{loc}}\)</dt><dd>standard deviation of each average and of the local estimate, m/s (independent errors, \(c_{\mathrm{loc}} \approx \bar c\))</dd><dt>\(z\prime\)</dt><dd>integration variable (depth), m</dd><dt>\(k\)</dt><dd>index of the measurement depth \(z_k\)</dd><dt>\(z_k,\ \bar s_k\)</dt><dd>depth and average slowness at measurement \(k\)</dd><dt>\(\bar c\)</dt><dd>average speed \(1/\bar s\), m/s</dd></dl>
+      <span class="note">Differencing two averages taken 1 mm apart at 30 mm multiplies their noise by 42: 2 m/s on each average becomes about 85 m/s on the local speed (83.5 from the formula; m32_layered_inversion.m predicts 85.8 because the slowness-to-speed conversion adds the factor \((c_{\mathrm{loc}}/\bar c)^{2}\), and finds 87.1 by Monte Carlo; 142 and 148 at 50 mm). Locality costs \(z/\Delta z\) in precision, and no estimator escapes that factor without a prior.</span>
+    </div>
+    <p>Seismologists met the same problem with stacking velocities, which are RMS averages <span class="eqref">(32.4)</span>. Dix's interval formula inverts them exactly for flat layers:</p>
+    <div class="eqn" id="m32-eq6">
+      <div class="eqn-body"><div class="eqn-math">\[ c_{\mathrm{int},k}^{2} = \frac{V_{\mathrm{rms},k}^{2}\,T_k - V_{\mathrm{rms},k-1}^{2}\,T_{k-1}}{T_k - T_{k-1}}, \qquad \text{straight-ray:}\quad c_{\mathrm{int},k} = \frac{z_k - z_{k-1}}{T_k - T_{k-1}},\ \ z_k = \hat c_k T_k \]</div><span class="eqn-no">(32.6)</span></div>
+      <dl class="where"><dt>\(c_{\mathrm{int},k}\)</dt><dd>interval (local) speed between reflectors \(k-1\) and \(k\), m/s</dd><dt>\(T_k\)</dt><dd>one-way vertical time to reflector \(k\), from the echo time</dd><dt>\(V_{\mathrm{rms},k},\ \hat c_k\)</dt><dd>focus-optimal (RMS) speed measured at reflector \(k\)</dd><dt>\(z_k\)</dt><dd>depth of reflector \(k\), m</dd><dt>\(k\)</dt><dd>reflector index</dd></dl>
+      <span class="note">On the CF-optimal speeds of m32_global_sos_focus.m the liver interval speed comes out at 1580.1–1580.6 m/s by Dix and 1580.5–1582.5 m/s by the straight-ray rule (true 1580): the right formula matters at the 1–2 m/s level, the noise amplification of <span class="eqref">(32.5)</span> at the 10–100 m/s level.</span>
+    </div>
+    <p>Two ways out of the noise. <strong>Regularization</strong> (Module 13) trades resolution for precision: penalize the first difference of the local slowness and pick \(\lambda\) by the discrepancy principle, \(\lVert \mathbf{W}(\mathbf{A}\mathbf{s} - \mathbf{b})\rVert^{2} \approx m\). <strong>A layer prior</strong> uses the interfaces visible in the B-mode image and estimates one speed per layer, which turns the ill-posed derivative into a well-posed least-squares problem with three unknowns:</p>
+    <div class="eqn" id="m32-eq7">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat{\mathbf{s}}_\lambda = \arg\min_{\mathbf{s}} \lVert \mathbf{W}(\mathbf{A}\mathbf{s} - \mathbf{b})\rVert^{2} + \lambda^{2}\lVert \mathbf{D}\mathbf{s}\rVert^{2}, \qquad \hat{\mathbf{s}}_{\mathrm{layer}} = \mathbf{P}\,(\mathbf{B}^{T}\mathbf{B})^{-1}\mathbf{B}^{T}\mathbf{W}\mathbf{b},\ \ \mathbf{B} = \mathbf{W}\mathbf{A}\mathbf{P} \]</div><span class="eqn-no">(32.7)</span></div>
+      <dl class="where"><dt>\(\mathbf{A}\)</dt><dd>cumulative-sum operator: \(A_{kj} = \Delta z\) for cells \(j\) above measurement depth \(z_k\)</dd><dt>\(\mathbf{b}\)</dt><dd>data \(b_k = z_k/\bar c_k\), s</dd><dt>\(\mathbf{W}\)</dt><dd>whitening, \(1/(z_k\sigma_{\bar s})\) on the diagonal</dd><dt>\(\mathbf{D}\)</dt><dd>first-difference matrix</dd><dt>\(\mathbf{P}\)</dt><dd>cell-to-layer indicator matrix (interfaces from the image)</dd><dt>\(\mathbf{s}\)</dt><dd>slowness per cell, s/m</dd><dt>\(\hat{\mathbf{s}}_\lambda,\ \hat{\mathbf{s}}_{\mathrm{layer}}\)</dt><dd>regularized and layer-constrained slowness estimates</dd><dt>\(\lambda\)</dt><dd>regularization weight (balance of data fit and smoothness)</dd><dt>\(\lVert\cdot\rVert,\ \arg\min\)</dt><dd>Euclidean norm, minimizing argument</dd><dt>\(\mathbf{B}\)</dt><dd>\(\mathbf{W}\mathbf{A}\mathbf{P}\), the weighted forward operator on layers</dd><dt>\((\cdot)^{T}\)</dt><dd>transpose</dd></dl>
+      <span class="note">m32_layered_inversion.m, 2 m/s noise per average: Tikhonov (λ = 1.5×10⁵) gives the liver at 1548.6 m/s with 6.8 m/s RMSE but rounds the interfaces; the layer fit gives 1449.3 ± 0.8, 1587.6 ± 2.5 and 1548.9 ± 0.7 m/s for fat, muscle and liver (true 1450, 1585, 1550). The average at 60 mm is 1539.2 m/s, 10.8 m/s below the liver.</span>
+    </div>
+    <p>This is the logic of Jakovljevic et al. (J. Acoust. Soc. Am., 2018): Anderson-type averages first, then a model relating local speeds to path averages, solved by gradient descent. In two-layer phantoms and simulations their local estimates had biases below 6.2 m/s where the matched averages were biased by up to 66 m/s, at the cost of a larger standard deviation that a 5 × 5 mm region brought below 7 m/s. Ali and Dahl later moved the same idea to travel-time tomography from average speeds (IEEE IUS 2019), and Brevett, Sanabria, Ali and Dahl to common-midpoint gathers of non-beamformed data (IEEE IUS 2022).</p>
+  </div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Reporting the focus-optimal speed of a deep liver ROI as "the liver speed". Under 10 mm of fat (1450 over 1580 m/s) it reads about 45, 34, 22 and 17 m/s low (\(V_{\mathrm{rms}}\)) at 30, 40, 60 and 80 mm, more than the 14 m/s between the two Imbault cut-offs. A global estimate is a property of the path, not of the tissue at the end of it.</p></div>
+
+  <div class="demo" id="m32-d2">
+    <div class="demo-head"><span class="tag">Demo 32.2</span><h3>Average-to-local inversion: naive differencing, Tikhonov and a layer prior on the same noisy data</h3><span class="prov sim">Simulation</span><span class="prov-note">Vertical straight-ray model <span class="eqref">(32.5)</span> on 60 cells of 1 mm; averages \(\bar c(z_k)\) from 4 mm down, every 1–4 mm, with Gaussian noise of the set standard deviation (seeded, JS). Linear least-squares solutions of <span class="eqref">(32.7)</span> by Cholesky. Same model as m32_layered_inversion.m (different random numbers, so the readouts differ slightly). No refraction, no lateral variation, and the averages are taken as the harmonic \(z/T\), not \(V_{\mathrm{rms}}\).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m32-d2-prof" aria-label="True, average and inverted local speed versus depth"></canvas>
+        <canvas id="m32-d2-lc" aria-label="Misfit and error versus regularization parameter"></canvas>
+        <div class="legend"><span><i style="background:var(--ink)"></i>true local</span><span><i style="background:var(--sig2)"></i>measured average</span><span><i style="background:var(--muted)"></i>naive difference</span><span><i style="background:var(--accent)"></i>Tikhonov</span><span><i style="background:var(--sig4)"></i>layer fit</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m32-d2-case">Medium</label><select id="m32-d2-case"><option value="0">fat 8 mm | muscle 6 mm | liver 1550</option><option value="1">fat 20 mm | liver 1580</option><option value="2">fat 8 | muscle 6 | liver 1580 with a 1520 lesion at 32–42 mm</option></select></div>
+        <div class="ctrl"><label for="m32-d2-sig">Noise on each average <output id="m32-d2-sig-out">2 m/s</output></label><input type="range" id="m32-d2-sig" min="0.2" max="6" step="0.1" value="2"></div>
+        <div class="ctrl"><label for="m32-d2-dz">Spacing of the averages <output id="m32-d2-dz-out">1 mm</output></label><input type="range" id="m32-d2-dz" min="1" max="4" step="1" value="1"></div>
+        <div class="ctrl"><label for="m32-d2-lam">Tikhonov λ (log₁₀) <output id="m32-d2-lam-out">5.2</output></label><input type="range" id="m32-d2-lam" min="2" max="8" step="0.05" value="5.2"></div>
+        <label class="check"><input type="checkbox" id="m32-d2-auto" checked> pick λ by the discrepancy principle</label>
+        <div class="btn-row"><button class="btn" type="button" id="m32-d2-seed">New noise</button></div>
+        <div class="readout" id="m32-d2-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> the grey naive curve swings by ±100 m/s at depth even though every average is within 2 m/s: that is the z/Δz factor of <span class="eqref">(32.5)</span>. Untick the discrepancy box and slide λ: small λ follows the noise, large λ flattens the fat–muscle step and drags the liver toward the average. The layer fit is the best of the three whenever the interfaces are right; pick the lesion case and it misses the lesion entirely, because the prior has no layer there, and the liver value absorbs it (about 1564 instead of 1580 m/s with an error bar of ±0.7), while Tikhonov shows a blurred dip. Widen the spacing to 4 mm: the naive noise drops fourfold, the resolution with it.</div>
+  </div>
+  <div class="rf-grid" id="m32-g3"></div>
+
+  <!-- ======================= 32.4 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">32.4</span>Echo-mode tomography I: what CUTE measures</h2>
+    <p>Averages along vertical paths cannot see lateral structure. Jaeger and colleagues (Ultrasound Med. Biol., 2015) added angle diversity with ordinary pulse-echo hardware: beamform the same region with \(c_0\) from several steered plane-wave transmits, and compare the <em>phase</em> of the complex images pixel by pixel. If the tissue is homogeneous at \(c_0\), every steered image of a given speckle pixel has the same phase. If not, each transmit direction accumulates a different travel-time error on its way to the pixel, and the echo phase shifts. In the straight-ray, first-order model (Section 13.8 built its linear algebra):</p>
+    <div class="eqn" id="m32-eq8">
+      <div class="eqn-body"><div class="eqn-math">\[ L_\theta(x,z) = \frac{1}{\cos\theta}\int_0^{z} \Delta s\bigl(x - (z - z')\tan\theta,\ z'\bigr)\,dz', \qquad \Delta\tau_{\theta}(x,z) = L_\theta - L_0, \qquad \Delta\phi = 2\pi f_0\,\Delta\tau \]</div><span class="eqn-no">(32.8)</span></div>
+      <dl class="where"><dt>\(L_\theta(x,z)\)</dt><dd>travel-time error accumulated along the straight path from pixel \((x,z)\) to the array at angle \(\theta\) from vertical, s</dd><dt>\(\Delta s\)</dt><dd>slowness deviation <span class="eqref">(32.2)</span></dd><dt>\(\Delta\tau_\theta\)</dt><dd>echo delay shift between the image transmitted at \(\theta\) and at 0°, with the receive beamforming kept fixed (it cancels), s</dd><dt>\(\Delta\phi\)</dt><dd>measured phase shift at the centre frequency \(f_0\), rad</dd><dt>\(x,\ z,\ z\prime\)</dt><dd>lateral position, depth of the pixel and integration depth, m</dd><dt>\(\theta\)</dt><dd>transmit steering angle, rad</dd><dt>\(\Delta\tau\)</dt><dd>delay shift, s</dd><dt>\(f_0\)</dt><dd>centre frequency, Hz</dd></dl>
+      <span class="note">A +40 m/s inclusion of radius 5 mm (\(\Delta s\) = −16.4 ns/mm) gives up to 169 ns of shift at 15° below its centre, where the 0° path crosses the whole inclusion and the 15° path misses it (m32_cute_phase_shift.m; 164 ns from the inclusion chord, 5.7 ns from the 4 mm fat layer of the script), 5.3 rad at 5 MHz. The measurement is linear in \(\Delta s\) and differential: only differences between paths are seen.</span>
+    </div>
+    <p>Two practical limits follow at once. <strong>Wrapping:</strong> a phase is known modulo 2π, so \(\lvert\Delta\tau\rvert\) must stay below \(1/(2f_0)\) = 100 ns at 5 MHz. CUTE therefore measures between small angle steps and accumulates: a 2° step reaches only 56 ns (1.8 rad) for the same inclusion. <strong>Decorrelation:</strong> the phase of a speckle pixel is random, and only its <em>change</em> is meaningful if the two images contain the same speckle. Steering the transmit alone changes the speckle pattern. Stähli et al. (Ultrasonics, 2020) therefore paired transmit angle \(\varphi\) and receive angle \(\psi\) and compared only pairs that share the mid-angle \(\gamma = (\varphi + \psi)/2\), whose isochrones (and speckle) stay in place:</p>
+    <div class="eqn" id="m32-eq9">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} d_{\gamma}(x,z) = \bigl[L_{\varphi_n} + L_{\psi_m}\bigr] - \bigl[L_{\varphi_{n'}} + L_{\psi_{m'}}\bigr], \qquad \tfrac12(\varphi_n + \psi_m) = \tfrac12(\varphi_{n'} + \psi_{m'}) = \gamma \\ \text{flat layer, } (\theta,-\theta)\ \text{vs}\ (0,0)\text{:}\quad d = 2(\sec\theta - 1)\,S \end{gathered} \]</div><span class="eqn-no">(32.9)</span></div>
+      <dl class="where"><dt>\(\varphi,\ \psi\)</dt><dd>transmit and receive steering angles</dd><dt>\(\gamma\)</dt><dd>common mid-angle</dd><dt>\(S\)</dt><dd>vertical one-way delay error of a laterally uniform layer, s</dd><dt>\(d_{\gamma}\)</dt><dd>difference in travel-time error between two transmit–receive angle pairs with the same mid-angle \(\gamma\), s</dd><dt>\(n,\ n\prime,\ m,\ m\prime\)</dt><dd>indices of the transmit and receive angles of the two pairs</dd><dt>\(L\)</dt><dd>travel-time error along one ray, as in (32.8), s</dd><dt>\(\theta\)</dt><dd>steering angle, rad</dd><dt>\(\sec\)</dt><dd>secant, \(1/\cos\)</dd></dl>
+      <span class="note">A laterally uniform layer is nearly invisible: 4 mm of fat at 1450 m/s delays everything below it by 161 ns, yet changes a 15° transmit-only difference by 5.7 ns and the common-mid-angle difference by 11.4 ns, the \((\sec\theta - 1)\) and \(2(\sec\theta - 1)\) factors (3.5 % and 7.1 %). Layers, the thing liver measurements care about most, are the weakest part of the CUTE signal.</span>
+    </div>
+    <p>The noise of a phase-shift datum is the phase of a sample correlation. For \(N\) independent speckle samples in the kernel and a correlation coefficient \(\rho\) between the two images, the large-\(N\) result (the Cramér–Rao bound of interferometric phase, Module 12) is</p>
+    <div class="eqn key" id="m32-eq10">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat\phi = \arg\sum_{k=1}^{N} a_{2,k}\,a_{1,k}^{*}, \qquad \sigma_{\phi} \approx \frac{\sqrt{1-\rho^{2}}}{\rho\sqrt{2N}}, \qquad \sigma_\tau = \frac{\sigma_\phi}{2\pi f_0} \]</div><span class="eqn-no">(32.10)</span></div>
+      <dl class="where"><dt>\(a_{1,k},\ a_{2,k}\)</dt><dd>complex pixel values of the two beamformed images in the kernel</dd><dt>\(N\)</dt><dd>number of independent speckle cells in the kernel</dd><dt>\(\rho\)</dt><dd>correlation coefficient between the two images (speckle decorrelation plus noise)</dd><dt>\(\sigma_\phi,\ \sigma_\tau\)</dt><dd>phase and delay jitter of one datum</dd><dt>\(\hat\phi\)</dt><dd>estimated phase shift between the two images, rad</dd><dt>\(k\)</dt><dd>pixel index in the kernel</dd><dt>\(\arg\)</dt><dd>phase angle, rad</dd><dt>\((\cdot)^{*}\)</dt><dd>complex conjugate</dd><dt>\(f_0\)</dt><dd>centre frequency, Hz</dd></dl>
+      <span class="note">Monte Carlo in m32_cute_phase_shift.m: N = 64, ρ = 0.95 gives 0.0295 rad (formula 0.0291), 0.94 ns at 5 MHz; ρ = 0.99 gives 0.41 ns. The formula fails at low ρ and small N (0.355 versus 0.306 rad at ρ = 0.5, N = 16) where the phase distribution grows tails. Correlation is worth more than kernel size: going from ρ = 0.9 to 0.99 is worth a factor 3.4 in σ, the same as 12 times more samples.</span>
+    </div>
+    <p>Put the pieces together for the hardest case: the speed of a 5 mm layer from common-mid-angle data at ±20° with 0.92 ns jitter (ρ = 0.95, N = 64) is uncertain by 2.0 ns/mm, i.e. 5 m/s, from a single pair of pixel data (the layer delay \(S\) is the datum just below the layer minus the datum just above it, so \(\sqrt2 \times 0.92\) ns divided by \(2(\sec 20° - 1) \times 5\) mm). Averaging laterally helps; the axial blur of Section 32.5 does not. Stähli et al. also showed that a quantitative forward model needs a second correction: the misfocused echo is reconstructed at a shifted position, which adds a phase shift of its own. With both features their liver-phantom reconstructions came within a few m/s of the through-transmission values (standard error 2.5–10 m/s) and a volunteer liver read 1564 ± 4 m/s.</p>
+  </div>
+  <figure class="m32-fig" id="m32-fig-cute">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 32.A</b> · CUTE geometry: transmit-only versus common-mid-angle pairs</div>
+    <div class="mx-scroll"><svg viewBox="0 0 780 300" role="img" aria-label="Left: a linear array above a fat layer and a circular inclusion; a pixel below the inclusion receives a plane wave steered to the left, one at zero degrees and one steered to the right; their paths to the pixel cross the inclusion over different lengths. Right: transmit angle phi and receive angle psi sharing a common mid-angle gamma.">
+      <defs><marker id="m32-ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 Z" style="fill:var(--ink)"/></marker></defs>
+      <text x="16" y="14" class="t">(a) transmit-only: tx θ varies, rx fixed</text>
+      <rect x="40" y="30" width="340" height="12" class="arr"/>
+      <text x="44" y="27" class="s">array 38.4 mm</text>
+      <rect x="40" y="42" width="340" height="30" class="fat"/>
+      <text x="270" y="62" class="s">fat 4 mm</text>
+      <rect x="40" y="72" width="340" height="210" class="liv"/>
+      <circle cx="210" cy="150" r="42" class="inc"/>
+      <text x="258" y="132" class="s">inclusion +40 m/s</text>
+      <text x="258" y="146" class="s">Δs = −16.4 ns/mm</text>
+      <circle cx="210" cy="236" r="4" class="pt"/>
+      <text x="220" y="252" class="s">pixel r</text>
+      <path d="M210 236 L210 42" class="ray2"/>
+      <path d="M210 236 L159 42" class="ray1"/>
+      <path d="M210 236 L261 42" class="ray3"/>
+      <path d="M118 52 L200 74" class="wf"/><path d="M110 82 L192 104" class="wf"/>
+      <text x="96" y="114" class="s">steered front</text>
+      <text x="138" y="98" class="s" style="fill:var(--accent)">−θ</text><text x="214" y="98" class="s" style="fill:var(--sig4)">0°</text><text x="266" y="98" class="s" style="fill:var(--sig2)">+θ</text>
+      <text x="40" y="296" class="m">Δτ_θ = L_θ − L_0: chords differ</text>
+      <text x="440" y="14" class="t">(b) common mid-angle γ = (φ+ψ)/2</text>
+      <rect x="450" y="30" width="300" height="12" class="arr"/>
+      <rect x="450" y="42" width="300" height="240" class="liv"/>
+      <circle cx="600" cy="200" r="4" class="pt"/>
+      <path d="M600 200 L540 42" class="ray1" marker-start="url(#m32-ah)"/>
+      <path d="M600 200 L646 42" class="ray3"/>
+      <path d="M600 200 L585 42" class="ray2" style="stroke-dasharray:2 3"/>
+      <text x="502" y="78" class="s" style="fill:var(--accent)">tx φ</text>
+      <text x="650" y="78" class="s" style="fill:var(--sig2)">rx ψ</text>
+      <text x="560" y="62" class="s">γ</text>
+      <text x="456" y="236" class="s">(φ, ψ) and (φ − 2°, ψ + 2°) share γ:</text>
+      <text x="456" y="252" class="s">isochrones stay, speckle correlated</text>
+      <text x="456" y="268" class="s">Stähli 2020: 2° steps, sum over 10°</text>
+      <text x="450" y="296" class="m">d = (L_φ + L_ψ) − (L_φ' + L_ψ')</text>
+    </svg></div>
+    <figcaption class="prov-note">Not to scale. Angles in Stähli et al. (2020): plane-wave transmits from −27.5° to 27.5°, target transmit and receive angles −25° to 25° in 2° steps, L7-4 probe at 5 MHz.</figcaption>
+  </figure>
+
+  <div class="demo" id="m32-d3">
+    <div class="demo-head"><span class="tag">Demo 32.3</span><h3>CUTE phase-shift maps: inclusion, fat layer, steering angle, wrapping and speckle jitter</h3><span class="prov model">Approx. model</span><span class="prov-note">Straight-ray, first-order delay model <span class="eqref">(32.8)</span>–<span class="eqref">(32.9)</span> on a 0.25 mm grid (38.4 × 40 mm), marched row by row in JS with linear interpolation, smooth inclusion edge (0.3 mm). Optional jitter: independent Gaussian delay noise per pixel with \(\sigma_\tau\) from <span class="eqref">(32.10)</span>. No refraction, no echo-position shift, no beamforming; same model as m32_cute_phase_shift.m.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m32-d3-map" aria-label="Map of the echo delay shift or wrapped phase"></canvas>
+        <canvas id="m32-d3-prof" aria-label="Delay shift versus depth along one column"></canvas>
+        <div class="legend"><span><i style="background:rgb(31,95,209)"></i>negative shift</span><span><i style="background:rgb(194,54,111)"></i>positive shift</span><span><i style="background:var(--accent)"></i>column profile</span><span><i style="background:var(--sig4)"></i>±σ<sub>τ</sub> band</span><span><i style="background:var(--sig2)"></i>wrap limit</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m32-d3-type">Datum</label><select id="m32-d3-type"><option value="0">transmit-only: θ versus 0°</option><option value="1">common mid-angle: (θ, −θ) versus (0, 0)</option><option value="2">transmit-only step: 2° versus 0°</option></select></div>
+        <div class="ctrl"><label for="m32-d3-show">Display</label><select id="m32-d3-show"><option value="0">delay shift (ns)</option><option value="1">wrapped phase at f₀ (rad)</option></select></div>
+        <div class="ctrl"><label for="m32-d3-th">Steering angle θ <output id="m32-d3-th-out">15°</output></label><input type="range" id="m32-d3-th" min="2" max="30" step="1" value="15"></div>
+        <div class="ctrl"><label for="m32-d3-dc">Inclusion contrast <output id="m32-d3-dc-out">+40 m/s</output></label><input type="range" id="m32-d3-dc" min="-60" max="60" step="5" value="40"></div>
+        <div class="ctrl"><label for="m32-d3-r">Inclusion radius <output id="m32-d3-r-out">5 mm</output></label><input type="range" id="m32-d3-r" min="1" max="9" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m32-d3-zi">Inclusion depth <output id="m32-d3-zi-out">15 mm</output></label><input type="range" id="m32-d3-zi" min="8" max="32" step="1" value="15"></div>
+        <div class="ctrl"><label for="m32-d3-fat">Fat layer (1450 m/s) <output id="m32-d3-fat-out">4 mm</output></label><input type="range" id="m32-d3-fat" min="0" max="10" step="0.5" value="4"></div>
+        <div class="ctrl"><label for="m32-d3-f0">Centre frequency <output id="m32-d3-f0-out">5 MHz</output></label><input type="range" id="m32-d3-f0" min="2" max="8" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m32-d3-rho">Speckle correlation ρ <output id="m32-d3-rho-out">0.95</output></label><input type="range" id="m32-d3-rho" min="0.5" max="0.995" step="0.005" value="0.95"></div>
+        <div class="ctrl"><label for="m32-d3-N">Kernel samples N <output id="m32-d3-N-out">64</output></label><input type="range" id="m32-d3-N" min="4" max="512" step="4" value="64"></div>
+        <div class="ctrl"><label for="m32-d3-x">Profile column x <output id="m32-d3-x-out">0 mm</output></label><input type="range" id="m32-d3-x" min="-15" max="15" step="0.5" value="0"></div>
+        <label class="check"><input type="checkbox" id="m32-d3-noise"> add the jitter of <span class="eqref">(32.10)</span> to the map</label>
+        <div class="readout" id="m32-d3-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> at 15° the shift below the inclusion reaches the full chord delay, about 170 ns: switch to wrapped phase and count the wraps. Choose the 2° step: no wrap, and this is why CUTE differences small steps and accumulates. Set the inclusion contrast to 0: what is left is the fat layer, a few ns even though the layer delays every echo by 161 ns. Common mid-angle doubles both the inclusion and the layer signal. Raise f₀ to 8 MHz: more phase per ns, more wraps, and smaller σ<sub>τ</sub> at the same ρ. Drop ρ to 0.6 with the jitter on and watch the layer signal disappear.</div>
+  </div>
+  <div class="rf-grid" id="m32-g4"></div>
+
+  <!-- ======================= 32.5 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">32.5</span>Echo-mode tomography II: inversion, limited angle and the forward model</h2>
+    <p>Stack every phase-shift datum of every pixel into one linear system. Each row of \(\mathbf{A}\) is a difference of straight-ray weight vectors (path lengths through the cells of the slowness grid), and the inversion is the general-form Tikhonov problem of Module 13 with a gradient penalty:</p>
+    <div class="eqn key" id="m32-eq11">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} \mathbf{d} = \mathbf{A}\,\Delta\mathbf{s} + \mathbf{n}, \qquad \Delta\hat{\mathbf{s}} = \bigl(\mathbf{A}^{T}\mathbf{A} + \lambda^{2}\mathbf{G}^{T}\mathbf{G}\bigr)^{-1}\mathbf{A}^{T}\mathbf{d} \\ \mathbb{E}\bigl[\Delta\hat{\mathbf{s}}\bigr] = \mathbf{R}\,\Delta\mathbf{s}, \qquad \mathbf{R} = \bigl(\mathbf{A}^{T}\mathbf{A} + \lambda^{2}\mathbf{G}^{T}\mathbf{G}\bigr)^{-1}\mathbf{A}^{T}\mathbf{A} \end{gathered} \]</div><span class="eqn-no">(32.11)</span></div>
+      <dl class="where"><dt>\(\mathbf{d}\)</dt><dd>all delay-shift data <span class="eqref">(32.8)</span>–<span class="eqref">(32.9)</span>, ns</dd><dt>\(\mathbf{A}\)</dt><dd>differences of ray-weight rows, mm (path length per cell)</dd><dt>\(\Delta\mathbf{s}\)</dt><dd>slowness deviation per cell, ns/mm</dd><dt>\(\mathbf{G}\)</dt><dd>lateral and axial first differences between neighbouring cells</dd><dt>\(\mathbf{R}\)</dt><dd>resolution matrix: row \(k\) is the point-spread function of the reconstruction at cell \(k\); \(\operatorname{tr}\mathbf{R}\) counts the resolved degrees of freedom</dd><dt>\(\mathbf{n}\)</dt><dd>measurement noise, ns</dd><dt>\(\Delta\hat{\mathbf{s}}\)</dt><dd>regularized estimate of the slowness deviation</dd><dt>\(\lambda\)</dt><dd>regularization weight</dd><dt>\(\mathbb{E}\)</dt><dd>expectation over the noise</dd><dt>\((\cdot)^{T},\ (\cdot)^{-1}\)</dt><dd>transpose, matrix inverse</dd></dl>
+      <span class="note">\(\mathbf{R}\) does not depend on the data, only on the acquisition design and \(\lambda\). Compute it before acquiring anything: it is the design tool of SoS tomography, as the beam pattern is of an array.</span>
+    </div>
+    <p><strong>Limited angle.</strong> Rays within ±θ<sub>max</sub> of vertical measure, by the Fourier-slice theorem, only a wedge of spatial frequencies around the \(k_x\) axis (Section 13.8). Everything near \(k_z\), horizontal edges and the axial profile, sits in the missing cone. The resolution kernels are therefore elongated in depth and get worse with depth: m32_sos_tomography.m (θ<sub>max</sub> = 25°, 7 angles, 2.4 mm cells) finds axial/lateral FWHM of 2.5/2.4, 2.6/2.4 and 3.4/2.4 mm at 9, 19 and 31 mm for transmit-only data. Layers and the absolute level are in the same blind spot: a constant \(\Delta s_0\) shifts every datum by only \(\Delta s_0 z(\sec\theta - 1)\), so the mean speed must come from somewhere else. That is why CUTE reconstructions are run with an a priori speed and why Stähli et al. (2020, Figs. 4–6 of the preprint) and Jaeger et al. (2022, Figs. 9–10) show their maps for several a priori values.</p>
+    <p><strong>Forward-model error dominates noise.</strong> The same script separates the error sources by running each design twice. With data generated by the cell model itself plus 2 ns noise (noise and regularization only) the RMSE is 3.8 m/s for transmit-only and 1.9 m/s for common mid-angle. With noise-free data from fine straight rays through a smooth truth (discretization and regularization only) it is 22.0 and 30.8 m/s. The model, not the noise, is the error budget, and adding more data rows does not fix it. In the ray model a common-mid-angle row \((W_i + W_j) - (W_{i-1} + W_{j+1})\) is exactly a combination of transmit-only rows of the same pixel (the script verifies a residual of 5×10⁻¹⁵): CMA adds no ray information. Its benefit lives outside this model, in the speckle correlation of <span class="eqref">(32.10)</span> and the echo-position term that Stähli et al. added. Spatial-domain formulations of the same reconstruction (Sanabria et al., Phys. Med. Biol., 2018) and learned forward models are attempts to shrink exactly this model error.</p>
+  </div>
+  <div class="callout intuit"><span class="label">Intuition</span><p>Echo-mode SoS tomography is transmission tomography with the sources and detectors on the same side, so every ray is nearly vertical. It sees lateral changes well, axial changes poorly and uniform offsets hardly at all, which is the opposite of what a liver protocol needs (a layered abdominal wall over a uniform organ). Every successful method adds what the rays cannot give: an a priori mean, interfaces from the image, or a better forward model.</p></div>
+
+  <div class="demo" id="m32-d4">
+    <div class="demo-head"><span class="tag">Demo 32.4</span><h3>Limited-angle SoS tomography: reconstruction and resolution-matrix kernels for two acquisition designs</h3><span class="prov sim">Simulation</span><span class="prov-note">16 × 12 cells of 2.4 mm (x ±19.2 mm, z 2–30.8 mm) under a 38.4 mm array. Data at every cell centre from straight-ray delays at K angles in ±θ<sub>max</sub> (rays must reach the aperture); transmit-only = adjacent-angle differences, CMA = adjacent pairs with a common mid-angle. "Cell-consistent" data use the inversion's own ray weights (0.3 mm steps, nearest cell); "fine-ray" data integrate the smooth truth with 0.1 mm steps (model error). Tikhonov with a gradient penalty <span class="eqref">(32.11)</span>, Cholesky in JS. Smaller grid than m32_sos_tomography.m (16 × 14), same construction.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m32-d4-img" class="pick" aria-label="True and reconstructed sound-speed maps"></canvas>
+        <canvas id="m32-d4-R" class="pick" aria-label="Resolution-matrix row and its axial and lateral profiles"></canvas>
+        <div class="legend"><span>colour: 1440 (blue) to 1640 m/s (pink), white = 1540</span><span><i style="background:var(--accent)"></i>axial profile</span><span><i style="background:var(--sig2)"></i>lateral profile</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m32-d4-ph">Phantom</label><select id="m32-d4-ph"><option value="0">inclusion +40 m/s under 5 mm of fat</option><option value="1">two inclusions, +40 and −40 m/s</option><option value="2">layers: fat 5 mm, muscle 1580, liver 1550</option></select></div>
+        <div class="ctrl"><label for="m32-d4-des">Design</label><select id="m32-d4-des"><option value="0">transmit-only differences</option><option value="1">common mid-angle (CMA)</option></select></div>
+        <div class="ctrl"><label for="m32-d4-th">Maximum angle θ<sub>max</sub> <output id="m32-d4-th-out">25°</output></label><input type="range" id="m32-d4-th" min="5" max="40" step="1" value="25"></div>
+        <div class="ctrl"><label for="m32-d4-K">Number of angles K <output id="m32-d4-K-out">7</output></label><input type="range" id="m32-d4-K" min="3" max="13" step="2" value="7"></div>
+        <div class="ctrl"><label for="m32-d4-ns">Delay noise <output id="m32-d4-ns-out">2 ns</output></label><input type="range" id="m32-d4-ns" min="0" max="10" step="0.5" value="2"></div>
+        <div class="ctrl"><label for="m32-d4-lam">λ (log₁₀) <output id="m32-d4-lam-out">0</output></label><input type="range" id="m32-d4-lam" min="-1.5" max="2.5" step="0.05" value="0"></div>
+        <div class="ctrl"><label for="m32-d4-data">Data</label><select id="m32-d4-data"><option value="0">cell-consistent (noise + regularization only)</option><option value="1">fine-ray (adds model error)</option></select></div>
+        <div class="btn-row"><button class="btn solid" type="button" id="m32-d4-orc">Oracle λ (min RMSE)</button></div>
+        <div class="readout" id="m32-d4-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> click a cell in either panel to see its resolution kernel (a row of R): narrow laterally, long axially, and longer with depth. Shrink θ<sub>max</sub> to 10°: the kernels become vertical streaks, the missing cone made visible. Choose the layered phantom: neither design recovers the 5 mm fat layer, and the reconstruction drifts in mean level. Switch the data to fine-ray and press the oracle button for each design: the error now comes from the model, not the 2 ns noise; set the noise to 0 and it barely changes.</div>
+  </div>
+  <div class="rf-grid" id="m32-g5"></div>
+
+  <!-- ======================= 32.6 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">32.6</span>Autofocus as optimization: differentiable beamforming, learned and full-wave inversion</h2>
+    <p>Module 14 climbed a single \(\hat c\) by gradient ascent on a focus metric. Differentiable beamforming does the same for a whole map. Simson et al. (MICCAI 2023) wrote delay-and-sum in an automatic-differentiation framework so that a loss computed on the beamformed data could be differentiated with respect to every cell of a sound-speed map, and optimized phase-shift, speckle-brightness and coherence losses by gradient descent. With straight rays, the chain rule shows what that gradient is:</p>
+    <div class="eqn" id="m32-eq12">
+      <div class="eqn-body"><div class="eqn-math">\[ \tau_i(\mathbf{s}) = \sum_j \ell_{ij}\, s_j \;\Longrightarrow\; \frac{\partial \mathcal{L}}{\partial s_j} = \sum_i \frac{\partial \mathcal{L}}{\partial \tau_i}\,\ell_{ij} = \bigl[\mathbf{A}^{T}\,\nabla_{\tau}\mathcal{L}\bigr]_j \]</div><span class="eqn-no">(32.12)</span></div>
+      <dl class="where"><dt>\(\tau_i\)</dt><dd>beamforming delay of channel/path \(i\) (transmit plus receive) for a pixel, s</dd><dt>\(\ell_{ij}\)</dt><dd>length of path \(i\) in cell \(j\), m (the ray weights of <span class="eqref">(32.11)</span>)</dd><dt>\(\mathcal{L}\)</dt><dd>scalar loss on the beamformed data (phase error, brightness, coherence)</dd><dt>\(\nabla_{\tau}\mathcal{L}\)</dt><dd>sensitivity of the loss to each delay, computed by automatic differentiation through the interpolator</dd><dt>\(s_j\)</dt><dd>slowness of cell \(j\), s/m</dd><dt>\(\mathbf{A}\)</dt><dd>ray-weight matrix with entries \(\ell_{ij}\), as in (32.11)</dd><dt>\(\partial\)</dt><dd>partial derivative</dd><dt>\(i,\ j\)</dt><dd>path index and cell index</dd></dl>
+      <span class="note">The gradient is a back-projection of delay residuals along the rays: one step of differentiable autofocus is one step of a nonlinear, iterative tomography with the same straight-ray \(\mathbf{A}\) as CUTE, recomputed at the current map. It inherits the missing cone, and the iteration count acts as the regularization parameter (Section 13.5).</span>
+    </div>
+    <p>The later formulation (Simson et al., arXiv:2410.03008) replaced the loss with a common-midpoint phase error, the mean absolute phase of correlations between lag-1 common-midpoint subaperture pairs, keeping only pairs with correlation above 0.7, plus total-variation regularization of the map:</p>
+    <div class="eqn" id="m32-eq13">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathcal{L}_{\mathrm{CMPE}} = \frac{1}{N_x N_{\mathrm{CM}}} \sum_{\mathbf{x}_f \in \mathrm{FOV}}\ \sum_{(p,q)\in \mathrm{CM}} \Bigl\lvert \angle \hat\Gamma^{\mathrm{CM}}_{pq}(\mathbf{x}_f) \Bigr\rvert, \qquad \mathcal{L} = \mathcal{L}_{\mathrm{CMPE}} + \alpha\,\mathrm{TV}\bigl(c(\mathbf{x})\bigr) \]</div><span class="eqn-no">(32.13)</span></div>
+      <dl class="where"><dt>\(\hat\Gamma^{\mathrm{CM}}_{pq}(\mathbf{x}_f)\)</dt><dd>complex correlation at pixel \(\mathbf{x}_f\) between the images of subaperture pairs \(p\) and \(q\) that share a common midpoint</dd><dt>\(N_x,\ N_{\mathrm{CM}}\)</dt><dd>number of pixels and of common-midpoint pairs</dd><dt>\(\alpha\)</dt><dd>weight of the total-variation penalty</dd><dt>\(\angle\)</dt><dd>phase angle, rad</dd><dt>\(\mathrm{TV}\)</dt><dd>total variation of the sound-speed map</dd><dt>\(c(\mathbf{x})\)</dt><dd>sound-speed map being optimized, m/s</dd><dt>\(\mathrm{FOV}\)</dt><dd>field of view (set of pixels \(\mathbf{x}_f\))</dd><dt>\(\mathcal{L}_{\mathrm{CMPE}}\)</dt><dd>common-midpoint phase-error loss, rad</dd></dl>
+      <span class="note">The common-midpoint pairing is the aperture-domain analogue of CUTE's common mid-angle: it keeps the speckle correlated so that the phase means delay, not speckle. Reported errors (arXiv version 3): −11 m/s in a simulated inclusion, 8–14 m/s below calibrated values in layered and commercial phantoms, from 12 m/s below to 42 m/s above in graphite–gelatin phantoms.</span>
+    </div>
+    <p><strong>Why phase losses have local minima.</strong> A phase is periodic in delay with period \(1/f_0\). Once a residual delay difference exceeds half a period the wrapped phase points the wrong way, and gradient descent locks onto a wrong cycle, the cycle skipping of Section 14.4. The ways out are the ones seismology uses: start from a good global estimate (Section 32.2), compare only nearby (lag-1) and well-correlated signals, go from low to high frequency, or use envelope and coherence losses that are smooth but less sharp. Demo 32.5 maps the loss over a two-layer model and lets you start the descent anywhere.</p>
+    <p><strong>Learned inversion.</strong> Feigin, Freedman and Anthony (IEEE Trans. Biomed. Eng., 2020; preprint 2018) trained a fully convolutional network to map raw channel data of three plane waves directly to a sound-speed map. It was trained on 6,026 k-Wave simulations of random elliptical inclusions (1300–1800 m/s) in speckle and reached 20.5 m/s RMSE on simulated test data; on a phantom and in vivo the results were qualitative. The forward model is now implicit in the training set, so the model error of Section 32.5 becomes a domain gap that no regularizer can see.</p>
+    <p><strong>Full-wave inversion.</strong> Straight rays ignore refraction and diffraction, which are not small at fat–muscle interfaces. Geophysics solved the same problem with wave-equation migration velocity analysis; Ali's thesis (Stanford, 2021) laid the groundwork for it in pulse-echo ultrasound. On the IEEE IUS 2026 QUASOS challenge, which scored bias, variance, lesion detectability and robustness to near-field aberration on phantom and simulated RF data, the published final sound-speed scores (lower is better) put R. Ali (Rochester) first at 22.6 and the Bern CUTE group (M. Jaeger) ninth at 72.5 among 11 entries.</p>
+  </div>
+
+  <div class="demo" id="m32-d5">
+    <div class="demo-head"><span class="tag">Demo 32.5</span><h3>Differentiable autofocus on a two-layer model: loss landscape, gradient path and local minima</h3><span class="prov sim">Simulation</span><span class="prov-note">Four point targets on axis at 20, 30, 40 and 50 mm under a flat fat layer of known thickness; true receive times by Snell ray tracing (JS). The beamformer's model is two layers with unknown speeds \((\hat c_1, \hat c_2)\) and <em>straight</em> rays, pixel tied to the two-way apex time, as in a straight-ray differentiable beamformer. Losses: 1 − mean CF <span class="eqref">(32.3)</span>, or the mean absolute wrapped phase difference between elements \(\ell\) apart, normalized by π (a simplified stand-in for phase-error losses such as <span class="eqref">(32.13)</span>, not CMPE itself). Gradient by central differences; normalized gradient descent with a decaying step.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m32-d5-land" class="pick" aria-label="Loss landscape over the two layer speeds with the descent path"></canvas>
+        <canvas id="m32-d5-hist" aria-label="Loss versus iteration"></canvas>
+        <div class="legend"><span><i style="background:var(--ink)"></i>truth</span><span><i style="background:var(--sig2)"></i>descent path</span><span><i style="background:var(--sig4)"></i>grid minimum</span><span>click the map to start from there</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m32-d5-loss">Loss</label><select id="m32-d5-loss"><option value="0">1 − mean CF (coherence)</option><option value="1">wrapped phase difference at lag ℓ</option></select></div>
+        <div class="ctrl"><label for="m32-d5-lag">Element lag ℓ (phase loss) <output id="m32-d5-lag-out">8</output></label><input type="range" id="m32-d5-lag" min="1" max="32" step="1" value="8"></div>
+        <div class="ctrl"><label for="m32-d5-f0">Centre frequency <output id="m32-d5-f0-out">5 MHz</output></label><input type="range" id="m32-d5-f0" min="2" max="10" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m32-d5-df">Fat thickness (known) <output id="m32-d5-df-out">12 mm</output></label><input type="range" id="m32-d5-df" min="4" max="18" step="1" value="12"></div>
+        <div class="ctrl"><label for="m32-d5-c1">True fat speed <output id="m32-d5-c1-out">1450 m/s</output></label><input type="range" id="m32-d5-c1" min="1400" max="1520" step="5" value="1450"></div>
+        <div class="ctrl"><label for="m32-d5-c2">True liver speed <output id="m32-d5-c2-out">1570 m/s</output></label><input type="range" id="m32-d5-c2" min="1500" max="1640" step="5" value="1570"></div>
+        <div class="ctrl"><label for="m32-d5-eta">Initial step <output id="m32-d5-eta-out">12 m/s</output></label><input type="range" id="m32-d5-eta" min="2" max="40" step="1" value="12"></div>
+        <div class="btn-row"><button class="btn" type="button" id="m32-d5-reset">Start at (1540, 1540)</button></div>
+        <div class="readout" id="m32-d5-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> with the CF loss the valley is long and tilted: fat and liver speed trade against each other (a slower fat and a faster liver give nearly the same average), which is the layer ambiguity of Sections 32.3–32.5 seen as an optimization landscape. Switch to the phase loss: at lag 8 and 5 MHz it still converges from every corner. Raise the lag to 16, or the frequency to 10 MHz, and click near the lower-left corner: the descent stalls on a wrapped plateau, the cycle skipping of Module 14. Lag 1 is smooth but shallow. The grid minimum sits about 2 m/s from the true fat speed: the straight-ray model ignores refraction, a bias no optimizer removes.</div>
+  </div>
+  <div class="rf-grid" id="m32-g6"></div>
+
+  <!-- ======================= 32.7 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">32.7</span>Error budget, validation and clinical numbers</h2>
+    <p>How precise can a sound-speed estimate be? Take the cleanest case: a wavefront-curvature fit (Anderson and Trahey's idea) to receive arrival times \(t_i = t_a + (\sqrt{z^{2}+x_i^{2}} - z)/c\) with \(z = c\,t_a\), independent per-element jitter \(\sigma_t\) (whose own bound, set by SNR, bandwidth and decorrelation, is the delay CRLB of Modules 11 and 12), and an unknown common offset. The Fisher information gives, in the parabolic limit,</p>
+    <div class="eqn key" id="m32-eq14">
+      <div class="eqn-body"><div class="eqn-math">\[ \sigma_c \;\ge\; \frac{c^{2} z\,\sigma_t}{\sqrt{N}\,\operatorname{sd}(x_i^{2})} \;=\; c^{2} z\,\sigma_t \sqrt{\frac{45}{4N}}\,\frac{1}{X^{2}} \;=\; \frac{4c^{2}F^{2}\sigma_t}{z}\sqrt{\frac{45}{4N}}, \qquad b_{\mathrm{cal}} \approx -\frac{c^{2} z\,\delta}{X^{2}} \]</div><span class="eqn-no">(32.14)</span></div>
+      <dl class="where"><dt>\(\sigma_t\)</dt><dd>per-element arrival-time jitter, s</dd><dt>\(N,\ X\)</dt><dd>number of elements and half-aperture, uniform spacing; \(\operatorname{sd}(x^{2}) = X^{2}\sqrt{4/45}\) for a continuous uniform aperture</dd><dt>\(F\)</dt><dd>F-number \(z/(2X)\)</dd><dt>\(b_{\mathrm{cal}}\)</dt><dd>bias from a systematic delay error that grows quadratically to \(\delta\) at the aperture edge (lens, element delay calibration), m/s</dd><dt>\(c,\ z\)</dt><dd>sound speed (m/s) and depth (m)</dd><dt>\(x_i\)</dt><dd>lateral position of element \(i\) in the aperture, m</dd><dt>\(\operatorname{sd}\)</dt><dd>standard deviation over the aperture</dd><dt>\(\delta\)</dt><dd>systematic delay error at the aperture edge, s</dd><dt>\(\sigma_c\)</dt><dd>standard deviation of the speed estimate, m/s</dd></dl>
+      <span class="note">m32_sos_error_budget.m: 64 elements (18.9 mm), z = 30 mm, \(\sigma_t\) = 5 ns: exact CRLB 1.69 m/s, closed form 1.62 (1.67 for the continuous aperture), Monte Carlo 1.68 m/s. The closed form grows linearly with depth at a fixed aperture (the exact bound only once F ≳ 1; at F &lt; 1 it grows more slowly) and falls about as \(N^{-2.5}\) at fixed pitch. A 1 ns edge calibration error biases \(c\) by −0.83 m/s, comparable to the CRLB, and it never averages out.</span>
+    </div>
+    <p>The precision floor is not the problem. Averaging over a region of a few hundred independent kernels pushes the random part well below 1 m/s, and the systematic terms take over. The complete budget for a liver measurement adds, roughly in decreasing order:</p>
+    <div class="eqn" id="m32-eq15">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat c - c_{\mathrm{liver}} = \underbrace{\bigl(V_{\mathrm{rms}} - c_{\mathrm{liver}}\bigr)}_{\text{layer bias, if an average}} + \underbrace{b_{\mathrm{model}}}_{\text{rays, refraction}} + \underbrace{b_{\mathrm{cal}}}_{\text{lens, delays}} + \underbrace{b_{\mathrm{reg}}}_{\text{prior, }\lambda} + \underbrace{\varepsilon}_{\sigma_c/\sqrt{M}} \]</div><span class="eqn-no">(32.15)</span></div>
+      <dl class="where"><dt>\(b_{\mathrm{model}}\)</dt><dd>forward-model error (straight rays, no echo-position term, discretization), m/s</dd><dt>\(b_{\mathrm{reg}}\)</dt><dd>regularization and prior bias (a priori mean, smoothing across interfaces)</dd><dt>\(\varepsilon,\ M\)</dt><dd>random error and number of independent kernels averaged</dd><dt>\(\hat c,\ c_{\mathrm{liver}}\)</dt><dd>estimated and true liver sound speed, m/s</dd><dt>\(V_{\mathrm{rms}}\)</dt><dd>as in (32.4), m/s</dd><dt>\(b_{\mathrm{cal}}\)</dt><dd>as in (32.14), m/s</dd><dt>\(\lambda\)</dt><dd>regularization weight, as in (32.7)</dd><dt>\(\sigma_c\)</dt><dd>standard deviation of one kernel’s estimate, m/s</dd></dl>
+      <span class="note">Typical sizes from this module: layer bias 17–45 m/s under 10 mm of fat (Section 32.3), model error tens of m/s in the tomography toy (Section 32.5), calibration about 1 m/s per ns, random error well under the rest after averaging. The targets: 14 m/s between the two Imbault cut-offs, and the roughly 40 m/s drop for grade-1 steatosis that Stähli et al. cite.</span>
+    </div>
+    <p><strong>Validation.</strong> Phantom references come from through-transmission time of flight, quoted at ±5 m/s by Stähli et al. (2020) and Jaeger et al. (2022), so a phantom study cannot resolve errors much below that. Jaeger et al. (Phys. Med. Biol., 2022) carried CUTE to a convex probe (C6-1X, 3 MHz) for liver depths: in a four-layer abdominal phantom the liver agreed with its nominal value, axial resolution was about 10 mm at 30 mm depth, and in a volunteer the superficial liver read about 1580 m/s, while below about 50 mm the estimate deteriorated and, in vivo, varied by up to 100 m/s with the a priori speed below 60 mm. QUASOS (IEEE IUS 2026) added the first shared benchmark with phantom and simulated RF data, with and without near-field aberrators.</p>
+  </div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Sound speed is upstream of everything quantitative. Attenuation and backscatter estimates (Module 27) are computed on images formed with \(c_0\); shear-wave tracking (Module 30) and ULM localization (Module 31) inherit the depth scaling \(\hat c/c\) and the defocus; and aberration correction (Module 33) is, in its distributed form, a sound-speed map turned back into delays. A 1 % speed error is a 0.3 mm depth error at 30 mm, larger than the localization precision ULM claims.</p></div>
+
+  <div class="demo" id="m32-d6">
+    <div class="demo-head"><span class="tag">Demo 32.6</span><h3>Error budget of a liver sound-speed measurement</h3><span class="prov model">Approx. model</span><span class="prov-note">Random term: parabolic CRLB <span class="eqref">(32.14)</span> with the discrete-aperture spread, divided by √M for M independent kernels; local estimates by differencing over Δz multiply it by √2 z/Δz <span class="eqref">(32.5)</span>. Calibration: quadratic edge error \(\delta\), bias \(c^{2}z\delta/X^{2}\). Layer bias of an average: \(V_{\mathrm{rms}}\) of <span class="eqref">(32.4)</span> minus the liver speed. Model error: entered by hand (no formula exists; Section 32.5 suggests tens of m/s for straight-ray tomography). Biases are added by magnitude (worst case), the random term in quadrature; the calibration bias is applied unchanged to both estimates.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m32-d6-cv" aria-label="Bar chart of error budget terms against clinical targets"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>random (1σ)</span><span><i style="background:var(--sig2)"></i>biases</span><span><i style="background:var(--ink)"></i>total</span><span>dashed: 14 m/s cut-off gap and 40 m/s grade-1 shift</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m32-d6-est">Reported quantity</label><select id="m32-d6-est"><option value="0">average (focus-optimal speed of the ROI)</option><option value="1">local, by differencing averages Δz apart</option></select></div>
+        <div class="ctrl"><label for="m32-d6-z">ROI depth <output id="m32-d6-z-out">40 mm</output></label><input type="range" id="m32-d6-z" min="15" max="90" step="1" value="40"></div>
+        <div class="ctrl"><label for="m32-d6-N">Receive elements <output id="m32-d6-N-out">64</output></label><input type="range" id="m32-d6-N" min="16" max="192" step="16" value="64"></div>
+        <div class="ctrl"><label for="m32-d6-st">Per-element jitter σ<sub>t</sub> <output id="m32-d6-st-out">5 ns</output></label><input type="range" id="m32-d6-st" min="0.5" max="30" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m32-d6-M">Independent kernels averaged M <output id="m32-d6-M-out">100</output></label><input type="range" id="m32-d6-M" min="1" max="1000" step="1" value="100"></div>
+        <div class="ctrl"><label for="m32-d6-dz">Differencing span Δz (local) <output id="m32-d6-dz-out">10 mm</output></label><input type="range" id="m32-d6-dz" min="2" max="30" step="1" value="10"></div>
+        <div class="ctrl"><label for="m32-d6-cal">Edge calibration error δ <output id="m32-d6-cal-out">2 ns</output></label><input type="range" id="m32-d6-cal" min="0" max="20" step="0.5" value="2"></div>
+        <div class="ctrl"><label for="m32-d6-fat">Fat thickness (1450 m/s) over liver 1570 <output id="m32-d6-fat-out">12 mm</output></label><input type="range" id="m32-d6-fat" min="0" max="30" step="1" value="12"></div>
+        <div class="ctrl"><label for="m32-d6-mod">Model error (entered) <output id="m32-d6-mod-out">5 m/s</output></label><input type="range" id="m32-d6-mod" min="0" max="40" step="1" value="5"></div>
+        <div class="readout" id="m32-d6-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> with the defaults the average is dominated by the layer bias (−37 m/s), more than twice the gap between the healthy and steatotic cut-offs. Switch to the local estimate: the layer bias disappears, but differencing over 10 mm at 40 mm multiplies the random term by 5 <span class="eqref">(32.5)</span>; average more kernels or widen Δz to win it back. Then raise the calibration error: a 10 ns lens-delay error costs several m/s at any M. The lesson of the capstone in one panel: precision is cheap, locality and calibration are not.</div>
+  </div>
+
+  <!-- ======================= 32.8 Visual summary ======================= -->
+  <h2><span class="sec">32.8</span>Visual summary</h2>
+  <div class="prose"><p>Thirteen questions a sound-speed expert answers in five seconds. Each figure is computed from the formula or model named in its badge.</p></div>
+  <div class="rf-grid" id="m32-vis"></div>
+
+  <!-- ======================= 32.9 Rules ======================= -->
+  <h2><span class="sec">32.9</span>How experts think about it</h2>
+  <div class="prose"><p>A sound-speed expert keeps three questions apart. What does the datum measure (a curvature, a phase shift between two paths, a focus metric), and along which paths? Which average, or which linear combination of the local slowness, does that make it? And what blind spots does the path geometry leave (layers, the mean, axial detail), so what prior or extra physics must fill them? Precision is rarely the limit; locality, calibration and the forward model are.</p></div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">A speed error is a curvature error first and a depth error second.</div>
+      <div class="keynum"><span>|Δc| &lt; c²F²/(2f₀z)</span><span>7.9 m/s at F/1, 30 mm, 5 MHz</span><span>1 % → 0.3 mm at 30 mm</span></div>
+      <div class="why"><p>With the pixel tied to two-way time the on-axis delay is always right; the edge element is off by \((\Delta c/c)X^{2}/(zc)\) <span class="eqref">(32.1)</span>. Setting the edge phase below π/4 gives the tolerance, which scales as F². The depth error \((\Delta c/c)z\) is linear and only matters for geometry and for registration with other modalities.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m32-rf-1" aria-label="Sound-speed tolerance versus F-number"></canvas></div></div>
+      <div class="limits">Receive only, point-like pixel, π/4 criterion; plane-wave transmits add their own error, and real tissue adds non-quadratic aberration.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Work in slowness: travel times are linear in 1/c, not in c.</div>
+      <div class="keynum"><span>1 ns/mm ↔ 2.37 m/s</span><span>+40 m/s = −16.4 ns/mm</span></div>
+      <div class="why"><p>\(\tau = \int s\,dl\) is linear in \(s\), so every inversion in this module (layered, tomographic, gradient) is a linear or linearized problem in \(\Delta s\) <span class="eqref">(32.2)</span>. Converting back with \(\Delta c \approx -c_0^{2}\Delta s\) costs \(\Delta c^{2}/c\), 1.0 m/s (2.5 % of the correction) at 40 m/s; averaging speeds instead of slownesses biases means by \(\operatorname{Var}(c)/c\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m32-rf-2" aria-label="Speed deviation versus slowness deviation, exact and linear"></canvas></div></div>
+      <div class="limits">Linear only for fixed ray paths; bent rays make the problem nonlinear in \(s\) as well.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A focus maximizer measures the RMS speed of the path, not the tissue at the end of it.</div>
+      <div class="keynum"><span>V<sub>rms</sub> − V<sub>h</sub> = 1.1 m/s</span><span>liver − ĉ* = 33 m/s</span><span>10 mm fat, 40 mm</span></div>
+      <div class="why"><p>Small-offset moveout under flat layers is hyperbolic with \(V_{\mathrm{rms}}\) (Dix), so CF, coherence, brightness and curvature fits all return it <span class="eqref">(32.4)</span>. In m32_global_sos_focus.m the CF optimum sits 0.6–1.0 m/s above \(V_{\mathrm{rms}}\) at every depth; Demo 32.1 finds 0.1–0.3 m/s for a single point.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Demo 32.1 model: Snell-traced point target at 40 mm under 10 mm of fat, 128 elements.</span><canvas id="m32-rf-3" aria-label="Coherence factor versus assumed speed with V_h, V_rms and liver speed"></canvas></div></div>
+      <div class="limits">Flat layers, small offsets; large apertures and strong contrasts add non-hyperbolic moveout, and lateral variation breaks the 1D picture.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The CF peak is broad: read its centre, never its width.</div>
+      <div class="keynum"><span>CF = 0.5 at Φ = 2.73 rad</span><span>±67 m/s: 19.2 mm aperture at 30 mm (F/1.6)</span></div>
+      <div class="why"><p>A quadratic phase across a uniform aperture gives \(\mathrm{CF} = \lvert\langle e^{j\Phi u^{2}}\rangle\rvert^{2}\) <span class="eqref">(32.3)</span>. The half-maximum sits at an edge phase of 2.73 rad, tens of m/s from the peak, while the peak position can be read to a fraction of a m/s with parabolic interpolation. Width tracks F² and frequency, not tissue.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m32-rf-4" aria-label="Coherence factor versus quadratic edge phase"></canvas></div></div>
+      <div class="limits">Point-like target and uniform weighting; speckle, apodization and noise flatten and bias the curve.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Locality costs z/Δz in precision.</div>
+      <div class="keynum"><span>σ<sub>loc</sub> ≈ √2 (z/Δz) σ<sub>avg</sub></span><span>2 → 85 m/s at 30 mm, Δz = 1 mm</span></div>
+      <div class="why"><p>The local slowness is the derivative of \(z\bar s(z)\) <span class="eqref">(32.5)</span>; differencing two averages of independent error multiplies it by \(\sqrt{z_k^{2} + z_{k-1}^{2}}/\Delta z\). m32_layered_inversion.m: 85.8 predicted, 87.1 by Monte Carlo at 30 mm. Every local estimator pays this, explicitly or through its regularizer.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m32-rf-5" aria-label="Noise amplification of local estimates versus depth"></canvas></div></div>
+      <div class="limits">Independent errors on the averages; correlated errors (common calibration, shared data) amplify less but bias more.</div>
+    </div>
+    <div class="rule">
+      <div class="say">RMS averages need Dix; harmonic averages need straight-ray differences.</div>
+      <div class="keynum"><span>Dix: 1580.1–1580.6</span><span>straight-ray: 1580.5–1582.5</span><span>true 1580 m/s</span></div>
+      <div class="why"><p>Applying the straight-ray rule \(\Delta z/\Delta T\) to focus-optimal (RMS) speeds mixes two definitions; Dix's \(\sqrt{\Delta(V^{2}T)/\Delta T}\) <span class="eqref">(32.6)</span> is the consistent inverse. On noise-free CF optima the difference is 0.4–1.9 m/s: negligible against noise, not against a claimed 1 m/s accuracy.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Interval speeds printed by m32_global_sos_focus.m (Octave), liver true 1580 m/s.</span><canvas id="m32-rf-6" aria-label="Interval speed by Dix and straight-ray differences versus depth"></canvas></div></div>
+      <div class="limits">Flat layers and accurate echo times; with noise, both are dominated by the z/Δz amplification.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A layer prior is the strongest regularizer, and the most dangerous one.</div>
+      <div class="keynum"><span>±0.7–2.5 m/s per layer</span><span>a missed lesion biases its layer</span></div>
+      <div class="why"><p>Interfaces from the B-mode image turn the derivative into a three-unknown least-squares fit <span class="eqref">(32.7)</span>: 1449.3 ± 0.8, 1587.6 ± 2.5, 1548.9 ± 0.7 m/s in m32_layered_inversion.m. The error bars describe noise only; an unmodelled lesion moves the layer value while the error bar stays small (figure: noise-free fit of a liver containing a 10 mm lesion).</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Layer fit <span class="eqref">(32.7)</span> on noise-free averages, fat 8 mm | muscle 6 mm | liver 1580 with a 32–42 mm lesion of the plotted speed; JS.</span><canvas id="m32-rf-7" aria-label="Layer-fit liver speed versus lesion speed"></canvas></div></div>
+      <div class="limits">Assumes flat, correctly segmented interfaces; tilted or curved boundaries and in-layer heterogeneity violate it silently.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Phase wraps at half a period: steer in small steps and accumulate.</div>
+      <div class="keynum"><span>1/(2f₀) = 100 ns at 5 MHz</span><span>15°: 169 ns</span><span>2°: 56 ns</span></div>
+      <div class="why"><p>The CUTE datum is a phase <span class="eqref">(32.8)</span>, so only \(\lvert\Delta\tau\rvert &lt; 1/(2f_0)\) is unambiguous. A +40 m/s, 5 mm inclusion produces 169 ns between 0° and 15° but 56 ns for a 2° step (m32_cute_phase_shift.m). Stähli et al. used 2° steps and accumulated over 10°.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m32-rf-8" aria-label="Measured wrapped phase versus true delay"></canvas></div></div>
+      <div class="limits">Accumulation adds the errors of each step; strong contrasts or high frequencies may need unwrapping across space as well.</div>
+    </div>
+    <div class="rule">
+      <div class="say">In phase tracking, correlation is worth more than kernel size.</div>
+      <div class="keynum"><span>σ<sub>φ</sub> ≈ √(1−ρ²)/(ρ√(2N))</span><span>0.93 ns at ρ 0.95, N 64, 5 MHz</span></div>
+      <div class="why"><p>The bound of <span class="eqref">(32.10)</span> falls as \(1/\sqrt N\) but as \(\sqrt{1-\rho^{2}}\) near ρ = 1: from 0.9 to 0.99 is a factor 3.4, worth 12 times more samples. That is the reason for common-mid-angle and common-midpoint pairings: they keep the speckle in place.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m32-rf-9" aria-label="Delay jitter versus kernel samples for several correlations"></canvas></div></div>
+      <div class="limits">Large N, circular Gaussian speckle; at low ρ and small N the phase distribution grows tails (0.355 versus 0.306 rad at ρ 0.5, N 16).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Layers and the mean speed are in echo-mode tomography's blind spot.</div>
+      <div class="keynum"><span>tx-only: (sec θ − 1)S</span><span>CMA: 2(sec θ − 1)S</span><span>15°: 3.5 % / 7.1 %</span></div>
+      <div class="why"><p>A laterally uniform layer, or a constant offset of \(\Delta s\), shifts every steered path almost equally, so the differences that CUTE measures see only the \(\sec\theta - 1\) excess <span class="eqref">(32.9)</span>. 4 mm of fat delays everything by 161 ns and moves the 15° datum by 5.7 ns. Reconstructions need an a priori mean or an independent global estimate.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m32-rf-10" aria-label="Layer signal fraction versus steering angle"></canvas></div></div>
+      <div class="limits">Straight rays, flat layer; refraction at strong interfaces adds a small extra signal.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Compute the resolution matrix before you acquire anything.</div>
+      <div class="keynum"><span>axial 2.5 → 3.4 mm with depth</span><span>lateral 2.4 mm (cell)</span></div>
+      <div class="why"><p>\(\mathbf{R} = (\mathbf{A}^{T}\mathbf{A} + \lambda^{2}\mathbf{G}^{T}\mathbf{G})^{-1}\mathbf{A}^{T}\mathbf{A}\) <span class="eqref">(32.11)</span> needs only the geometry. Its rows show the missing cone: m32_sos_tomography.m finds axial FWHM of 2.5, 2.6, 3.4 mm (transmit-only) and 2.6, 2.9, 4.2 mm (CMA) at 9, 19, 31 mm, lateral fixed at the cell size.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Axial FWHM of resolution-matrix rows printed by m32_sos_tomography.m (θ<sub>max</sub> 25°, 7 angles, oracle λ).</span><canvas id="m32-rf-11" aria-label="Axial kernel width versus depth for two designs"></canvas></div></div>
+      <div class="limits">Depends on λ and on the penalty; FWHM below the cell size cannot be read on this grid.</div>
+    </div>
+    <div class="rule">
+      <div class="say">In SoS tomography the forward model, not the noise, is the error budget.</div>
+      <div class="keynum"><span>noise only: 3.8 / 1.9 m/s</span><span>model only: 22.0 / 30.8 m/s</span></div>
+      <div class="why"><p>Running the same inversion on data from its own cell model and on fine-ray data through a smooth truth separates the two (m32_sos_tomography.m, transmit-only / CMA). Removing the noise altogether moves the fine-ray RMSE by 0.2 m/s (22.2 to 22.0); refining the forward model (echo position, refraction, discretization) is what moves the number. That is the argument of Stähli et al. (2020).</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Oracle-λ RMSE printed by m32_sos_tomography.m.</span><canvas id="m32-rf-12" aria-label="RMSE from noise and from model error for two designs"></canvas></div></div>
+      <div class="limits">Toy grid and straight rays on both sides; real data add refraction and speckle effects that make the model term larger, not smaller.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Differentiable beamforming is tomography with a back-projected gradient.</div>
+      <div class="keynum"><span>∂L/∂s = Aᵀ ∂L/∂τ</span><span>iterations act as λ</span></div>
+      <div class="why"><p>With straight rays the delay of each path is \(\sum_j \ell_{ij}s_j\), so the gradient of any loss is a back-projection of delay sensitivities along those rays <span class="eqref">(32.12)</span>. Each step is a nonlinear Landweber step on the same \(\mathbf{A}\) as CUTE; it inherits the missing cone and needs the same priors (TV in the CMPE formulation).</p><div class="rule-fig"><span class="prov schem">Schematic</span><canvas id="m32-rf-13" aria-label="Back-projection of delay residuals along rays into the slowness grid"></canvas></div></div>
+      <div class="limits">Straight-ray beamformers only; a full-wave forward model replaces \(\ell_{ij}\) by wave-equation sensitivity kernels.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Phase losses skip cycles past half a period: start from the global estimate.</div>
+      <div class="keynum"><span>wrap at 1/(2f₀)</span><span>lag 8 safe, lag 16 not (Demo 32.5)</span></div>
+      <div class="why"><p>A wrapped phase is periodic in the delay residual, so the loss has secondary minima spaced by one period (Section 14.4). The figure is the edge lag-ℓ phase loss for a homogeneous error at 30 mm, 5 MHz, 30 mm aperture: longer lags sharpen the main minimum and bring the side minima closer. Initialize with a coherence-based global speed and use lag-1, well-correlated pairs.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Mean |wrapped phase difference| between elements ℓ apart for the quadratic residual of <span class="eqref">(32.1)</span>, normalized by π.</span><canvas id="m32-rf-14" aria-label="Wrapped phase loss versus speed error for two lags"></canvas></div></div>
+      <div class="limits">Homogeneous error, point target; speckle adds random phase that raises the floor and the correlation threshold.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Precision is cheap: σ<sub>c</sub> ∝ F²σ<sub>t</sub>/(z√N).</div>
+      <div class="keynum"><span>1.69 m/s per kernel</span><span>64 el., 30 mm, 5 ns</span><span>÷√M by averaging</span></div>
+      <div class="why"><p>The curvature CRLB <span class="eqref">(32.14)</span> is 1.69 m/s for one kernel at 30 mm (Monte Carlo 1.68); a few hundred independent kernels bring it to 0.1 m/s. At fixed pitch it falls about as \(N^{-2.5}\) because the curvature grows as \(X^{2}\). Quote a CRLB only next to the biases of <span class="eqref">(32.15)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m32-rf-15" aria-label="Sound-speed CRLB versus depth for three apertures"></canvas></div></div>
+      <div class="limits">Independent per-element jitter, known apex time; speckle-induced jitter is correlated across neighbouring elements, so the true bound is worse.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Calibrate the lens and the element delays before blaming the algorithm.</div>
+      <div class="keynum"><span>b ≈ −c²zδ/X²</span><span>−0.83 m/s per ns (64 el., 30 mm)</span></div>
+      <div class="why"><p>A systematic delay error that grows to δ at the aperture edge is indistinguishable from a curvature change <span class="eqref">(32.14)</span>. A lens whose speed or thickness differs from the nominal one produces exactly such an error, and it does not average out. Lens speed and thickness belong in the estimated parameters or in a calibration step.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m32-rf-16" aria-label="Calibration bias versus edge delay error"></canvas></div></div>
+      <div class="limits">Quadratic error pattern; linear (tilt) patterns bias position instead, and random element errors add jitter, not bias.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A learned sound-speed network inherits its simulator.</div>
+      <div class="keynum"><span>6,026 k-Wave samples</span><span>20.5 m/s RMSE (simulated)</span></div>
+      <div class="why"><p>Feigin et al. (2020) mapped three plane waves of raw channel data to a speed map and reached 20.5 m/s RMSE on simulated test data; in vivo the results were qualitative. The forward model moved from the equations into the training distribution, so model error becomes domain gap: random ellipses in speckle are not an abdominal wall.</p></div>
+      <div class="limits">A statement about generalization, not capacity; physics-anchored hybrids (unrolled or model-based networks) reduce but do not remove it.</div>
+    </div>
+  </div>
+
+  <!-- ======================= 32.10 Cheat sheet ======================= -->
+  <h2><span class="sec">32.10</span>Cheat sheet</h2>
+  <div class="tbl-wrap"><table><thead><tr><th>Concept</th><th>Formula</th><th>Ultrasound use</th></tr></thead><tbody>
+    <tr><td>Receive defocus from a speed error</td><td>\(\delta\tau(x) \approx (\Delta c/c)\,x^{2}/(zc)\)</td><td>104 ns at the edge of 38.4 mm, 30 mm, 20 m/s</td></tr>
+    <tr><td>Focusing tolerance</td><td>\(\lvert\Delta c\rvert &lt; c^{2}F^{2}/(2f_0 z)\)</td><td>7.9 m/s at F/1, 30 mm, 5 MHz; scales as F²</td></tr>
+    <tr><td>Depth scaling</td><td>\(\hat z = (\hat c/c)\,z\)</td><td>1 % → 0.3 mm at 30 mm</td></tr>
+    <tr><td>Slowness linearization</td><td>\(\Delta c \approx -c_0^{2}\Delta s\)</td><td>1 ns/mm = 2.37 m/s; error \(\Delta c^{2}/c\)</td></tr>
+    <tr><td>Coherence factor</td><td>\(\lvert\sum s_i\rvert^{2}/(N\sum\lvert s_i\rvert^{2})\)</td><td>CF = 0.5 at an edge phase of 2.73 rad</td></tr>
+    <tr><td>Harmonic and RMS averages</td><td>\(V_h = \sum w_i c_i\), \(V_{\mathrm{rms}}^{2} = \sum w_i c_i^{2}\)</td><td>focus returns \(V_{\mathrm{rms}}\); difference ≈ Var/(2V)</td></tr>
+    <tr><td>Average to local (straight ray)</td><td>\(s(z) = d[z\bar s(z)]/dz\)</td><td>noise × \(\sqrt2\,z/\Delta z\): 85 m/s from 2 m/s at 30 mm, 1 mm</td></tr>
+    <tr><td>Dix interval speed</td><td>\(c_{\mathrm{int}}^{2} = \Delta(V_{\mathrm{rms}}^{2}T)/\Delta T\)</td><td>consistent inverse of focus-optimal speeds</td></tr>
+    <tr><td>CUTE datum</td><td>\(\Delta\tau = L_\theta - L_0\), \(L_\theta = \sec\theta\int \Delta s\,dz'\)</td><td>wrap at 1/(2f₀) = 100 ns at 5 MHz</td></tr>
+    <tr><td>Layer visibility</td><td>\((\sec\theta - 1)S\), CMA \(2(\sec\theta - 1)S\)</td><td>3.5 % / 7.1 % of the layer delay at 15°</td></tr>
+    <tr><td>Phase jitter of a correlation</td><td>\(\sigma_\phi \approx \sqrt{1-\rho^{2}}/(\rho\sqrt{2N})\)</td><td>0.93 ns at ρ 0.95, N 64, 5 MHz</td></tr>
+    <tr><td>Resolution matrix</td><td>\(\mathbf{R} = (\mathbf{A}^{T}\mathbf{A} + \lambda^{2}\mathbf{G}^{T}\mathbf{G})^{-1}\mathbf{A}^{T}\mathbf{A}\)</td><td>kernels elongated axially (missing cone)</td></tr>
+    <tr><td>Autofocus gradient</td><td>\(\partial\mathcal{L}/\partial\mathbf{s} = \mathbf{A}^{T}\nabla_\tau\mathcal{L}\)</td><td>differentiable beamforming = back-projection</td></tr>
+    <tr><td>Curvature CRLB</td><td>\(\sigma_c = 4c^{2}F^{2}\sigma_t\sqrt{45/(4N)}/z\)</td><td>1.7 m/s: 64 el., 30 mm, 5 ns</td></tr>
+    <tr><td>Calibration bias</td><td>\(b \approx -c^{2}z\delta/X^{2}\)</td><td>−0.83 m/s per ns of edge error (64 el., 30 mm)</td></tr>
+    <tr><td>Liver numbers (Imbault 2017)</td><td>about 1490–1600 m/s; cut-offs near 1541 and 1555 m/s (check against the paper)</td><td>the 14 m/s a liver estimator must resolve</td></tr>
+  </tbody></table></div>
+
+  <!-- ======================= 32.11 Interview ======================= -->
+  <h2><span class="sec">32.11</span>Interview and qualifying-exam questions</h2>
+  <details class="quiz"><summary><span class="q">I1</span><span>Why does a 1540 m/s assumption hurt a high-frequency, low-F-number image more than a low-frequency, high-F-number one? <span class="muted">· screen</span></span></summary><div class="a"><p>The speed error appears as a curvature error, \(\delta\tau(X) = (\Delta c/c)X^{2}/(zc)\); in phase that is \(2\pi f_0\delta\tau\). Requiring less than π/4 at the edge gives \(\lvert\Delta c\rvert &lt; c^{2}F^{2}/(2f_0z)\): inversely proportional to frequency and proportional to F². At 5 MHz and 30 mm: 7.9 m/s at F/1, 71 m/s at F/3. Follow-up: and the depth error? \((\Delta c/c)z\), independent of aperture: 0.3 mm per percent at 30 mm.</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>You sweep the assumed speed and maximize coherence in a liver ROI at 50 mm under 10 mm of subcutaneous fat. What number did you measure? <span class="muted">· screen</span></span></summary><div class="a"><p>An average of the path, specifically the RMS speed \(V_{\mathrm{rms}} = \sqrt{\sum w_i c_i^{2}}\) (time weights), because small-offset moveout under flat layers is hyperbolic with \(V_{\mathrm{rms}}\) (Dix). With 1450 over 1580 m/s it reads about 1553, 27 m/s below the liver, and only about 1 m/s above \(z/T\). Follow-up: how do you get the liver itself? Measure at several depths and invert (Dix or regularized), or use a local method (tomography, layer fit with the B-mode interfaces).</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>Derive the noise of a local speed obtained by differencing two average speeds. <span class="muted">· onsite</span></span></summary><div class="a"><p>\(z\bar s(z) = \int_0^{z}s\), so \(s_k = (z_k\bar s_k - z_{k-1}\bar s_{k-1})/\Delta z\). With independent errors \(\sigma_{\bar s} = \sigma_{\bar c}/c^{2}\) on each average, \(\sigma_{s} = \sigma_{\bar s}\sqrt{z_k^{2} + z_{k-1}^{2}}/\Delta z\), i.e. \(\sigma_{c,\mathrm{loc}} \approx \sqrt2(z/\Delta z)\sigma_{\bar c}\). 2 m/s averages 1 mm apart at 30 mm give 85 m/s. Follow-up: what fixes it? Larger Δz (resolution), Tikhonov with a discrepancy-chosen λ, or a layer prior from the image, each a different bias.</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>Explain CUTE to a beamforming engineer in two minutes, including what limits it. <span class="muted">· onsite</span></span></summary><div class="a"><p>Beamform the same region with \(c_0\) from several steered plane waves (and receive angles); for each pixel the echo phase changes between steering angles in proportion to the difference of the travel-time errors along the two paths, \(\Delta\tau = L_\theta - L_{\theta'}\), \(L_\theta = \sec\theta\int\Delta s\). Stack all pixels and angles into \(\mathbf{d} = \mathbf{A}\Delta\mathbf{s}\) and invert with regularization. Limits: phase wraps at \(1/(2f_0)\) (small steps, accumulate), speckle decorrelation between angles (common mid-angle pairing), limited angle (axial blur, layers and the mean nearly invisible), and the forward model (straight rays, echo-position shift). Follow-up: what did Stähli et al. change? Common mid-angle pairs and the echo-position term.</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>Why is a laterally uniform fat layer hard for echo-mode tomography? Quantify. <span class="muted">· onsite</span></span></summary><div class="a"><p>All steered paths cross it, with lengths \(d/\cos\theta\); the difference to 0° is \((\sec\theta - 1)S\), where \(S\) is the vertical delay. For 4 mm at 1450 m/s, \(S\) = 161 ns, but the 15° datum moves by 5.7 ns (11.4 ns for a symmetric common-mid-angle pair), comparable to a few times the 1 ns jitter of one datum. A constant offset of the mean behaves the same way. Follow-up: so how do you anchor the mean? A global coherence estimate, a calibrated a priori value, or physics beyond straight rays.</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>What is the phase jitter of a CUTE datum, and what is the cheapest way to halve it? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(\sigma_\phi \approx \sqrt{1-\rho^{2}}/(\rho\sqrt{2N})\), the interferometric-phase CRLB; at ρ = 0.95, N = 64: 0.029 rad, 0.93 ns at 5 MHz. Halving it by kernel size needs 4N (resolution loss); raising ρ from 0.95 to 0.987 does the same. Hence pairing schemes that keep speckle correlated (common mid-angle, common midpoint), small angle steps and good SNR. Follow-up: when does the formula fail? Low ρ, small N: the distribution grows tails and wraps.</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>Your SoS tomography gives 25 m/s RMSE on a phantom. More angles or a better forward model? <span class="muted">· research</span></span></summary><div class="a"><p>Check which term dominates first. Rerun the inversion on data synthesized by your own forward model with your measured noise level: if that RMSE is small (a few m/s, as in m32_sos_tomography.m: 3.8 and 1.9 m/s), the 25 m/s is model error (straight rays, refraction, echo-position shift, discretization, lens) and more angles will not help. Then look at the resolution matrix to see whether the phantom features are resolvable at all. Follow-up: how would you validate the forward model alone? Full-wave simulation of the phantom geometry, compared datum by datum.</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>What is the relationship between differentiable-beamforming autofocus and CUTE? <span class="muted">· research</span></span></summary><div class="a"><p>With straight rays, each beamforming delay is \(\sum_j \ell_{ij}s_j\); the chain rule makes the gradient of any delay-based loss \(\mathbf{A}^{T}\nabla_\tau\mathcal{L}\), a back-projection along the same rays CUTE uses. Gradient descent is a nonlinear iterative tomography that recomputes the delays (and could recompute bent rays) at each step; the iteration count and TV play the role of λ. It shares CUTE's missing cone and benefits from the same correlated pairings (common midpoint). Follow-up: what does it buy? Losses evaluated on the actual beamformed data, any differentiable forward model, and easy priors.</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>Where do phase-based autofocus losses get stuck, and how would you initialize? <span class="muted">· research</span></span></summary><div class="a"><p>Wherever a residual delay difference exceeds half a period, the wrapped phase reverses and the loss has a secondary minimum: cycle skipping (Module 14). Long subaperture lags and high frequency make it worse. Initialize with a coherence- or CF-based global speed (smooth, wide basin), use lag-1 pairs with a correlation threshold (as in CMPE), and go from low to high frequency. Follow-up: can coherence alone be the loss? Yes, it is smooth but flat near the optimum and biased toward the path average.</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>Write the error budget for a liver sound-speed number reported to a hepatologist. <span class="muted">· research</span></span></summary><div class="a"><p>Random: curvature or phase CRLB divided by √M (sub-m/s after averaging). Biases: layer bias if an average is reported (17–45 m/s under 10 mm of fat at 30–80 mm), forward-model error (refraction, straight rays, echo position: tens of m/s in tomography), calibration (≈ 0.8 m/s per ns of edge delay error for 64 elements at 30 mm; lens speed and thickness), regularization and the a priori mean. Compare with 14 m/s between the Imbault cut-offs. Follow-up: how do you validate? Phantoms with through-transmission references (±5 m/s), then patients against MRI-PDFF.</p></div></details>
+  <details class="quiz"><summary><span class="q">I11</span><span>Would you trust a deep network that outputs a sound-speed map from channel data? <span class="muted">· research</span></span></summary><div class="a"><p>Only inside its training distribution. Feigin et al. (2020) trained on 6,026 k-Wave simulations of random ellipses and reported 20.5 m/s RMSE on simulated test data, with qualitative results in vivo: the forward model is now the simulator, and anatomy, lens, attenuation and noise mismatches become an unseen domain gap. I would want physics anchoring (unrolled or model-based inversion), uncertainty estimates and benchmark results on independent data such as QUASOS. Follow-up: what is a good sanity test? Feed a homogeneous phantom with known speed and a layered phantom; check the mean and the layer bias.</p></div></details>
+
+  <!-- ======================= 32.12 MATLAB ======================= -->
+  <h2><span class="sec">32.12</span>MATLAB lab</h2>
+  <div class="prose"><p class="code-note">Base MATLAB only (no toolboxes); each script runs as-is in MATLAB R2019b+ and GNU Octave 8. Paste into the editor and press Run. The numbers below are the Octave output.</p></div>
+  <details class="code">
+    <summary><span class="fname">m32_global_sos_focus.m</span><button class="copy" type="button">Copy</button><span class="what">Snell-traced channel data under a fat layer, CF versus assumed speed at 9 depths, V<sub>h</sub> versus V<sub>rms</sub>, Dix and straight-ray interval speeds · change c_fat, d_fat, c_liv, Nel · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m32_global_sos_focus.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> the CF-optimal speed is 1450.4 m/s at 6 mm (inside the fat), then 1493.1, 1514.5, … 1553.7 m/s from 15 to 50 mm, always 0.6–1.0 m/s above \(V_{\mathrm{rms}}\) and 1.5–2.3 m/s above \(V_h\); at 40 mm \(V_{\mathrm{rms}} - V_h\) = 1.07 m/s, exactly the prediction of <span class="eqref">(32.4)</span>. Interval speeds of the liver (true 1580): 1580.1–1580.6 m/s by Dix, 1580.5–1582.5 m/s by straight-ray differences.</p></div>
+  <details class="code">
+    <summary><span class="fname">m32_layered_inversion.m</span><button class="copy" type="button">Copy</button><span class="what">Noisy averages to local speeds: naive differencing (with Monte Carlo of its noise), Tikhonov with the discrepancy principle, layer-constrained least squares · change sig_c, dz, the profile · runtime ≈ 1 s</span></summary>
+    <pre><code data-file="matlab/m32_layered_inversion.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> naive local noise 85.8 m/s predicted and 87.1 m/s by Monte Carlo at 30 mm (142.4 and 147.6 at 50 mm) from 2 m/s per average; Tikhonov at λ = 1.5×10⁵ gives the liver at 1548.6 m/s (RMSE 6.8 m/s, 10.5 m/s over the whole profile); the layer fit gives 1449.3 ± 0.8, 1587.6 ± 2.5 and 1548.9 ± 0.7 m/s (true 1450, 1585, 1550); the average at 60 mm is 1539.2 m/s.</p></div>
+  <details class="code">
+    <summary><span class="fname">m32_cute_phase_shift.m</span><button class="copy" type="button">Copy</button><span class="what">Straight-ray CUTE delay maps (transmit-only, common mid-angle, 2° step) for an inclusion under fat, and a Monte Carlo of the phase jitter of correlated speckle · change th_deg, dc_inc, rho_list, N_list · runtime ≈ 3 s</span></summary>
+    <pre><code data-file="matlab/m32_cute_phase_shift.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> inclusion slowness −16.44 ns/mm; peak shift at 15° of 168.9 ns (5.31 rad) transmit-only and 335.4 ns (10.54 rad) common mid-angle; 56.2 ns for a 2° step (no wrap below 100 ns); the fat layer alone gives 5.69 and 11.37 ns, matching \((\sec\theta - 1)S\) and \(2(\sec\theta - 1)S\). Phase jitter: 0.0295 rad by Monte Carlo against 0.0291 from <span class="eqref">(32.10)</span> at ρ = 0.95, N = 64; at ρ = 0.5, N = 16 the formula underestimates (0.306 versus 0.355 rad). A 5 mm layer from CMA data at ±20° with 0.92 ns jitter on the data above and below it (√2 × 0.92 ns on their difference): σ<sub>s</sub> = 2.0 ns/mm = 5 m/s.</p></div>
+  <details class="code">
+    <summary><span class="fname">m32_sos_tomography.m</span><button class="copy" type="button">Copy</button><span class="what">Limited-angle echo-mode tomography with transmit-only and CMA data, Tikhonov with gradient penalty, resolution-matrix kernels, singular spectra, and an error budget that separates noise from model error · change thmax, K, noise_ns, the truth · runtime ≈ 6 s</span></summary>
+    <pre><code data-file="matlab/m32_sos_tomography.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> 1146 rows (transmit-only) and 2498 rows (CMA) for 224 unknowns; oracle-λ RMSE 22.2 and 30.6 m/s, inclusion mean 1558.6 and 1535.5 m/s (true 1580), fat row about 1506 m/s (true 1450) for both; axial/lateral FWHM 2.5/2.4, 2.6/2.4, 3.4/2.4 mm (transmit-only) and 2.6/2.4, 2.9/2.4, 4.2/2.4 mm (CMA) at 9, 19, 31 mm. The error budget: 3.8 and 1.9 m/s with cell-consistent data plus noise, 22.0 and 30.8 m/s with noise-free fine-ray data. Each pixel's CMA rows lie in the span of its transmit-only rows (residual 5.1×10⁻¹⁵). An earlier version of this script's header claimed CMA would give a larger trace(R) and a smaller axial kernel; the printed numbers show the opposite, and the header now explains why.</p></div>
+  <details class="code">
+    <summary><span class="fname">m32_sos_error_budget.m</span><button class="copy" type="button">Copy</button><span class="what">Fisher information and CRLB of a wavefront-curvature speed estimate, checked by Monte Carlo; CRLB table versus depth and aperture; bias of a quadratic calibration error · change sigma_t, N, z_list · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m32_sos_error_budget.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> 64 elements, 30 mm, 5 ns: exact CRLB 1.69 m/s, closed form 1.62 m/s (1.67 continuous), Monte Carlo 1.68 m/s with +0.02 m/s bias. The table runs from 0.20 m/s (128 elements, 10 mm) to 24.5 m/s (32 elements, 80 mm), linear in depth and about \(N^{-2.5}\) in aperture. A 1 ns quadratic edge error biases the estimate by −0.83 m/s.</p></div>
+
+  <!-- ======================= 32.13 Self-check ======================= -->
+  <h2><span class="sec">32.13</span>Self-check</h2>
+  <details class="quiz"><summary><span class="q">Q1</span><span>At 7.5 MHz, F/1.5 and 25 mm, what speed error puts the edge phase at π/4?</span></summary><div class="a"><p>\(\lvert\Delta c\rvert = c^{2}F^{2}/(2f_0z)\) = 2.37×10⁶ × 2.25 / (2 × 7.5×10⁶ × 0.025) = 14.2 m/s.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>A region at 1600 m/s is beamformed at 1540 m/s. Slowness deviation, and the linearized speed?</span></summary><div class="a"><p>\(\Delta s\) = 1/1600 − 1/1540 = −24.35 ns/mm; \(-c_0^{2}\Delta s\) = 57.7 m/s against the true 60 m/s (error \(\Delta c^{2}/c\) ≈ 2.3 m/s).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>15 mm of fat (1450 m/s) over liver (1560 m/s). V<sub>h</sub> and V<sub>rms</sub> at 60 mm?</span></summary><div class="a"><p>\(\Delta T\) = 10.34 and 28.85 µs, T = 39.19 µs, \(w_1\) = 0.264. \(V_h\) = 60/39.19 = 1531.0 m/s; \(V_{\mathrm{rms}}\) = √(0.264 × 1450² + 0.736 × 1560²) = 1531.7 m/s. Both are about 29 m/s below the liver.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>Averages at 40 and 45 mm, each with 1 m/s noise. Noise on the local speed between them?</span></summary><div class="a"><p>\(\sqrt{45^{2} + 40^{2}}/5\) × 1 = 12.0 m/s.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>A 3 mm-radius region at −30 m/s (relative to 1540). Maximum vertical chord delay, and does a 10° transmit-only step wrap at 6 MHz?</span></summary><div class="a"><p>\(\Delta s\) = 1/1510 − 1/1540 = 12.9 ns/mm. The longest chord through a circle is its diameter in any direction, 6 mm, so no datum can exceed 77 ns, even if one path crosses the full chord and the other misses the region. Wrapping starts at 1/(2f₀) = 83 ns at 6 MHz: no wrap, whatever the step.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>CUTE kernel with N = 100 independent samples, ρ = 0.9, 5 MHz. Delay jitter?</span></summary><div class="a"><p>\(\sigma_\phi\) = √0.19 / (0.9 × √200) = 0.0342 rad; \(\sigma_\tau\) = 0.0342/(2π × 5×10⁶) = 1.09 ns.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>Curvature fit with 128 elements (pitch 0.3 mm), 60 mm, 10 ns jitter. CRLB, and how many independent kernels to reach 0.5 m/s?</span></summary><div class="a"><p>From the table of m32_sos_error_budget.m, 0.60 m/s at 5 ns, so 1.2 m/s at 10 ns (linear in σ<sub>t</sub>). M = (1.2/0.5)² ≈ 6 kernels.</p></div></details>
+  <!-- ======================= 32.14 Literature ======================= -->
+  <h2><span class="sec">32.14</span>Figures from the literature</h2>
+  <div class="prose"><p>Measured data behind the models of this module. Figure numbers were checked against the open preprints named in each entry (the published versions may number them differently); links only, no images reproduced.</p></div>
+  <div class="litfig"><h4>Common mid-angle and the echo-position term: phantom and volunteer SoS maps</h4>
+    <p class="cite">P. Stähli, M. Kuriakose, M. Frenz and M. Jaeger, "Improved forward model for quantitative pulse-echo speed-of-sound imaging," Ultrasonics 108, 106168 (2020); preprint arXiv:1902.10639. <a href="https://doi.org/10.1016/j.ultras.2020.106168" target="_blank" rel="noopener">doi:10.1016/j.ultras.2020.106168</a></p>
+    <p><b>Look at Fig. 1</b> (isochrones for different transmit/receive angle pairs: only pairs sharing a mid-angle keep their relative position), <b>Figs. 4–6</b> (two-layer, four-layer and laterally varying phantoms with liver 1555 and fat 1420 m/s; rows: old model, CMA model, new model; columns: four a priori speeds) and <b>Fig. 7</b> (volunteer abdominal wall and liver, old versus new model). <b>Why:</b> it is the measured version of Sections 32.4–32.5: the gain from the CMA pairing, the extra gain from the echo-position term, and the dependence on the a priori mean.</p></div>
+  <div class="litfig"><h4>CUTE with a convex probe: liver phantom, volunteer and the a priori speed</h4>
+    <p class="cite">M. Jaeger, P. Stähli, N. Korta Martiartu, P. Salemi Yolgunlu, T. Frappart, C. Fraschini and M. Frenz, "Pulse-echo speed-of-sound imaging using convex probes," Phys. Med. Biol. (2022); preprint arXiv:2202.10633. <a href="https://doi.org/10.1088/1361-6560/ac96c6" target="_blank" rel="noopener">doi:10.1088/1361-6560/ac96c6</a></p>
+    <p><b>Look at Fig. 5</b> (four-layer liver phantom: B-mode, SoS maps for two beamforming grids and two regularizations, depth profiles), <b>Fig. 6</b> (volunteer liver, about 1580 m/s superficially), <b>Fig. 8</b> (images for maximum angle spreads of 22, 6 and 3 steps) and <b>Figs. 9–10</b> (phantom and in vivo maps for a priori speeds from 1510 to 1590 m/s). <b>Why:</b> Fig. 8 is Demo 32.4's θ<sub>max</sub> slider on real data, and Figs. 9–10 show the blind spot for the mean: robust in the phantom, up to about 100 m/s of spread below 60 mm in vivo.</p></div>
+  <div class="litfig"><h4>Learned sound-speed inversion from raw channel data</h4>
+    <p class="cite">M. Feigin, D. Freedman and B. W. Anthony, "A deep learning framework for single-sided sound speed inversion in medical ultrasound," IEEE Trans. Biomed. Eng. 67(4), 1142–1151 (2020); preprint arXiv:1810.00322 (figure numbers below follow the preprint). <a href="https://doi.org/10.1109/TBME.2019.2931195" target="_blank" rel="noopener">doi:10.1109/TBME.2019.2931195</a></p>
+    <p><b>Look at Fig. 6</b> (16 simulated test cases: reference versus three-plane-wave network output), <b>Fig. 7</b> (absolute error for one and three plane waves), <b>Fig. 8</b> (polyurethane phantom with an inclusion: B-mode, ground truth and reconstructions) and <b>Fig. 10</b> (neck cross-section in vivo). <b>Why:</b> compare the clean simulated recoveries with the artefacts on the phantom: the domain gap of Section 32.6 in one page.</p></div>
+  <div class="litfig"><h4>Differentiable-beamforming autofocus with a common-midpoint phase loss</h4>
+    <p class="cite">W. Simson, L. Zhuang, B. N. Frey, S. J. Sanabria, J. J. Dahl and D. Hyun, "Ultrasound autofocusing: common midpoint phase error optimization via differentiable beamforming," <a href="https://arxiv.org/abs/2410.03008" target="_blank" rel="noopener">arXiv:2410.03008</a> (version 3). Earlier work: W. Simson et al., "Differentiable beamforming for ultrasound autofocusing," MICCAI 2023, LNCS 14229, 428–437. <a href="https://doi.org/10.1007/978-3-031-43999-5_41" target="_blank" rel="noopener">doi:10.1007/978-3-031-43999-5_41</a></p>
+    <p><b>Look at Fig. 1</b> (straight-ray model of two common-midpoint subaperture pairs at lag 4 and their regions of support), <b>Fig. 3</b> (simulated inclusion: lag-1 midpoint-offset phase error versus CMPE, at constant and correct speed), <b>Fig. 5</b> (in vivo rat liver before and after autofocusing, with CMPE maps and coherence) and <b>Fig. 7</b> (estimated versus calibrated phantom speeds). <b>Why:</b> Fig. 1 is <span class="eqref">(32.12)</span> drawn by the authors, and Fig. 7 is the honest error budget: 8–14 m/s below calibrated values in layered and commercial phantoms.</p></div>
+
+  <!-- ======================= 32.15 Go deeper ======================= -->
+  <h2><span class="sec">32.15</span>Go deeper</h2>
+  <ul class="refs">
+    <li>M. E. Anderson and G. E. Trahey, "The direct estimation of sound speed using pulse-echo ultrasound," J. Acoust. Soc. Am. 104(5), 3099–3106 (1998). <a href="https://doi.org/10.1121/1.423889" target="_blank" rel="noopener">doi:10.1121/1.423889</a>. Average speed from the arrival-time profile.</li>
+    <li>C. H. Dix, "Seismic velocities from surface measurements," Geophysics (1955). The RMS-velocity moveout and the interval formula of <span class="eqref">(32.6)</span>.</li>
+    <li>M. Jakovljevic, S. Hsieh, R. Ali, G. Chau, D. Hyun and J. J. Dahl, "Local speed of sound estimation in tissue using pulse-echo ultrasound: model-based approach," J. Acoust. Soc. Am. 144, 254–266 (2018). Average-to-local in two-layer media.</li>
+    <li>M. Imbault, A. Faccinetto, B.-F. Osmanski, A. Tissier, T. Deffieux, J.-L. Gennisson, V. Vilgrain and M. Tanter, "Robust sound speed estimation for ultrasound-based hepatic steatosis assessment," Phys. Med. Biol. (2017). <a href="https://doi.org/10.1088/1361-6560/aa6226" target="_blank" rel="noopener">doi:10.1088/1361-6560/aa6226</a>. Liver speed against MRI-PDFF and biopsy (open access).</li>
+    <li>M. Jaeger, K. G. Held, S. E. Peeters, S. Preisser, M. Grünig and M. Frenz, "Computed ultrasound tomography in echo mode for imaging speed of sound using pulse-echo sonography: proof of principle," Ultrasound Med. Biol. 41(1), 235–250 (2015). <a href="https://doi.org/10.1016/j.ultrasmedbio.2014.05.019" target="_blank" rel="noopener">doi:10.1016/j.ultrasmedbio.2014.05.019</a>. The original CUTE paper: 0.6 % contrast resolution, 1 mm lateral by 3 mm axial.</li>
+    <li>S. J. Sanabria, E. Ozkan, M. Rominger and O. Goksel, "Spatial domain reconstruction for imaging speed-of-sound with pulse-echo ultrasound: simulation and in vivo study," Phys. Med. Biol. 63(21) (2018). <a href="https://doi.org/10.1088/1361-6560/aae2fb" target="_blank" rel="noopener">doi:10.1088/1361-6560/aae2fb</a>.</li>
+    <li>R. Ali, T. Brevett, D. Hyun, L. L. Brickson and J. J. Dahl, "Distributed aberration correction techniques based on tomographic sound speed estimates," IEEE Trans. Ultrason. Ferroelectr. Freq. Control (2022); R. Ali et al., "Sound speed estimation for distributed aberration correction in laterally varying media," IEEE Trans. Comput. Imaging (2023). From sound-speed maps back to delays (Module 33).</li>
+    <li>R. Ali, "Sound speed estimation and phase-aberration correction for medical ultrasound imaging," Ph.D. thesis, Stanford University (2021). Includes the groundwork for wave-equation migration velocity analysis.</li>
+    <li>IEEE IUS 2026 QUASOS challenge, final scores: <a href="https://qulab.medphysics.wisc.edu/ieee-tuffc-quasos-challenge/" target="_blank" rel="noopener">UW Quantitative Ultrasound Lab page</a>.</li>
+    <li>Lab cross-links: coherence and the van Cittert–Zernike theorem (<a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 07</a>); delay estimation (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 11</a>); CRLB (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 12</a>); Tikhonov, resolution matrices and limited-angle SoS tomography (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 13</a>); autofocus and cycle skipping (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 14</a>); QUS (<a href="{{PART4_URL}}" target="_blank" rel="noopener">Module 27</a>); CF and SLSC (<a href="{{PART4_URL}}" target="_blank" rel="noopener">Module 25</a>); elastography and ULM, which inherit the speed (Modules 30, 31); aberration correction (Module 33).</li>
+  </ul>
+<!-- @@SECTION-END -->
+  <div class="next"><a href="#m31">← 31 ULM end to end</a><a href="#m33">33 Aberration correction →</a></div>
+</section>
+
+<style>
+#m32 .prov-legend .prov, #m32 .rule-fig .prov, #m32 .m32-fig .fh .prov { margin-left: 0; }
+#m32 .demo-head .prov-note { flex-basis: 100%; }
+#m32 .rule-fig .prov-note { margin: 0 0 4px; }
+#m32 .m32-fig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 12px; margin: 18px 0; }
+#m32 .m32-fig .fh { font-size: 0.9rem; margin-bottom: 6px; }
+#m32 .m32-fig .mx-scroll > svg { display: block; width: 100%; height: auto; min-width: 640px; }
+#m32 .m32-fig text { font: 12px var(--f-mono); fill: var(--ink); }
+#m32 .m32-fig text.m { fill: var(--muted); }
+#m32 .m32-fig text.s { font-size: 11px; fill: var(--muted); }
+#m32 .m32-fig text.t { font-weight: 600; font-size: 12.5px; }
+#m32 .m32-fig .arr { fill: var(--panel); stroke: var(--ink); stroke-width: 1.2; }
+#m32 .m32-fig .fat { fill: var(--sig3); fill-opacity: 0.28; stroke: none; }
+#m32 .m32-fig .liv { fill: var(--accent); fill-opacity: 0.08; stroke: none; }
+#m32 .m32-fig .inc { fill: var(--sig2); fill-opacity: 0.22; stroke: var(--sig2); stroke-width: 1.3; }
+#m32 .m32-fig .ray1 { stroke: var(--accent); stroke-width: 1.8; fill: none; }
+#m32 .m32-fig .ray2 { stroke: var(--sig4); stroke-width: 1.8; fill: none; }
+#m32 .m32-fig .ray3 { stroke: var(--sig2); stroke-width: 1.8; fill: none; stroke-dasharray: 5 3; }
+#m32 .m32-fig .wf { stroke: var(--muted); stroke-width: 1; fill: none; stroke-dasharray: 3 3; }
+#m32 .m32-fig .pt { fill: var(--ink); }
+#m32 .litfig h4 { margin: 0 0 4px; font-size: 0.98rem; }
+#m32 .litfig p { margin: 4px 0; }
+#m32 .stage canvas + canvas { margin-top: 8px; }
+#m32 .stage canvas { cursor: default; }
+#m32 .stage canvas.pick { cursor: crosshair; }
+</style>
+<script>
+(function () {
+const $ = id => document.getElementById(id);
+const PI = Math.PI, TAU = 2 * PI, C0 = 1540, F0 = 5e6, PITCH = 0.3e-3;
+const Mm = () => Lab.mini;
+const fmt = (v, d) => Lab.fmt(v, d);
+const L10 = Math.log10;
+function fig(cv, h, xr, yr, o) { const M = Mm(); const S = M.size(cv, h); const m = M.panel(S.x, { x: 8, y: 16, w: S.w - 16, h: h - 36 }, xr, yr, Object.assign({ base: yr[0], yaxis: false }, o || {})); return { x: S.x, m, w: S.w, h }; }
+function poly(x, m, xs, ys, col, o) { o = o || {}; x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.beginPath();
+  for (let i = 0; i < xs.length; i++) { const px = m.X(xs[i]), py = m.Y(ys[i]); i ? x.lineTo(px, py) : x.moveTo(px, py); } x.strokeStyle = col; x.lineWidth = o.w || 1.7; if (o.dash) x.setLineDash(o.dash); x.stroke(); x.restore(); }
+function dot(x, m, X, Y, col, r) { x.save(); x.fillStyle = col; x.beginPath(); x.arc(m.X(X), m.Y(Y), r || 3, 0, 7); x.fill(); x.restore(); }
+function vline(x, m, X, col, lab, dy) { x.save(); x.strokeStyle = col; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(m.X(X) + 0.5, m.b.y); x.lineTo(m.X(X) + 0.5, m.b.y + m.b.h); x.stroke(); x.restore(); if (lab) Mm().text(x, lab, m.X(X) + 3, m.b.y + 6 + (dy || 0), col); }
+const H = 132;
+const wrap = p => p - TAU * Math.round(p / TAU);
+
+/* ---------- shared physics ---------- */
+/* one-way time from (0,z) to elements xe under a flat layer (thickness df, speed c1) over c2; Snell via ray parameter bisection */
+function snellTimes(xe, z, df, c1, c2) {
+  const out = new Float64Array(xe.length);
+  if (z <= df || df <= 0) { const cc = z <= df ? c1 : c2; for (let i = 0; i < xe.length; i++) out[i] = Math.hypot(z, xe[i]) / cc; return out; }
+  const d2 = z - df, pmax = (1 - 1e-12) / Math.max(c1, c2);
+  for (let i = 0; i < xe.length; i++) {
+    const X = Math.abs(xe[i]); let lo = 0, hi = pmax;
+    for (let it = 0; it < 56; it++) { const p = 0.5 * (lo + hi); const a = p * c1, b = p * c2;
+      const f = df * a / Math.sqrt(1 - a * a) + d2 * b / Math.sqrt(1 - b * b); if (f > X) hi = p; else lo = p; }
+    const p = 0.5 * (lo + hi), a = p * c1, b = p * c2;
+    out[i] = df / (c1 * Math.sqrt(1 - a * a)) + d2 / (c2 * Math.sqrt(1 - b * b));
+  }
+  return out;
+}
+const sigT = f0 => 1 / (TAU * (0.6 * f0 / (2 * Math.sqrt(2 * Math.log(2)))));
+/* CF of the apex pixel for assumed homogeneous chat: residual delay per element */
+function cfApex(xe, Ti, T0, chat, f0) {
+  const st = sigT(f0), zh = chat * T0; let sr = 0, si = 0, e = 0;
+  for (let i = 0; i < xe.length; i++) { const d = Ti[i] - Math.hypot(zh, xe[i]) / chat; const a = Math.exp(-d * d / (2 * st * st)), p = TAU * f0 * d;
+    sr += a * Math.cos(p); si += a * Math.sin(p); e += a * a; }
+  return (sr * sr + si * si) / (xe.length * e + 1e-300);
+}
+function avgSpeeds(z, df, c1, c2) { const d1 = Math.min(z, df), d2 = Math.max(0, z - df); const T1 = d1 / c1, T2 = d2 / c2, T = T1 + T2;
+  return { T, Vh: z / T, Vr: Math.sqrt((c1 * c1 * T1 + c2 * c2 * T2) / T), cloc: z <= df ? c1 : c2 }; }
+function elements(z, F) { const D = Math.min(z / F, 128 * PITCH); const N = Math.max(4, Math.round(D / PITCH)); const xe = new Float64Array(N); for (let i = 0; i < N; i++) xe[i] = (i - (N - 1) / 2) * PITCH; return xe; }
+
+/* ================= card grid 32.1 ================= */
+const G1 = [
+  { prov: 'exact', q: 'How wrong may the assumed speed be?', a: 'Edge phase below π/4: <b>|Δc| &lt; c²F²/(2f₀z)</b>. At 5 MHz and 30 mm: 7.9 m/s at F/1, 32 m/s at F/2. Halve the F-number and the tolerance shrinks fourfold.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0.5, 3], [0, 80], { lab: 'tolerance |Δc| (m/s) vs F-number', ticks: [[1, '1'], [1.5, '1.5'], [2, '2'], [2.5, '2.5'], [3, '3']], hlines: [[7.9, '7.9'], [31.6, '32']] });
+      [[0.02, c.b, '20 mm'], [0.03, c.a, '30 mm'], [0.06, c.d, '60 mm']].forEach(([z, col, lab]) => { Mm().curve(x, m, F => C0 * C0 * F * F / (2 * F0 * z), col, { w: 2 }); Mm().text(x, lab, m.X(2.2), m.Y(C0 * C0 * 4.84 / (2 * F0 * z)) - 8, col); });
+      dot(x, m, 1, 7.9, c.a); dot(x, m, 2, 31.6, c.a); } },
+  { prov: 'exact', q: 'What does a speed error do to coherence?', a: 'Quadratic edge phase <b>Φ = 2πX²Δc/(λzc)</b>; CF = |⟨e<sup>jΦu²</sup>⟩|². For a 19.2 mm aperture at 30 mm (F/1.6), 5 MHz: Φ = 0.041 rad per m/s, CF = 0.5 at 67 m/s. Broad peak: its centre is the estimate.',
+    draw: cv => { const c = Mm().col(); const k = TAU * F0 * (9.6e-3) ** 2 / (0.03 * C0 * C0); const cfq = P => { let r = 0, i = 0; const n = 200; for (let j = 0; j < n; j++) { const u = -1 + (j + 0.5) * 2 / n; r += Math.cos(P * u * u); i += Math.sin(P * u * u); } return (r * r + i * i) / (n * n); };
+      const { x, m } = fig(cv, H, [-120, 120], [0, 1.05], { lab: 'CF vs Δc (m/s), F/1.6 and F/3.2', ticks: [[-100, '−100'], [-67, ''], [0, '0'], [67, '67'], [100, '100']], hlines: [[0.5, '0.5']] });
+      Mm().curve(x, m, d => cfq(k * d), c.a, { w: 2 }); Mm().curve(x, m, d => cfq(k * d / 4), c.b, { w: 1.6, dash: [5, 3] }); dot(x, m, 67, 0.5, c.a); } },
+  { prov: 'model', q: 'What separates a fatty liver?', a: 'Working numbers from Imbault et al. 2017 (17 patients; check against the paper before reuse): local liver speed <b>1492–1604 m/s</b>, cut-offs <b>1541</b> (MRI-PDFF 5 %) and <b>1555 m/s</b> (biopsy 10 %); reference speeds fat ≈ 1450, muscle ≈ 1575 m/s.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [1430, 1620], [0, 3], { lab: 'speed (m/s)', ticks: [[1450, '1450'], [1500, '1500'], [1541, '1541'], [1575, '1575'], [1604, '1604']] });
+      x.save(); x.fillStyle = c.a; x.globalAlpha = 0.25; x.fillRect(m.X(1492), m.Y(2.1), m.X(1604) - m.X(1492), m.Y(1.1) - m.Y(2.1)); x.restore();
+      Mm().text(x, 'patients 1492–1604', m.X(1494), m.Y(1.6), c.fg); vline(x, m, 1541, c.b, '1541', 0); vline(x, m, 1555, c.d, '1555', 12);
+      dot(x, m, 1450, 0.5, c.mu, 4); Mm().text(x, 'fat', m.X(1453), m.Y(0.55) - 9, c.mu); dot(x, m, 1575, 0.5, c.mu, 4); Mm().text(x, 'muscle', m.X(1578), m.Y(0.55) - 9, c.mu);
+      dot(x, m, 1540, 0.5, c.fg, 3); Mm().text(x, 'c₀', m.X(1534), m.Y(0.55) - 9, c.fg); } }
+];
+Lab.cardGrid('m32', 'm32-g1', G1);
+
+/* ================= Demo 32.1 ================= */
+(function () {
+  const ids = ['df', 'cf1', 'cl', 'z', 'F', 'ch'];
+  function draw() {
+    const c = Lab.colors();
+    const df = +$('m32-d1-df').value * 1e-3, c1 = +$('m32-d1-cf1').value, c2 = +$('m32-d1-cl').value, z = +$('m32-d1-z').value * 1e-3, F = +$('m32-d1-F').value, ch = +$('m32-d1-ch').value;
+    $('m32-d1-df-out').textContent = fmt(df * 1e3) + ' mm'; $('m32-d1-cf1-out').textContent = c1 + ' m/s'; $('m32-d1-cl-out').textContent = c2 + ' m/s';
+    $('m32-d1-z-out').textContent = fmt(z * 1e3) + ' mm'; $('m32-d1-F-out').textContent = F.toFixed(1); $('m32-d1-ch-out').textContent = ch + ' m/s';
+    const xe = elements(z, F), Ti = snellTimes(xe, z, df, c1, c2), A = avgSpeeds(z, df, c1, c2), T0 = A.T;
+    const cs = [], cfv = []; let best = 0, bi = 0;
+    for (let v = 1380; v <= 1680; v += 0.5) { const q = cfApex(xe, Ti, T0, v, F0); cs.push(v); cfv.push(q); if (q > best) { best = q; bi = cs.length - 1; } }
+    let cb = cs[bi]; if (bi > 0 && bi < cs.length - 1) { const y0 = cfv[bi - 1], y1 = cfv[bi], y2 = cfv[bi + 1]; cb += 0.25 * (y0 - y2) / (y0 - 2 * y1 + y2); }
+    let lo = bi, hi = bi; while (lo > 0 && cfv[lo] > best / 2) lo--; while (hi < cs.length - 1 && cfv[hi] > best / 2) hi++;
+    /* CF panel */
+    let g = Lab.canvas($('m32-d1-cf'), 230);
+    let ax = Lab.axes(g.ctx, { x: 52, y: 14, w: g.w - 66, h: g.h - 50 }, [1380, 1680], [0, 1.05], { xlabel: 'assumed speed ĉ (m/s)', ylabel: 'CF' });
+    ax.clip(); Lab.line(g.ctx, ax, cs, cfv, c.accent, 2);
+    const vl = (v, col, dash) => { g.ctx.save(); g.ctx.strokeStyle = col; g.ctx.lineWidth = 1.5; g.ctx.setLineDash(dash || [5, 4]); g.ctx.beginPath(); g.ctx.moveTo(ax.X(v), ax.box.y); g.ctx.lineTo(ax.X(v), ax.box.y + ax.box.h); g.ctx.stroke(); g.ctx.restore(); };
+    vl(A.Vh, c.sig2); vl(A.Vr, c.sig4, [2, 3]); vl(A.cloc, c.muted, [8, 3]); vl(ch, c.fg, [1, 3]); ax.unclip();
+    Lab.dots(g.ctx, ax, [cb], [best], c.accent, 4);
+    /* phase panel */
+    const st = sigT(F0);
+    const ph = (v) => { const zh = v * T0; const out = []; for (let i = 0; i < xe.length; i++) out.push(TAU * F0 * (Ti[i] - Math.hypot(zh, xe[i]) / v)); return out; };
+    const p1 = ph(ch), p2 = ph(cb); const xm = Array.from(xe, v => v * 1e3);
+    const amax = Math.max(1, ...p1.map(Math.abs), ...p2.map(Math.abs));
+    g = Lab.canvas($('m32-d1-ph'), 200);
+    ax = Lab.axes(g.ctx, { x: 52, y: 14, w: g.w - 66, h: g.h - 50 }, [xm[0], xm[xm.length - 1]], [-amax * 1.05, amax * 1.05], { xlabel: 'element position x (mm)', ylabel: 'residual phase (rad)' });
+    ax.clip(); Lab.line(g.ctx, ax, xm, p1, c.fg, 1.6); Lab.line(g.ctx, ax, xm, p2, c.accent, 2, [5, 3]);
+    g.ctx.save(); g.ctx.strokeStyle = c.muted; g.ctx.setLineDash([2, 3]); [PI / 4, -PI / 4].forEach(v => { g.ctx.beginPath(); g.ctx.moveTo(ax.box.x, ax.Y(v)); g.ctx.lineTo(ax.box.x + ax.box.w, ax.Y(v)); g.ctx.stroke(); }); g.ctx.restore(); ax.unclip();
+    g.ctx.save(); g.ctx.font = '11px ' + c.mono; g.ctx.fillStyle = c.fg; g.ctx.fillText('ĉ = ' + ch, ax.box.x + 6, ax.box.y + 14); g.ctx.fillStyle = c.accent; g.ctx.fillText('ĉ* = ' + cb.toFixed(1) + ' (dashed)', ax.box.x + 6, ax.box.y + 28); g.ctx.fillStyle = c.muted; g.ctx.fillText('±π/4', ax.box.x + ax.box.w - 40, ax.Y(PI / 4) - 6); g.ctx.restore();
+    const rq = Math.max(...p2.map(Math.abs));
+    $('m32-d1-read').innerHTML = 'aperture <b>' + fmt(xe.length * PITCH * 1e3) + ' mm</b> (' + xe.length + ' el., F = ' + fmt(z / (xe.length * PITCH)) + ')<br>CF-optimal ĉ* = <b>' + cb.toFixed(1) + '</b> m/s, CF = ' + best.toFixed(3) +
+      '<br>V<sub>h</sub> = ' + A.Vh.toFixed(1) + ', V<sub>rms</sub> = ' + A.Vr.toFixed(1) + ' m/s<br>ĉ* − V<sub>rms</sub> = <b>' + (cb - A.Vr).toFixed(1) + '</b> m/s; ĉ* − local = <b>' + (cb - A.cloc).toFixed(1) + '</b> m/s' +
+      '<br>CF half-width ±' + fmt((cs[hi] - cs[lo]) / 2) + ' m/s; max residual at ĉ*: ' + fmt(rq * 1e3) + ' mrad';
+  }
+  ids.forEach(k => $('m32-d1-' + k).addEventListener('input', draw));
+  Lab.onShow('m32', draw);
+})();
+
+/* ================= card grid 32.2 ================= */
+const G2 = [
+  { prov: 'exact', q: 'Which average does focusing return?', a: 'The RMS speed: <b>V<sub>rms</sub> − V<sub>h</sub> ≈ w₁w₂(Δc)²/(2V<sub>h</sub>)</b>. Fat 1450 over liver 1580: at most 1.4 m/s apart, both far below the liver. The bias against the local speed is the real problem.',
+    draw: cv => { const c = Mm().col(); const df = 0.01, c1 = 1450, c2 = 1580; const { x, m } = fig(cv, H, [10, 80], [1440, 1590], { lab: 'speed (m/s) vs depth (mm), 10 mm fat', ticks: [[10, '10'], [20, '20'], [40, '40'], [60, '60'], [80, '80']], hlines: [[1580, 'liver 1580'], [1450, '1450']] });
+      Mm().curve(x, m, zz => avgSpeeds(zz * 1e-3, df, c1, c2).Vh, c.b, { w: 2 }); Mm().curve(x, m, zz => avgSpeeds(zz * 1e-3, df, c1, c2).Vr, c.d, { w: 1.6, dash: [5, 3] });
+      Mm().curve(x, m, zz => avgSpeeds(zz * 1e-3, df, c1, c2).cloc, c.mu, { w: 1.2 }); Mm().text(x, 'V_h, V_rms', m.X(45), m.Y(1532), c.b); } },
+  { prov: 'exact', q: 'How sharp is the CF peak?', a: 'Edge phase Φ ∝ Δc/F²: <b>CF = 0.5 at Φ = 2.73 rad</b>, 0.95 at π/4. Peak half-width at 30 mm and 5 MHz: about 43 m/s at F/1.25 and 4 times wider at F/2.5.',
+    draw: cv => { const c = Mm().col(); const cfq = P => { let r = 0, i = 0; const n = 160; for (let j = 0; j < n; j++) { const u = -1 + (j + 0.5) * 2 / n; r += Math.cos(P * u * u); i += Math.sin(P * u * u); } return (r * r + i * i) / (n * n); };
+      const { x, m } = fig(cv, H, [0, 8], [0, 1.05], { lab: 'CF vs edge phase Φ (rad)', ticks: [[0.785, 'π/4'], [2.73, '2.73'], [PI, ''], [6.283, '2π']], hlines: [[0.5, '0.5']] });
+      Mm().curve(x, m, cfq, c.a, { w: 2 }); dot(x, m, 2.73, 0.5, c.b); dot(x, m, 0.785, cfq(0.785), c.b); } }
+];
+Lab.cardGrid('m32', 'm32-g2', G2);
+
+/* ---------- small dense linear algebra ---------- */
+function cholSolve(M, n, rhsList) { /* M: Float64Array n*n SPD (copied); rhsList: array of Float64Array(n). returns solutions */
+  const L = new Float64Array(n * n);
+  for (let j = 0; j < n; j++) { let s = M[j * n + j]; for (let k = 0; k < j; k++) s -= L[j * n + k] * L[j * n + k]; const d = Math.sqrt(Math.max(s, 1e-300)); L[j * n + j] = d;
+    for (let i = j + 1; i < n; i++) { let t = M[i * n + j]; for (let k = 0; k < j; k++) t -= L[i * n + k] * L[j * n + k]; L[i * n + j] = t / d; } }
+  return rhsList.map(b => { const y = new Float64Array(n); for (let i = 0; i < n; i++) { let t = b[i]; for (let k = 0; k < i; k++) t -= L[i * n + k] * y[k]; y[i] = t / L[i * n + i]; }
+    const x = new Float64Array(n); for (let i = n - 1; i >= 0; i--) { let t = y[i]; for (let k = i + 1; k < n; k++) t -= L[k * n + i] * x[k]; x[i] = t / L[i * n + i]; } return x; });
+}
+
+/* ================= Demo 32.2: layered inversion ================= */
+(function () {
+  const n = 60, dz = 1e-3; let seed = 7;
+  const CASES = [
+    { lay: z => z < 8 ? 0 : z < 14 ? 1 : 2, cl: [1450, 1585, 1550], nl: 3, prof: z => [1450, 1585, 1550][z < 8 ? 0 : z < 14 ? 1 : 2] },
+    { lay: z => z < 20 ? 0 : 1, cl: [1450, 1580], nl: 2, prof: z => z < 20 ? 1450 : 1580 },
+    { lay: z => z < 8 ? 0 : z < 14 ? 1 : 2, cl: [1450, 1585, 1580], nl: 3, prof: z => z < 8 ? 1450 : z < 14 ? 1585 : (z > 32 && z < 42) ? 1520 : 1580 }
+  ];
+  function solveTik(A, W, b, m, lam) { /* (A'W'WA + lam^2 D'D) s = A'W'W b */
+    const M = new Float64Array(n * n), r = new Float64Array(n);
+    for (let k = 0; k < m; k++) { const w2 = W[k] * W[k]; const row = A[k]; for (let i = 0; i < n; i++) { if (!row[i]) continue; r[i] += row[i] * w2 * b[k]; for (let j = 0; j < n; j++) if (row[j]) M[i * n + j] += row[i] * w2 * row[j]; } }
+    const l2 = lam * lam; for (let i = 0; i < n - 1; i++) { M[i * n + i] += l2; M[(i + 1) * n + i + 1] += l2; M[i * n + i + 1] -= l2; M[(i + 1) * n + i] -= l2; }
+    return cholSolve(M, n, [r])[0];
+  }
+  function draw() {
+    const c = Lab.colors();
+    const ci = +$('m32-d2-case').value, C = CASES[ci], sig = +$('m32-d2-sig').value, step = +$('m32-d2-dz').value, auto = $('m32-d2-auto').checked;
+    $('m32-d2-sig-out').textContent = fmt(sig) + ' m/s'; $('m32-d2-dz-out').textContent = step + ' mm';
+    const zc = [], ct = new Float64Array(n), st = new Float64Array(n), lay = []; for (let j = 0; j < n; j++) { const zm = j + 0.5; zc.push(zm); ct[j] = C.prof(zm); st[j] = 1 / ct[j]; lay.push(C.lay(zm)); }
+    const km = []; for (let k = 4; k <= 60; k += step) km.push(k); const m = km.length;
+    const A = km.map(k => { const r = new Float64Array(n); for (let j = 0; j < k; j++) r[j] = dz; return r; });
+    const R = Lab.rng(seed); const cavg = [], cavgT = [], b = new Float64Array(m), W = new Float64Array(m);
+    for (let q = 0; q < m; q++) { let T = 0; for (let j = 0; j < km[q]; j++) T += st[j] * dz; const zt = km[q] * dz; const ca = zt / T; cavgT.push(ca); const cm = ca + sig * R.g(); cavg.push(cm); b[q] = zt / cm; W[q] = 1 / (zt * sig / (ca * ca)); }
+    /* naive */
+    const zn = [], cn = []; for (let q = 1; q < m; q++) { const s = (b[q] - b[q - 1]) / ((km[q] - km[q - 1]) * dz); zn.push((km[q] + km[q - 1]) / 2); cn.push(1 / s); }
+    /* lambda scan */
+    const lams = [], chi = [], rms = []; let lamAuto = null;
+    for (let e = 2; e <= 8.001; e += 0.1) { const lam = 10 ** e; const s = solveTik(A, W, b, m, lam); let x2 = 0; for (let q = 0; q < m; q++) { let p = 0; for (let j = 0; j < km[q]; j++) p += s[j] * dz; x2 += (W[q] * (p - b[q])) ** 2; }
+      let e2 = 0; for (let j = 0; j < n; j++) e2 += (1 / s[j] - ct[j]) ** 2; lams.push(e); chi.push(x2 / m); rms.push(Math.sqrt(e2 / n)); if (x2 <= m) lamAuto = e; }
+    if (auto && lamAuto !== null) { $('m32-d2-lam').value = lamAuto.toFixed(2); }
+    const le = +$('m32-d2-lam').value; $('m32-d2-lam-out').textContent = le.toFixed(2);
+    const sT = solveTik(A, W, b, m, 10 ** le); const cT = Array.from(sT, v => 1 / v);
+    /* layer fit: B = W A P (m x nl) */
+    const nl = C.nl, BtB = new Float64Array(nl * nl), Btb = new Float64Array(nl);
+    for (let q = 0; q < m; q++) { const row = new Float64Array(nl); for (let j = 0; j < km[q]; j++) row[lay[j]] += W[q] * dz; for (let i = 0; i < nl; i++) { Btb[i] += row[i] * W[q] * b[q]; for (let k = 0; k < nl; k++) BtB[i * nl + k] += row[i] * row[k]; } }
+    const sl = cholSolve(BtB, nl, [Btb])[0]; const eye = []; for (let i = 0; i < nl; i++) { const e = new Float64Array(nl); e[i] = 1; eye.push(e); } const Ci = cholSolve(BtB, nl, eye);
+    const cLay = Array.from(sl, v => 1 / v), sdLay = cLay.map((v, i) => Math.sqrt(Ci[i][i]) * v * v);
+    /* profile plot */
+    let g = Lab.canvas($('m32-d2-prof'), 320);
+    let ax = Lab.axes(g.ctx, { x: 52, y: 14, w: g.w - 66, h: g.h - 50 }, [1350, 1750], [60, 0], { xlabel: 'sound speed (m/s)', ylabel: 'depth (mm)', yticks: [0, 10, 20, 30, 40, 50, 60] });
+    ax.clip();
+    const stair = (vals, col, w, dash) => { const xs = [], ys = []; for (let j = 0; j < n; j++) { xs.push(vals[j], vals[j]); ys.push(j, j + 1); } Lab.line(g.ctx, ax, xs, ys, col, w, dash); };
+    Lab.line(g.ctx, ax, cn, zn, c.muted, 1.1); stair(ct, c.fg, 2.2); Lab.line(g.ctx, ax, cT, zc, c.accent, 2); stair(lay.map(l => cLay[l]), c.sig4, 1.8, [5, 3]);
+    Lab.dots(g.ctx, ax, cavg, km, c.sig2, 2.4); ax.unclip();
+    /* lambda plot */
+    g = Lab.canvas($('m32-d2-lc'), 200);
+    const yl = [Math.min(...chi.map(L10)) - 0.2, Math.max(...chi.map(L10)) + 0.2];
+    ax = Lab.axes(g.ctx, { x: 52, y: 14, w: g.w - 66, h: g.h - 50 }, [2, 8], yl, { xlabel: 'log₁₀ λ', ylabel: 'log₁₀ χ²/m' });
+    ax.clip(); Lab.line(g.ctx, ax, lams, chi.map(L10), c.accent, 2);
+    const rmax = Math.max(...rms.map(L10)), rmin = Math.min(...rms.map(L10)); const map = v => yl[0] + (L10(v) - rmin) / (rmax - rmin + 1e-9) * (yl[1] - yl[0]);
+    Lab.line(g.ctx, ax, lams, rms.map(map), c.sig2, 1.5, [5, 3]);
+    g.ctx.save(); g.ctx.strokeStyle = c.muted; g.ctx.setLineDash([2, 3]); g.ctx.beginPath(); g.ctx.moveTo(ax.box.x, ax.Y(0)); g.ctx.lineTo(ax.box.x + ax.box.w, ax.Y(0)); g.ctx.moveTo(ax.X(le), ax.box.y); g.ctx.lineTo(ax.X(le), ax.box.y + ax.box.h); g.ctx.stroke(); g.ctx.restore(); ax.unclip();
+    g.ctx.save(); g.ctx.font = '11px ' + c.mono; g.ctx.fillStyle = c.accent; g.ctx.fillText('χ²/m (solid); χ² = m dotted', ax.box.x + 6, ax.box.y + 14); g.ctx.fillStyle = c.sig2; g.ctx.fillText('profile RMSE (dashed, log, rescaled): min ' + fmt(Math.min(...rms)) + ' m/s', ax.box.x + 6, ax.box.y + 28); g.ctx.restore();
+    /* readouts */
+    const liv = []; for (let j = 0; j < n; j++) if (zc[j] > 20 && !(ci === 2 && zc[j] > 32 && zc[j] < 42)) liv.push(j);
+    const mean = liv.reduce((a, j) => a + cT[j], 0) / liv.length, rm = Math.sqrt(liv.reduce((a, j) => a + (cT[j] - ct[j]) ** 2, 0) / liv.length);
+    const names = nl === 3 ? ['fat', 'muscle', 'liver'] : ['fat', 'liver'];
+    const z30 = 30e-3, pred = Math.sqrt(z30 ** 2 + (z30 - step * 1e-3) ** 2) / (step * 1e-3) * sig;
+    let txt = 'naive local std at 30 mm (rule): <b>' + fmt(pred) + ' m/s</b><br>Tikhonov, λ = 10^' + le.toFixed(2) + (auto ? ' (discrepancy)' : '') + ': liver mean <b>' + mean.toFixed(1) + '</b>, RMSE ' + rm.toFixed(1) + ' m/s<br>layer fit: ' + names.map((nm, i) => nm + ' <b>' + cLay[i].toFixed(1) + '</b> ± ' + sdLay[i].toFixed(1)).join(', ') +
+      '<br>true: ' + C.cl.join(', ') + ' m/s; average at 60 mm ' + cavgT[m - 1].toFixed(1) + ' m/s';
+    if (ci === 2) { let lz = 0, ln = 0; for (let j = 33; j < 41; j++) { lz += cT[j]; ln++; } txt += '<br>lesion (true 1520): Tikhonov mean ' + (lz / ln).toFixed(1) + ' m/s; layer fit sees none'; }
+    $('m32-d2-read').innerHTML = txt;
+  }
+  ['case', 'sig', 'dz', 'lam'].forEach(k => $('m32-d2-' + k).addEventListener('input', () => { if (k === 'lam') $('m32-d2-auto').checked = false; draw(); }));
+  $('m32-d2-auto').addEventListener('change', draw);
+  $('m32-d2-seed').addEventListener('click', () => { seed = (seed * 7919 + 13) % 100003; draw(); });
+  Lab.onShow('m32', draw);
+})();
+
+/* ================= card grid 32.3 ================= */
+const G3 = [
+  { prov: 'exact', q: 'What does locality cost?', a: 'Local from two averages Δz apart: <b>σ<sub>loc</sub> ≈ √2 (z/Δz) σ<sub>avg</sub></b>. With 2 m/s per average and 1 mm spacing: 57 m/s at 20 mm, 85 at 30, 141 at 50. Only priors or wider Δz buy it back.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [5, 60], [0, 180], { lab: 'σ_loc (m/s) vs depth (mm), σ_avg = 2 m/s', ticks: [[10, '10'], [20, '20'], [30, '30'], [50, '50'], [60, '60']], hlines: [[85, '85'], [141, '141']] });
+      [[1, c.a, 'Δz = 1 mm'], [2, c.b, '2 mm'], [4, c.d, '4 mm']].forEach(([d, col, lab]) => { Mm().curve(x, m, zz => Math.sqrt(zz * zz + (zz - d) ** 2) / d * 2, col, { w: 2 }); Mm().text(x, lab, m.X(44), m.Y(Math.sqrt(2) * 44 / d * 2) - 9, col); });
+      dot(x, m, 30, 85.4, c.a); dot(x, m, 50, 141, c.a); } },
+  { prov: 'exact', q: 'How far below the liver does the average sit?', a: 'Fat 1450 over liver 1580: <b>V<sub>h</sub> − c<sub>liver</sub></b> is −46, −35, −23 and −18 m/s at 30, 40, 60 and 80 mm under 10 mm of fat, and twice that under 20 mm. The bias decays only as 1/z.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [20, 100], [-110, 0], { lab: 'V_h − 1580 (m/s) vs depth (mm)', ticks: [[30, '30'], [40, '40'], [60, '60'], [80, '80'], [100, '100']], hlines: [[-14, '−14']] });
+      [[0.005, c.d, '5 mm fat', 0.09], [0.01, c.a, '10 mm', 0.058], [0.02, c.b, '20 mm', 0.03]].forEach(([d, col, lab, zl]) => { Mm().curve(x, m, zz => avgSpeeds(zz * 1e-3, d, 1450, 1580).Vh - 1580, col, { w: 2 }); Mm().text(x, lab, m.X(zl * 1e3), m.Y(avgSpeeds(zl, d, 1450, 1580).Vh - 1580) + 10, col, 'center'); });
+      [30, 40, 60, 80].forEach(zz => dot(x, m, zz, avgSpeeds(zz * 1e-3, 0.01, 1450, 1580).Vh - 1580, c.a)); } }
+];
+Lab.cardGrid('m32', 'm32-g3', G3);
+
+/* ================= Demo 32.3: CUTE maps ================= */
+(function () {
+  const dx = 0.25, nx = 155, nz = 161; const xs = new Float64Array(nx), zs = new Float64Array(nz);
+  for (let i = 0; i < nx; i++) xs[i] = -19.25 + i * dx; for (let k = 0; k < nz; k++) zs[k] = k * dx;
+  let cacheKey = '', maps = null; let noiseField = null;
+  function Lmap(ds, th) { /* ns: delay error of every pixel for angle th */
+    const L = new Float64Array(nx * nz), sh = dx * Math.tan(th) / dx, sec = 1 / Math.cos(th);
+    for (let i = 0; i < nx; i++) L[i] = ds[i] * dx * sec / 2;
+    for (let k = 1; k < nz; k++) for (let i = 0; i < nx; i++) {
+      let u = i - sh; let i0 = Math.floor(u); let f = u - i0; if (i0 < 0) { i0 = 0; f = 0; } if (i0 >= nx - 1) { i0 = nx - 2; f = 1; }
+      const prev = (1 - f) * L[(k - 1) * nx + i0] + f * L[(k - 1) * nx + i0 + 1];
+      L[k * nx + i] = prev + 0.5 * (ds[k * nx + i] + ds[(k - 1) * nx + i]) * dx * sec; }
+    return L;
+  }
+  function compute(th, dc, r, zi, fat) {
+    const key = [th, dc, r, zi, fat].join(); if (key === cacheKey) return maps; cacheKey = key;
+    const ds = new Float64Array(nx * nz);
+    for (let k = 0; k < nz; k++) for (let i = 0; i < nx; i++) { let c = C0 + dc / (1 + Math.exp((Math.hypot(xs[i], zs[k] - zi) - r) / 0.3)); if (zs[k] < fat) c = 1450; ds[k * nx + i] = (1 / c - 1 / C0) * 1e6; }
+    const t = th * PI / 180;
+    maps = { L0: Lmap(ds, 0), Lp: Lmap(ds, t), Lm: Lmap(ds, -t), L2: Lmap(ds, 2 * PI / 180) };
+    return maps;
+  }
+  function draw() {
+    const c = Lab.colors();
+    const type = +$('m32-d3-type').value, show = +$('m32-d3-show').value, th = +$('m32-d3-th').value, dc = +$('m32-d3-dc').value, r = +$('m32-d3-r').value, zi = +$('m32-d3-zi').value, fat = +$('m32-d3-fat').value;
+    const f0 = +$('m32-d3-f0').value * 1e6, rho = +$('m32-d3-rho').value, N = +$('m32-d3-N').value, xcol = +$('m32-d3-x').value, noise = $('m32-d3-noise').checked;
+    $('m32-d3-th-out').textContent = th + '°'; $('m32-d3-dc-out').textContent = (dc > 0 ? '+' : '') + dc + ' m/s'; $('m32-d3-r-out').textContent = fmt(r) + ' mm'; $('m32-d3-zi-out').textContent = zi + ' mm';
+    $('m32-d3-fat-out').textContent = fmt(fat) + ' mm'; $('m32-d3-f0-out').textContent = fmt(f0 / 1e6) + ' MHz'; $('m32-d3-rho-out').textContent = rho.toFixed(3); $('m32-d3-N-out').textContent = N; $('m32-d3-x-out').textContent = fmt(xcol) + ' mm';
+    const M = compute(th, dc, r, zi, fat);
+    const d = new Float64Array(nx * nz);
+    for (let q = 0; q < nx * nz; q++) d[q] = type === 0 ? M.Lp[q] - M.L0[q] : type === 1 ? M.Lp[q] + M.Lm[q] - 2 * M.L0[q] : M.L2[q] - M.L0[q];
+    const sphi = Math.sqrt(1 - rho * rho) / (rho * Math.sqrt(2 * N)), stau = sphi / (TAU * f0) * 1e9;
+    if (!noiseField) { const R = Lab.rng(31); noiseField = new Float64Array(nx * nz); for (let q = 0; q < nx * nz; q++) noiseField[q] = R.g(); }
+    const dn = new Float64Array(nx * nz); for (let q = 0; q < nx * nz; q++) dn[q] = d[q] + (noise ? stau * noiseField[q] : 0);
+    let dmax = 1; const ia = []; for (let i = 0; i < nx; i++) if (Math.abs(xs[i]) < 12) ia.push(i);
+    let pk = 0; for (let k = 0; k < nz; k++) for (const i of ia) pk = Math.max(pk, Math.abs(d[k * nx + i]));
+    dmax = Math.max(1, pk);
+    const img = new Float64Array(nx * nz); for (let q = 0; q < nx * nz; q++) img[q] = show ? wrap(TAU * f0 * dn[q] * 1e-9) : dn[q];
+    /* map */
+    let g = Lab.canvas($('m32-d3-map'), 0.62); const bw = Math.min(g.w - 140, (g.h - 46) * nx / nz * 1.0);
+    const box = { x: 52, y: 12, w: bw, h: g.h - 46 };
+    const ax = Lab.axes(g.ctx, box, [xs[0], xs[nx - 1]], [40, 0], { xlabel: 'x (mm)', ylabel: 'z (mm)', grid: false, yticks: [0, 10, 20, 30, 40] });
+    const vm = show ? PI : dmax; Lab.image(g.ctx, img, nz, nx, { x: box.x + 1, y: box.y + 1, w: box.w - 1, h: box.h - 1 }, -vm, vm, 'diverge');
+    g.ctx.save(); g.ctx.strokeStyle = c.fg; g.ctx.setLineDash([3, 3]); g.ctx.beginPath(); g.ctx.arc(ax.X(0), ax.Y(zi), (ax.X(r) - ax.X(0)), 0, TAU); g.ctx.stroke();
+    if (fat > 0) { g.ctx.beginPath(); g.ctx.moveTo(box.x, ax.Y(fat)); g.ctx.lineTo(box.x + box.w, ax.Y(fat)); g.ctx.stroke(); }
+    g.ctx.setLineDash([]); g.ctx.strokeStyle = c.accent; g.ctx.lineWidth = 1.5; g.ctx.beginPath(); g.ctx.moveTo(ax.X(xcol), box.y); g.ctx.lineTo(ax.X(xcol), box.y + box.h); g.ctx.stroke(); g.ctx.restore();
+    /* colorbar */
+    const cb = { x: box.x + box.w + 18, y: box.y, w: 12, h: box.h }; const cbd = new Float64Array(100); for (let i = 0; i < 100; i++) cbd[i] = vm - 2 * vm * i / 99;
+    Lab.image(g.ctx, cbd, 100, 1, cb, -vm, vm, 'diverge'); g.ctx.save(); g.ctx.strokeStyle = c.rule; g.ctx.strokeRect(cb.x + 0.5, cb.y + 0.5, cb.w, cb.h); g.ctx.fillStyle = c.muted; g.ctx.font = '11px ' + c.mono; g.ctx.textBaseline = 'middle';
+    g.ctx.fillText(show ? '+π' : '+' + fmt(vm), cb.x + 16, cb.y + 5); g.ctx.fillText('0', cb.x + 16, cb.y + cb.h / 2); g.ctx.fillText(show ? '−π' : '−' + fmt(vm), cb.x + 16, cb.y + cb.h - 5); g.ctx.fillText(show ? 'rad' : 'ns', cb.x + 16, cb.y + cb.h / 2 + 16); g.ctx.restore();
+    /* profile */
+    const ic = Math.round((xcol - xs[0]) / dx); const pz = [], pd = [], pn = []; for (let k = 0; k < nz; k++) { pz.push(zs[k]); pd.push(d[k * nx + ic]); pn.push(dn[k * nx + ic]); }
+    g = Lab.canvas($('m32-d3-prof'), 190); const ymax = Math.max(5, ...pd.map(Math.abs)) * 1.15 + (noise ? 3 * stau : 0);
+    const ap = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 66, h: g.h - 48 }, [0, 40], [-ymax, ymax], { xlabel: 'depth z (mm)', ylabel: 'delay shift (ns)' });
+    ap.clip(); const band = s => pd.map(v => v + s * stau);
+    Lab.line(g.ctx, ap, pz, band(1), c.sig4, 1, [3, 3]); Lab.line(g.ctx, ap, pz, band(-1), c.sig4, 1, [3, 3]);
+    if (noise) Lab.line(g.ctx, ap, pz, pn, c.muted, 0.8); Lab.line(g.ctx, ap, pz, pd, c.accent, 2);
+    const half = 1e9 / (2 * f0); g.ctx.save(); g.ctx.strokeStyle = c.sig2; g.ctx.setLineDash([6, 3]); [half, -half].forEach(v => { if (Math.abs(v) < ymax) { g.ctx.beginPath(); g.ctx.moveTo(ap.box.x, ap.Y(v)); g.ctx.lineTo(ap.box.x + ap.box.w, ap.Y(v)); g.ctx.stroke(); } }); g.ctx.restore(); ap.unclip();
+    if (half < ymax) { g.ctx.save(); g.ctx.font = '11px ' + c.mono; g.ctx.fillStyle = c.sig2; g.ctx.fillText('wrap at ±1/(2f₀) = ' + fmt(half) + ' ns', ap.box.x + 6, ap.Y(half) - 5); g.ctx.restore(); }
+    const S = (1 / 1450 - 1 / C0) * 1e6 * fat, t = (type === 2 ? 2 : th) * PI / 180, fac = type === 1 ? 2 : 1;
+    $('m32-d3-read').innerHTML = 'peak |shift| (|x| &lt; 12 mm): <b>' + fmt(pk) + ' ns</b> = ' + fmt(TAU * f0 * pk * 1e-9) + ' rad' + (pk > half ? ' <b>(wraps)</b>' : ' (no wrap)') +
+      '<br>inclusion Δs = ' + fmt((1 / (C0 + dc) - 1 / C0) * 1e6) + ' ns/mm; vertical chord delay ' + fmt(Math.abs((1 / (C0 + dc) - 1 / C0) * 1e6 * 2 * r)) + ' ns' +
+      '<br>fat: vertical delay ' + fmt(S) + ' ns, its share of this datum ' + (fac === 2 ? '2' : '') + '(sec θ − 1)S = <b>' + fmt(fac * (1 / Math.cos(t) - 1) * S) + ' ns</b>' +
+      '<br>jitter <span class="eqref">(32.10)</span>: σ<sub>φ</sub> = ' + sphi.toFixed(3) + ' rad, σ<sub>τ</sub> = <b>' + fmt(stau) + ' ns</b> per datum (one image pair; dashed band)';
+  }
+  ['type', 'show', 'th', 'dc', 'r', 'zi', 'fat', 'f0', 'rho', 'N', 'x'].forEach(k => $('m32-d3-' + k).addEventListener('input', draw));
+  $('m32-d3-noise').addEventListener('change', draw);
+  Lab.onShow('m32', draw);
+})();
+
+/* ================= card grid 32.4 ================= */
+const G4 = [
+  { prov: 'exact', q: 'How much phase noise does one CUTE datum carry?', a: '<b>σ<sub>φ</sub> ≈ √(1−ρ²)/(ρ√(2N))</b>: N = 64, ρ = 0.95 gives 0.029 rad = 0.93 ns at 5 MHz. Correlation beats kernel size: ρ 0.9 → 0.99 is worth 12 times more samples.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0.5, 1], [-2.3, 0], { lab: 'log₁₀ σ_φ (rad) vs ρ', ticks: [[0.5, '0.5'], [0.7, '0.7'], [0.9, '0.9'], [0.95, ''], [0.99, '0.99']], base: -2.3, hlines: [[L10(0.0291), '0.029']] });
+      [[16, c.b], [64, c.a], [256, c.d]].forEach(([N, col]) => { Mm().curve(x, m, r => L10(Math.sqrt(Math.max(1e-9, 1 - r * r)) / (r * Math.sqrt(2 * N))), col, { w: 2 }); Mm().text(x, 'N = ' + N, m.X(0.52), m.Y(L10(Math.sqrt(0.75) / (0.52 * Math.sqrt(2 * N)))) - 2, col); });
+      dot(x, m, 0.95, L10(0.0291), c.a); } },
+  { prov: 'exact', q: 'Why is a fat layer nearly invisible to CUTE?', a: 'A laterally uniform layer shifts all angles almost equally: the datum sees only <b>(sec θ − 1)S</b> (transmit-only) or <b>2(sec θ − 1)S</b> (common mid-angle) of its delay S. At 15°: 3.5 % and 7.1 %; at 25°: 10 % and 21 %.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 30], [0, 0.32], { lab: 'fraction of the layer delay vs θ (deg)', ticks: [[0, '0'], [10, '10'], [15, '15'], [20, '20'], [25, '25'], [30, '30']], hlines: [[0.0706, '7.1 %'], [0.035, '3.5 %']] });
+      Mm().curve(x, m, t => 1 / Math.cos(t * PI / 180) - 1, c.a, { w: 2 }); Mm().curve(x, m, t => 2 * (1 / Math.cos(t * PI / 180) - 1), c.b, { w: 2 });
+      Mm().text(x, 'tx-only', m.X(24), m.Y(0.06), c.a); Mm().text(x, 'CMA', m.X(22), m.Y(0.22), c.b); dot(x, m, 15, 0.0353, c.a); dot(x, m, 15, 0.0706, c.b); } }
+];
+Lab.cardGrid('m32', 'm32-g4', G4);
+
+/* ================= Demo 32.4: limited-angle tomography ================= */
+(function () {
+  const Nx = 16, Nz = 12, h = 2.4, np = Nx * Nz, Xh = 19.2, z0g = 2;
+  const xc = [], zc = []; for (let i = 0; i < Nx; i++) xc.push((i - (Nx - 1) / 2) * h); for (let k = 0; k < Nz; k++) zc.push(z0g + (k + 0.5) * h);
+  const sg = (r, r0) => 1 / (1 + Math.exp((r - r0) / 0.4));
+  const TR = [
+    (x, z) => 1540 + 40 * sg(Math.hypot(x - 2, z - 18), 4.5) - 90 * (z < 5),
+    (x, z) => 1540 + 40 * sg(Math.hypot(x + 8, z - 13), 4) - 40 * sg(Math.hypot(x - 8, z - 23), 4),
+    (x, z) => z < 5 ? 1450 : z < 10 ? 1580 : 1550
+  ];
+  const dsf = c => (1 / c - 1 / C0) * 1e6;
+  const cellOf = (x, z) => Math.min(Math.max(Math.floor((z - z0g) / h), 0), Nz - 1) * Nx + Math.min(Math.max(Math.floor((x + Xh) / h), 0), Nx - 1);
+  /* gradient penalty G'G */
+  const GG = new Float64Array(np * np); const addD = (a, b) => { GG[a * np + a]++; GG[b * np + b]++; GG[a * np + b]--; GG[b * np + a]--; };
+  for (let k = 0; k < Nz; k++) for (let i = 0; i < Nx; i++) { const q = k * Nx + i; if (i < Nx - 1) addD(q, q + 1); if (k < Nz - 1) addD(q, q + Nx); }
+  let st = { key: '', sel: 7 * Nx + 9 };
+  function build(ph, des, thmax, K, dataMode, ns) {
+    const key = [ph, des, thmax, K, dataMode, ns].join(); if (st.key === key) return; st.key = key;
+    const truth = TR[ph], phis = []; for (let a = 0; a < K; a++) phis.push((-thmax + 2 * thmax * a / (K - 1)) * PI / 180);
+    const ct = new Float64Array(np); for (let k = 0; k < Nz; k++) for (let i = 0; i < Nx; i++) ct[k * Nx + i] = truth(xc[i], zc[k]);
+    const dsT = Array.from(ct, dsf);
+    const rows = [], d = [];
+    for (let k = 0; k < Nz; k++) for (let i = 0; i < Nx; i++) {
+      const x0 = xc[i], z0 = zc[k]; const W = [], D = [], ok = [];
+      for (let a = 0; a < K; a++) { const p = phis[a]; ok.push(Math.abs(x0 - z0 * Math.tan(p)) <= Xh); const Lr = z0 / Math.cos(p);
+        const w = new Map(); for (let t = 0; t <= Lr; t += 0.3) { const q = cellOf(x0 - t * Math.sin(p), z0 - t * Math.cos(p)); w.set(q, (w.get(q) || 0) + 0.3); } W.push(w);
+        let s = 0; if (dataMode === 1) { for (let t = 0.05; t < Lr; t += 0.1) s += dsf(truth(x0 - t * Math.sin(p), z0 - t * Math.cos(p))) * 0.1; } else { w.forEach((v, q) => { s += v * dsT[q]; }); } D.push(s); }
+      const comb = (terms) => { const m = new Map(); terms.forEach(([sgn, a]) => W[a].forEach((v, q) => m.set(q, (m.get(q) || 0) + sgn * v))); return m; };
+      if (des === 0) { for (let a = 1; a < K; a++) if (ok[a] && ok[a - 1]) { rows.push(comb([[1, a], [-1, a - 1]])); d.push(D[a] - D[a - 1]); } }
+      else { for (let gs = 0; gs <= 2 * (K - 1); gs++) { const pr = []; for (let a = Math.max(0, gs - K + 1); a <= Math.min(K - 1, gs); a++) { const b = gs - a; if (a <= b && ok[a] && ok[b]) pr.push([a, b]); }
+        for (let q = 1; q < pr.length; q++) { rows.push(comb([[1, pr[q][0]], [1, pr[q][1]], [-1, pr[q - 1][0]], [-1, pr[q - 1][1]]])); d.push(D[pr[q][0]] + D[pr[q][1]] - D[pr[q - 1][0]] - D[pr[q - 1][1]]); } } }
+    }
+    const R = Lab.rng(1234 + ph); const AA = new Float64Array(np * np), Ad = new Float64Array(np);
+    rows.forEach((r, j) => { const ent = [...r.entries()].filter(e => Math.abs(e[1]) > 1e-12); const dj = d[j] + ns * R.g();
+      for (const [a, va] of ent) { Ad[a] += va * dj; for (const [b, vb] of ent) AA[a * np + b] += va * vb; } });
+    Object.assign(st, { ct, AA, Ad, m: rows.length, truth });
+  }
+  function solve(lam, wantTrace) {
+    const M = new Float64Array(np * np); const l2 = lam * lam; for (let q = 0; q < np * np; q++) M[q] = st.AA[q] + l2 * GG[q];
+    const rhs = [st.Ad]; const e = new Float64Array(np); e[st.sel] = 1; rhs.push(e);
+    if (wantTrace) for (let q = 0; q < np; q++) { const u = new Float64Array(np); u[q] = 1; rhs.push(u); }
+    const sol = cholSolve(M, np, rhs);
+    const ds = sol[0], ch = Array.from(ds, v => 1 / (1 / C0 + v * 1e-6));
+    const Rrow = new Float64Array(np); for (let j = 0; j < np; j++) { let s = 0; for (let q = 0; q < np; q++) s += sol[1][q] * st.AA[q * np + j]; Rrow[j] = s; }
+    let tr = null; if (wantTrace) { tr = 0; for (let q = 0; q < np; q++) { const col = sol[2 + q]; let s = 0; for (let j = 0; j < np; j++) s += col[j] * st.AA[j * np + q]; tr += s; } }
+    let e2 = 0; for (let q = 0; q < np; q++) e2 += (ch[q] - st.ct[q]) ** 2;
+    return { ch, Rrow, tr, rmse: Math.sqrt(e2 / np) };
+  }
+  const fwhm = (p, dd) => { const mx = Math.max(...p); let n = 0; for (let t = 0; t <= (p.length - 1) * 100; t++) { const u = t / 100, i0 = Math.min(Math.floor(u), p.length - 2), f = u - i0; if ((1 - f) * p[i0] + f * p[i0 + 1] >= mx / 2) n++; } return dd * n / 100; };
+  let layout = null;
+  function draw() {
+    const c = Lab.colors();
+    const ph = +$('m32-d4-ph').value, des = +$('m32-d4-des').value, th = +$('m32-d4-th').value, K = +$('m32-d4-K').value, ns = +$('m32-d4-ns').value, le = +$('m32-d4-lam').value, dm = +$('m32-d4-data').value;
+    $('m32-d4-th-out').textContent = th + '°'; $('m32-d4-K-out').textContent = K; $('m32-d4-ns-out').textContent = fmt(ns) + ' ns'; $('m32-d4-lam-out').textContent = le.toFixed(2);
+    build(ph, des, th, K, dm, ns);
+    const S = solve(10 ** le, true);
+    /* images */
+    let g = Lab.canvas($('m32-d4-img'), 0.42); const gap = 26, pw = Math.min((g.w - 60 - gap) / 2, (g.h - 40) * Nx / Nz), phh = pw * Nz / Nx;
+    const b1 = { x: 44, y: 18, w: pw, h: phh }, b2 = { x: 44 + pw + gap, y: 18, w: pw, h: phh };
+    const show = (bx, vals, title) => { const ax = Lab.axes(g.ctx, bx, [-Xh, Xh], [z0g + Nz * h, z0g], { grid: false, xticks: [-15, 0, 15], yticks: [5, 15, 25], title }); Lab.image(g.ctx, vals, Nz, Nx, { x: bx.x + 1, y: bx.y + 1, w: bx.w - 1, h: bx.h - 1 }, 1440, 1640, 'diverge'); return ax; };
+    const a1 = show(b1, st.ct, 'truth'), a2 = show(b2, S.ch, 'reconstruction');
+    const si = st.sel % Nx, sk = Math.floor(st.sel / Nx);
+    [a1, a2].forEach(ax => { g.ctx.save(); g.ctx.strokeStyle = c.fg; g.ctx.lineWidth = 1.5; g.ctx.strokeRect(ax.X(xc[si] - h / 2), ax.Y(zc[sk] - h / 2), ax.X(h) - ax.X(0), ax.Y(zc[sk] + h / 2) - ax.Y(zc[sk] - h / 2)); g.ctx.restore(); });
+    layout = { boxes: [b1, b2] };
+    /* R row + profiles */
+    g = Lab.canvas($('m32-d4-R'), 0.42); const b3 = { x: 44, y: 18, w: pw, h: phh };
+    const rmax = Math.max(1e-9, ...S.Rrow.map(Math.abs));
+    const a3 = Lab.axes(g.ctx, b3, [-Xh, Xh], [z0g + Nz * h, z0g], { grid: false, xticks: [-15, 0, 15], yticks: [5, 15, 25], title: 'row of R at (' + fmt(xc[si]) + ', ' + fmt(zc[sk]) + ') mm' });
+    Lab.image(g.ctx, S.Rrow, Nz, Nx, { x: b3.x + 1, y: b3.y + 1, w: b3.w - 1, h: b3.h - 1 }, -rmax, rmax, 'diverge');
+    layout.boxes.push(b3);
+    const ax4 = Lab.axes(g.ctx, { x: 44 + pw + gap + 30, y: 18, w: g.w - (44 + pw + gap + 30) - 14, h: phh }, [-12, 12], [-0.3, 1.05], { xlabel: 'offset (mm)', ylabel: 'R / max', xticks: [-12, -6, 0, 6, 12] });
+    const axP = [], latP = [], axO = [], latO = []; for (let k = 0; k < Nz; k++) { axP.push(S.Rrow[k * Nx + si] / rmax); axO.push(zc[k] - zc[sk]); } for (let i = 0; i < Nx; i++) { latP.push(S.Rrow[sk * Nx + i] / rmax); latO.push(xc[i] - xc[si]); }
+    ax4.clip(); Lab.line(g.ctx, ax4, axO, axP, c.accent, 2); Lab.line(g.ctx, ax4, latO, latP, c.sig2, 2, [5, 3]); ax4.unclip();
+    const fa = fwhm(axP.map(v => Math.max(v, 0)), h), fl = fwhm(latP.map(v => Math.max(v, 0)), h);
+    /* stats */
+    let im = 0, inn = 0, fm = 0, fn = 0; for (let k = 0; k < Nz; k++) for (let i = 0; i < Nx; i++) { const q = k * Nx + i;
+      if (ph === 0 && Math.hypot(xc[i] - 2, zc[k] - 18) < 3) { im += S.ch[q]; inn++; } if (ph === 2 && zc[k] > 12) { im += S.ch[q]; inn++; } if (zc[k] < 5) { fm += S.ch[q]; fn++; } }
+    let extra = ''; if (ph === 0) extra = '<br>inclusion mean ' + (im / inn).toFixed(1) + ' (true 1580), fat row ' + (fm / fn).toFixed(1) + ' (true 1450)';
+    if (ph === 2) extra = '<br>liver mean (z &gt; 12 mm) ' + (im / inn).toFixed(1) + ' (true 1550), fat row ' + (fm / fn).toFixed(1) + ' (true 1450)';
+    $('m32-d4-read').innerHTML = 'rows <b>' + st.m + '</b> for ' + np + ' unknowns; trace(R) = <b>' + S.tr.toFixed(1) + '</b><br>RMSE <b>' + S.rmse.toFixed(1) + ' m/s</b> at λ = 10^' + le.toFixed(2) + extra +
+      '<br>kernel at the selected cell: axial FWHM <b>' + fmt(fa) + ' mm</b>, lateral ' + fmt(fl) + ' mm (cells 2.4 mm)';
+  }
+  function pick(ev, cvId) {
+    if (!layout) return; const r = $(cvId).getBoundingClientRect(); const px = ev.clientX - r.left, py = ev.clientY - r.top;
+    const bs = cvId === 'm32-d4-img' ? layout.boxes.slice(0, 2) : layout.boxes.slice(2);
+    for (const b of bs) if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) { const i = Math.min(Nx - 1, Math.floor((px - b.x) / b.w * Nx)), k = Math.min(Nz - 1, Math.floor((py - b.y) / b.h * Nz)); st.sel = k * Nx + i; draw(); return; }
+  }
+  $('m32-d4-img').addEventListener('click', e => pick(e, 'm32-d4-img')); $('m32-d4-R').addEventListener('click', e => pick(e, 'm32-d4-R'));
+  ['ph', 'des', 'th', 'K', 'ns', 'lam', 'data'].forEach(k => $('m32-d4-' + k).addEventListener('input', draw));
+  $('m32-d4-orc').addEventListener('click', () => { let best = 1e9, bl = 0; for (let e = -1.5; e <= 2.5001; e += 0.1) { const r = solve(10 ** e, false).rmse; if (r < best) { best = r; bl = e; } } $('m32-d4-lam').value = bl.toFixed(2); draw(); });
+  Lab.onShow('m32', draw);
+})();
+
+/* ================= card grid 32.5 ================= */
+const G5 = [
+  { prov: 'model', q: 'How elongated is a limited-angle kernel?', a: 'Rays within ±θ<sub>max</sub> fill a k-space wedge of that half-angle: <b>axial/lateral width ≈ 1/sin θ<sub>max</sub></b>, 2.4 at 25°, 5.8 at 10°. Steeper steering helps until the rays leave the aperture.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [5, 45], [0, 12], { lab: 'axial / lateral kernel width vs θmax (deg)', ticks: [[10, '10'], [20, '20'], [25, '25'], [30, '30'], [45, '45']], hlines: [[2.37, '2.4'], [5.76, '5.8']] });
+      Mm().curve(x, m, t => 1 / Math.sin(t * PI / 180), c.a, { w: 2 }); dot(x, m, 25, 2.37, c.b); dot(x, m, 10, 5.76, c.b); } },
+  { prov: 'sim', q: 'Noise or model: which error wins?', a: 'm32_sos_tomography.m, oracle λ: cell-consistent data + 2 ns noise give <b>3.8 / 1.9 m/s</b> RMSE (transmit-only / CMA); noise-free fine-ray data give <b>22.0 / 30.8 m/s</b>. The forward model is the error budget.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 5], [0, 35], { lab: 'RMSE (m/s), Octave output', ticks: [[1, 'tx noise'], [2, 'CMA noise'], [3, 'tx model'], [4, 'CMA model']] });
+      [[1, 3.8, c.a], [2, 1.9, c.b], [3, 22.0, c.a], [4, 30.8, c.b]].forEach(([p, v, col]) => { x.save(); x.fillStyle = col; x.globalAlpha = 0.7; x.fillRect(m.X(p - 0.3), m.Y(v), m.X(0.6) - m.X(0), m.Y(0) - m.Y(v)); x.restore(); Mm().text(x, fmt(v), m.X(p), m.Y(v) - 7, c.fg, 'center'); }); } }
+];
+Lab.cardGrid('m32', 'm32-g5', G5);
+
+/* ================= Demo 32.5: autofocus landscape ================= */
+(function () {
+  const ZT = [0.02, 0.03, 0.04, 0.05], R1 = [1350, 1600], R2 = [1450, 1700], NG = 64;
+  let scen = null, land = null, start = [1540, 1540], path = [], hist = [];
+  function scenario(df, c1, c2) {
+    const key = [df, c1, c2].join(); if (scen && scen.key === key) return scen;
+    const T = ZT.map(z => { const xe = elements(z, 1), Ti = snellTimes(xe, z, df, c1, c2), T0 = avgSpeeds(z, df, c1, c2).T; return { xe, Ti, T0 }; });
+    scen = { key, T, df }; land = null; return scen;
+  }
+  function resid(t, a, b, df) { /* straight-ray two-layer model delays, pixel tied to apex time */
+    const { xe, Ti, T0 } = t; const zh = T0 <= df / a ? a * T0 : df + (T0 - df / a) * b; const fr = Math.min(1, df / zh); const sl = fr / a + (1 - fr) / b;
+    const d = new Float64Array(xe.length); for (let i = 0; i < xe.length; i++) d[i] = Ti[i] - Math.hypot(zh, xe[i]) * sl; return d;
+  }
+  function loss(a, b, kind, lag, f0) {
+    let L = 0; const st = sigT(f0);
+    for (const t of scen.T) { const d = resid(t, a, b, scen.df); const n = d.length;
+      if (kind === 0) { let sr = 0, si = 0, e = 0; for (let i = 0; i < n; i++) { const w = Math.exp(-d[i] * d[i] / (2 * st * st)), p = TAU * f0 * d[i]; sr += w * Math.cos(p); si += w * Math.sin(p); e += w * w; } L += 1 - (sr * sr + si * si) / (n * e + 1e-300); }
+      else { let s = 0, m = 0; for (let i = 0; i + lag < n; i++) { s += Math.abs(wrap(TAU * f0 * (d[i] - d[i + lag]))); m++; } L += m ? s / (m * PI) : 0; } }
+    return L / scen.T.length;
+  }
+  function descend(kind, lag, f0, eta0) {
+    let a = start[0], b = start[1]; path = [[a, b]]; hist = [loss(a, b, kind, lag, f0)]; const hh = 0.5;
+    for (let it = 0; it < 220; it++) {
+      const ga = (loss(a + hh, b, kind, lag, f0) - loss(a - hh, b, kind, lag, f0)) / (2 * hh), gb = (loss(a, b + hh, kind, lag, f0) - loss(a, b - hh, kind, lag, f0)) / (2 * hh);
+      const gn = Math.hypot(ga, gb); if (gn < 1e-12) break; const eta = eta0 * Math.pow(0.98, it);
+      a = Math.min(R1[1], Math.max(R1[0], a - eta * ga / gn)); b = Math.min(R2[1], Math.max(R2[0], b - eta * gb / gn));
+      path.push([a, b]); hist.push(loss(a, b, kind, lag, f0)); if (eta < 0.05) break;
+    }
+  }
+  let box = null;
+  function draw() {
+    const c = Lab.colors();
+    const kind = +$('m32-d5-loss').value, lag = +$('m32-d5-lag').value, f0 = +$('m32-d5-f0').value * 1e6, df = +$('m32-d5-df').value * 1e-3, c1 = +$('m32-d5-c1').value, c2 = +$('m32-d5-c2').value, eta = +$('m32-d5-eta').value;
+    $('m32-d5-lag-out').textContent = lag; $('m32-d5-f0-out').textContent = fmt(f0 / 1e6) + ' MHz'; $('m32-d5-df-out').textContent = fmt(df * 1e3) + ' mm'; $('m32-d5-c1-out').textContent = c1 + ' m/s'; $('m32-d5-c2-out').textContent = c2 + ' m/s'; $('m32-d5-eta-out').textContent = eta + ' m/s';
+    scenario(df, c1, c2);
+    const lk = [kind, lag, f0].join();
+    if (!land || land.key !== lk) { const v = new Float64Array(NG * NG); let mn = 1e9, mi = 0;
+      for (let r = 0; r < NG; r++) for (let q = 0; q < NG; q++) { const a = R1[0] + (q + 0.5) * (R1[1] - R1[0]) / NG, b = R2[1] - (r + 0.5) * (R2[1] - R2[0]) / NG; const L = loss(a, b, kind, lag, f0); v[r * NG + q] = L; if (L < mn) { mn = L; mi = r * NG + q; } }
+      let mx = 0; v.forEach(x => { if (x > mx) mx = x; }); land = { key: lk, v, mn, mx, mi }; }
+    descend(kind, lag, f0, eta);
+    /* refine grid minimum locally */
+    let ga = R1[0] + ((land.mi % NG) + 0.5) * (R1[1] - R1[0]) / NG, gb = R2[1] - (Math.floor(land.mi / NG) + 0.5) * (R2[1] - R2[0]) / NG;
+    for (let s = 2; s > 0.05; s /= 2) { let imp = true; while (imp) { imp = false; const L0 = loss(ga, gb, kind, lag, f0); for (const [u, w] of [[s, 0], [-s, 0], [0, s], [0, -s]]) { if (loss(ga + u, gb + w, kind, lag, f0) < L0 - 1e-12) { ga += u; gb += w; imp = true; break; } } } }
+    let g = Lab.canvas($('m32-d5-land'), 0.62); const side = Math.min(g.w - 80, g.h - 50);
+    box = { x: 56, y: 12, w: side, h: side };
+    const ax = Lab.axes(g.ctx, box, R1, R2, { xlabel: 'assumed fat speed ĉ₁ (m/s)', ylabel: 'assumed liver speed ĉ₂ (m/s)', grid: false, xticks: box.w > 300 ? [1350, 1400, 1450, 1500, 1550, 1600] : [1400, 1500, 1600], yticks: [1450, 1500, 1550, 1600, 1650, 1700] });
+    const disp = Float64Array.from(land.v, x => Math.sqrt(x / (land.mx || 1)));
+    Lab.image(g.ctx, disp, NG, NG, { x: box.x + 1, y: box.y + 1, w: box.w - 1, h: box.h - 1, smooth: true }, 0, 1, 'heat');
+    ax.clip(); Lab.line(g.ctx, ax, path.map(p => p[0]), path.map(p => p[1]), c.sig2, 2); ax.unclip();
+    Lab.dots(g.ctx, ax, [start[0]], [start[1]], c.sig2, 4); const e = path[path.length - 1];
+    g.ctx.save(); g.ctx.strokeStyle = c.sig2; g.ctx.lineWidth = 2; g.ctx.beginPath(); g.ctx.arc(ax.X(e[0]), ax.Y(e[1]), 6, 0, TAU); g.ctx.stroke(); g.ctx.restore();
+    const star = (X, Y, col) => { g.ctx.save(); g.ctx.strokeStyle = col; g.ctx.lineWidth = 2; g.ctx.beginPath(); g.ctx.moveTo(X - 6, Y); g.ctx.lineTo(X + 6, Y); g.ctx.moveTo(X, Y - 6); g.ctx.lineTo(X, Y + 6); g.ctx.stroke(); g.ctx.restore(); };
+    star(ax.X(c1), ax.Y(c2), c.fg); Lab.dots(g.ctx, ax, [ga], [gb], c.sig4, 3.5);
+    g.ctx.save(); g.ctx.font = '11px ' + c.mono; g.ctx.fillStyle = c.muted; g.ctx.fillText('dark = low loss (√ scale)', box.x + box.w + 8 > g.w - 70 ? box.x + 6 : box.x + box.w + 8, box.y + 12); g.ctx.restore();
+    g = Lab.canvas($('m32-d5-hist'), 160);
+    const ah = Lab.axes(g.ctx, { x: 56, y: 12, w: g.w - 70, h: g.h - 48 }, [0, Math.max(10, hist.length - 1)], [0, Math.max(...hist) * 1.05 + 1e-9], { xlabel: 'iteration', ylabel: 'loss', ny: 3 });
+    Lab.line(g.ctx, ah, hist.map((_, i) => i), hist, c.sig2, 2);
+    const ok = Math.hypot(e[0] - ga, e[1] - gb) < 6;
+    $('m32-d5-read').innerHTML = 'start (' + start.map(v => v.toFixed(0)).join(', ') + ') → end (<b>' + e[0].toFixed(1) + ', ' + e[1].toFixed(1) + '</b>) after ' + (path.length - 1) + ' steps' +
+      '<br>loss ' + hist[0].toFixed(3) + ' → ' + hist[hist.length - 1].toFixed(3) + (ok ? ' (reached the global basin)' : ' <b>(stuck away from the global minimum)</b>') +
+      '<br>grid minimum (' + ga.toFixed(1) + ', ' + gb.toFixed(1) + '), truth (' + c1 + ', ' + c2 + '): model bias ' + (ga - c1).toFixed(1) + ', ' + (gb - c2).toFixed(1) + ' m/s';
+  }
+  $('m32-d5-land').addEventListener('click', ev => { if (!box) return; const r = $('m32-d5-land').getBoundingClientRect(); const px = ev.clientX - r.left, py = ev.clientY - r.top;
+    if (px < box.x || px > box.x + box.w || py < box.y || py > box.y + box.h) return; start = [R1[0] + (px - box.x) / box.w * (R1[1] - R1[0]), R2[1] - (py - box.y) / box.h * (R2[1] - R2[0])]; draw(); });
+  $('m32-d5-reset').addEventListener('click', () => { start = [1540, 1540]; draw(); });
+  ['loss', 'lag', 'f0', 'df', 'c1', 'c2', 'eta'].forEach(k => $('m32-d5-' + k).addEventListener('input', draw));
+  Lab.onShow('m32', draw);
+})();
+
+/* ================= card grid 32.6 ================= */
+const G6 = [
+  { prov: 'exact', q: 'When does a phase loss skip a cycle?', a: 'When a residual delay difference passes <b>1/(2f₀)</b>: 100 ns at 5 MHz, 50 ns at 10 MHz. With a quadratic residual, the lag-ℓ difference at the aperture edge grows as ℓ·x·Δc, so long lags and high frequencies wrap first.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [1, 32], [0, 220], { lab: 'Δc (m/s) at which the edge lag-ℓ phase wraps, z = 30 mm', ticks: [[1, '1'], [8, '8'], [16, '16'], [32, '32']] });
+      const X = 15e-3, z = 0.03; [[2.5e6, c.d, '2.5 MHz'], [5e6, c.a, '5 MHz'], [10e6, c.b, '10 MHz']].forEach(([f, col, lab]) => { const fn = l => { const dd = 2 * X * l * PITCH / (z * C0); return (1 / (2 * f)) / dd * C0; }; Mm().curve(x, m, fn, col, { w: 2 }); Mm().text(x, lab, m.X(20), m.Y(Math.min(200, fn(20))) - 8, col); }); } }
+];
+Lab.cardGrid('m32', 'm32-g6', G6);
+
+/* ================= Demo 32.6: error budget ================= */
+(function () {
+  function draw() {
+    const c = Lab.colors();
+    const est = +$('m32-d6-est').value, z = +$('m32-d6-z').value * 1e-3, N = +$('m32-d6-N').value, stt = +$('m32-d6-st').value * 1e-9, M = +$('m32-d6-M').value, dz = +$('m32-d6-dz').value * 1e-3, del = +$('m32-d6-cal').value * 1e-9, fat = +$('m32-d6-fat').value * 1e-3, bm = +$('m32-d6-mod').value;
+    $('m32-d6-z-out').textContent = fmt(z * 1e3) + ' mm'; $('m32-d6-N-out').textContent = N; $('m32-d6-st-out').textContent = fmt(stt * 1e9) + ' ns'; $('m32-d6-M-out').textContent = M; $('m32-d6-dz-out').textContent = fmt(dz * 1e3) + ' mm'; $('m32-d6-cal-out').textContent = fmt(del * 1e9) + ' ns'; $('m32-d6-fat-out').textContent = fmt(fat * 1e3) + ' mm'; $('m32-d6-mod-out').textContent = bm + ' m/s';
+    const cl = 1570, A = avgSpeeds(z, fat, 1450, cl), cs = A.Vr;
+    let s2 = 0, s4 = 0; const xs = []; for (let i = 0; i < N; i++) { const x = (i - (N - 1) / 2) * PITCH; xs.push(x); s2 += x * x; s4 += x ** 4; } const X = Math.max(...xs);
+    const sdx2 = Math.sqrt(s4 / N - (s2 / N) ** 2);
+    const crlb = cs * cs * z * stt / (Math.sqrt(N) * sdx2);
+    let rnd = crlb / Math.sqrt(M), amp = 1; if (est === 1) { amp = Math.sqrt(z * z + (z - dz) ** 2) / dz; rnd *= amp; }
+    const bcal = -cs * cs * z * del / (X * X), blay = est === 0 ? A.Vr - cl : 0;
+    const bias = Math.abs(blay) + Math.abs(bcal) + Math.abs(bm), tot = Math.sqrt(bias * bias + rnd * rnd);
+    const items = [['random σ/√M' + (est ? ' × √2 z/Δz' : ''), Math.abs(rnd), 'r'], ['layer bias', Math.abs(blay), 'b'], ['calibration bias', Math.abs(bcal), 'b'], ['model error', Math.abs(bm), 'b'], ['total (Σ|bias| ⊕ σ)', tot, 't']];
+    const g = Lab.canvas($('m32-d6-cv'), 250); const xmax = Math.max(50, tot * 1.15, ...items.map(i => i[1] * 1.1));
+    const ax = Lab.axes(g.ctx, { x: 150, y: 10, w: g.w - 166, h: g.h - 46 }, [0, xmax], [0, items.length], { xlabel: 'm/s', noYLabels: true, yticks: [] });
+    const bh = (ax.box.h / items.length) * 0.6;
+    items.forEach((it, k) => { const y = ax.Y(items.length - k - 0.5); g.ctx.save(); g.ctx.fillStyle = it[2] === 'r' ? c.accent : it[2] === 't' ? c.fg : c.sig2; g.ctx.globalAlpha = it[2] === 't' ? 0.85 : 0.75;
+      g.ctx.fillRect(ax.X(0), y - bh / 2, ax.X(it[1]) - ax.X(0), bh); g.ctx.globalAlpha = 1; g.ctx.font = '11px ' + c.mono; g.ctx.fillStyle = c.fg; g.ctx.textAlign = 'right'; g.ctx.textBaseline = 'middle'; g.ctx.fillText(it[0], ax.box.x - 6, y);
+      g.ctx.textAlign = 'left'; g.ctx.fillText(it[1] < 10 ? it[1].toFixed(2) : it[1].toFixed(1), Math.min(ax.X(it[1]) + 4, ax.box.x + ax.box.w - 40), y); g.ctx.restore(); });
+    g.ctx.save(); g.ctx.strokeStyle = c.muted; g.ctx.setLineDash([4, 3]); [14, 40].forEach(v => { if (v < xmax) { g.ctx.beginPath(); g.ctx.moveTo(ax.X(v), ax.box.y); g.ctx.lineTo(ax.X(v), ax.box.y + ax.box.h); g.ctx.stroke(); } }); g.ctx.restore();
+    $('m32-d6-read').innerHTML = 'aperture ' + fmt(N * PITCH * 1e3) + ' mm, F = ' + fmt(z / (N * PITCH)) + '; CRLB per kernel <b>' + fmt(crlb) + ' m/s</b>' + (est ? '; local amplification ×' + fmt(amp) : '') +
+      '<br>V<sub>rms</sub> to ' + fmt(z * 1e3) + ' mm = ' + A.Vr.toFixed(1) + ' m/s against liver ' + cl + (est === 0 ? ': layer bias <b>' + blay.toFixed(1) + ' m/s</b>' : ' (no layer bias for a local estimate)') +
+      '<br>calibration bias ' + bcal.toFixed(2) + ' m/s; total <b>' + tot.toFixed(1) + ' m/s</b> ' + (tot < 14 ? '(separates the 1541/1555 cut-offs)' : tot < 40 ? '(resolves a 40 m/s shift, not the 14 m/s cut-off gap)' : '(cannot resolve either target)');
+  }
+  ['est', 'z', 'N', 'st', 'M', 'dz', 'cal', 'fat', 'mod'].forEach(k => $('m32-d6-' + k).addEventListener('input', draw));
+  Lab.onShow('m32', draw);
+})();
+
+/* ================= helpers for summary and rule figures ================= */
+const crlbN = (z, N, st) => { let s2 = 0, s4 = 0; for (let i = 0; i < N; i++) { const x = (i - (N - 1) / 2) * PITCH; s2 += x * x; s4 += x ** 4; } return C0 * C0 * z * st / (Math.sqrt(N) * Math.sqrt(s4 / N - (s2 / N) ** 2)); };
+const cfq = P => { let r = 0, i = 0; const n = 160; for (let j = 0; j < n; j++) { const u = -1 + (j + 0.5) * 2 / n; r += Math.cos(P * u * u); i += Math.sin(P * u * u); } return (r * r + i * i) / (n * n); };
+function phaseLoss(dc, lag, f0, z, X) { const N = Math.round(2 * X / PITCH); let s = 0, m = 0; const d = i => { const x = (i - (N - 1) / 2) * PITCH; return dc / C0 * x * x / (z * C0); };
+  for (let i = 0; i + lag < N; i++) { s += Math.abs(wrap(TAU * f0 * (d(i) - d(i + lag)))); m++; } return s / (m * PI); }
+function layerFitLesion(cles) { /* noise-free layer fit, fat 8 | muscle 6 | liver 1580 with lesion 32-42 mm */
+  const n = 60, prof = z => z < 8 ? 1450 : z < 14 ? 1585 : (z > 32 && z < 42) ? cles : 1580, lay = z => z < 8 ? 0 : z < 14 ? 1 : 2;
+  const BtB = new Float64Array(9), Btb = new Float64Array(3);
+  for (let k = 4; k <= 60; k++) { let T = 0; const row = new Float64Array(3); for (let j = 0; j < k; j++) { T += 1e-3 / prof(j + 0.5); row[lay(j + 0.5)] += 1e-3; } const w = 1 / (k * 1e-3);
+    for (let i = 0; i < 3; i++) { Btb[i] += row[i] * w * w * T; for (let q = 0; q < 3; q++) BtB[i * 3 + q] += row[i] * row[q] * w * w; } }
+  return 1 / cholSolve(BtB, 3, [Btb])[0][2];
+}
+const RH = 150;
+
+/* ================= visual summary ================= */
+const VIS = [
+  { prov: 'exact', q: 'What does a 20 m/s error do across the aperture?', a: 'A parabola of residual delay, <b>δτ = (Δc/c)x²/(zc)</b>: 104 ns at the edge of a 38.4 mm aperture at 30 mm, four times the λ/8 limit of 25 ns at 5 MHz.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [-19.2, 19.2], [-120, 120], { lab: 'δτ (ns) vs element x (mm), z = 30 mm', ticks: [[-19.2, '−19.2'], [0, '0'], [19.2, '19.2']], base: 0, hlines: [[25, '+25 ns'], [-25, '−25']] });
+      [[20, c.a], [-20, c.b]].forEach(([d, col]) => Mm().curve(x, m, xx => d / C0 * (xx * 1e-3) ** 2 / (0.03 * C0) * 1e9, col, { w: 2 })); } },
+  { prov: 'exact', q: 'How far does a wrong speed move an echo in depth?', a: '<b>ẑ − z = (Δc/c) z</b>: 15 m/s is 0.29 mm at 30 mm and 0.78 mm at 80 mm. Larger than the axial resolution, and than any ULM precision.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 100], [0, 3], { lab: 'depth error (mm) vs depth (mm)', ticks: [[0, '0'], [30, '30'], [50, '50'], [80, '80'], [100, '100']] });
+      [[15, c.a, '15 m/s'], [40, c.b, '40 m/s']].forEach(([d, col, lab]) => { Mm().curve(x, m, zz => d / C0 * zz, col, { w: 2 }); Mm().text(x, lab, m.X(70), m.Y(d / C0 * 70) - 9, col); }); dot(x, m, 30, 15 / C0 * 30, c.a); dot(x, m, 80, 15 / C0 * 80, c.a); } },
+  { prov: 'exact', q: 'Is speed linear in slowness?', a: 'Nearly: <b>Δc ≈ −c₀²Δs</b>, 1 ns/mm per 2.37 m/s. The exact curve bends by Δc²/c: 1 m/s at ±40 m/s, 5.6 m/s at −90 m/s (fat).',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [-45, 25], [-110, 110], { lab: 'Δc (m/s) vs Δs (ns/mm)', ticks: [[-40, '−40'], [-20, '−20'], [0, '0'], [20, '20']], base: 0 });
+      Mm().curve(x, m, ds => 1 / (1 / C0 + ds * 1e-6) - C0, c.a, { w: 2 }); Mm().curve(x, m, ds => -C0 * C0 * ds * 1e-6, c.mu, { dash: [4, 3] }); } },
+  { prov: 'exact', q: 'Which average does focusing find?', a: '<b>V<sub>rms</sub></b>, the time-weighted RMS speed. It exceeds z/T by w(1−w)Δc²/(2V): at most 1.4 m/s for fat 1450 over liver 1580, at w = ½.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 1], [0, 1.6], { lab: 'V_rms − V_h (m/s) vs fat time fraction w', ticks: [[0, '0'], [0.5, '0.5'], [1, '1']], hlines: [[1.39, '1.39']] });
+      Mm().curve(x, m, w => { const Vh = w * 1450 + (1 - w) * 1580, Vr = Math.sqrt(w * 1450 * 1450 + (1 - w) * 1580 * 1580); return Vr - Vh; }, c.a, { w: 2 }); } },
+  { prov: 'exact', q: 'Average or local?', a: 'Under 10 mm of fat at 1450 the average <b>V<sub>h</sub> = z/T</b> creeps toward a 1580 m/s liver as 1/z: 1534 at 30 mm, 1557 at 60 mm. It never reaches it.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 90], [1430, 1600], { lab: 'speed (m/s) vs depth (mm)', ticks: [[10, '10'], [30, '30'], [60, '60'], [90, '90']], hlines: [[1580, '1580']] });
+      Mm().curve(x, m, zz => avgSpeeds(Math.max(zz, 0.1) * 1e-3, 0.01, 1450, 1580).cloc, c.mu, { w: 1.6 }); Mm().curve(x, m, zz => avgSpeeds(Math.max(zz, 0.1) * 1e-3, 0.01, 1450, 1580).Vh, c.a, { w: 2 });
+      dot(x, m, 30, avgSpeeds(0.03, 0.01, 1450, 1580).Vh, c.b); dot(x, m, 60, avgSpeeds(0.06, 0.01, 1450, 1580).Vh, c.b); } },
+  { prov: 'exact', q: 'What spacing makes a local estimate usable?', a: 'At 40 mm with 2 m/s per average: <b>σ<sub>loc</sub> = √(z² + (z−Δz)²)/Δz · σ</b> is 112 m/s at Δz = 1 mm, 10 m/s at 10 mm, 4.5 at 20 mm. Resolution is the price.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 1.4], [0, 2.2], { lab: 'log₁₀ σ_loc (m/s) vs Δz (mm, log)', ticks: [[0, '1'], [L10(2), '2'], [L10(5), '5'], [1, '10'], [L10(20), '20']], hlines: [[1, '10'], [2, '100']] });
+      Mm().curve(x, m, l => { const d = 10 ** l; return L10(Math.sqrt(40 * 40 + (40 - d) ** 2) / d * 2); }, c.a, { w: 2 }); dot(x, m, 1, L10(10), c.b); } },
+  { prov: 'exact', q: 'When does a CUTE phase wrap?', a: 'At <b>|Δτ| = 1/(2f₀)</b>: 100 ns at 5 MHz. Beyond it the measured phase jumps by 2π and a naive inversion sees a delay of the wrong sign.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 320], [-3.4, 3.4], { lab: 'measured phase (rad) vs true delay (ns), 5 MHz', ticks: [[0, '0'], [100, '100'], [200, '200'], [300, '300']], base: 0 });
+      Mm().curve(x, m, t => TAU * F0 * t * 1e-9, c.mu, { dash: [4, 3] }); Mm().curve(x, m, t => wrap(TAU * F0 * t * 1e-9), c.a, { w: 2 }); } },
+  { prov: 'exact', q: 'How much delay jitter in one phase-shift datum?', a: '<b>σ<sub>τ</sub> = √(1−ρ²)/(2πf₀ ρ√(2N))</b>: 0.92 ns at ρ = 0.95, N = 64, 5 MHz; 0.40 ns at ρ = 0.99.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [L10(8), L10(512)], [-1, 1], { lab: 'log₁₀ σ_τ (ns) vs N (log)', ticks: [[L10(16), '16'], [L10(64), '64'], [L10(256), '256']], base: -1, hlines: [[0, '1 ns']] });
+      [[0.9, c.b], [0.95, c.a], [0.99, c.d]].forEach(([r, col]) => { Mm().curve(x, m, l => L10(Math.sqrt(1 - r * r) / (r * Math.sqrt(2 * 10 ** l)) / (TAU * F0) * 1e9), col, { w: 2 }); Mm().text(x, 'ρ ' + r, m.X(L10(300)), m.Y(L10(Math.sqrt(1 - r * r) / (r * Math.sqrt(600)) / (TAU * F0) * 1e9)) - 8, col); }); } },
+  { prov: 'exact', q: 'What does a fat layer add to a CUTE datum?', a: 'Below the layer a constant <b>(sec θ − 1)S</b>: 5.7 ns at 15° for 4 mm at 1450 m/s (S = 161 ns), 11.4 ns with common mid-angle. Inside the layer it ramps.',
+    draw: cv => { const c = Mm().col(); const S1 = (1 / 1450 - 1 / C0) * 1e6; const t = 15 * PI / 180, k = 1 / Math.cos(t) - 1; const { x, m } = fig(cv, H, [0, 20], [0, 13], { lab: 'datum shift (ns) vs depth (mm), 4 mm fat, 15°', ticks: [[0, '0'], [4, '4'], [10, '10'], [20, '20']], hlines: [[5.69, '5.7'], [11.37, '11.4']] });
+      Mm().curve(x, m, zz => k * S1 * Math.min(zz, 4), c.a, { w: 2 }); Mm().curve(x, m, zz => 2 * k * S1 * Math.min(zz, 4), c.b, { w: 2 }); } },
+  { prov: 'model', q: 'What can near-vertical rays not see?', a: 'By the Fourier-slice theorem, rays within ±θ<sub>max</sub> of vertical sample a wedge around k<sub>x</sub>. The <b>missing cone around k<sub>z</sub></b> holds axial detail, layers and the mean.',
+    draw: cv => { const c = Mm().col(); const S = Mm().size(cv, H); const cx = S.w / 2, cy = H / 2 + 4, R = H / 2 - 12, t = 25 * PI / 180; const x = S.x;
+      x.save(); x.fillStyle = c.a; x.globalAlpha = 0.25; [0, PI].forEach(a0 => { x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, R, a0 - t, a0 + t); x.closePath(); x.fill(); }); x.globalAlpha = 1;
+      x.strokeStyle = c.rule; x.beginPath(); x.moveTo(cx - R - 6, cy); x.lineTo(cx + R + 6, cy); x.moveTo(cx, cy - R - 4); x.lineTo(cx, cy + R + 4); x.stroke(); x.restore();
+      Mm().text(x, 'kx', cx + R + 4, cy - 8, c.mu); Mm().text(x, 'kz', cx + 5, cy - R, c.mu); Mm().text(x, 'measured ±25°', cx + R * 0.35, cy + R * 0.35, c.a); Mm().text(x, 'missing cone', cx + 8, cy - R * 0.55, c.b); } },
+  { prov: 'exact', q: 'How fast does the CRLB fall with aperture?', a: 'About <b>N<sup>−2.5</sup></b> at fixed pitch: curvature grows as X², information as N. At 30 mm with 5 ns jitter the parabolic closed form gives 9.2, 1.6, 0.29 m/s for 32, 64, 128 elements (exact CRLB 9.3, 1.7, 0.33).',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [L10(16), L10(192)], [-1, 2], { lab: 'log₁₀ CRLB (m/s) vs N (log), z = 30 mm', ticks: [[L10(32), '32'], [L10(64), '64'], [L10(128), '128']], base: -1, hlines: [[0, '1 m/s']] });
+      Mm().curve(x, m, l => L10(crlbN(0.03, Math.round(10 ** l), 5e-9)), c.a, { w: 2 }); [32, 64, 128].forEach(N => dot(x, m, L10(N), L10(crlbN(0.03, N, 5e-9)), c.b)); } },
+  { prov: 'exact', q: 'How does the focusing tolerance scale with frequency?', a: '<b>|Δc| &lt; c²F²/(2f₀z)</b>: at F/1.5 and 40 mm, 27 m/s at 2.5 MHz, 13 m/s at 5 MHz, 9 m/s at 7.5 MHz. High-frequency probes need the speed most.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [2, 10], [0, 35], { lab: 'tolerance (m/s) vs f₀ (MHz), F/1.5, 40 mm', ticks: [[2.5, '2.5'], [5, '5'], [7.5, '7.5'], [10, '10']] });
+      Mm().curve(x, m, f => C0 * C0 * 2.25 / (2 * f * 1e6 * 0.04), c.a, { w: 2 }); [2.5, 5, 7.5].forEach(f => dot(x, m, f, C0 * C0 * 2.25 / (2 * f * 1e6 * 0.04), c.b)); } },
+  { prov: 'exact', q: 'How thick an abdominal wall can an average tolerate?', a: 'At 50 mm over a 1580 m/s liver, <b>V<sub>h</sub> − c<sub>liver</sub></b> passes the 14 m/s cut-off gap at about 5 mm of 1450 m/s fat and reaches −55 m/s at 20 mm.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 25], [-75, 0], { lab: 'V_h − 1580 (m/s) vs fat thickness (mm), z = 50 mm', ticks: [[0, '0'], [5, '5'], [10, '10'], [20, '20'], [25, '25']], hlines: [[-14, '−14']] });
+      Mm().curve(x, m, d => avgSpeeds(0.05, d * 1e-3, 1450, 1580).Vh - 1580, c.a, { w: 2 }); dot(x, m, 20, avgSpeeds(0.05, 0.02, 1450, 1580).Vh - 1580, c.b); } }
+];
+Lab.cardGrid('m32', 'm32-vis', VIS);
+
+/* ================= rule figures ================= */
+function drawRules() {
+  const c = Mm().col(); const q = id => $(id);
+  let F = fig(q('m32-rf-1'), RH, [0.5, 3], [0, 80], { lab: '|Δc| tolerance (m/s) vs F, 5 MHz', ticks: [[1, '1'], [2, '2'], [3, '3']], hlines: [[7.9, '7.9 (30 mm)']] });
+  [[0.03, c.a, '30 mm'], [0.06, c.b, '60 mm']].forEach(([z, col, lab]) => { Mm().curve(F.x, F.m, f => C0 * C0 * f * f / (2 * F0 * z), col, { w: 2 }); Mm().text(F.x, lab, F.m.X(2.45), F.m.Y(C0 * C0 * 6 / (2 * F0 * z)) - 8, col); });
+  F = fig(q('m32-rf-2'), RH, [-60, 30], [-160, 160], { lab: 'Δc (m/s) vs Δs (ns/mm): exact vs linear', ticks: [[-60, '−60'], [-40, '−40'], [-20, '−20'], [0, '0'], [20, '20']], base: 0 });
+  Mm().curve(F.x, F.m, ds => 1 / (1 / C0 + ds * 1e-6) - C0, c.a, { w: 2 }); Mm().curve(F.x, F.m, ds => -C0 * C0 * ds * 1e-6, c.mu, { dash: [4, 3] }); dot(F.x, F.m, -16.44, 40, c.b);
+  { const z = 0.04, xe = elements(z, 1), Ti = snellTimes(xe, z, 0.01, 1450, 1580), A = avgSpeeds(z, 0.01, 1450, 1580);
+    F = fig(q('m32-rf-3'), RH, [1450, 1640], [0, 1.05], { lab: 'CF vs ĉ (m/s), 40 mm, 10 mm fat', ticks: [[1500, '1500'], [1546, '1546'], [1580, '1580'], [1620, '1620']] });
+    Mm().curve(F.x, F.m, v => cfApex(xe, Ti, A.T, v, F0), c.a, { w: 2 }); vline(F.x, F.m, A.Vr, c.d, 'V_rms'); vline(F.x, F.m, 1580, c.mu, 'liver', 12); }
+  F = fig(q('m32-rf-4'), RH, [0, 7], [0, 1.05], { lab: 'CF vs edge phase Φ (rad)', ticks: [[0.785, 'π/4'], [2.73, '2.73'], [6.28, '2π']], hlines: [[0.5, '0.5']] });
+  Mm().curve(F.x, F.m, cfq, c.a, { w: 2 }); dot(F.x, F.m, 2.73, 0.5, c.b);
+  F = fig(q('m32-rf-5'), RH, [5, 60], [0, 180], { lab: 'σ_loc (m/s) vs z (mm), σ_avg = 2 m/s, Δz = 1 mm', ticks: [[10, '10'], [30, '30'], [50, '50']], hlines: [[85.4, '85'], [141.4, '141']] });
+  Mm().curve(F.x, F.m, zz => Math.sqrt(zz * zz + (zz - 1) ** 2) * 2, c.a, { w: 2 }); dot(F.x, F.m, 30, 85.8, c.b); dot(F.x, F.m, 50, 142.4, c.b);
+  { const zm = [17.5, 22.5, 27.5, 32.5, 37.5, 42.5, 47.5], dix = [1580.5, 1580.6, 1580.1, 1580.6, 1580.4, 1580.3, 1580.3], sr = [1582.5, 1581.7, 1580.8, 1581.2, 1580.8, 1580.6, 1580.5];
+    F = fig(q('m32-rf-6'), RH, [15, 50], [1579, 1583], { lab: 'interval speed (m/s) vs depth (mm)', ticks: [[20, '20'], [30, '30'], [40, '40'], [50, '50']], hlines: [[1580, '1580 true']] });
+    poly(F.x, F.m, zm, dix, c.a, { w: 2 }); poly(F.x, F.m, zm, sr, c.b, { w: 2, dash: [5, 3] }); zm.forEach((z, i) => { dot(F.x, F.m, z, dix[i], c.a); dot(F.x, F.m, z, sr[i], c.b); });
+    Mm().text(F.x, 'Dix', F.m.X(44), F.m.Y(1580.0) + 10, c.a); Mm().text(F.x, 'straight-ray', F.m.X(24), F.m.Y(1582.4), c.b); }
+  { const vs = [], ls = []; for (let v = 1480; v <= 1640; v += 10) { vs.push(v); ls.push(layerFitLesion(v)); }
+    F = fig(q('m32-rf-7'), RH, [1480, 1640], [1540, 1600], { lab: 'layer-fit liver (m/s) vs lesion speed (m/s)', ticks: [[1500, '1500'], [1540, '1540'], [1580, '1580'], [1620, '1620']], hlines: [[1580, 'background 1580']] });
+    poly(F.x, F.m, vs, ls, c.a, { w: 2 }); dot(F.x, F.m, 1520, layerFitLesion(1520), c.b); }
+  F = fig(q('m32-rf-8'), RH, [0, 320], [-3.4, 3.4], { lab: 'wrapped phase (rad) vs true delay (ns), 5 MHz', ticks: [[56, '56'], [100, '100'], [169, '169'], [300, '300']], base: 0 });
+  Mm().curve(F.x, F.m, t => wrap(TAU * F0 * t * 1e-9), c.a, { w: 2 }); dot(F.x, F.m, 56.2, wrap(TAU * F0 * 56.2e-9), c.d); dot(F.x, F.m, 168.9, wrap(TAU * F0 * 168.9e-9), c.b);
+  F = fig(q('m32-rf-9'), RH, [L10(8), L10(512)], [-1, 1.2], { lab: 'log₁₀ σ_τ (ns) vs N (log), 5 MHz', ticks: [[L10(16), '16'], [L10(64), '64'], [L10(256), '256']], base: -1, hlines: [[0, '1 ns']] });
+  [[0.7, c.b], [0.9, c.d], [0.99, c.a]].forEach(([r, col]) => { Mm().curve(F.x, F.m, l => L10(Math.sqrt(1 - r * r) / (r * Math.sqrt(2 * 10 ** l)) / (TAU * F0) * 1e9), col, { w: 2 }); Mm().text(F.x, 'ρ ' + r, F.m.X(L10(10)), F.m.Y(L10(Math.sqrt(1 - r * r) / (r * Math.sqrt(20)) / (TAU * F0) * 1e9)) - 8, col); });
+  F = fig(q('m32-rf-10'), RH, [0, 30], [0, 0.32], { lab: 'fraction of layer delay seen vs θ (deg)', ticks: [[10, '10'], [15, '15'], [20, '20'], [25, '25'], [30, '30']] });
+  Mm().curve(F.x, F.m, t => 1 / Math.cos(t * PI / 180) - 1, c.a, { w: 2 }); Mm().curve(F.x, F.m, t => 2 * (1 / Math.cos(t * PI / 180) - 1), c.b, { w: 2 }); Mm().text(F.x, 'tx-only', F.m.X(25), F.m.Y(0.07), c.a); Mm().text(F.x, 'CMA', F.m.X(21), F.m.Y(0.2), c.b);
+  F = fig(q('m32-rf-11'), RH, [5, 35], [2, 4.5], { lab: 'axial FWHM (mm) vs depth (mm)', ticks: [[9, '9'], [19, '19'], [31, '31']], hlines: [[2.4, 'cell 2.4']] });
+  poly(F.x, F.m, [9, 19, 31], [2.5, 2.6, 3.4], c.a, { w: 2 }); poly(F.x, F.m, [9, 19, 31], [2.6, 2.9, 4.2], c.b, { w: 2, dash: [5, 3] }); [[2.5, 2.6, 3.4, c.a], [2.6, 2.9, 4.2, c.b]].forEach(v => [9, 19, 31].forEach((z, i) => dot(F.x, F.m, z, v[i], v[3])));
+  Mm().text(F.x, 'tx-only', F.m.X(24), F.m.Y(2.75), c.a); Mm().text(F.x, 'CMA', F.m.X(26), F.m.Y(3.85), c.b);
+  F = fig(q('m32-rf-12'), RH, [0, 5], [0, 35], { lab: 'RMSE (m/s): noise only | model only', ticks: [[1, 'tx'], [2, 'CMA'], [3, 'tx'], [4, 'CMA']] });
+  [[1, 3.8, c.a], [2, 1.9, c.b], [3, 22.0, c.a], [4, 30.8, c.b]].forEach(([p, v, col]) => { F.x.save(); F.x.fillStyle = col; F.x.globalAlpha = 0.7; F.x.fillRect(F.m.X(p - 0.3), F.m.Y(v), F.m.X(0.6) - F.m.X(0), F.m.Y(0) - F.m.Y(v)); F.x.restore(); Mm().text(F.x, fmt(v), F.m.X(p), F.m.Y(v) - 7, c.fg, 'center'); });
+  { const S = Mm().size(q('m32-rf-13'), RH); const x = S.x, W = S.w, gx = 8, gy = 6, x0 = 20, y0 = 20, cw = (W - 40) / gx, ch = (RH - 34) / gy;
+    x.save(); x.strokeStyle = c.rule; for (let i = 0; i <= gx; i++) { x.beginPath(); x.moveTo(x0 + i * cw, y0); x.lineTo(x0 + i * cw, y0 + gy * ch); x.stroke(); } for (let k = 0; k <= gy; k++) { x.beginPath(); x.moveTo(x0, y0 + k * ch); x.lineTo(x0 + gx * cw, y0 + k * ch); x.stroke(); }
+    const px = x0 + 4.5 * cw, py = y0 + 5.5 * ch; const tops = [x0 + 1.2 * cw, x0 + 4.5 * cw, x0 + 7.8 * cw];
+    x.fillStyle = c.a; x.globalAlpha = 0.18; for (let k = 0; k < gy; k++) for (let i = 0; i < gx; i++) { const cx = x0 + (i + 0.5) * cw, cy = y0 + (k + 0.5) * ch; const hit = tops.some(tx => { const u = (py - cy) / (py - y0); if (u < 0 || u > 1) return false; const xr = px + (tx - px) * u; return Math.abs(xr - cx) < cw * 0.6; }); if (hit) x.fillRect(x0 + i * cw + 1, y0 + k * ch + 1, cw - 2, ch - 2); }
+    x.globalAlpha = 1; x.strokeStyle = c.b; x.lineWidth = 1.6; tops.forEach(tx => { x.beginPath(); x.moveTo(px, py); x.lineTo(tx, y0); x.stroke(); }); x.fillStyle = c.fg; x.beginPath(); x.arc(px, py, 3.5, 0, TAU); x.fill();
+    x.fillStyle = c.mu; x.fillRect(x0, y0 - 8, gx * cw, 5); x.restore(); Mm().text(x, 'array', x0 + gx * cw + 2, y0 - 6, c.mu); Mm().text(x, 'pixel: ∂L/∂τ per path', px + 6, py + 2, c.fg); Mm().text(x, 'shaded: cells receiving ℓ_ij ∂L/∂τ_i', x0, RH - 6, c.a); }
+  F = fig(q('m32-rf-14'), RH, [-150, 150], [0, 0.75], { lab: 'phase loss vs Δc (m/s), 30 mm, 5 MHz', ticks: [[-100, '−100'], [0, '0'], [100, '100']] });
+  [[4, c.a, 'ℓ = 4'], [16, c.b, 'ℓ = 16']].forEach(([l, col, lab]) => { Mm().curve(F.x, F.m, d => phaseLoss(d, l, F0, 0.03, 0.015), col, { w: 2 }); Mm().text(F.x, lab, F.m.X(l === 4 ? 60 : -140), F.m.Y(0.68), col); });
+  F = fig(q('m32-rf-15'), RH, [10, 90], [-1, 1.6], { lab: 'log₁₀ CRLB (m/s) vs z (mm), σ_t = 5 ns', ticks: [[10, '10'], [30, '30'], [60, '60'], [90, '90']], base: -1, hlines: [[0, '1 m/s']] });
+  [[32, c.b], [64, c.a], [128, c.d]].forEach(([N, col]) => { Mm().curve(F.x, F.m, zz => L10(crlbN(zz * 1e-3, N, 5e-9)), col, { w: 2 }); Mm().text(F.x, N + ' el.', F.m.X(80), F.m.Y(L10(crlbN(0.08, N, 5e-9))) - 8, col); }); dot(F.x, F.m, 30, L10(1.69), c.a);
+  F = fig(q('m32-rf-16'), RH, [0, 10], [-20, 0], { lab: 'bias (m/s) vs edge delay error δ (ns), 64 el.', ticks: [[0, '0'], [1, '1'], [5, '5'], [10, '10']], base: 0 });
+  const X64 = 31.5 * PITCH; [[0.03, c.a, '30 mm'], [0.06, c.b, '60 mm']].forEach(([z, col, lab]) => { Mm().curve(F.x, F.m, d => -C0 * C0 * z * d * 1e-9 / (X64 * X64), col, { w: 2 }); Mm().text(F.x, lab, F.m.X(7.2), F.m.Y(-C0 * C0 * z * 7.2e-9 / (X64 * X64)) - 9, col); }); dot(F.x, F.m, 1, -0.83, c.a);
+}
+Lab.onShow('m32', drawRules);
+
+
+/*@@JS-END*/
+})();
+</script>

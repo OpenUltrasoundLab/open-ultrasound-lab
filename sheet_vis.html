@@ -1,0 +1,224 @@
+<!--CONV-->
+  <h2 id="s-cc"><span class="sec">0</span>Convolution and correlation, visually</h2>
+  <p class="mods">Modules 03 (convolution), 11 (correlation and delay estimation)</p>
+  <div class="prose">
+    <p>Both operations slide one function past the other, multiply, and integrate. Convolution flips g first; correlation does not. That single flip is why convolution models a system (output = input ∗ impulse response) while correlation measures similarity (where does g best match f?).</p>
+  </div>
+  <div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ (f \ast g)(t) = \int f(\tau)\, g(t - \tau)\, d\tau \;\longleftrightarrow\; F(\nu)\, G(\nu) \]</div></div><span class="note">Convolution: flip g, shift it right by t, multiply, integrate. Commutative: \(f \ast g = g \ast f\).</span></div>
+  <div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ (f \star g)(t) = \int f(\tau)\, g^*(\tau - t)\, d\tau = \int f(u + t)\, g^*(u)\, du \;\longleftrightarrow\; F(\nu)\, G^*(\nu) \]</div></div><span class="note">Cross-correlation: shift g right by t without flipping. Same convention as MATLAB xcorr(f, g). Not commutative: \((g \star f)(t) = (f \star g)^*(-t)\). Correlation = convolution with the conjugated, time-reversed g.</span></div>
+  <div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ (f \star f)(t) \;\longleftrightarrow\; \lvert F(\nu)\rvert^2 \]</div></div><span class="note">Autocorrelation: Hermitian symmetric, maximum at t = 0 where it equals the energy \(\int \lvert f\rvert^2\) (Wiener–Khinchin).</span></div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Interactive</span><h3>Slide, multiply, integrate</h3></div>
+    <div class="demo-body">
+      <div class="stage"><canvas id="cc-cv" aria-label="Convolution and correlation animation"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>f(τ)</span><span><i style="background:var(--sig2)"></i>moving copy of g</span><span><i style="background:var(--sig4)"></i>product and running output</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="cc-mode">Operation</label><select id="cc-mode"><option value="conv">Convolution f ∗ g</option><option value="corr">Cross-correlation f ⋆ g</option><option value="auto">Autocorrelation f ⋆ f</option></select></div>
+        <div class="ctrl"><label for="cc-f">f</label><select id="cc-f"><option value="rect">Rectangle</option><option value="ramp">Decaying ramp</option><option value="gauss">Gaussian</option><option value="spikes">Two reflectors</option><option value="pulse" selected>RF pulse</option></select></div>
+        <div class="ctrl"><label for="cc-g">g</label><select id="cc-g"><option value="rect">Rectangle</option><option value="ramp" selected>Decaying ramp</option><option value="gauss">Gaussian</option><option value="spikes">Two reflectors</option><option value="pulse">RF pulse</option></select></div>
+        <div class="ctrl"><label for="cc-t">Shift t <output id="cc-t-o">−1.50</output></label><input type="range" id="cc-t" min="-3" max="3" step="0.01" value="-1.5"></div>
+        <div class="btn-row"><button class="btn solid" id="cc-play" type="button">Play</button></div>
+        <div class="readout" id="cc-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot" id="cc-foot"></div>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Operation</th><th>Shape of the result</th><th>Ultrasound use</th></tr></thead>
+    <tbody>
+      <tr><td>Convolution</td><td>Width = sum of widths; rect ∗ rect = triangle; Gaussian ∗ Gaussian = Gaussian (variances add)</td><td>RF line = pulse ∗ reflectivity; image = PSF ∗ object; filtering</td></tr>
+      <tr><td>Cross-correlation</td><td>Peak at the lag where g best matches f; mirror of the convolution for asymmetric g</td><td>Delay and speckle tracking, matched filter output, pulse compression</td></tr>
+      <tr><td>Autocorrelation</td><td>Symmetric, peak at 0, width ≈ correlation length</td><td>Speckle size, Kasai lag-one Doppler, spatial coherence</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout pitfall"><span class="label">Conventions differ</span><p>Some texts (and the common Wikipedia figure) define \((f \star g)(t) = \int f^*(\tau)\, g(\tau + t)\, d\tau\), which is the curve above mirrored in t and conjugated. Check the convention before reading a sign off a lag: it decides whether a positive lag means "g is late" or "g is early".</p></div>
+<!--/CONV-->
+<!--RAPID-->
+  <h2 id="s-rapid"><span class="sec">0</span>Rapid fire, with pictures</h2>
+  <div class="prose"><p>Each card is a question you should answer in five seconds, the answer, and the picture to keep in mind. Drag the width slider: every transform pair rescales together, so narrowing in time always widens in frequency.</p></div>
+  <div class="demo"><div class="demo-body stack"><div class="controls">
+    <div class="ctrl"><label for="rf-T">Width T (time scale) <output id="rf-T-o">1.00</output></label><input type="range" id="rf-T" min="0.5" max="2" step="0.05" value="1"></div>
+    <div class="readout" id="rf-read"></div>
+  </div></div></div>
+  <div class="rf-grid" id="rf-grid"></div>
+<!--/RAPID-->
+<style>
+.rf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin: 14px 0 20px; }
+.rf-card { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px 12px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.rf-card h4 { margin: 0; font: 600 0.95rem/1.3 var(--f-display); color: var(--ink); }
+.rf-card canvas { display: block; width: 100%; }
+.rf-card p { margin: 0; font-size: 0.9rem; line-height: 1.45; }
+.rf-card p b { color: var(--accent); font-weight: 600; }
+</style>
+<script>
+(function () {
+  const $ = id => document.getElementById(id), PI = Math.PI;
+  const sinc = x => Math.abs(x) < 1e-9 ? 1 : Math.sin(PI * x) / (PI * x);
+  const rect = x => Math.abs(x) < 0.5 ? 1 : 0;
+  const tri = x => Math.max(0, 1 - Math.abs(x));
+  const J1 = x => { let s = 0; const n = 160; for (let i = 0; i < n; i++) { const t = (i + 0.5) * PI / n; s += Math.cos(t - x * Math.sin(t)); } return s / n; };
+  const jinc = x => Math.abs(x) < 1e-6 ? 1 : 2 * J1(PI * x) / (PI * x);
+  const db = (v, lo) => Math.max(lo, 20 * Math.log10(Math.abs(v) + 1e-12));
+  function col() { const s = getComputedStyle(document.documentElement), g = n => s.getPropertyValue(n).trim();
+    return { fg: g('--ink'), mu: g('--muted'), grid: g('--grid'), rule: g('--rule'), a: g('--accent'), b: g('--sig2'), c: g('--sig3'), d: g('--sig4'), mono: '"JetBrains Mono", ui-monospace, Menlo, monospace' }; }
+  function size(cv, h) { const d = Math.min(window.devicePixelRatio || 1, 2.5), w = Math.max(200, cv.clientWidth || 300);
+    cv.style.height = h + 'px'; cv.width = Math.round(w * d); cv.height = Math.round(h * d); const x = cv.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, w, h); return { x, w, h }; }
+  function panel(x, b, xr, yr, o) { o = o || {}; const c = col();
+    const X = v => b.x + (v - xr[0]) / (xr[1] - xr[0]) * b.w, Y = v => b.y + b.h - (v - yr[0]) / (yr[1] - yr[0]) * b.h;
+    const y0 = o.base !== undefined ? Y(o.base) : Y(Math.max(yr[0], Math.min(yr[1], 0)));
+    x.save(); x.strokeStyle = c.rule; x.lineWidth = 1; x.beginPath(); x.moveTo(b.x, Math.round(y0) + 0.5); x.lineTo(b.x + b.w, Math.round(y0) + 0.5);
+    if (o.yaxis !== false && xr[0] < 0 && xr[1] > 0) { x.moveTo(Math.round(X(0)) + 0.5, b.y); x.lineTo(Math.round(X(0)) + 0.5, b.y + b.h); }
+    x.stroke(); x.fillStyle = c.mu; x.font = '10.5px ' + c.mono;
+    if (o.lab) { x.textAlign = 'left'; x.textBaseline = 'top'; x.fillText(o.lab, b.x + 2, b.y - 13); }
+    (o.ticks || []).forEach(([v, t]) => { const px = X(v); x.beginPath(); x.moveTo(px + 0.5, y0 - 3); x.lineTo(px + 0.5, y0 + 3); x.stroke(); x.textAlign = 'center'; x.textBaseline = 'top'; x.fillText(t, px, y0 + 4); });
+    (o.hlines || []).forEach(([v, t]) => { const py = Y(v); x.setLineDash([3, 3]); x.beginPath(); x.moveTo(b.x, py); x.lineTo(b.x + b.w, py); x.stroke(); x.setLineDash([]); x.textAlign = 'right'; x.textBaseline = 'bottom'; x.fillText(t, b.x + b.w - 2, py - 1); });
+    x.restore(); return { X, Y, b, y0, xr, yr }; }
+  function curve(x, m, f, colr, o) { o = o || {}; const n = Math.max(240, Math.round(m.b.w * 2)), pts = [];
+    for (let i = 0; i <= n; i++) { const t = m.xr[0] + (m.xr[1] - m.xr[0]) * i / n; pts.push([m.X(t), m.Y(f(t))]); }
+    x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip();
+    if (o.fill) { x.beginPath(); x.moveTo(pts[0][0], m.y0); pts.forEach(p => x.lineTo(p[0], p[1])); x.lineTo(pts[n][0], m.y0); x.closePath(); x.globalAlpha = o.alpha || 0.18; x.fillStyle = colr; x.fill(); x.globalAlpha = 1; }
+    x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.strokeStyle = colr; x.lineWidth = o.w || 1.7; if (o.dash) x.setLineDash(o.dash); x.stroke(); x.restore(); }
+  function stems(x, m, pts, colr) { x.save(); x.strokeStyle = colr; x.fillStyle = colr; x.lineWidth = 1.7;
+    pts.forEach(([t, h]) => { if (t < m.xr[0] - 1e-9 || t > m.xr[1] + 1e-9) return; const px = m.X(t), py = m.Y(h);
+      x.beginPath(); x.moveTo(px, m.y0); x.lineTo(px, py + 4); x.stroke(); x.beginPath(); x.moveTo(px, py); x.lineTo(px - 3.5, py + 6); x.lineTo(px + 3.5, py + 6); x.closePath(); x.fill(); }); x.restore(); }
+  function text(x, s, px, py, colr, al) { x.save(); x.fillStyle = colr; x.font = '10.5px ' + col().mono; x.textAlign = al || 'left'; x.textBaseline = 'middle'; x.fillText(s, px, py); x.restore(); }
+
+  /* ---------- pair cards ---------- */
+  function drawPair(cv, s, T) { const c = col(); const { x, w, h } = size(cv, 132); const gap = 30, bw = (w - gap) / 2 - 4;
+    const L = { x: 2, y: 18, w: bw, h: h - 38 }, R = { x: 2 + bw + gap + 4, y: 18, w: bw, h: h - 38 };
+    const ml = panel(x, L, s.tr, s.ty, { lab: s.tl || 'x(t)', ticks: s.tt ? s.tt(T) : [] });
+    const mr = panel(x, R, s.fr, s.fy, { lab: s.fl || '|X(f)|', ticks: s.ft ? s.ft(T) : [] });
+    s.time(x, ml, c, T); s.freq(x, mr, c, T);
+    x.fillStyle = c.mu; x.font = '600 15px ' + c.mono; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('↔', L.x + L.w + gap / 2 + 2, L.y + L.h / 2); }
+  const PAIRS = [
+    { q: 'FFT of a comb?', a: '<b>A comb.</b> Spacing T becomes spacing 1/T, weights 1/T. Sampling, element pitch and PRF all live here.',
+      tr: [-4.3, 4.3], ty: [0, 1.3], fr: [-4.3, 4.3], fy: [0, 2.4], fl: 'X(f)', tt: T => [[T, 'T']], ft: T => [[1 / T, '1/T']],
+      time: (x, m, c, T) => { const p = []; for (let n = -20; n <= 20; n++) p.push([n * T, 1]); stems(x, m, p, c.a); },
+      freq: (x, m, c, T) => { const p = []; for (let k = -20; k <= 20; k++) p.push([k / T, 1 / T]); stems(x, m, p, c.b); } },
+    { q: 'FFT of a rect?', a: '<b>A sinc</b>, first null at 1/T. A uniform aperture gives a sinc beam; a gated echo gives a sinc spectrum.',
+      tr: [-3, 3], ty: [-0.3, 1.3], fr: [-4, 4], fy: [-0.6, 2.4], fl: 'X(f)', tt: T => [[T / 2, 'T/2']], ft: T => [[1 / T, '1/T']],
+      time: (x, m, c, T) => curve(x, m, t => rect(t / T), c.a, { fill: true }), freq: (x, m, c, T) => curve(x, m, f => T * sinc(f * T), c.b) },
+    { q: 'FFT of a triangle?', a: '<b>sinc²</b>, because tri = rect ∗ rect. Two-way beam of identical apertures; VCZ coherence.',
+      tr: [-3, 3], ty: [-0.1, 1.3], fr: [-4, 4], fy: [-0.1, 2.4], fl: 'X(f)', tt: T => [[T, 'T']], ft: T => [[1 / T, '1/T']],
+      time: (x, m, c, T) => curve(x, m, t => tri(t / T), c.a, { fill: true }), freq: (x, m, c, T) => curve(x, m, f => T * sinc(f * T) ** 2, c.b) },
+    { q: 'FFT of a Gaussian?', a: '<b>A Gaussian.</b> Amplitude widths obey \\(\\sigma_t\\sigma_f = 1/(2\\pi)\\): the shortest pulse for its bandwidth.',
+      tr: [-3, 3], ty: [0, 1.3], fr: [-3, 3], fy: [0, 2.4], fl: 'X(f)',
+      time: (x, m, c, T) => curve(x, m, t => Math.exp(-PI * (t / T) ** 2), c.a, { fill: true }), freq: (x, m, c, T) => curve(x, m, f => T * Math.exp(-PI * (f * T) ** 2), c.b, { fill: true }) },
+    { q: 'FFT of a sinc?', a: '<b>A rect</b> (duality). An ideal low-pass filter has a sinc impulse response; sinc interpolation reconstructs samples.',
+      tr: [-6, 6], ty: [-0.3, 1.3], fr: [-2, 2], fy: [0, 2.4], fl: 'X(f)', tt: T => [[T, 'T']], ft: T => [[1 / (2 * T), '1/2T']],
+      time: (x, m, c, T) => curve(x, m, t => sinc(t / T), c.a), freq: (x, m, c, T) => curve(x, m, f => T * rect(f * T), c.b, { fill: true }) },
+    { q: 'FFT of a finite pulse train (N = 5)?', a: '<b>A Dirichlet kernel</b> (periodic sinc): lobes every 1/T, each ≈ 1/(NT) wide. This is the array factor of N elements.',
+      tr: [-4.5, 4.5], ty: [0, 1.3], fr: [-2.2, 2.2], fy: [0, 1.2], fl: '|X(f)|/N', tt: T => [[T, 'T']], ft: T => [[1 / T, '1/T']],
+      time: (x, m, c, T) => { const p = []; for (let n = -2; n <= 2; n++) p.push([n * T, 1]); stems(x, m, p, c.a); },
+      freq: (x, m, c, T) => curve(x, m, f => { const d = Math.sin(PI * f * T); return Math.abs(d) < 1e-6 ? 1 : Math.abs(Math.sin(5 * PI * f * T) / (5 * d)); }, c.b) },
+    { q: 'FFT of a cosine?', a: '<b>Two lines at \\(\\pm f_0\\)</b>, each ½. A real signal has a Hermitian spectrum; \\(e^{j2\\pi f_0 t}\\) has one line only.',
+      tr: [-3, 3], ty: [-1.2, 1.2], fr: [-2.5, 2.5], fy: [0, 0.7], fl: 'X(f)', ft: T => [[1 / T, 'f₀']],
+      time: (x, m, c, T) => curve(x, m, t => Math.cos(2 * PI * t / T), c.a), freq: (x, m, c, T) => stems(x, m, [[1 / T, 0.5], [-1 / T, 0.5]], c.b) },
+    { q: 'Spectrum of an RF pulse?', a: '<b>The envelope spectrum shifted to \\(\\pm f_0\\).</b> Longer envelope, narrower band: bandwidth sets axial resolution.',
+      tr: [-3, 3], ty: [-1.2, 1.2], fr: [-4, 4], fy: [0, 1.2], ft: T => [[2, 'f₀'], [-2, '−f₀']],
+      time: (x, m, c, T) => { curve(x, m, t => Math.exp(-PI * (t / T) ** 2), c.mu, { dash: [3, 3], w: 1 }); curve(x, m, t => Math.exp(-PI * (t / T) ** 2) * Math.cos(2 * PI * 2 * t), c.a); },
+      freq: (x, m, c, T) => curve(x, m, f => 0.5 * T * (Math.exp(-PI * ((f - 2) * T) ** 2) + Math.exp(-PI * ((f + 2) * T) ** 2)), c.b, { fill: true }) },
+    { q: 'Multiplication in time is …?', a: '<b>Convolution in frequency.</b> Gating a tone to length 2T smears its line into a sinc: spectral leakage, and why apodization matters.',
+      tr: [-3, 3], ty: [-1.2, 1.2], fr: [-4, 4], fy: [0, 2.4], tt: T => [[T, 'T']], ft: T => [[2, 'f₀']],
+      time: (x, m, c, T) => { curve(x, m, t => rect(t / (2 * T)), c.mu, { dash: [3, 3], w: 1 }); curve(x, m, t => Math.cos(2 * PI * 2 * t) * rect(t / (2 * T)), c.a); },
+      freq: (x, m, c, T) => curve(x, m, f => Math.abs(T * (sinc((f - 2) * 2 * T) + sinc((f + 2) * 2 * T))), c.b) },
+    { q: 'FFT of a one-sided exponential?', a: '<b>A one-pole low-pass</b>, \\(\\lvert X\\rvert = T/\\sqrt{1 + (2\\pi f T)^2}\\): a longer time constant gives a narrower bandwidth.',
+      tr: [-1, 6], ty: [0, 1.2], fr: [-2, 2], fy: [0, 2.3], tt: T => [[T, 'T']],
+      time: (x, m, c, T) => curve(x, m, t => t >= 0 ? Math.exp(-t / T) : 0, c.a, { fill: true }), freq: (x, m, c, T) => curve(x, m, f => T / Math.sqrt(1 + (2 * PI * f * T) ** 2), c.b) },
+    { q: 'What does a delay do to the spectrum?', a: '<b>A linear phase</b>, \\(\\angle X = -2\\pi f t_0\\); \\(\\lvert X\\rvert\\) is unchanged. That is how fractional delays are applied in the frequency domain.',
+      tr: [-2, 3.5], ty: [0, 1.25], fr: [-1.5, 1.5], fy: [-20, 20], fl: '∠X(f) (rad)', tt: T => [[T, 't₀']],
+      time: (x, m, c, T) => { curve(x, m, t => Math.exp(-PI * t * t), c.mu, { dash: [3, 3], w: 1 }); curve(x, m, t => Math.exp(-PI * (t - T) ** 2), c.a, { fill: true }); },
+      freq: (x, m, c, T) => curve(x, m, f => -2 * PI * f * T, c.b) },
+    { q: 'Hilbert transform in frequency?', a: '<b>Multiply by \\(-j\\operatorname{sgn}(f)\\)</b>: cos → sin. The analytic signal \\(x + j\\mathcal{H}\\{x\\}\\) keeps only positive frequencies; \\(\\lvert x_a\\rvert\\) is the envelope.',
+      tr: [-1, 1], ty: [-1.25, 1.25], fr: [-2, 2], fy: [-1.4, 1.4], tl: 'cos (x) and sin (ℋx)', fl: 'Im H(f)',
+      time: (x, m, c) => { curve(x, m, t => Math.cos(2 * PI * t), c.a); curve(x, m, t => Math.sin(2 * PI * t), c.b, { dash: [4, 3] }); },
+      freq: (x, m, c) => curve(x, m, f => f > 0 ? -1 : f < 0 ? 1 : 0, c.b) },
+    { q: 'Why is the spatial coherence a triangle?', a: '<b>Van Cittert–Zernike:</b> coherence across the aperture is the FT of the focal intensity. Uniform focused transmit: sinc² intensity ↔ triangle reaching 0 at full-aperture lag.',
+      tr: [-3, 3], ty: [0, 1.25], fr: [-1.5, 1.5], fy: [0, 1.25], tl: 'intensity at focus (x / λF#)', fl: 'coherence vs lag/N', fixed: true, ft: () => [[1, '1'], [-1, '−1']],
+      time: (x, m, c) => curve(x, m, u => sinc(u) ** 2, c.a, { fill: true }), freq: (x, m, c) => curve(x, m, u => tri(u), c.b, { fill: true }) }
+  ];
+  /* ---------- single-panel fact cards ---------- */
+  const FACTS = [
+    { q: 'Why does sampling alias?', a: 'Multiplying by a comb convolves the spectrum with a comb: <b>replicas every \\(f_s\\)</b>. Top: \\(f_s = 3f_{\\max}\\), clean. Bottom: \\(f_s = 1.5f_{\\max}\\), replicas overlap (shaded).',
+      draw: (cv) => { const c = col(); const { x, w, h } = size(cv, 150); const band = f => tri(f);
+        [[3, 14, 'fs = 3 fmax'], [1.5, 84, 'fs = 1.5 fmax']].forEach(([fs, y, lab]) => { const m = panel(x, { x: 4, y, w: w - 8, h: 44 }, [-5, 5], [0, 1.15], { lab, yaxis: false, ticks: [[fs, 'fs'], [-fs, '−fs'], [0, '0']] });
+          for (let k = -4; k <= 4; k++) if (k) curve(x, m, f => band(f - k * fs), c.mu, { w: 1.2 });
+          curve(x, m, band, c.a, { fill: true });
+          curve(x, m, f => { const vs = []; for (let k = -4; k <= 4; k++) vs.push(band(f - k * fs)); vs.sort((a, b) => b - a); return vs[1]; }, c.b, { fill: true, alpha: 0.5, w: 0.01 }); }); } },
+    { q: 'Why are there grating lobes, and where?', a: 'The array samples the aperture, so the beam repeats every λ/d in sin θ: <b>\\(\\sin\\theta_g = \\sin\\theta_0 \\pm m\\lambda/d\\)</b>. N = 16: d = λ/2 (blue) has none; d = 1.5λ (pink) has lobes at \\(\\sin\\theta = \\pm 0.67\\).',
+      draw: (cv) => { const c = col(); const { x, w, h } = size(cv, 140); const m = panel(x, { x: 4, y: 16, w: w - 8, h: h - 36 }, [-1, 1], [-40, 0], { lab: 'array factor (dB) vs sin θ', base: -40, ticks: [[-1, '−1'], [-0.667, '−2/3'], [0, '0'], [0.667, '2/3'], [1, '1']] });
+        const af = (u, d) => { const s = Math.sin(PI * d * u); return Math.abs(s) < 1e-7 ? 1 : Math.abs(Math.sin(16 * PI * d * u) / (16 * s)); };
+        curve(x, m, u => db(af(u, 0.5), -40), c.a); curve(x, m, u => db(af(u, 1.5), -40), c.b, { w: 1.3 }); } },
+    { q: 'First sidelobe, one-way vs two-way?', a: '<b>−13.3 dB one-way</b> (sinc), <b>−26.5 dB two-way</b> (sinc², the dB doubles) for a uniform aperture.',
+      draw: (cv) => { const c = col(); const { x, w, h } = size(cv, 140); const m = panel(x, { x: 4, y: 16, w: w - 8, h: h - 36 }, [-3.2, 3.2], [-50, 0], { lab: 'beam (dB) vs x / λF#', base: -50, hlines: [[-13.26, '−13.3'], [-26.52, '−26.5']], ticks: [[-2, '−2'], [-1, '−1'], [1, '1'], [2, '2']] });
+        curve(x, m, u => db(sinc(u), -50), c.a); curve(x, m, u => db(sinc(u) ** 2, -50), c.b); } },
+    { q: 'Lateral resolution?', a: 'About \\(\\lambda F_\\#\\). At −6 dB (half amplitude) the uniform beam is <b>\\(1.21\\,\\lambda F_\\#\\) one-way</b> (sinc, blue) and <b>\\(0.89\\,\\lambda F_\\#\\) two-way</b> (sinc², pink). First null at \\(\\lambda F_\\#\\).',
+      draw: (cv) => { const c = col(); const { x, w, h } = size(cv, 140); const m = panel(x, { x: 4, y: 16, w: w - 8, h: h - 36 }, [-1.6, 1.6], [-0.25, 1.1], { lab: 'beam amplitude vs x / λF#', hlines: [[0.5, '−6 dB']], ticks: [[-1, '−1'], [1, '1'], [0.603, '.60'], [-0.443, '−.44']] });
+        curve(x, m, sinc, c.a); curve(x, m, u => sinc(u) ** 2, c.b); } },
+    { q: 'Axial resolution?', a: 'Two echoes separated by the pulse duration τ are just separable; the round trip halves the depth: <b>\\(\\Delta z = c\\tau/2\\)</b>, about half the spatial pulse length.',
+      draw: (cv) => { const c = col(); const { x, w, h } = size(cv, 140); const s = 0.5 / Math.sqrt(2 * Math.log(2)); const e = t => Math.exp(-t * t / (2 * s * s));
+        const m = panel(x, { x: 4, y: 16, w: w - 8, h: h - 36 }, [-2, 2], [0, 1.25], { lab: 'echo envelopes vs time / τ', yaxis: false, hlines: [[0.5, '−6 dB']], ticks: [[-0.5, '0'], [0.5, 'τ']] });
+        curve(x, m, t => e(t + 0.5), c.a, { fill: true }); curve(x, m, t => e(t - 0.5), c.b, { fill: true }); curve(x, m, t => e(t + 0.5) + e(t - 0.5), c.fg, { w: 1, dash: [3, 3] }); } },
+    { q: 'Circular aperture vs line aperture?', a: 'Circular piston: <b>\\(2J_1(v)/v\\)</b> (Airy), first null at <b>\\(1.22\\,\\lambda F_\\#\\)</b>, first sidelobe −17.6 dB. Line aperture: sinc, null at \\(\\lambda F_\\#\\), −13.3 dB.',
+      draw: (cv) => { const c = col(); const { x, w, h } = size(cv, 140); const m = panel(x, { x: 4, y: 16, w: w - 8, h: h - 36 }, [-3, 3], [-0.25, 1.1], { lab: 'beam amplitude vs x / λF#', ticks: [[1, '1'], [1.22, '1.22'], [-1, '−1']] });
+        curve(x, m, sinc, c.a); curve(x, m, jinc, c.b); } },
+    { q: 'Speckle envelope statistics?', a: 'Rayleigh: mean \\(\\sigma\\sqrt{\\pi/2} = 1.25\\sigma\\), std \\(0.66\\sigma\\), <b>mean/std = 1.91</b>. Intensity is exponential (contrast 1); in dB the std is 5.57 dB.',
+      draw: (cv) => { const c = col(); const { x, w, h } = size(cv, 140); const m = panel(x, { x: 4, y: 16, w: w - 8, h: h - 36 }, [0, 4], [0, 0.7], { lab: 'pdf of envelope r (σ = 1)', ticks: [[1.2533, 'mean'], [1.2533 + 0.6551, '+σ'], [1.2533 - 0.6551, '−σ'], [3, '3']] });
+        curve(x, m, r => r * Math.exp(-r * r / 2), c.a, { fill: true }); } },
+    { q: 'Does zero padding add resolution?', a: '<b>No.</b> It samples the same DTFT more densely. Two tones 0.7 bin apart in 16 samples stay merged: the 16 DFT bins (dots) lie on the padded curve.',
+      draw: (cv) => { const c = col(); const { x, w, h } = size(cv, 140); const N = 16, sig = n => Math.cos(2 * PI * 4 * n / N) + Math.cos(2 * PI * 4.7 * n / N);
+        const D = k => { let re = 0, im = 0; for (let n = 0; n < N; n++) { const v = sig(n), a = -2 * PI * k * n / N; re += v * Math.cos(a); im += v * Math.sin(a); } return Math.hypot(re, im) / N; };
+        const m = panel(x, { x: 4, y: 16, w: w - 8, h: h - 36 }, [0, 8], [0, 1.0], { lab: '|DFT| vs bin', ticks: [[4, '4'], [4.7, '4.7'], [8, '8']] });
+        curve(x, m, D, c.b, { w: 1.4 }); x.save(); x.fillStyle = c.a; for (let k = 0; k <= 8; k++) { x.beginPath(); x.arc(m.X(k), m.Y(D(k)), 3.2, 0, 7); x.fill(); } x.restore(); } }
+  ];
+  const grid = $('rf-grid'); const cards = [];
+  PAIRS.concat(FACTS).forEach((s, i) => { const d = document.createElement('div'); d.className = 'rf-card'; d.innerHTML = '<h4>' + s.q + '</h4><canvas id="rf-c' + i + '" aria-label="' + s.q.replace(/"/g, '') + '"></canvas><p>' + s.a + '</p>'; grid.appendChild(d); cards.push([s, d.querySelector('canvas')]); });
+  function drawRF() { const T = +$('rf-T').value; $('rf-T-o').textContent = T.toFixed(2);
+    $('rf-read').innerHTML = 'time width <b>T = ' + T.toFixed(2) + '</b> → frequency scale <b>1/T = ' + (1 / T).toFixed(2) + '</b>. Scaling theorem: x(t/T) ↔ T·X(fT).';
+    cards.forEach(([s, cv]) => s.draw ? s.draw(cv) : drawPair(cv, s, s.fixed ? 1 : T)); }
+  function drawRFpairs() { const T = +$('rf-T').value; $('rf-T-o').textContent = T.toFixed(2);
+    $('rf-read').innerHTML = 'time width <b>T = ' + T.toFixed(2) + '</b> → frequency scale <b>1/T = ' + (1 / T).toFixed(2) + '</b>. Scaling theorem: x(t/T) ↔ T·X(fT).';
+    cards.forEach(([s, cv]) => { if (!s.draw && !s.fixed) drawPair(cv, s, T); }); }
+  $('rf-T').addEventListener('input', drawRFpairs);
+
+  /* ---------- convolution / correlation demo ---------- */
+  const SH = { rect: t => rect(t), ramp: t => (t >= 0 && t < 1) ? 1 - t : 0, gauss: t => Math.exp(-PI * t * t),
+    spikes: t => Math.exp(-(((t + 0.6) / 0.07) ** 2)) + 0.6 * Math.exp(-(((t - 0.7) / 0.07) ** 2)), pulse: t => Math.exp(-PI * (t / 0.7) ** 2) * Math.cos(2 * PI * 2.5 * t) };
+  const NT = 601, T0 = -3, DT = 6 / (NT - 1); let out = null, key = '';
+  function cfg() { const mode = $('cc-mode').value, f = SH[$('cc-f').value], g = mode === 'auto' ? f : SH[$('cc-g').value];
+    const mov = mode === 'conv' ? (t, tau) => g(t - tau) : (t, tau) => g(tau - t); return { mode, f, g, mov }; }
+  function compute() { const k = $('cc-mode').value + $('cc-f').value + $('cc-g').value; if (k === key) return; key = k; const { f, mov } = cfg();
+    const fv = new Float64Array(NT); for (let j = 0; j < NT; j++) fv[j] = f(T0 + j * DT);
+    out = new Float64Array(NT); for (let i = 0; i < NT; i++) { const t = T0 + i * DT; let s = 0; for (let j = 0; j < NT; j++) { if (fv[j]) s += fv[j] * mov(t, T0 + j * DT); } out[i] = s * DT; } }
+  const NOTE = { conv: '<strong>Convolution:</strong> g is flipped (the copy is g(t − τ)), then slid right. The output starts when the leading edges meet and lasts for the sum of the two widths.',
+    corr: '<strong>Cross-correlation:</strong> g slides without flipping (the copy is g(τ − t)). Compare with convolution for the asymmetric ramp: the output is mirrored. Peak = lag of best match.',
+    auto: '<strong>Autocorrelation:</strong> f against itself. Always symmetric with its maximum at t = 0 equal to the energy ∫f². Its width is the correlation length.' };
+  function drawCC() { compute(); const c = col(); const { mode, f, mov } = cfg(); const t = +$('cc-t').value; $('cc-t-o').textContent = t.toFixed(2).replace('-', '−');
+    const cv = $('cc-cv'); const { x, w, h } = size(cv, 340); const xr = [-3, 3], ticks = [[-2, '−2'], [-1, '−1'], [1, '1'], [2, '2']];
+    const m1 = panel(x, { x: 6, y: 18, w: w - 12, h: 86 }, xr, [-1.15, 1.25], { lab: mode === 'conv' ? 'f(τ) and g(t − τ)' : 'f(τ) and g(τ − t)', ticks });
+    curve(x, m1, f, c.a, { fill: true }); curve(x, m1, tau => mov(t, tau), c.b, { w: 2 });
+    x.save(); x.strokeStyle = c.b; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(m1.X(t), m1.b.y); x.lineTo(m1.X(t), m1.b.y + m1.b.h); x.stroke(); x.restore();
+    const m2 = panel(x, { x: 6, y: 132, w: w - 12, h: 70 }, xr, [-1.15, 1.15], { lab: 'product, integrated over τ', ticks });
+    curve(x, m2, tau => f(tau) * mov(t, tau), c.d, { fill: true, alpha: 0.35 });
+    let lo = 0, hi = 0, ip = 0; out.forEach((v, i) => { if (v < lo) lo = v; if (v > hi) { hi = v; ip = i; } }); const pad = (hi - lo) * 0.15 + 1e-3;
+    const m3 = panel(x, { x: 6, y: 230, w: w - 12, h: 92 }, xr, [lo - pad, hi + pad], { lab: mode === 'conv' ? '(f ∗ g)(t)' : mode === 'corr' ? '(f ⋆ g)(t)' : '(f ⋆ f)(t)', ticks });
+    const at = tt => { const u = (tt - T0) / DT, i = Math.max(0, Math.min(NT - 2, Math.floor(u))), fr = u - i; return out[i] * (1 - fr) + out[i + 1] * fr; };
+    curve(x, m3, at, c.mu, { w: 1, dash: [3, 3] }); const m3b = Object.assign({}, m3, { xr: [-3, Math.max(-2.999, t)] }); curve(x, m3b, at, c.d, { w: 2.2 });
+    x.save(); x.fillStyle = c.d; x.beginPath(); x.arc(m3.X(t), m3.Y(at(t)), 4.5, 0, 7); x.fill(); x.restore();
+    let area = 0; for (let j = 0; j < NT; j++) { const tau = T0 + j * DT; area += f(tau) * mov(t, tau); } area *= DT;
+    $('cc-read').innerHTML = 'shift t = <b>' + t.toFixed(2) + '</b><br>area of product = <b>' + area.toFixed(3) + '</b><br>peak of output at t = <b>' + (T0 + ip * DT).toFixed(2) + '</b> (value ' + hi.toFixed(3) + ')';
+    $('cc-foot').innerHTML = NOTE[mode]; }
+  ['cc-mode', 'cc-f', 'cc-g'].forEach(id => $(id).addEventListener('change', () => { $('cc-g').disabled = $('cc-mode').value === 'auto'; drawCC(); }));
+  $('cc-t').addEventListener('input', drawCC);
+  let raf = null, last = 0; function step(ts) { if (!last) last = ts; const dt = (ts - last) / 1000; last = ts; let t = +$('cc-t').value + dt * 1.2; if (t > 3) t = -3; $('cc-t').value = t; drawCC(); raf = requestAnimationFrame(step); }
+  $('cc-play').addEventListener('click', () => { if (raf) { cancelAnimationFrame(raf); raf = null; $('cc-play').textContent = 'Play'; } else { last = 0; raf = requestAnimationFrame(step); $('cc-play').textContent = 'Pause'; } });
+
+  function all() { drawRF(); drawCC(); }
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(all, 120); });
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', all); } catch (e) {}
+  new MutationObserver(all).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', all); else all();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(all);
+})();
+</script>

@@ -1,0 +1,1158 @@
+<section class="view" id="m9" data-title="Digital filter design" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part II · Module 09</div>
+    <h1>Digital filter design: FIR, IIR and ultrasound filters</h1>
+    <p class="lede">An ultrasound chain is a cascade of filters: the RF band-pass after the ADC, the decimation and IQ low-pass, the Hilbert FIR, the Doppler wall filter on 8–16 slow-time samples, the smoothing on parametric maps. This module turns filter design into geometry (poles and zeros), into order formulas you can size from memory, and into the failure modes that matter for imaging: dispersion, edge transients, short-ensemble transients and fragile coefficients.</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>Read magnitude, phase and group delay off a pole-zero plot, and place poles and zeros to shape a response</li>
+        <li>Size an FIR from a spec in your head (Kaiser window, equiripple estimate, the A/22 rule) and check it</li>
+        <li>Design Butterworth, Chebyshev and elliptic filters by the bilinear transform with prewarping, and ship them as biquads</li>
+        <li>Predict the delay and the pulse distortion of a design, and say when zero-phase filtering is allowed</li>
+        <li>Build decimation chains (half-band, polyphase, CIC) and a Hilbert FIR</li>
+        <li>Choose and defend a Doppler wall filter for an 8–16-sample ensemble</li>
+      </ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 03</a> · Convolution, LTI systems and filters: difference equations, \(H(z)\), poles and zeros, stability, phase and group delay, the windowing theorem</li>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 04</a> · Sampling, Fourier &amp; LTI systems: sampling, windows and their figures of merit, which filter sits where on the ultrasound signal chain</li>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 06</a> · Eigendecomposition &amp; SVD: SVD clutter filtering, the data-adaptive wall filter</li>
+        <li><a href="#m8">Module 08</a> · Analytic signal &amp; IQ demodulation: IQ demodulation, decimation, the analytic signal</li>
+      </ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form, or the exact response of a fully specified filter, plotted as is</span><span><span class="prov sim">Simulation</span>numerical design or filtering run in this page (JS) or in the Octave scripts: least squares and IRLS equiripple, signals passed through the filters</span><span><span class="prov model">Approx. model</span>rule of thumb or model spectrum; assumptions stated under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not computed</span><span>Every filter response on this page comes from the designed coefficients; no curve is hand-drawn.</span></div>
+
+  <div class="callout intuit"><span class="label">Conventions in this module</span><p>M is the FIR <em>order</em>: M + 1 taps, linear-phase delay M/2 samples (Module 03 counts taps, so its (M − 1)/2 is the same number). \(\omega = 2\pi f/f_s\) in rad/sample; \(\Delta f\) is a transition width normalized to \(f_s\) and \(\Delta\omega = 2\pi\Delta f\). \(A = -20\log_{10}\delta\) in dB (amplitude). For IIR specs, \(A_p\) is the peak-to-peak passband ripple and \(A_s\) the minimum stopband attenuation, both in dB. Default sampling rate for RF examples: \(f_s\) = 40 MHz.</p></div>
+  <figure class="m9-fig" id="m9-fig-chain">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 09.A</b> · The filters of this module in one receive chain, with typical numbers for a 5 MHz linear array sampled at 40 MHz</div>
+    <div class="mx-scroll"><svg viewBox="0 0 760 302" role="img" aria-label="Block diagram of an ultrasound receive chain: ADC, RF band-pass FIR, mixing to baseband, low-pass and decimation, beamforming, slow-time ensemble, wall filter and autocorrelation"><defs><marker id="m9-ahD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" style="fill:var(--ink)"/></marker></defs><text x="20.0" y="22.0" class="t">Where the filters of this module sit in a receive chain (one channel, then after beamforming)</text><rect x="20" y="44" width="110" height="76" rx="4" class="box"/><text x="75.0" y="62.0" text-anchor="middle">ADC</text><text x="75.0" y="77.0" class="m" text-anchor="middle">40 MHz</text><text x="75.0" y="92.0" class="m" text-anchor="middle">12–14 bit</text><rect x="150" y="44" width="140" height="76" rx="4" class="box"/><text x="220.0" y="62.0" text-anchor="middle">RF band-pass FIR</text><text x="220.0" y="77.0" class="m" text-anchor="middle">3–7 MHz, order 72</text><text x="220.0" y="92.0" class="m" text-anchor="middle">delay 36 samples</text><text x="220.0" y="107.0" class="s" text-anchor="middle">§09.3–09.5</text><rect x="310" y="44" width="140" height="76" rx="4" class="box"/><text x="380.0" y="62.0" text-anchor="middle">mix to baseband</text><text x="380.0" y="77.0" class="m" text-anchor="middle">× e^(−j2πf₀n/fₛ)</text><text x="380.0" y="92.0" class="s" text-anchor="middle">or Hilbert FIR §09.6</text><rect x="470" y="44" width="130" height="76" rx="4" class="box"/><text x="535.0" y="62.0" text-anchor="middle">low-pass + ↓4</text><text x="535.0" y="77.0" class="m" text-anchor="middle">half-band cascade</text><text x="535.0" y="92.0" class="s" text-anchor="middle">polyphase, §09.6</text><rect x="620" y="44" width="120" height="76" rx="4" class="box"/><text x="680.0" y="62.0" text-anchor="middle">IQ at 10 MHz</text><text x="680.0" y="77.0" class="m" text-anchor="middle">to beamformer</text><path d="M130 82 L148 82" class="w" marker-end="url(#m9-ahD)"/><path d="M290 82 L308 82" class="w" marker-end="url(#m9-ahD)"/><path d="M450 82 L468 82" class="w" marker-end="url(#m9-ahD)"/><path d="M600 82 L618 82" class="w" marker-end="url(#m9-ahD)"/><path d="M680 120 V150 H80 V172" class="w" marker-end="url(#m9-ahD)"/><rect x="20" y="176" width="150" height="76" rx="4" class="box"/><text x="95.0" y="194.0" text-anchor="middle">DAS beamformer</text><text x="95.0" y="209.0" class="m" text-anchor="middle">delays minus M/2</text><text x="95.0" y="224.0" class="s" text-anchor="middle">same on every channel</text><rect x="200" y="176" width="140" height="76" rx="4" class="box"/><text x="270.0" y="194.0" text-anchor="middle">slow-time ensemble</text><text x="270.0" y="209.0" class="m" text-anchor="middle">N = 8–16 at PRF</text><text x="270.0" y="224.0" class="s" text-anchor="middle">(ULM/fUS: 100s)</text><rect x="370" y="176" width="160" height="76" rx="4" class="box"/><text x="450.0" y="194.0" text-anchor="middle">wall filter y = A x</text><text x="450.0" y="209.0" class="m" text-anchor="middle">FIR, IIR + init,</text><text x="450.0" y="224.0" class="s" text-anchor="middle">regression, SVD §09.7</text><rect x="560" y="176" width="180" height="76" rx="4" class="box"/><text x="650.0" y="194.0" text-anchor="middle">lag-one autocorr.</text><text x="650.0" y="209.0" class="m" text-anchor="middle">v = c f/(2f₀ cos θ)</text><path d="M170 214 L198 214" class="w" marker-end="url(#m9-ahD)"/><path d="M340 214 L368 214" class="w" marker-end="url(#m9-ahD)"/><path d="M530 214 L558 214" class="w" marker-end="url(#m9-ahD)"/><text x="20.0" y="276.0" class="s">Fast time (per channel, 40 MHz): linear-phase FIRs, delay known and subtracted.</text><text x="20.0" y="292.0" class="s">Slow time (per pixel, at the PRF): short records, judge filters as matrices.</text></svg></div>
+    <p class="cap">Fast-time filters run on every channel before beamforming and must add the same known delay everywhere (Sections 09.2–09.6); slow-time wall filters run per pixel on 8–16 samples and are judged as matrices (Section 09.7). The order-72 band-pass is the minimum equiripple design for the 3–7 MHz spec of Demo 09.4.</p>
+  </figure>
+
+  <!-- ===================== 09.1 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">09.1</span>The z-plane: the response is geometry</h2>
+    <p><strong>Recap from <a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 03</a>.</strong> Section 03.7 derives the transfer function \(H(z) = B(z)/A(z)\) from the difference equation <span class="eqref">(03.21)</span>, the vector picture of the response <span class="eqref">(03.23)</span>, and the stability condition <span class="eqref">(03.24)</span>. Factored as \(H(z) = g\prod_k (1 - z_k z^{-1})/\prod_k (1 - p_k z^{-1})\), the magnitude on the unit circle is the product of distances from \(e^{j\omega}\) to the zeros over the product of distances to the poles, and the phase is the sum of the corresponding angles. A pole close to the circle makes a peak where the circle passes it; a zero on the circle makes an exact null. This module uses that geometry as a design tool: where to put roots to meet a spec, and what each root costs in delay.</p>
+  </div>
+  <div class="prose">
+    <p><strong>Group delay root by root.</strong> \(\tau_g(\omega) = -d\varphi/d\omega\) is additive over factors. For a root at \(r e^{j\theta}\):</p>
+  </div>
+  <div class="eqn key" id="m9-eq1">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &\text{zero: } \tau_z(\omega) = \frac{r^2 - r\cos(\omega - \theta)}{1 - 2r\cos(\omega - \theta) + r^2}, \qquad \text{pole: } \tau_p(\omega) = -\tau_z(\omega) \\ &\text{pole at } \omega = \theta:\ \ \tau = \frac{r}{1 - r}\ \text{samples} \\ &\text{−3 dB full width} \approx 2(1 - r)\ \text{rad/sample}, \qquad \text{ringing} \approx \frac{1}{1 - r}\ \text{samples} \end{aligned} \]</div><span class="eqn-no">(09.1)</span></div>
+    <dl class="where"><dt>\(\omega\)</dt><dd>digital frequency, rad/sample</dd><dt>\(r,\ \theta\)</dt><dd>radius and angle of the root (zero or pole), \(r\) dimensionless, \(\theta\) rad</dd><dt>\(\tau_z,\ \tau_p\)</dt><dd>group delay of one zero and of one pole, samples</dd><dt>\(\cos\)</dt><dd>cosine of an angle in rad</dd></dl>
+    <span class="note">For \(r = 1 - \varepsilon\), \(\lvert e^{j\omega} - p\rvert^2 \approx \varepsilon^2 + (\omega - \theta)^2\), so the peak falls 3 dB at \(\lvert\omega - \theta\rvert = \varepsilon\). The impulse response decays as \(r^n = e^{n\ln r}\), time constant \(-1/\ln r \approx 1/(1 - r)\). r = 0.95: width 0.1 rad/sample, delay 19 samples at the peak, ringing ≈ 20 samples. The one-pole formula <span class="eqref">(03.17)</span> of Module 03 is the θ = 0 case.</span>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Property</th><th>Pole-zero condition</th><th>Consequence</th></tr></thead>
+    <tbody>
+      <tr><td>Causal and stable</td><td>All poles inside |z| = 1</td><td>Impulse response decays; an FIR (all poles at z = 0) is always stable</td></tr>
+      <tr><td>Real coefficients</td><td>Roots real or in conjugate pairs</td><td>|H| symmetric about ω = 0: the plots below show 0 to π only</td></tr>
+      <tr><td>Minimum phase</td><td>Zeros also inside</td><td>Least delay for a given |H|; energy front-loaded; stable inverse</td></tr>
+      <tr><td>All-pass</td><td>Each pole p paired with a zero at \(1/p^*\)</td><td>|H| = 1, only delay; used for phase equalization</td></tr>
+      <tr><td>Linear phase (FIR)</td><td>Zeros in reciprocal pairs \((z, 1/z^*)\) or on the circle</td><td>Constant delay M/2; cannot be minimum phase unless trivial</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 09.1</span><h3>Drag poles and zeros, watch the response</h3><span class="prov exact">Exact formula</span><span class="prov-note">Magnitude, phase and group delay evaluated exactly from the roots by <span class="eqref">(03.23)</span> and <span class="eqref">(09.1)</span>; impulse response by the difference equation; JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m9-pz-cv" aria-label="Pole-zero plot with magnitude, phase and group delay"></canvas>
+        <div class="legend"><span><i style="background:var(--sig2)"></i>poles (×)</span><span><i style="background:var(--accent)"></i>zeros (○)</span><span><i style="background:var(--sig3)"></i>probe point \(e^{j\omega}\) and its vectors</span><span><i style="background:var(--sig4)"></i>group delay</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m9-pz-pre">Preset</label><select id="m9-pz-pre">
+          <option value="lp1">One-pole low-pass (p = 0.8)</option>
+          <option value="res" selected>Resonator (r = 0.95, θ = π/4)</option>
+          <option value="notch">Notch (zeros on the circle)</option>
+          <option value="bw2">2nd-order Butterworth, f<sub>c</sub> = 0.1 f<sub>s</sub></option>
+          <option value="ap">All-pass pair</option>
+          <option value="lin">Linear-phase FIR (reciprocal zeros)</option>
+          <option value="wall">Wall filter: 2nd-order HP, f<sub>c</sub> = 0.1 PRF</option>
+          <option value="unst">Unstable (pole at 1.05)</option>
+        </select></div>
+        <div class="ctrl"><label for="m9-pz-w">Probe frequency ω/π <output id="m9-pz-w-o">0.25</output></label><input type="range" id="m9-pz-w" min="0" max="1" step="0.005" value="0.25"></div>
+        <div class="btn-row"><button class="btn" id="m9-pz-ap" type="button">+ pole pair</button><button class="btn" id="m9-pz-az" type="button">+ zero pair</button><button class="btn" id="m9-pz-del" type="button">Remove last</button></div>
+        <div class="readout" id="m9-pz-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> drag a pole of the resonator toward the circle: the peak narrows as \(2(1 - r)\) and the group delay at the peak grows as \(r/(1 - r)\). Drag it outside: the readout flags instability and the impulse response grows. Move the probe slider: |H| is exactly the product of the gold distances to zeros divided by those to poles. Roots within 0.03 of the real axis snap to a single real root. Gain is normalized to a 0 dB peak.</div>
+  </div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Slow-time filters run at the PRF, so pole radii translate into pulses. At PRF = 4 kHz a pole at r = 0.95 rings for about 20 pulses (5 ms), longer than an 8–16-pulse color-flow ensemble. That single number explains why IIR wall filters never reach steady state in color flow (Section 09.7), while the same filter on a 4000-sample RF line at 40 MHz settles in 0.5 µs.</p></div>
+
+  <!-- ===================== 09.2 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">09.2</span>FIR design by windowing: the Kaiser formulas</h2>
+    <p>Start from the ideal response, delay it by M/2 so it can be causal, truncate to M + 1 taps, and taper the truncation with a window \(w[n]\):</p>
+  </div>
+  <div class="eqn" id="m9-eq2">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} h[n] &= h_d[n]\, w[n], \qquad h_d[n] = \frac{\sin\left(\omega_c (n - M/2)\right)}{\pi (n - M/2)}, \qquad n = 0, \dots, M \\ H(e^{j\omega}) &= \frac{1}{2\pi}\, H_d \circledast W \\ &\Rightarrow\ \text{ripple from the window's sidelobe area, transition width from its main lobe} \end{aligned} \]</div><span class="eqn-no">(09.2)</span></div>
+    <dl class="where"><dt>\(h[n]\)</dt><dd>FIR impulse response, \(n = 0,\dots,M\)</dd><dt>\(h_d[n]\)</dt><dd>ideal low-pass impulse response, delayed by \(M/2\)</dd><dt>\(w[n],\ W\)</dt><dd>window and its DTFT</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(M\)</dt><dd>filter order (\(M + 1\) taps), even</dd><dt>\(\omega_c\)</dt><dd>cutoff, rad/sample</dd><dt>\(H(e^{j\omega}),\ H_d\)</dt><dd>designed and ideal frequency responses</dd><dt>\(\circledast\)</dt><dd>circular convolution in \(\omega\)</dd><dt>\(\sin\)</dt><dd>sine of an angle in rad</dd></dl>
+    <span class="note">Multiplication in n is circular convolution in ω (the windowing theorem, <span class="eqref">(03.20)</span> in Module 03). The running integral of W across the ideal edge produces the transition; its sidelobes produce the ripple, equal in both bands, and \(H(\omega_c) \approx 0.5\): a window-designed filter is −6 dB at its cutoff, not −3 dB.</span>
+  </div>
+  <div class="eqn key" id="m9-eq3">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} w[n] &= \frac{I_0\!\left(\beta\sqrt{1 - (2n/M - 1)^2}\right)}{I_0(\beta)} \\ \beta &= \begin{cases} 0.1102\,(A - 8.7), & A > 50 \\ 0.5842\,(A - 21)^{0.4} + 0.07886\,(A - 21), & 21 \le A \le 50 \\ 0, & A &lt; 21 \end{cases} \\ M &= \frac{A - 8}{2.285\,\Delta\omega}, \qquad \Delta\omega = \omega_s - \omega_p, \qquad \omega_c = \frac{\omega_p + \omega_s}{2} \end{aligned} \]</div><span class="eqn-no">(09.3)</span></div>
+    <dl class="where"><dt>\(w[n]\)</dt><dd>Kaiser window, \(n = 0,\dots,M\)</dd><dt>\(I_0\)</dt><dd>zeroth-order modified Bessel function of the first kind</dd><dt>\(\beta\)</dt><dd>Kaiser shape parameter</dd><dt>\(A\)</dt><dd>attenuation \(-20\log_{10}\delta\), dB, with \(\delta = \min(\delta_p, \delta_s)\)</dd><dt>\(\delta_p,\ \delta_s\)</dt><dd>passband and stopband ripple (linear amplitude)</dd><dt>\(M\)</dt><dd>filter order (\(M + 1\) taps)</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(\Delta\omega\)</dt><dd>transition width \(\omega_s - \omega_p\), rad/sample</dd><dt>\(\omega_p,\ \omega_s,\ \omega_c\)</dt><dd>passband edge, stopband edge, cutoff, rad/sample</dd></dl>
+    <span class="note">Kaiser (1974). The window method cannot give a looser passband than stopband. The power series \(I_0(x) = \sum_k (x/2)^{2k}/(k!)^2\) reaches double precision within 30 terms for \(\beta \le 10\).</span>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Window</th><th class="num">Window peak sidelobe</th><th class="num">Filter min. stopband</th><th class="num">Passband ripple</th><th class="num">Transition width</th><th>Kaiser equivalent (beta, width)</th></tr></thead>
+    <tbody>
+      <tr><td>Rectangular</td><td class="num">−13.3 dB</td><td class="num">−21.0 dB</td><td class="num">0.090</td><td class="num">1.85π/M</td><td>0</td></tr>
+      <tr><td>Hann</td><td class="num">−31.5 dB</td><td class="num">−43.9 dB</td><td class="num">0.0064</td><td class="num">6.25π/M</td><td>3.85 (5.0π/M)</td></tr>
+      <tr><td>Hamming</td><td class="num">−42.7 dB</td><td class="num">−54.0 dB</td><td class="num">0.0019</td><td class="num">6.66π/M</td><td>5.0 (6.4π/M)</td></tr>
+      <tr><td>Blackman</td><td class="num">−58.1 dB</td><td class="num">−75.3 dB</td><td class="num">0.0002</td><td class="num">11.2π/M</td><td>7.3 (9.4π/M)</td></tr>
+      <tr><td>Kaiser, A = 60</td><td class="num">−41.4 dB</td><td class="num">−59.8 dB</td><td class="num">0.0010</td><td class="num">7.23π/M</td><td>β = 5.65</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose"><p class="muted">Measured on M = 200 low-pass filters with \(\omega_c = 0.4\pi\); transition width measured between the points where the error equals the ripple, written as \(\Delta\omega\). The Kaiser formula predicts \(\Delta\omega\cdot M = (A - 8)/2.285\) within 1 % over 30–90 dB. Kaiser is never worse than the fixed windows for the same attenuation, because β tunes the ripple and the length independently.</p></div>
+  <div class="rf-grid" id="m9-g2"></div>
+  <div class="prose">
+    <p><strong>Worked example (RF anti-alias low-pass).</strong> \(f_s\) = 40 MHz, pass ≤ 8 MHz, stop ≥ 9 MHz, A = 60 dB. \(\Delta\omega = 2\pi\cdot 1/40 = 0.1571\) rad/sample, β = 5.653, \(M = 52/(2.285 \times 0.1571) = 144.9 \to 145\) <span class="eqref">(09.3)</span>. Measured: 59.6 dB, short by 0.4 dB (M = 145 is odd, so the delay is a half sample; the even order 146 gives an integer delay and measures 59.9 dB). The formulas are good to about ±0.5 dB, and raising M alone does not help because β sets the floor (−59.8 dB at any length). Ask for A = 61: β = 5.76, M = 148, measured 60.9 dB (passband deviation 0.0009). Delay M/2 = 74 samples = 1.85 µs, which is 1.42 mm of depth at c/2 = 770 m/s.</p>
+  </div>
+
+  <!-- ===================== 09.3 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">09.3</span>Optimal FIRs: frequency sampling, least squares, equiripple</h2>
+    <p>Write a type I linear-phase filter (M even, symmetric taps) as a delay times a real amplitude: \(H(e^{j\omega}) = e^{-j\omega M/2} A(\omega)\), with \(A(\omega) = a_0 + \sum_{k=1}^{M/2} a_k \cos k\omega\) and \(h[M/2 \pm k] = a_k/2\). Every design method chooses the M/2 + 1 numbers \(a_k\) by a different criterion on the error \(E(\omega) = W(\omega)\left(A(\omega) - D(\omega)\right)\) over the bands, ignoring the transition ("don't care") band.</p>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Method</th><th>Criterion</th><th>Solve by</th><th>Character</th></tr></thead>
+    <tbody>
+      <tr><td>Window (Kaiser)</td><td>None: truncate and taper the ideal \(h_d\)</td><td>Closed form</td><td>\(\delta_p = \delta_s\); ripple largest near the edge; simplest, predictable</td></tr>
+      <tr><td>Frequency sampling</td><td>\(A(\omega_k) = D(\omega_k)\) at \(\omega_k = 2\pi k/(M + 1)\)</td><td>Inverse DFT</td><td>Exact at the samples, ripples between; 1–2 optimized transition samples lift the stopband from −16 dB to about −42 dB (one sample at 0.39)</td></tr>
+      <tr><td>Least squares</td><td>\(\min \int W(\omega)\lvert A - D\rvert^2\, d\omega\)</td><td>Normal equations (M/2 + 1 unknowns)</td><td>Lowest error energy; peak error stays at the band edges. With no transition band and W = 1 it reduces to the rectangular window</td></tr>
+      <tr><td>Equiripple (Parks–McClellan)</td><td>\(\min \max \lvert E(\omega)\rvert\)</td><td>Remez exchange on the alternation theorem</td><td>Optimal for the peak error: ≥ M/2 + 2 equal-height extrema; weight \(W_s/W_p = \delta_p/\delta_s\) sets the ripple ratio</td></tr>
+    </tbody>
+  </table></div>
+  <div class="eqn" id="m9-eq4">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &\text{Kaiser (1974) equiripple estimate:} \quad M \approx \frac{-20\log_{10}\sqrt{\delta_p \delta_s} - 13}{14.6\,\Delta f} \\ &\text{rule of thumb:} \quad \text{taps} \approx \frac{A_s}{22\,\Delta f} \quad (\text{assumes} \approx 0.1\ \mathrm{dB}\ \text{passband ripple}) \end{aligned} \]</div><span class="eqn-no">(09.4)</span></div>
+    <dl class="where"><dt>\(M\)</dt><dd>filter order (\(M + 1\) taps)</dd><dt>\(\delta_p,\ \delta_s\)</dt><dd>passband and stopband ripple (linear amplitude)</dd><dt>\(\Delta f\)</dt><dd>transition width normalized to \(f_s\), cycles/sample</dd><dt>\(A_s\)</dt><dd>stopband attenuation, dB</dd><dt>\(\log_{10}\)</dt><dd>base-10 logarithm</dd></dl>
+    <span class="note">Herrmann, Rabiner &amp; Chan (1973) give a more elaborate \(D_\infty(\delta_p, \delta_s)\) formula; for the example below the two agree within 0.1 tap. Both estimate a low-pass with one transition band and run a few percent low; band-pass filters with two transitions need more.</span>
+  </div>
+  <div class="prose"><p>Worked comparison for the anti-alias spec of 09.2: pass ≤ \(0.2\,f_s\), stop ≥ \(0.225\,f_s\) (8/9 MHz at 40 MHz).</p></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Design</th><th class="num">Estimate</th><th class="num">True minimum order</th><th class="num">Multiplies/output (folded)</th></tr></thead>
+    <tbody>
+      <tr><td>Equiripple, \(\delta_p = 0.01\) (±0.09 dB), \(\delta_s = 0.001\) (60 dB)</td><td class="num">101.4 (Kaiser), 101.4 (Herrmann)</td><td class="num">104</td><td class="num">53</td></tr>
+      <tr><td>Equiripple, \(\delta_p = \delta_s = 0.001\)</td><td class="num">128.8</td><td class="num">132</td><td class="num">67</td></tr>
+      <tr><td>Kaiser window, \(\delta = 0.001\)</td><td class="num">144.9</td><td class="num">148 (with A = 61)</td><td class="num">75</td></tr>
+      <tr><td>A/22 rule</td><td class="num">109 taps</td><td class="num">—</td><td class="num">—</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose"><p class="muted">True minima found by scanning the order with a Remez design (SciPy, grid density 64) and checking both ripples on a 64k-point grid; order 104 meets the first spec with 1 % to spare. The demo and <code>m09_fir_window_kaiser.m</code> approach the equiripple solution with Lawson's iteratively reweighted least squares, which needs only a linear solver.</p></div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 09.2</span><h3>FIR design bench: window vs least squares vs equiripple</h3><span class="prov sim">Simulation</span><span class="prov-note">Designs computed in the page: Kaiser window <span class="eqref">(09.3)</span>, weighted least squares by the normal equations, equiripple approached by Lawson's iteratively reweighted least squares; responses by direct DTFT of the taps; JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m9-fir-cv" aria-label="FIR magnitude response with spec mask and impulse response"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>\(\lvert H(f)\rvert\) (dB)</span><span><i style="background:var(--sig2)"></i>spec mask</span><span><i style="background:var(--sig4)"></i>taps \(h[n]\)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m9-fir-m">Method</label><select id="m9-fir-m"><option value="kai">Kaiser window</option><option value="ls">Least squares</option><option value="eq" selected>Equiripple (IRLS)</option></select></div>
+        <div class="ctrl"><label for="m9-fir-fp">Passband edge <output id="m9-fir-fp-o">8 MHz</output></label><input type="range" id="m9-fir-fp" min="2" max="15" step="0.5" value="8"></div>
+        <div class="ctrl"><label for="m9-fir-tw">Transition width <output id="m9-fir-tw-o">2 MHz</output></label><input type="range" id="m9-fir-tw" min="0.5" max="5" step="0.25" value="2"></div>
+        <div class="ctrl"><label for="m9-fir-a">Stopband \(A_s\) <output id="m9-fir-a-o">60 dB</output></label><input type="range" id="m9-fir-a" min="20" max="90" step="1" value="60"></div>
+        <div class="ctrl"><label for="m9-fir-dp">Passband ripple</label><select id="m9-fir-dp"><option value="1">δ<sub>p</sub> = δ<sub>s</sub></option><option value="10" selected>δ<sub>p</sub> = 10 δ<sub>s</sub></option></select></div>
+        <div class="ctrl"><label for="m9-fir-o">Order M <output id="m9-fir-o-o">52</output></label><input type="range" id="m9-fir-o" min="4" max="160" step="2" value="52"></div>
+        <div class="btn-row"><button class="btn solid" id="m9-fir-est" type="button">Set M from estimate</button></div>
+        <div class="readout" id="m9-fir-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> press "Set M from estimate" for each method: the Kaiser window lands within about 0.5 dB, the equiripple estimate a few percent short. Switch \(\delta_p = 10\,\delta_s\): equiripple and least squares get cheaper, the window does not (it cannot exploit a loose passband). Halve the transition width: the order doubles. Least squares has the smallest ripple away from the edges but the worst ripple at the edges.</div>
+  </div>
+
+  <!-- ===================== 09.4 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">09.4</span>IIR design: analog prototypes, the bilinear transform and biquads</h2>
+    <p>IIR design borrows a century of analog filter theory. Design a normalized analog low-pass prototype \(H_a(s)\), transform it (low-pass to low-pass, high-pass or band-pass by substituting s), then map s to z. The bilinear transform is the standard map:</p>
+  </div>
+  <div class="eqn key" id="m9-eq5">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} s &= \frac{2}{T}\,\frac{1 - z^{-1}}{1 + z^{-1}} \quad\Longleftrightarrow\quad z = \frac{1 + sT/2}{1 - sT/2} \\ s = j\Omega &\ \mapsto\ \lvert z\rvert = 1 \ \text{ with } \ \Omega = \frac{2}{T}\tan\frac{\omega}{2}, \qquad \text{prewarp: } \Omega_p = \frac{2}{T}\tan\frac{\omega_p}{2} \end{aligned} \]</div><span class="eqn-no">(09.5)</span></div>
+    <dl class="where"><dt>\(s,\ \Omega\)</dt><dd>Laplace variable and analog frequency, rad/s</dd><dt>\(z\)</dt><dd>z-transform variable</dd><dt>\(T\)</dt><dd>sampling interval \(1/f_s\), s</dd><dt>\(\omega\)</dt><dd>digital frequency, rad/sample</dd><dt>\(\Omega_p,\ \omega_p\)</dt><dd>analog (prewarped) and digital passband edge</dd><dt>\(j\)</dt><dd>imaginary unit</dd></dl>
+    <span class="note">The left half-plane maps inside the unit circle (stability preserved) and the whole jΩ axis maps once onto the circle, so there is no aliasing, but the frequency axis is compressed: Ω = ∞ lands at Nyquist. Prewarp each critical edge, design the analog filter at the warped edges, transform: the digital edges land exactly. Analog zeros at infinity map to z = −1. Low-pass to band-pass, \(s \to (s^2 + \Omega_0^2)/(B s)\) with \(\Omega_0^2 = \Omega_1\Omega_2\), \(B = \Omega_2 - \Omega_1\), doubles the order.</span>
+  </div>
+  <div class="eqn" id="m9-eq6">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \varepsilon_p &= \sqrt{10^{A_p/10} - 1}, \qquad \varepsilon_s = \sqrt{10^{A_s/10} - 1}, \qquad \text{selectivity } \Omega_s/\Omega_p \\ \text{Butterworth:}\quad N &\ge \frac{\ln(\varepsilon_s/\varepsilon_p)}{\ln(\Omega_s/\Omega_p)} \\ \text{Chebyshev I and II:}\quad N &\ge \frac{\operatorname{acosh}(\varepsilon_s/\varepsilon_p)}{\operatorname{acosh}(\Omega_s/\Omega_p)} \\ \text{Elliptic:}\quad N &\ge \frac{K(k)\,K'(k_1)}{K'(k)\,K(k_1)}, \qquad k = \frac{\Omega_p}{\Omega_s}, \quad k_1 = \frac{\varepsilon_p}{\varepsilon_s} \end{aligned} \]</div><span class="eqn-no">(09.6)</span></div>
+    <dl class="where"><dt>\(A_p,\ A_s\)</dt><dd>passband ripple (peak to peak) and stopband attenuation, dB</dd><dt>\(\varepsilon_p,\ \varepsilon_s\)</dt><dd>ripple parameters (dimensionless)</dd><dt>\(\Omega_p,\ \Omega_s\)</dt><dd>prewarped passband and stopband edges, rad/s</dd><dt>\(N\)</dt><dd>analog prototype order</dd><dt>\(K,\ K'\)</dt><dd>complete elliptic integral of the first kind and its complement, \(K'(k) = K(\sqrt{1 - k^2})\)</dd><dt>\(k,\ k_1\)</dt><dd>selectivity and discrimination moduli</dd><dt>\(\ln,\ \operatorname{acosh}\)</dt><dd>natural logarithm, inverse hyperbolic cosine</dd></dl>
+    <span class="note">Butterworth \(\lvert H\rvert^2 = 1/(1 + (\Omega/\Omega_c)^{2N})\), maximally flat, poles on a circle. Chebyshev I \(\lvert H\rvert^2 = 1/(1 + \varepsilon_p^2 T_N^2(\Omega/\Omega_p))\), equiripple passband, poles on an ellipse. Chebyshev II puts the ripple in the stopband with zeros on the jΩ axis and a monotone passband. Elliptic (Cauer) ripples in both bands and has the minimum order.</span>
+  </div>
+  <div class="prose"><p>The same spec as 09.3 in IIR terms: 8/9 MHz at 40 MHz, \(A_p\) = 0.17 dB (the ±0.01 passband), \(A_s\) = 60 dB.</p></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Design</th><th class="num">Order</th><th class="num">Biquads</th><th class="num">Multiplies/output</th><th>Phase</th></tr></thead>
+    <tbody>
+      <tr><td>Butterworth</td><td class="num">53</td><td class="num">27</td><td class="num">≈ 135</td><td>Nonlinear, smoothest</td></tr>
+      <tr><td>Chebyshev I or II</td><td class="num">16</td><td class="num">8</td><td class="num">≈ 40</td><td>Nonlinear</td></tr>
+      <tr><td>Elliptic</td><td class="num">8</td><td class="num">4</td><td class="num">≈ 20</td><td>Most nonlinear near the edge</td></tr>
+      <tr><td>Equiripple FIR (\(\delta_p = 0.01\))</td><td class="num">104</td><td class="num">—</td><td class="num">53</td><td>Exactly linear, delay 52 samples</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose">
+    <p>Orders from the formulas above with prewarped edges (they agree with SciPy's <code>buttord</code>, <code>cheb1ord</code>, <code>cheb2ord</code>, <code>ellipord</code>). Five multiplies per biquad. The elliptic filter is cheaper than the FIR by less than a factor of 3 here, and the FIR's cost falls by the decimation factor in a polyphase decimator (Section 09.6), which is why front ends are mostly FIR.</p>
+    <p><strong>Ship it as biquads.</strong> Factor H into second-order sections, pair each complex pole pair with the nearest zero pair, and order the sections by pole radius. The reason is root sensitivity: for a polynomial with roots \(p_i\), \(\partial p_i/\partial a_k = -p_i^{N-k} / \prod_{j \ne i}(p_i - p_j)\). Narrowband filters cluster their poles near z = 1, the denominators collapse, and tiny coefficient errors move poles across the circle. Each biquad has \(a_1 \in (-2, 2)\) and \(a_2 \in (-1, 1)\) and only two roots to protect (Figure 09.B).</p>
+  </div>
+  <figure class="m9-fig" id="m9-fig-biquad">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 09.B</b> · One second-order section in transposed direct form II, the structure shipped in FPGA and DSP code</div>
+    <div class="mx-scroll"><svg viewBox="0 0 760 344" role="img" aria-label="Block diagram of one biquad section in transposed direct form II with feed-forward coefficients b0 b1 b2, feedback coefficients minus a1 minus a2 and two delay states"><defs><marker id="m9-ahC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" style="fill:var(--ink)"/></marker></defs><text x="20.0" y="22.0" class="t">One biquad, transposed direct form II (DF-IIT)</text><text x="40.0" y="65.0">x[n]</text><path d="M78 60 L120 60" class="w"/><path d="M120 60 V240" class="w"/><path d="M120 60 L246 60" class="w"/><polygon points="246,49 246,71 274,60" class="box"/><text x="260.0" y="44.0" text-anchor="middle">b₀</text><path d="M274 60 L368 60" class="w" marker-end="url(#m9-ahC)"/><circle cx="120" cy="60" r="2.6" style="fill:var(--ink)"/><circle cx="380" cy="60" r="11" class="box"/><text x="380.0" y="64.5" text-anchor="middle">+</text><path d="M120 150 L246 150" class="w"/><polygon points="246,139 246,161 274,150" class="box"/><text x="260.0" y="134.0" text-anchor="middle">b₁</text><path d="M274 150 L368 150" class="w" marker-end="url(#m9-ahC)"/><circle cx="120" cy="150" r="2.6" style="fill:var(--ink)"/><circle cx="380" cy="150" r="11" class="box"/><text x="380.0" y="154.5" text-anchor="middle">+</text><path d="M120 240 L246 240" class="w"/><polygon points="246,229 246,251 274,240" class="box"/><text x="260.0" y="224.0" text-anchor="middle">b₂</text><path d="M274 240 L368 240" class="w" marker-end="url(#m9-ahC)"/><circle cx="120" cy="240" r="2.6" style="fill:var(--ink)"/><circle cx="380" cy="240" r="11" class="box"/><text x="380.0" y="244.5" text-anchor="middle">+</text><rect x="360" y="92" width="40" height="26" rx="3" class="box"/><text x="380.0" y="109.5" text-anchor="middle">z⁻¹</text><rect x="360" y="182" width="40" height="26" rx="3" class="box"/><text x="380.0" y="199.5" text-anchor="middle">z⁻¹</text><path d="M380 139 L380 118" class="w" marker-end="url(#m9-ahC)"/><path d="M380 92 L380 71" class="w" marker-end="url(#m9-ahC)"/><path d="M380 229 L380 208" class="w" marker-end="url(#m9-ahC)"/><path d="M380 182 L380 161" class="w" marker-end="url(#m9-ahC)"/><path d="M391 60 L660 60" class="w" marker-end="url(#m9-ahC)"/><text x="666.0" y="65.0">y[n]</text><path d="M600 60 V240" class="w"/><circle cx="600" cy="60" r="2.6" style="fill:var(--ink)"/><path d="M600 150 L514 150" class="w"/><polygon points="514,139 514,161 486,150" class="box"/><text x="500.0" y="134.0" text-anchor="middle">−a₁</text><path d="M486 150 L392 150" class="w" marker-end="url(#m9-ahC)"/><path d="M600 240 L514 240" class="w"/><polygon points="514,229 514,251 486,240" class="box"/><text x="500.0" y="224.0" text-anchor="middle">−a₂</text><path d="M486 240 L392 240" class="w" marker-end="url(#m9-ahC)"/><text x="406.0" y="109.0" class="m">s₁</text><text x="406.0" y="199.0" class="m">s₂</text><text x="20.0" y="288.0">y = b₀x + s₁ ;  s₁ ← b₁x − a₁y + s₂ ;  s₂ ← b₂x − a₂y    (5 multiplies, 2 states)</text><text x="20.0" y="310.0" class="m">stable iff |a₂| < 1 and |a₁| < 1 + a₂ (stability triangle), so |a₁| < 2</text><text x="20.0" y="330.0" class="m">cascade H(z) = g·∏ₖ Hₖ(z): 8th-order elliptic = 4 sections</text></svg></div>
+    <p class="cap">Section transfer function \(H_k(z) = (b_0 + b_1 z^{-1} + b_2 z^{-2})/(1 + a_1 z^{-1} + a_2 z^{-2})\). The two states hold partial sums, so only two delays are needed per section; quantizing \(a_1, a_2\) moves only this section's pole pair.</p>
+  </figure>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Butterworth low-pass</th><th>Coefficients</th><th class="num">Max pole radius, direct form</th><th class="num">Max pole radius, biquads</th></tr></thead>
+    <tbody>
+      <tr><td>N = 8, \(f_c = 0.02\,f_s\) (true 0.9758)</td><td>16-bit words</td><td class="num">1.299 (unstable)</td><td class="num">0.9758</td></tr>
+      <tr><td>N = 8, \(f_c = 0.02\,f_s\)</td><td>24-bit words</td><td class="num">1.166 (unstable)</td><td class="num">0.9758</td></tr>
+      <tr><td>N = 12, \(f_c = 0.01\,f_s\)</td><td>double precision</td><td class="num">output diverges (NaN)</td><td class="num">stable, matches design</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose"><p class="muted">Direct form: the \(a_k\) of the 8th-order filter reach 50 in magnitude, so a 16-bit word keeps only 9 fractional bits; biquads use 2 integer bits. Computed with <code>m09_iir_bilinear_butter_cheby.m</code>.</p></div>
+  <div class="rf-grid" id="m9-g4"></div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 09.3</span><h3>IIR families at the same order</h3><span class="prov exact">Exact formula</span><span class="prov-note">Closed-form analog prototypes (elliptic by Landen iteration), prewarped bilinear transform <span class="eqref">(09.5)</span>, exact magnitude and group delay of the resulting zpk designs; JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m9-iir-cv" aria-label="Magnitude and group delay of Butterworth, Chebyshev and elliptic filters"></canvas>
+        <div class="legend"><span><i style="background:var(--muted)"></i>Butterworth</span><span><i style="background:var(--accent)"></i>Chebyshev I</span><span><i style="background:var(--sig4)"></i>Chebyshev II</span><span><i style="background:var(--sig2)"></i>elliptic</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m9-iir-n">Order N <output id="m9-iir-n-o">5</output></label><input type="range" id="m9-iir-n" min="1" max="10" step="1" value="5"></div>
+        <div class="ctrl"><label for="m9-iir-ap">Passband ripple \(A_p\) <output id="m9-iir-ap-o">0.5 dB</output></label><input type="range" id="m9-iir-ap" min="0.1" max="3" step="0.1" value="0.5"></div>
+        <div class="ctrl"><label for="m9-iir-as">Stopband \(A_s\) <output id="m9-iir-as-o">60 dB</output></label><input type="range" id="m9-iir-as" min="20" max="90" step="5" value="60"></div>
+        <div class="ctrl"><label for="m9-iir-pz">Pole-zero inset</label><select id="m9-iir-pz"><option value="0">Butterworth</option><option value="1">Chebyshev I</option><option value="2">Chebyshev II</option><option value="3" selected>elliptic</option></select></div>
+        <div class="readout" id="m9-iir-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> all four filters share the passband edge, 8 MHz at \(-A_p\) dB with \(f_s\) = 40 MHz, prewarped. Read the "A<sub>s</sub> reached at" column: at N = 5 and \(A_p\) = 0.5 dB the elliptic filter reaches 60 dB 3.6 MHz past the edge, Chebyshev 6.4 MHz, Butterworth 8.5 MHz. Then look at the group delay: the sharper the family, the taller the delay peak at the edge. Chebyshev I and II have identical selectivity; they only move the ripple.</div>
+  </div>
+
+  <!-- ===================== 09.5 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">09.5</span>Phase, group delay, pulse distortion and zero-phase filtering</h2>
+    <p><strong>Recap from <a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 03</a>.</strong> Group delay \(\tau_g = -d\varphi/d\omega\) and phase delay \(\tau_\varphi = -\varphi/\omega\) are defined in Section 03.5, <span class="eqref">(03.16)</span>: a narrowband pulse \(a(t)\cos(\omega_0 t)\) through H comes out as approximately \(\lvert H(\omega_0)\rvert\, a(t - \tau_g)\cos\left(\omega_0 (t - \tau_\varphi)\right)\), and linear phase \(\varphi = -\omega M/2\) gives \(\tau_g = \tau_\varphi = M/2\) at every \(\omega\), so the shape is preserved. The design question here is what happens when a filter is <em>not</em> linear phase.</p>
+    <p>The approximation holds when \(\tau_g\) is nearly constant across the pulse band. When it varies (an IIR near its band edge), different frequencies arrive at different times: the pulse spreads and its envelope becomes asymmetric, with a tail on the side of the steeper edge. A mismatch \(\tau_\varphi \ne \tau_g\) rotates the carrier under the envelope, which a phase-based delay estimator (Module 11) reads as displacement.</p>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 09.4</span><h3>FIR vs IIR meeting the same RF band-pass spec</h3><span class="prov sim">Simulation</span><span class="prov-note">Equiripple FIR (IRLS) and bilinear IIR band-passes designed in the page; a Gaussian-envelope RF pulse filtered by convolution and by biquad recursion, correlation after best integer alignment; JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m9-cmp-cv" aria-label="Band-pass magnitude, group delay and filtered RF pulse"></canvas>
+        <div class="legend"><span><i style="background:var(--muted)"></i>input pulse (shifted by the FIR delay)</span><span><i style="background:var(--accent)"></i>equiripple FIR</span><span><i style="background:var(--sig2)"></i>IIR</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m9-cmp-fam">IIR family</label><select id="m9-cmp-fam"><option value="e" selected>Elliptic (order 10)</option><option value="c">Chebyshev I (order 16)</option><option value="b">Butterworth (order 34)</option></select></div>
+        <div class="ctrl"><label for="m9-cmp-f0">Pulse center \(f_0\) <output id="m9-cmp-f0-o">5.0 MHz</output></label><input type="range" id="m9-cmp-f0" min="3" max="7" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m9-cmp-bw">Pulse −6 dB bandwidth <output id="m9-cmp-bw-o">40 %</output></label><input type="range" id="m9-cmp-bw" min="10" max="90" step="5" value="40"></div>
+        <label class="check"><input type="checkbox" id="m9-cmp-zp"> IIR forward–backward (zero phase)</label>
+        <div class="readout" id="m9-cmp-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Spec:</strong> pass 3–7 MHz (\(A_p\) = 0.5 dB), stop ≤ 2 and ≥ 8 MHz (\(A_s\) = 40 dB), \(f_s\) = 40 MHz. Minimum orders: equiripple FIR 72 (the low-pass estimate says 61), elliptic 10, Chebyshev I 16, Butterworth 34. <strong>Try:</strong> slide \(f_0\) toward 3 MHz: the IIR group delay climbs steeply and the output tail grows, while the FIR only attenuates. The correlation ρ is computed after the best integer alignment; "ρ, magnitude only" applies \(\lvert H\rvert\) with zero phase, so the gap between the two is the damage done by the phase alone. Tick forward–backward to remove it (offline only).</div>
+  </div>
+  <div class="prose">
+    <p><strong>Zero-phase filtering.</strong> Filter forward, reverse the result, filter again, reverse back. The overall response is \(H(e^{j\omega})H^*(e^{j\omega}) = \lvert H\rvert^2\): no phase, no delay, magnitude squared.</p>
+  </div>
+  <div class="eqn" id="m9-eq7">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &y = \mathcal{R}\left\{ h * \mathcal{R}\{ h * x \} \right\} \ \Rightarrow\ H_{\mathrm{eff}} = \lvert H(e^{j\omega})\rvert^2 \\ &\text{dB doubled; old −3 dB point now −6 dB} \\ &\text{Butterworth } N:\ \text{new −3 dB at } (\sqrt{2} - 1)^{1/(2N)}\,\Omega_c \quad (0.896\,\Omega_c \text{ for } N = 4) \end{aligned} \]</div><span class="eqn-no">(09.7)</span></div>
+    <dl class="where"><dt>\(x,\ y\)</dt><dd>input and output records</dd><dt>\(h\)</dt><dd>filter impulse response</dd><dt>\(*\)</dt><dd>linear (causal) convolution</dd><dt>\(\mathcal{R}\{\cdot\}\)</dt><dd>time reversal of a record</dd><dt>\(H(e^{j\omega}),\ H_{\mathrm{eff}}\)</dt><dd>single-pass and forward-backward frequency responses</dd><dt>\(\omega\)</dt><dd>digital frequency, rad/sample</dd><dt>\(N\)</dt><dd>Butterworth prototype order</dd><dt>\(\Omega_c\)</dt><dd>original −3 dB frequency, rad/s</dd></dl>
+    <span class="note">\(\mathcal{R}\) is time reversal. Passband ripple and stopband attenuation in dB both double. The filter is non-causal: it needs the whole record. Each pass starts a transient at a record edge, so the output is wrong near both ends unless the record is extended (odd reflection about the end samples) and the filter is started from steady-state initial conditions, which is what MATLAB's and SciPy's <code>filtfilt</code> do.</span>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 09.5</span><h3>Causal vs forward–backward, and the edges</h3><span class="prov sim">Simulation</span><span class="prov-note">Synthetic RF record (three 5 MHz echoes, offset and drift) passed through a bilinear Butterworth band-pass as biquads, one pass and forward–backward with and without padding; the reference filters a record extended far beyond both ends; JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m9-zp-cv" aria-label="Causal and zero-phase filtering of an RF segment with a DC offset"></canvas>
+        <div class="legend"><span><i style="background:var(--muted)"></i>reference (record extended far beyond both ends)</span><span><i style="background:var(--sig2)"></i>causal, one pass</span><span><i style="background:var(--accent)"></i>forward–backward</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m9-zp-n">Butterworth band-pass order (prototype N) <output id="m9-zp-n-o">3</output></label><input type="range" id="m9-zp-n" min="1" max="6" step="1" value="3"></div>
+        <div class="ctrl"><label for="m9-zp-dc">DC offset and drift <output id="m9-zp-dc-o">0.5</output></label><input type="range" id="m9-zp-dc" min="0" max="1" step="0.05" value="0.5"></div>
+        <div class="ctrl"><label for="m9-zp-edge">Edge handling (forward–backward)</label><select id="m9-zp-edge"><option value="none">None: zero initial state</option><option value="pad" selected>Odd reflection + steady-state start</option></select></div>
+        <label class="check"><input type="checkbox" id="m9-zp-env" checked> Show envelopes</label>
+        <div class="readout" id="m9-zp-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Signal:</strong> three 5 MHz echoes (the first only 0.4 µs from the start) on an ADC offset with slow drift, filtered by a 3–7 MHz Butterworth band-pass at 40 MHz. <strong>Try:</strong> the causal output is late by the group delay and its envelopes are skewed; forward–backward is aligned and symmetric. Switch edge handling to "None": the offset step at n = 0 rings through the first echo. Raise the order: delay, skew and edge ringing all grow.</div>
+  </div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Real-time RF and IQ chains use linear-phase FIRs and subtract the known delay M/2, identically on every channel; a channel-dependent filter delay is an aberration you introduced yourself. Zero-phase IIR filtering is fine offline: stored RF for QUS spectra, slow-time signals in shear-wave elastography post-processing, displacement maps. Never mix a zero-phase reference with a causal measurement in a delay or phase comparison.</p></div>
+
+  <!-- ===================== 09.6 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">09.6</span>Multirate and special-purpose filters: decimation, half-band, polyphase, CIC, Hilbert</h2>
+    <p><strong>Decimation by D</strong> keeps every D-th output: \(y[m] = \sum_k h[k]\, x[mD - k]\). Everything between \(f_s/(2D)\) and \(f_s/2\) folds into the new band, so the low-pass must remove it first. If only \(0 \dots f_{\text{pass}}\) must stay clean, aliases may land in the transition band: \(f_{\text{stop}} = f_s/D - f_{\text{pass}}\). <strong>Polyphase</strong> splits h into D sub-filters \(h_i[m] = h[mD + i]\) that run at the output rate, so only kept samples are computed: \((M + 1)/D\) multiplies per input sample instead of M + 1.</p>
+  </div>
+  <div class="eqn" id="m9-eq8">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &\text{half-band: } \omega_c = \pi/2,\ \ \delta_p = \delta_s, \qquad h[M/2] = \tfrac{1}{2}, \qquad h[M/2 \pm 2k] = 0 \ \ (k \ge 1) \\ &\text{23 taps } (M = 22):\ 12 \text{ nonzero outer taps} \to 6 \text{ multiplies per output with symmetry} \\ &\to 3 \text{ multiplies per input sample when decimating by 2} \end{aligned} \]</div><span class="eqn-no">(09.8)</span></div>
+    <dl class="where"><dt>\(\omega_c\)</dt><dd>cutoff, rad/sample</dd><dt>\(\delta_p,\ \delta_s\)</dt><dd>passband and stopband ripple</dd><dt>\(h[n]\)</dt><dd>impulse response</dd><dt>\(M\)</dt><dd>filter order, even</dd><dt>\(k\)</dt><dd>positive integer index of the zeroed even-offset taps</dd></dl>
+    <span class="note">The amplitude satisfies \(A(\omega) + A(\pi - \omega) = 1\), so the ripple is antisymmetric about π/2 and every second tap vanishes. A cascade of half-bands decimates by 2, 4, 8 at a fraction of the cost of one long filter. Module 08's IQ chain (mix to baseband, low-pass, decimate) is the classic application.</span>
+  </div>
+  <div class="eqn" id="m9-eq9">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &\text{CIC: } H(z) = \left[\frac{1 - z^{-RM}}{1 - z^{-1}}\right]^N, \qquad \lvert H(f)\rvert = \left\lvert \frac{\sin(\pi f R M)}{\sin(\pi f)} \right\rvert^N \\ &\text{DC gain } (RM)^N \to \text{bit growth } N\log_2(RM), \qquad \text{first sidelobe} \approx -13.3\ \mathrm{dB}\ \text{per stage} \\ &\text{droop at } f_{\text{out}}/4:\ -0.91\ \mathrm{dB}\ \text{per stage } (M = 1) \end{aligned} \]</div><span class="eqn-no">(09.9)</span></div>
+    <dl class="where"><dt>\(H(z),\ H(f)\)</dt><dd>CIC transfer function and its magnitude response</dd><dt>\(z\)</dt><dd>z-transform variable</dd><dt>\(R\)</dt><dd>decimation factor</dd><dt>\(M\)</dt><dd>differential delay of each comb (here \(M\) is not the FIR order)</dd><dt>\(N\)</dt><dd>number of integrator-comb stages</dd><dt>\(f\)</dt><dd>frequency normalized to the input rate, cycles/sample</dd><dt>\(f_{\text{out}}\)</dt><dd>output rate after decimation by \(R\)</dd></dl>
+    <span class="note">Hogenauer's cascaded integrator-comb: N integrators at the input rate, decimate by R, N combs with differential delay M at the output rate; no multiplies at all. The sidelobe tends to the sinc value −13.26 dB for large R (the often-quoted −13.46 dB is the value at 1.5/R, not the peak). A short FIR after the CIC compensates the droop. CICs appear in FPGA and ASIC front ends after oversampled or sigma-delta converters.</span>
+  </div>
+  <div class="eqn" id="m9-eq10">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &\text{Hilbert FIR (type III): } h[M/2 + n] = \frac{2}{\pi n}\ \text{for odd } n, \quad 0 \ \text{for even } n, \quad \text{times a window} \\ &\text{31 taps, Hamming: } \lvert H\rvert \text{ within } {-0.19}/{+0.05}\ \mathrm{dB} \\ &\text{over } 0.1\text{–}0.9 \text{ of Nyquist (2–18 MHz at 40 MHz)} \end{aligned} \]</div><span class="eqn-no">(09.10)</span></div>
+    <dl class="where"><dt>\(h[n]\)</dt><dd>Hilbert FIR impulse response (type III, odd length \(M + 1\))</dd><dt>\(M\)</dt><dd>filter order, even</dd><dt>\(n\)</dt><dd>offset from the center tap; odd values carry the \(2/\pi n\) taps</dd><dt>\(H\)</dt><dd>frequency response of the 31-tap filter</dd></dl>
+    <span class="note">Odd length and antisymmetric taps force zeros at z = 1 and z = −1, so no type III Hilbert FIR is accurate near DC or Nyquist (an even-length type IV has a zero only at DC, but a half-sample delay); the 15-tap version droops 3.4 dB at 0.1 Nyquist. The taps at even offsets \(M/2 \pm 2k\) vanish, halving the cost. Unlike the FFT Hilbert of Module 08 it is not circular; its edge effect is just the M/2-sample start-up.</span>
+  </div>
+  <div class="rf-grid" id="m9-g6"></div>
+  <div class="callout pitfall"><span class="label">Pitfall: fixed-point arithmetic</span><p>Coefficient quantization moves poles and zeros (Section 09.4); signal rounding at each multiplier adds noise of variance \(q^2/12\) shaped by the transfer function from that node to the output, so a high-Q IIR section amplifies its own rounding noise by the gain of its pole pair. Scale each section so its internal nodes cannot overflow, put the highest-Q section last, and beware zero-input limit cycles in recursive sections. FIRs have none of the last two problems.</p></div>
+
+  <!-- ===================== 09.7 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">09.7</span>Doppler wall filters on short ensembles</h2>
+    <p>Color flow estimates velocity from N = 8–16 slow-time samples per pixel at the PRF. Stationary and slowly moving tissue can be 40 dB or more above blood and sits near f = 0; the wall (clutter) filter must remove it before the lag-one autocorrelation (Module 08). With so few samples, "filter" means a matrix: every linear wall filter is \(\mathbf{y} = \mathbf{A}\mathbf{x}\) with \(\mathbf{A}\) of size \(N_{\text{out}} \times N\), and the frequency response of a time-varying \(\mathbf{A}\) is defined through the average output power for a unit complex exponential input:</p>
+  </div>
+  <div class="eqn key" id="m9-eq11">
+    <div class="eqn-body"><div class="eqn-math">\[ \lvert H(f)\rvert^2 = \frac{\lVert \mathbf{A}\,\mathbf{e}_f \rVert^2}{N_{\text{out}}}, \qquad e_f[n] = e^{\,j2\pi f n/\mathrm{PRF}}, \quad n = 0, \dots, N - 1 \]</div><span class="eqn-no">(09.11)</span></div>
+    <dl class="where"><dt>\(\lvert H(f)\rvert^2\)</dt><dd>average power gain of the filter at Doppler frequency \(f\)</dd><dt>\(\mathbf{A}\)</dt><dd>wall-filter matrix, \(N_{\text{out}} \times N\)</dd><dt>\(N\)</dt><dd>ensemble length (slow-time samples per pixel)</dd><dt>\(N_{\text{out}}\)</dt><dd>number of valid outputs</dd><dt>\(\mathbf{e}_f,\ e_f[n]\)</dt><dd>unit-amplitude complex exponential at Doppler frequency \(f\) and its \(n\)th sample</dd><dt>\(\lVert\cdot\rVert\)</dt><dd>Euclidean norm</dd><dt>\(n\)</dt><dd>slow-time sample index</dd><dt>\(f,\ \mathrm{PRF}\)</dt><dd>Doppler frequency and pulse repetition frequency, Hz</dd><dt>\(j\)</dt><dd>imaginary unit</dd></dl>
+    <span class="note">For a time-invariant filter in steady state this is the usual \(\lvert H\rvert^2\). It is the definition used by Bjaerum, Torp &amp; Kristoffersen (2002) to compare FIR, IIR and regression filters on equal terms.</span>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Filter</th><th>Matrix A</th><th class="num">Outputs</th><th>Behaviour on short ensembles</th></tr></thead>
+    <tbody>
+      <tr><td>FIR, order K</td><td>Toeplitz band of h, valid outputs only</td><td class="num">N − K</td><td>Exact steady state, but every order costs one output; sharp cutoffs need K ≈ N</td></tr>
+      <tr><td>IIR, zero initial state</td><td>Lower-triangular Toeplitz of the impulse response</td><td class="num">N</td><td>The first samples are transient: on N = 10, a 2nd-order Butterworth HP at 0.1 PRF suppresses DC by only 12.6 dB</td></tr>
+      <tr><td>IIR, step initialization</td><td>State set to steady state for constant x[0]</td><td class="num">N</td><td>Exact null at DC; at 0.01 PRF still only −32 dB</td></tr>
+      <tr><td>IIR, projection initialization</td><td>\(\mathbf{A} = (\mathbf{I} - \mathbf{G}\mathbf{G}^{+})\mathbf{F}\); \(\mathbf{G}\) = zero-input responses</td><td class="num">N</td><td>Initial state chosen to minimize output energy; −43 dB at 0.01 PRF</td></tr>
+      <tr><td>Polynomial regression, degree p</td><td>\(\mathbf{A} = \mathbf{I} - \mathbf{Q}\mathbf{Q}^H\), \(\mathbf{Q}\) = orthonormal polynomials of degree ≤ p</td><td class="num">N</td><td>Removes p + 1 dimensions exactly; −63 dB at 0.01 PRF for p = 2; −3 dB at \(\approx (0.44 + 0.41p)\,\mathrm{PRF}/N\)</td></tr>
+      <tr><td>SVD / eigen-filter (Module 06)</td><td>\(\mathbf{A} = \mathbf{I} - \mathbf{U}_c\mathbf{U}_c^H\) from the data</td><td class="num">N</td><td>Regression with data-derived basis; separates by spatial coherence when tissue moves</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose">
+    <p>Projection initialization written out: the IIR output from initial state \(\mathbf{s}_0\) is \(\mathbf{y} = \mathbf{F}\mathbf{x} + \mathbf{G}\mathbf{s}_0\), where \(\mathbf{F}\) is the zero-state convolution matrix and the columns of \(\mathbf{G}\) are the zero-input responses to unit initial states. Minimizing \(\lVert\mathbf{y}\rVert^2\) over \(\mathbf{s}_0\) gives \(\mathbf{s}_0 = -\mathbf{G}^{+}\mathbf{F}\mathbf{x}\), hence \(\mathbf{A} = (\mathbf{I} - \mathbf{G}\mathbf{G}^{+})\mathbf{F}\): the IIR filter followed by a projection that removes everything its own transient could explain. Regression filters are the same idea with a polynomial basis, and SVD filters with an empirical one. Numbers in the table: N = 10, cutoff 0.1 PRF, computed with <code>m09_wall_filters_ensemble.m</code>.</p>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 09.6</span><h3>Wall filters on an N-sample ensemble: response and transient</h3><span class="prov sim">Simulation</span><span class="prov-note">Wall filters built as matrices (FIR, IIR with zero, step or projection initialization, Legendre regression); power responses from <span class="eqref">(09.11)</span> are exact for each matrix; the lower panel filters a synthetic ensemble (clutter tone + blood tone); JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m9-wf-cv" aria-label="Wall filter power responses and filtered slow-time ensemble"></canvas>
+        <div class="legend"><span><i style="background:var(--sig3)"></i>FIR, order K</span><span><i style="background:var(--sig2)"></i>IIR (selected init)</span><span><i style="background:var(--accent)"></i>regression, degree p</span><span><i style="background:var(--muted)"></i>IIR, zero init (reference)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m9-wf-n">Ensemble length N <output id="m9-wf-n-o">10</output></label><input type="range" id="m9-wf-n" min="6" max="20" step="1" value="10"></div>
+        <div class="ctrl"><label for="m9-wf-fc">Cutoff \(f_c/\mathrm{PRF}\) (IIR, FIR) <output id="m9-wf-fc-o">0.10</output></label><input type="range" id="m9-wf-fc" min="0.04" max="0.3" step="0.01" value="0.1"></div>
+        <div class="ctrl"><label for="m9-wf-ord">IIR order (Butterworth HP) <output id="m9-wf-ord-o">2</output></label><input type="range" id="m9-wf-ord" min="1" max="4" step="1" value="2"></div>
+        <div class="ctrl"><label for="m9-wf-init">IIR initialization</label><select id="m9-wf-init"><option value="zero">Zero state</option><option value="step">Step (steady state for x[0])</option><option value="proj" selected>Projection</option></select></div>
+        <div class="ctrl"><label for="m9-wf-k">FIR order K <output id="m9-wf-k-o">4</output></label><input type="range" id="m9-wf-k" min="2" max="8" step="2" value="4"></div>
+        <div class="ctrl"><label for="m9-wf-p">Regression degree p <output id="m9-wf-p-o">2</output></label><input type="range" id="m9-wf-p" min="0" max="4" step="1" value="2"></div>
+        <div class="ctrl"><label for="m9-wf-vt">Tissue Doppler \(f_t/\mathrm{PRF}\) <output id="m9-wf-vt-o">0.010</output></label><input type="range" id="m9-wf-vt" min="0" max="0.05" step="0.0025" value="0.01"></div>
+        <div class="readout" id="m9-wf-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Ensemble:</strong> clutter of amplitude 100 (40 dB) at \(f_t\) plus blood of amplitude 1 at 0.25 PRF. The lower panel shows \(\lvert y[n]\rvert\) for each filter on a log scale; blood alone would sit at 1 (0 dB). <strong>Try:</strong> select zero-state initialization: the IIR output starts at clutter level and decays over the whole ensemble. Projection fixes it at no cost in \(N_{\text{out}}\). Raise K: the FIR sharpens but loses outputs. Raise p: regression widens its stopband by about 0.4 PRF/N per degree. Lengthen N: everything gets sharper, which is why slow flow needs long ensembles (or the SVD filters of Module 06).</div>
+  </div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Convert the stopband to velocity with \(v = c f/(2 f_0\cos\theta)\). At \(f_0\) = 5 MHz, PRF = 4 kHz and N = 10, a degree-2 regression filter is −3 dB at 1.27 PRF/N = 507 Hz, i.e. 7.8 cm/s at θ = 0: slower flow is gone. The levers are a longer ensemble (frame rate), a lower PRF (aliasing), or a filter that separates tissue by something other than Doppler frequency, the spatial coherence exploited by the SVD filters of Module 06 on the hundreds of frames of ultrafast Doppler and ULM.</p></div>
+
+  <!-- ===================== 09.8 Visual summary ===================== -->
+  <h2><span class="sec">09.8</span>Visual summary</h2>
+  <div class="prose"><p>Thirteen pictures that carry the module. Each card is a question to answer in five seconds, the answer with its number, and a figure computed from the formula or from the actual design.</p></div>
+  <div class="rf-grid" id="m9-vis"></div>
+
+  <!-- ===================== 09.9 Experts ===================== -->
+  <h2><span class="sec">09.9</span>How experts think about it</h2>
+  <div class="prose"><p>A filter expert sees three things at once: the pole-zero map (where the response comes from), the error budget (\(\delta_p\), \(\delta_s\) and the transition width, which set the order before any design runs), and the implementation (delay, transient, word length). FIRs are chosen for linear phase, polyphase cost and robustness; IIRs for low order when phase does not matter or can be cancelled offline. On short records, such as Doppler ensembles, the steady-state frequency response is a fiction and the filter must be judged as a matrix.</p></div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">Design by placing roots: a zero on the unit circle is an exact null, a pole just inside it is a peak about 1/ε high.</div>
+      <div class="keynum"><span>zero on \(\lvert z\rvert = 1\) → exact null</span><span>pole at \(1 - \varepsilon\) → peak \(\propto 1/\varepsilon\)</span></div>
+      <div class="why"><p>Each factor \((1 - z_k e^{-j\omega})\) has the magnitude of the vector from \(z_k\) to \(e^{j\omega}\) (<span class="eqref">(03.23)</span>, Module 03). Walk the unit circle and watch the distances. For the resonator with poles at \(0.95\,e^{\pm j\pi/4}\) (no zeros), at \(\omega = \pi/4\) the near pole is 0.05 away and the far pole 1.379 away, so \(\lvert H\rvert = 1/(0.05 \times 1.379) = 14.5\); at DC both are \(\sqrt{0.559}\) away, \(\lvert H\rvert = 1.79\). The peak stands 18.2 dB above DC, and you read it off the picture without computing a transform.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m9-rf-0" aria-label="Pole-zero geometry and magnitude of a resonator"></canvas></div></div>
+      <div class="limits">Gives magnitude only (phase needs the angles); the overall gain g is separate; the peak sits slightly off θ when poles are far from the circle or near ω = 0, π, where the conjugate pole matters.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A pole at radius r rings for about 1/(1 − r) samples and is about 2(1 − r) rad/sample wide.</div>
+      <div class="keynum"><span>r = 0.95: 20 samples, 0.1 rad/sample</span><span>at PRF 4 kHz: 5 ms, 64 Hz</span></div>
+      <div class="why"><p>Near the pole, \(\lvert e^{j\omega} - p\rvert^2 \approx (1 - r)^2 + (\omega - \theta)^2\), so the power falls by half at \(\lvert\omega - \theta\rvert = 1 - r\): full −3 dB width \(2(1 - r)\) rad/sample, i.e. \((1 - r)f_s/\pi\) in Hz. The impulse response decays as \(r^n\), time constant \(-1/\ln r \approx 1/(1 - r)\). The product of width and duration is ≈ 2, the time–bandwidth trade-off in pole form. Figure: normalized one-pole peaks for r = 0.8, 0.9, 0.95 against the −3 dB line.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m9-rf-1" aria-label="Pole peak width versus radius"></canvas></div></div>
+      <div class="limits">Needs \(1 - r \ll 1\) and θ away from 0 and π; for \(r &lt; 0.8\) use \(-1/\ln r\) and compute the width exactly.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Group delay peaks where a pole hugs the circle, at \(r/(1 - r)\) samples: sharp IIR edges are dispersive.</div>
+      <div class="keynum"><span>r = 0.95 → 19 samples</span><span>elliptic 3–7 MHz BP: 8 → 86 samples across the band</span></div>
+      <div class="why"><p>A pole contributes \(\tau = \frac{r\cos(\omega - \theta) - r^2}{1 - 2r\cos(\omega - \theta) + r^2}\) <span class="eqref">(09.1)</span>, which at \(\omega = \theta\) is \(r(1 - r)/(1 - r)^2 = r/(1 - r)\). Sharp transitions need poles close to the circle, so the delay piles up exactly at the band edges, while the passband center can have little delay. The order-10 elliptic band-pass of Demo 09.4 delays 5 MHz by only 8.8 samples (0.22 µs) but its 3 MHz edge by 86 samples; the equiripple FIR delays everything by 36. Figure: delay of a pole pair at θ = π/4.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m9-rf-2" aria-label="Group delay of a pole pair for several radii"></canvas></div></div>
+      <div class="limits">Zeros contribute too (a zero outside the circle adds delay like a pole inside); an all-pass equalizer can flatten the delay at the cost of more delay overall.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Linear phase means symmetric taps, and symmetric taps mean zeros in reciprocal pairs.</div>
+      <div class="keynum"><span>\(h[n] = h[M - n] \Leftrightarrow H(z) = z^{-M}H(1/z)\)</span><span>even length: zero at z = −1</span><span>antisymmetric: zero at z = 1</span></div>
+      <div class="why"><p>Symmetry gives \(H(z) = z^{-M}H(z^{-1})\), so if \(z_0\) is a zero, so is \(1/z_0\) (and the conjugates, for real taps): zeros sit on the circle or in quadruples \(z_0,\ 1/z_0,\ z_0^*,\ 1/z_0^*\). Evaluating at z = −1 for odd M gives \(H(-1) = -H(-1) = 0\): an even-length symmetric FIR cannot be high-pass. Antisymmetric taps force \(H(1) = 0\), plus \(H(-1) = 0\) for odd length: Hilbert transformers and differentiators. Figure: zeros of a 21-tap Kaiser low-pass: stopband zeros on the circle, passband zeros in reciprocal pairs.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Roots of the designed 21-tap Kaiser low-pass.</span><canvas id="m9-rf-3" aria-label="Zeros of a linear-phase FIR"></canvas></div></div>
+      <div class="limits">Only exact for exactly symmetric coefficients; coefficient quantization keeps symmetry (and linear phase) but moves the zeros. Minimum-phase FIRs halve the delay but lose linear phase.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Kaiser window: β from the attenuation, order from attenuation over transition, \(M = (A - 8)/(2.285\,\Delta\omega)\).</div>
+      <div class="keynum"><span>60 dB, 1 MHz at 40 MHz → M = 145, β = 5.65</span><span>measured 59.6 dB: ask for A + 1</span></div>
+      <div class="why"><p>Kaiser fitted these formulas <span class="eqref">(09.3)</span> to designs with his \(I_0\)-sinh window, which approximates the prolate spheroidal sequence (the most energy in a given main lobe). The example: \(\Delta\omega = 2\pi/40 = 0.157\) rad/sample, \(M = 52/0.359 = 144.9\). The fit is good to about ±0.5 dB; the floor is set by β (−59.8 dB here at any length), so the fix is A = 61: β = 5.76, M = 148, measured 60.9 dB. Delay 74 samples, 1.85 µs, 1.42 mm. Figure: that design against the mask.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Response of the designed M = 148 Kaiser filter.</span><canvas id="m9-rf-4" aria-label="Kaiser window low-pass against its spec mask"></canvas></div></div>
+      <div class="limits">Empirical fit, accurate over about 21–90 dB in our checks; \(\delta_p = \delta_s\) by construction; one transition width (band-pass filters with unequal transitions need the narrower one).</div>
+    </div>
+    <div class="rule">
+      <div class="say">The window shape fixes the ripple; the length only fixes the transition width.</div>
+      <div class="keynum"><span>rectangular: 9 % overshoot at any M</span><span>\(H(\omega_c) = 0.5\), −6 dB</span></div>
+      <div class="why"><p>The designed response is the ideal edge convolved with \(W(\omega)\) <span class="eqref">(09.2)</span>. Lengthening the window compresses W along ω but keeps the ratio of sidelobe area to main-lobe area, so the overshoot and the stopband floor stay put while the transition narrows as 1/M. That is the Gibbs phenomenon: a truncated sinc overshoots by 8.9 % (−21 dB stopband) whether it has 21 or 81 taps. By symmetry of the convolution, every window design passes through 0.5 at \(\omega_c\). Figure: rectangular-window low-pass at M = 20 and M = 80, linear amplitude near the edge.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m9-rf-5" aria-label="Gibbs overshoot independent of filter length"></canvas></div></div>
+      <div class="limits">The −6 dB point is exact only for windows symmetric about the transition (all standard windows) and a step-shaped ideal response; frequency-sampling and optimal designs put the edge where you specify.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Equiripple needs fewer taps than a window: about 10 % at equal ripple, about 30 % when the passband may ripple more.</div>
+      <div class="keynum"><span>\(\delta = 0.001\) both: 132 vs 148</span><span>\(\delta_p = 0.01\): 104 vs 148</span></div>
+      <div class="why"><p>A window design spends its error unevenly (largest at the edges, decaying away) and ties \(\delta_p\) to \(\delta_s\). Parks–McClellan spreads the error into M/2 + 2 equal extrema (the alternation theorem) and weights the bands, so a loose passband buys stopband. Order estimates: Kaiser's \((-20\log_{10}\sqrt{\delta_p\delta_s} - 13)/(14.6\,\Delta f)\) <span class="eqref">(09.4)</span> gives 101.4 for the 8/9 MHz spec; the true minimum is 104. Figure: same spec with a 2 MHz transition: equiripple order 54 (blue; true minimum 53) vs Kaiser order 74 (pink).</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Equiripple approached by IRLS (JS) vs Kaiser window design.</span><canvas id="m9-rf-6" aria-label="Equiripple versus Kaiser window magnitude"></canvas></div></div>
+      <div class="limits">Estimates run 2–3 % low for low-pass and more for band-pass (61 estimated vs 72 needed in Demo 09.4); equiripple filters have larger far-stopband leakage than a window design, which matters if noise far from the band dominates.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Taps scale as attenuation over transition width: halve the transition and the filter doubles.</div>
+      <div class="keynum"><span>taps \(\approx A_s/(22\,\Delta f)\)</span><span>60 dB, 1 MHz at 40 MHz → 109</span><span>same at 62.5 MHz → 170</span></div>
+      <div class="why"><p>A transition of width \(\Delta f\) needs an impulse response lasting about \(1/\Delta f\) samples (time–bandwidth), and every extra 20 dB of stopband costs a fixed multiple of that. All three estimates (Kaiser window, Kaiser/Herrmann equiripple, A/22) are of the form \(A/\Delta f\). Consequence for system design: the same analog transition costs more taps at a higher sampling rate, 109 taps at 40 MHz but 170 at 62.5 MHz, unless you decimate first. Figure: A/22 rule for 40, 60, 80 dB versus Δf.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Rule of thumb A/(22 Δf), assumes ≈ 0.1 dB passband ripple.</span><canvas id="m9-rf-7" aria-label="Estimated taps versus transition width"></canvas></div></div>
+      <div class="limits">A/22 assumes a passband ripple of about 0.1 dB (\(\delta_p \approx 0.01\)); tighter passbands add taps (132 vs 104 above); very narrow passbands are cheaper as multistage designs.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Never compute a sample you will throw away: polyphase decimation divides FIR cost by D.</div>
+      <div class="keynum"><span>\((M + 1)/D\) multiplies per input</span><span>23-tap half-band ↓2: 3 per input</span></div>
+      <div class="why"><p>Decimation keeps \(y[mD]\). Writing h as D phases \(h_i[m] = h[mD + i]\) and the input as D interleaved streams, each kept output is a sum of D short convolutions running at the output rate, so the work per input sample is \((M + 1)/D\). A half-band filter adds two more factors of 2: every other tap is zero and symmetry folds the rest. Figure: multiplies per input sample for a 64-tap filter in polyphase form (bars) against direct form (dashed line at 64), versus D.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m9-rf-8" aria-label="FIR cost per input sample versus decimation factor"></canvas></div></div>
+      <div class="limits">Counts multiplies only; memory and the input-rate data movement remain. IIR filters cannot be decimated this way because each output needs the previous outputs.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Prewarp, then bilinear: \(\Omega = (2/T)\tan(\omega/2)\) squeezes the whole analog axis into Nyquist.</div>
+      <div class="keynum"><span>unwarped 15 MHz edge lands at 11.0 MHz (\(f_s\) = 40)</span><span>about 3 % below \(f_s/10\)</span></div>
+      <div class="why"><p>Without prewarping, an analog frequency \(f_a\) lands at \(f_d = (f_s/\pi)\operatorname{atan}(\pi f_a/f_s)\). At \(f_a\) = 4 MHz (\(f_s/10\)) the error is −3.1 %; at 15 MHz the edge lands at 11.04 MHz. Prewarping designs the analog prototype at \(\Omega_p = (2/T)\tan(\omega_p/2)\) <span class="eqref">(09.5)</span>, so the chosen edges land exactly; the shape between edges is warped, which is harmless for piecewise-constant specs. Figure: \(f_d\) versus \(f_a\) at \(f_s\) = 40 MHz, and the identity line.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m9-rf-9" aria-label="Bilinear frequency warping"></canvas></div></div>
+      <div class="limits">Warping distorts responses that are not piecewise constant (a differentiator, a Bessel filter's flat delay); impulse invariance preserves the time shape instead but aliases, so it cannot make high-pass or band-stop filters.</div>
+    </div>
+    <div class="rule">
+      <div class="say">At equal order and ripple: Butterworth, then Chebyshev, then elliptic, each sharper and more dispersive.</div>
+      <div class="keynum"><span>N = 6, 1/60 dB: \(\Omega_s/\Omega_p\) = 3.54, 2.11, 1.34</span><span>8/9 MHz spec: 53, 16, 8</span></div>
+      <div class="why"><p>With \(\varepsilon_p, \varepsilon_s\) from \(A_p, A_s\) <span class="eqref">(09.6)</span>, the stopband edge relative to the passband edge is \((\varepsilon_s/\varepsilon_p)^{1/N}\) for Butterworth, \(\cosh\left(\operatorname{acosh}(\varepsilon_s/\varepsilon_p)/N\right)\) for both Chebyshev types and \(1/k\) for elliptic. For N = 6, \(A_p\) = 1 dB, \(A_s\) = 60 dB: 3.54, 2.11 and 1.34. Allowing ripple in a band is what buys selectivity, and the poles that make it move closer to the jΩ axis, which is the group-delay peak. Figure: the three analog prototypes, N = 6.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Analog prototypes; Butterworth scaled to the same 1 dB edge.</span><canvas id="m9-rf-10" aria-label="Butterworth, Chebyshev and elliptic magnitude at order 6"></canvas></div></div>
+      <div class="limits">Analog prototype ratios; the digital edges follow after prewarping. Bessel filters (maximally flat delay) are the opposite extreme and are not preserved by the bilinear transform.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Ship IIR filters as biquads: a 12th-order Butterworth at \(f_c = 0.01\,f_s\) diverges in double-precision direct form.</div>
+      <div class="keynum"><span>N = 8, 16-bit direct form: pole at 1.30</span><span>as biquads: 0.9758, unchanged</span></div>
+      <div class="why"><p>Root sensitivity \(\partial p_i/\partial a_k = -p_i^{N-k}/\prod_{j \ne i}(p_i - p_j)\) blows up when poles cluster, and narrowband low-pass or wall filters cluster them near z = 1. The coefficients of the 8th-order filter at \(0.02\,f_s\) reach 50, so a 16-bit word keeps 9 fractional bits and the poles scatter outside the circle. A biquad has only two roots, coefficients below 2 in magnitude, and gets 14 fractional bits. Figure: true poles (blue) and 16-bit direct-form poles (pink) near z = 1.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Roots of the 16-bit-rounded direct-form denominator vs true poles.</span><canvas id="m9-rf-11" aria-label="Pole positions after coefficient quantization"></canvas></div></div>
+      <div class="limits">Biquads still need section ordering and scaling; lattice and state-space structures are even less sensitive. FIR direct form is fine: its zeros move but cannot destabilize.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Forward–backward filtering squares the magnitude and cancels the phase: twice the dB, zero delay, wrong edges unless you pad.</div>
+      <div class="keynum"><span>old −3 dB point → −6 dB</span><span>Butterworth N = 4: new −3 dB at \(0.896\,f_c\)</span></div>
+      <div class="why"><p>Filtering a time-reversed signal applies \(H^*(e^{j\omega})\), so the cascade is \(\lvert H\rvert^2\) <span class="eqref">(09.7)</span>: zero phase, every dB figure doubled. For Butterworth, \(\lvert H\rvert^2 = 1/(1 + (\Omega/\Omega_c)^{2N})\) reaches \(1/\sqrt{2}\) at \(\Omega = (\sqrt{2} - 1)^{1/(2N)}\Omega_c\), \(0.896\,\Omega_c\) for N = 4. Design for the squared spec (half the dB in each pass). The two passes start transients at both record edges; reflection padding plus steady-state initial states removes most of it. Figure: \(\lvert H\rvert\) (pink) and \(\lvert H\rvert^2\) (blue) for a 4th-order Butterworth at \(0.1\,f_s\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m9-rf-12" aria-label="Magnitude of a filter and of its forward-backward version"></canvas></div></div>
+      <div class="limits">Non-causal: needs the whole record (offline, or block-wise with overlap); the cutoff is in warped digital frequency; not a fix for a filter whose magnitude is wrong.</div>
+    </div>
+    <div class="rule">
+      <div class="say">On 8–16 pulses an IIR wall filter is mostly transient: initialize it, or use regression.</div>
+      <div class="keynum"><span>N = 10, 2nd-order HP, zero state: DC only −12.6 dB</span><span>projection: −43 dB at 0.01 PRF</span></div>
+      <div class="why"><p>The steady-state null at DC is reached only after the poles' ringing time, about \(1/(1 - r)\) pulses, which is comparable to the whole ensemble. Treat the filter as the matrix it is <span class="eqref">(09.11)</span>: with zero state the clutter step at n = 0 rings through every output. Step initialization nulls exact DC; projection initialization, \(\mathbf{A} = (\mathbf{I} - \mathbf{G}\mathbf{G}^{+})\mathbf{F}\), also removes what the transient could explain and keeps all N outputs. Figure: power responses for N = 10, \(f_c\) = 0.1 PRF: zero state (gray), step (gold), projection (pink).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Power response (09.11) of each 10 × 10 wall-filter matrix.</span><canvas id="m9-rf-13" aria-label="Wall filter power response for three IIR initializations"></canvas></div></div>
+      <div class="limits">Assumes stationary statistics within the ensemble; projection gains vanish once N ≫ ringing time; tissue acceleration within the ensemble is not modelled by any of these.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A degree-p regression filter removes p + 1 dimensions; its cutoff is about \((0.44 + 0.41p)\cdot\mathrm{PRF}/N\).</div>
+      <div class="keynum"><span>N = 10, p = 2: −3 dB at 507 Hz (PRF 4 kHz)</span><span>= 7.8 cm/s at 5 MHz</span></div>
+      <div class="why"><p>Over N samples, a slow complex exponential looks like a low-order polynomial, so projecting out polynomials of degree ≤ p removes it; the response is \(1 - \lVert\mathbf{Q}^H\mathbf{e}_f\rVert^2/N\). A tone escapes once it completes enough cycles over the ensemble, so the cutoff scales as 1/N, and each extra degree moves it up by about 0.4 PRF/N (computed: 0.44, 0.86, 1.26, 1.66 PRF/N for p = 0…3 at N = 12). Figure: N = 12, p = 0…3.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m9-rf-14" aria-label="Regression filter power responses for several degrees"></canvas></div></div>
+      <div class="limits">Constants drift slightly with N (p = 3: 1.72 at N = 8, 1.62 at N = 32); assumes clutter is smooth in slow time; fast tissue motion (cardiac) needs adaptive or SVD filters.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A CIC decimates without multipliers, at the price of \(\mathrm{sinc}^N\) droop and \(N\log_2(RM)\) bits of growth.</div>
+      <div class="keynum"><span>sidelobe ≈ −13.3 dB per stage</span><span>droop −0.91 dB per stage at \(f_{\text{out}}/4\)</span><span>R = 16, N = 4: +16 bits</span></div>
+      <div class="why"><p>N integrators at the input rate and N combs \((1 - z^{-M})\) at the output rate implement \(\left[(1 - z^{-RM})/(1 - z^{-1})\right]^N\) <span class="eqref">(09.9)</span>, a boxcar of length RM raised to the N-th power: nulls at multiples of \(f_{\text{in}}/(RM)\), exactly where the aliases of DC land. At \(f_{\text{out}}/4\), \(\mathrm{sinc}(1/4) = 0.900\) per stage, −0.91 dB, so 3 stages droop 2.7 dB and need a compensating FIR. Registers need \(N\log_2(RM)\) extra bits; two's-complement wraparound in the integrators is harmless if the width is right. Figure: one to four stages, R = 8, M = 1.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m9-rf-15" aria-label="CIC magnitude response for one to four stages"></canvas></div></div>
+      <div class="limits">Only good for large decimation of narrow bands (the alias rejection near the nulls is what matters, not the sidelobe peak); the droop must be equalized; the bit growth is unavoidable.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A Hilbert FIR has odd length, antisymmetric taps and every other tap zero; it cannot reach DC or Nyquist.</div>
+      <div class="keynum"><span>31 taps (Hamming): −0.19 dB at 0.1 Nyquist</span><span>15 taps: −3.4 dB</span><span>8 multiplies, delay 15</span></div>
+      <div class="why"><p>The ideal response \(-j\,\mathrm{sgn}(\omega)\) has impulse response \(2/(\pi n)\) for odd n and 0 for even n <span class="eqref">(09.10)</span>. A type III FIR (odd length, antisymmetric) is forced to zero at \(z = \pm 1\), so the passband must stay away from both ends; RF at 2–8 MHz sampled at 40 MHz sits comfortably inside. 31 taps with 16 nonzero antisymmetric values cost 8 multiplies per output, and the real path must be delayed by the same 15 samples to form \(x + j\mathcal{H}\{x\}\).</p></div>
+      <div class="limits">For IQ (baseband) data a Hilbert filter is the wrong tool: demodulate instead (Module 08). Narrow transition near DC needs long filters; an FFT Hilbert is cheaper offline but circular.</div>
+    </div>
+  </div>
+
+  <!-- ===================== 09.10 Cheat sheet ===================== -->
+  <h2><span class="sec">09.10</span>Cheat sheet</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Concept</th><th>Formula</th><th>Ultrasound use</th></tr></thead>
+    <tbody>
+      <tr><td>Response from geometry</td><td>\(\lvert H\rvert = \lvert g\rvert \prod\lvert e^{j\omega} - z_k\rvert / \prod\lvert e^{j\omega} - p_k\rvert\)</td><td>Placing notches, wall-filter zeros at DC</td></tr>
+      <tr><td>Pole near the circle</td><td>width \(2(1 - r)\) rad/sample, ringing \(1/(1 - r)\), delay \(r/(1 - r)\)</td><td>Ringing in pulses vs ensemble length</td></tr>
+      <tr><td>Linear phase</td><td>\(h[n] = \pm h[M - n] \Rightarrow \tau_g = M/2\)</td><td>Channel-consistent RF/IQ filtering</td></tr>
+      <tr><td>Kaiser β</td><td>\(0.1102(A - 8.7)\), A &gt; 50; \(0.5842(A - 21)^{0.4} + 0.07886(A - 21)\), 21–50</td><td>Quick FIR design without a toolbox</td></tr>
+      <tr><td>Kaiser order</td><td>\(M = (A - 8)/(2.285\,\Delta\omega)\)</td><td>Sizing RF band-pass and anti-alias filters</td></tr>
+      <tr><td>Equiripple order</td><td>\(M \approx (-20\log_{10}\sqrt{\delta_p\delta_s} - 13)/(14.6\,\Delta f)\); taps \(\approx A/(22\,\Delta f)\)</td><td>Front-end FIR budgets (FPGA multipliers)</td></tr>
+      <tr><td>Bilinear transform</td><td>\(s = \frac{2}{T}\frac{1 - z^{-1}}{1 + z^{-1}}\), \(\Omega = \frac{2}{T}\tan(\omega/2)\)</td><td>Digitizing analog prototypes, prewarped edges</td></tr>
+      <tr><td>IIR orders</td><td>Butterworth \(\ln(\varepsilon_s/\varepsilon_p)/\ln(\Omega_s/\Omega_p)\); Chebyshev \(\operatorname{acosh}(\varepsilon_s/\varepsilon_p)/\operatorname{acosh}(\Omega_s/\Omega_p)\)</td><td>Choosing the family for a wall or smoothing filter</td></tr>
+      <tr><td>Biquads</td><td>\(H = \prod \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{1 + a_1 z^{-1} + a_2 z^{-2}}\)</td><td>Any IIR above order 2, fixed point or not</td></tr>
+      <tr><td>Group vs phase delay</td><td>\(\tau_g = -d\varphi/d\omega\), \(\tau_\varphi = -\varphi/\omega\)</td><td>Envelope vs carrier shift; phase-based displacement bias</td></tr>
+      <tr><td>Forward–backward</td><td>\(H_{\mathrm{eff}} = \lvert H\rvert^2\), zero phase</td><td>Offline RF, QUS, SWE displacement smoothing</td></tr>
+      <tr><td>Decimation</td><td>\(f_{\text{stop}} = f_s/D - f_{\text{pass}}\); polyphase \((M + 1)/D\) per input</td><td>RF → IQ chains, data-rate reduction</td></tr>
+      <tr><td>Half-band</td><td>\(h[M/2] = \tfrac{1}{2}\), \(h[M/2 \pm 2k] = 0\)</td><td>Cascaded ↓2 stages</td></tr>
+      <tr><td>CIC</td><td>\(\left[(1 - z^{-RM})/(1 - z^{-1})\right]^N\), bit growth \(N\log_2(RM)\)</td><td>First decimation stage after oversampled ADCs</td></tr>
+      <tr><td>Hilbert FIR</td><td>\(h[n] = 2/(\pi n)\), n odd (centered), type III</td><td>Analytic signal and envelope on RF</td></tr>
+      <tr><td>Wall-filter response</td><td>\(\lvert H(f)\rvert^2 = \lVert\mathbf{A}\mathbf{e}_f\rVert^2/N_{\text{out}}\)</td><td>Comparing FIR, IIR, regression, SVD filters</td></tr>
+      <tr><td>Projection init</td><td>\(\mathbf{A} = (\mathbf{I} - \mathbf{G}\mathbf{G}^{+})\mathbf{F}\)</td><td>IIR wall filters on 8–16 pulses</td></tr>
+      <tr><td>Regression cutoff</td><td>\(f_{-3\,\mathrm{dB}} \approx (0.44 + 0.41p)\,\mathrm{PRF}/N\)</td><td>Lowest detectable velocity \(v = c f/(2 f_0\cos\theta)\)</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ===================== 09.11 Interview ===================== -->
+  <h2><span class="sec">09.11</span>Interview and qualifying-exam questions</h2>
+  <details class="quiz"><summary><span class="q">I1</span><span>Why are RF and IQ filters in a beamformer almost always FIR? <span class="muted">· screen</span></span></summary><div class="a"><p>Linear phase: a constant, known delay \(M/2\) that is identical on every channel, so filtering never looks like an aberration and the delay is subtracted once. Polyphase decimation divides the cost by D, which erases most of an IIR's per-output advantage (for the 8/9 MHz spec, 53 folded multiplies vs about 20 for an 8th-order elliptic, before decimation). No stability, limit-cycle or coefficient-sensitivity problems in fixed point. <em>Follow-up:</em> how many taps for 3–7 MHz at 40 MHz with 1 MHz transitions and 40 dB? The low-pass estimate says about 61; two transitions push the true equiripple minimum to 72.</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>A 129-tap linear-phase FIR runs at 50 MHz on RF. What delay do you remove, in samples, µs and mm? <span class="muted">· screen</span></span></summary><div class="a"><p>Order 128, delay 64 samples = 1.28 µs. In pulse-echo depth that is \(c\,t/2\) = 770 m/s × 1.28 µs = 0.99 mm. <em>Follow-up:</em> what if the filter has an even number of taps? Then the delay is a half sample; either pad to odd length or account for the half-sample shift in the delay law, otherwise IQ phase is biased by \(\pi f_0/f_s\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>Derive the bandwidth and the peak group delay of a pole at \(r e^{j\theta}\). <span class="muted">· onsite</span></span></summary><div class="a"><p>\(\lvert 1 - r e^{j\theta}e^{-j\omega}\rvert^2\) \(= 1 - 2r\cos(\omega - \theta) + r^2\) \(\approx (1 - r)^2 + r(\omega - \theta)^2\) near θ, so half power at \(\lvert\omega - \theta\rvert \approx 1 - r\): full width \(2(1 - r)\) rad/sample. The phase of \(1/(1 - re^{-j\Delta})\) is \(-\operatorname{atan}\left(r\sin\Delta/(1 - r\cos\Delta)\right)\); differentiating at Δ = 0 gives the group delay \(r/(1 - r)\). r = 0.95: 0.1 rad/sample and 19 samples. <em>Follow-up:</em> convert to a color-flow PRF of 4 kHz: 64 Hz wide, 4.75 ms delay, longer than a 12-pulse ensemble (3 ms).</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>Size a Kaiser-window low-pass: 50 dB, 0.5 MHz transition at \(f_s\) = 20 MHz. Then estimate equiripple with \(\delta_p = 0.01\). <span class="muted">· onsite</span></span></summary><div class="a"><p>\(\Delta f = 0.025\), \(\Delta\omega = 0.157\) rad/sample. \(\beta = 0.5842 \times 29^{0.4} + 0.07886 \times 29 = 4.53\). \(M = 42/(2.285 \times 0.157) = 117\), round to 118 for an integer delay. Equiripple: \(\delta_s = 0.00316\), \(-20\log_{10}\sqrt{0.01 \times 0.00316} = 45.0\) dB, \(M \approx (45.0 - 13)/(14.6 \times 0.025) = 88\), so budget about 90 after the few-percent underestimate. <em>Follow-up:</em> why can the window design not take advantage of the 0.01 passband? Because its \(\delta_p\) equals \(\delta_s\) by construction.</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>Why does the bilinear transform need prewarping, and why not use impulse invariance instead? <span class="muted">· onsite</span></span></summary><div class="a"><p>The bilinear map sends Ω to \(\omega = 2\operatorname{atan}(\Omega T/2)\), so analog edges land at lower digital frequencies (15 MHz lands at 11.0 MHz for \(f_s\) = 40 MHz). Prewarping designs the prototype at \((2/T)\tan(\omega_p/2)\) so the edges land where specified. Impulse invariance samples \(h_a(t)\), which aliases its spectrum: fine for steep low-pass prototypes, impossible for high-pass and band-stop, whose response does not fall off. <em>Follow-up:</em> what does the bilinear transform do to an analog zero at infinity? It maps to z = −1, a null at Nyquist.</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>Your 8th-order elliptic low-pass works in MATLAB but oscillates on the FPGA. Diagnose. <span class="muted">· onsite</span></span></summary><div class="a"><p>Almost certainly direct-form coefficients: the \(a_k\) of a narrowband 8th-order filter span tens, so after quantization the clustered poles move outside the unit circle (16-bit direct form moves an 8th-order Butterworth pole at \(0.02\,f_s\) to radius 1.30). Re-implement as four biquads with poles paired to nearest zeros, scale each section against overflow, put the highest-Q section last. If it still hums with zero input, it is a limit cycle: add more state bits or use magnitude truncation / error feedback. <em>Follow-up:</em> why are FIRs immune? No feedback: quantization moves zeros, which changes the stopband floor but cannot destabilize.</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>Color flow shows strong clutter bleeding into the velocity map near vessel walls. The wall filter is a 2nd-order Butterworth high-pass on 10 pulses. What do you check first? <span class="muted">· research</span></span></summary><div class="a"><p>The initialization. With zero initial state, the clutter step at the first pulse rings through the ensemble: on N = 10 at \(f_c\) = 0.1 PRF the DC suppression is only 12.6 dB instead of infinite. Step initialization nulls DC exactly but gives only −32 dB at 0.01 PRF; projection initialization gives −43 dB with all 10 outputs kept; a degree-2 regression filter −63 dB. <em>Follow-up:</em> what does projection initialization compute? \(\mathbf{s}_0 = -\mathbf{G}^{+}\mathbf{F}\mathbf{x}\), minimizing output energy over the initial state, so \(\mathbf{A} = (\mathbf{I} - \mathbf{G}\mathbf{G}^{+})\mathbf{F}\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>When is a polynomial regression wall filter enough, and when do you need an SVD filter? <span class="muted">· research</span></span></summary><div class="a"><p>Regression assumes clutter is a low-order polynomial in slow time at every pixel independently: fine for slowly moving tissue and short ensembles where its cutoff (\(\approx (0.44 + 0.41p)\,\mathrm{PRF}/N\)) sits below the slowest flow of interest. When tissue moves at velocities overlapping blood (cardiac, breathing, handheld probe) or when slow microvascular flow must be kept, frequency separation fails; an SVD filter on a spatiotemporal Casorati matrix separates by spatial coherence (Module 06, Demené et al. 2015) and needs long ensembles (ultrafast Doppler, ULM). <em>Follow-up:</em> what is the regression filter's matrix? \(\mathbf{I} - \mathbf{Q}\mathbf{Q}^H\) with \(\mathbf{Q}\) orthonormal polynomials; an SVD filter is the same with \(\mathbf{Q}\) from the data.</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>You smooth shear-wave displacement vs time with filtfilt and a 4th-order Butterworth at 1 kHz. What did you actually apply? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(\lvert H\rvert^2\): zero phase (so arrival times are not biased, which matters for time-of-flight SWE), but −6 dB at 1 kHz, the −3 dB point at 0.896 kHz, and an 8th-order magnitude roll-off. The first and last few periods of the cutoff are affected by edge transients unless the record is reflection-padded and the filter started from steady state. <em>Follow-up:</em> could you do this in real time? Only block-wise with overlap and a latency of at least the block length.</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>You need envelopes from RF on an FPGA at 40 MHz. FFT Hilbert or FIR Hilbert, and how big? <span class="muted">· research</span></span></summary><div class="a"><p>FIR: streaming, no block edges, no circular wrap. A 31-tap Hamming-windowed type III Hilbert is within −0.19/+0.05 dB from 2 to 18 MHz; only 16 taps are nonzero and they are antisymmetric, so 8 multiplies per output. Delay the in-phase path by 15 samples to match. Better still, demodulate to IQ and decimate (Module 08), which also cuts the data rate. <em>Follow-up:</em> why not an even-length Hilbert? Type IV has a half-sample delay, awkward to match in the real path.</p></div></details>
+
+  <!-- ===================== 09.12 MATLAB ===================== -->
+  <h2><span class="sec">09.12</span>MATLAB lab</h2>
+  <div class="prose"><p class="code-note">Base MATLAB only (no toolboxes): the Kaiser window, Butterworth/Chebyshev prototypes, the bilinear transform, biquads, IRLS equiripple and the wall-filter matrices are implemented in each script with <code>filter</code>, <code>conv</code>, <code>fft</code>, <code>roots</code>, <code>poly</code> and backslash. Each runs as-is in MATLAB R2019b+ and GNU Octave 8. Runtimes are Octave timings.</p></div>
+  <details class="code">
+    <summary><span class="fname">m09_pole_zero_response.m</span><button class="copy" type="button">Copy</button><span class="what">Response from pole-zero geometry, pole width and delay rules, linear-phase zeros · change r, θ · runtime ≈ 1 s</span></summary>
+    <pre><code data-file="matlab/m09_pole_zero_response.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> the geometric \(\lvert H\rvert\) equals the polynomial evaluation to machine precision; for r = 0.95 the printed −3 dB width is close to 0.1 rad/sample and the peak delay close to 19 samples; the linear-phase FIR zeros print in reciprocal pairs (\(\lvert z\rvert\cdot\lvert 1/z\rvert = 1\)).</p></div>
+  <details class="code">
+    <summary><span class="fname">m09_fir_window_kaiser.m</span><button class="copy" type="button">Copy</button><span class="what">Kaiser window design from the formulas vs Lawson IRLS equiripple vs order estimates · change A, transition · runtime ≈ 3 s</span></summary>
+    <pre><code data-file="matlab/m09_fir_window_kaiser.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> β = 5.653 and M = 145 for the 60 dB spec with a measured stopband of about 59.6 dB, then 60.9 dB with A = 61 (M = 148); Kaiser and Herrmann estimates of 101.4 for the \(\delta_p = 0.01\) equiripple and an IRLS design that fails at order 102 and meets the spec from order 104 (\(\delta_s = 0.000992\)), matching the Remez minimum.</p></div>
+  <details class="code">
+    <summary><span class="fname">m09_iir_bilinear_butter_cheby.m</span><button class="copy" type="button">Copy</button><span class="what">Butterworth and Chebyshev I by analog prototype + prewarped bilinear transform, order formulas, biquads vs direct-form quantization · runtime ≈ 3 s</span></summary>
+    <pre><code data-file="matlab/m09_iir_bilinear_butter_cheby.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> orders 53 (Butterworth) and 16 (Chebyshev I) for the 8/9 MHz, 0.17/60 dB spec; passband edges landing exactly at 8 MHz after prewarping; direct-form pole radius 1.299 at 16 bits and 1.166 at 24 bits for the 8th-order filter at \(0.02\,f_s\), unchanged poles for biquads; a diverging direct-form output for N = 12 at \(0.01\,f_s\).</p></div>
+  <details class="code">
+    <summary><span class="fname">m09_fir_vs_iir_pulse.m</span><button class="copy" type="button">Copy</button><span class="what">5 MHz RF pulse through an equiripple FIR and a Chebyshev I band-pass; group delay, envelope shift, forward–backward · runtime ≈ 1 s</span></summary>
+    <pre><code data-file="matlab/m09_fir_vs_iir_pulse.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> a constant FIR group delay of M/2 samples against an IIR delay that rises steeply toward the 3 and 7 MHz edges; correlation ρ after alignment lower for the causal IIR than for the zero-phase version of the same filter, which isolates the phase damage; forward–backward output aligned with the input.</p></div>
+  <details class="code">
+    <summary><span class="fname">m09_wall_filters_ensemble.m</span><button class="copy" type="button">Copy</button><span class="what">Wall filters as matrices on N = 10 pulses: FIR, IIR with zero/step/projection initialization, polynomial regression; power responses and clutter transients · runtime ≈ 1 s</span></summary>
+    <pre><code data-file="matlab/m09_wall_filters_ensemble.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> the table of power responses at 0, 0.01, 0.02, 0.05 and 0.25 PRF: −12.6 dB at DC for the zero-state IIR, −32 dB (step) and −43 dB (projection) at 0.01 PRF, −63 dB for degree-2 regression; regression −3 dB cutoffs \(\approx (0.44 + 0.41p)\cdot\mathrm{PRF}/N\).</p></div>
+
+  <!-- ===================== 09.13 Self-check ===================== -->
+  <h2><span class="sec">09.13</span>Self-check</h2>
+  <details class="quiz"><summary><span class="q">Q1</span><span>A pole pair sits at radius 0.9 and angle 0.3π, \(f_s\) = 40 MHz. Roughly how wide (−3 dB) is the resonance, and how long does it ring?</span></summary><div class="a"><p>\(2(1 - r) = 0.2\) rad/sample → \(0.2/(2\pi) \times 40\) MHz = 1.27 MHz. Ringing \(\approx 1/(1 - r) = 10\) samples (exactly \(-1/\ln 0.9 = 9.5\)) = 0.25 µs. At θ = 0.3π the conjugate pole is far enough that the approximation holds.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>Why can you not build a linear-phase high-pass with an even number of symmetric taps?</span></summary><div class="a"><p>Even length means odd order M; symmetry gives \(H(-1) = \sum_n h[n](-1)^n = -H(-1)\), so \(H(-1) = 0\): a forced zero at Nyquist. Use odd length (type I) or antisymmetric taps with even length (type IV, zero at DC is fine for a high-pass).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>Kaiser design for 70 dB with a transition of \(0.02\,f_s\): β and M?</span></summary><div class="a"><p>\(\beta = 0.1102 \times (70 - 8.7) = 6.76\). \(\Delta\omega = 2\pi \times 0.02 = 0.1257\) rad/sample, \(M = 62/(2.285 \times 0.1257) = 216\). Expect about ±0.5 dB from the formula; add 1 dB of margin if the spec is hard.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>Analog spec: 1 dB ripple up to \(\Omega_p\), 40 dB from \(2\Omega_p\). Butterworth and Chebyshev orders?</span></summary><div class="a"><p>\(\varepsilon_p = 0.509\), \(\varepsilon_s = 99.99\), ratio 196.5. Butterworth: \(\ln 196.5/\ln 2 = 7.62 \to 8\). Chebyshev: \(\operatorname{acosh} 196.5/\operatorname{acosh} 2 = 5.97/1.317 = 4.54 \to 5\). Elliptic needs 4.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>You run a 2nd-order Butterworth low-pass (\(f_c\) = 1 MHz) forward and backward. Attenuation at 1 MHz? Delay?</span></summary><div class="a"><p>−6 dB (\(\lvert H\rvert^2 = 0.5\) at the original −3 dB point), zero delay at all frequencies. The new −3 dB point is \((\sqrt{2} - 1)^{1/4} = 0.80\) of 1 MHz.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>Decimate RF from 40 to 10 MHz while keeping 0–3 MHz (after mixing to baseband) alias-free at 60 dB. Stopband edge, rough taps, cost?</span></summary><div class="a"><p>\(f_{\text{stop}} = f_s/D - f_{\text{pass}}\) = 10 − 3 = 7 MHz, so \(\Delta f = 4/40 = 0.1\). Taps \(\approx 60/(22 \times 0.1) \approx 27\). Polyphase: 27/4 ≈ 7 multiplies per input sample (per real channel). Aliases landing in 3–7 MHz are removed later or ignored.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>Color flow with N = 12, PRF = 2 kHz, \(f_0\) = 3 MHz and a degree-1 regression wall filter. Where is the −3 dB cutoff, in Hz and cm/s?</span></summary><div class="a"><p>\(0.86\,\mathrm{PRF}/N = 0.86 \times 2000/12\) = 143 Hz. \(v = c f/(2 f_0) = 1540 \times 143/(6 \times 10^6)\) = 3.7 cm/s at zero beam-to-flow angle.</p></div></details>
+
+  <!-- ===================== 09.14 Literature figures ===================== -->
+  <h2><span class="sec">09.14</span>Figures from the literature</h2>
+  <div class="prose"><p>Published figures to hold the designs of this page against: in vivo wall-filter results and the classic design-theory plots. Links only, no images reproduced; each figure number was checked against an author-posted or open copy.</p></div>
+  <div class="litfig">
+    <h4>Regression versus eigen-based wall filters on in vivo color-flow ensembles</h4>
+    <p class="cite">A. C. H. Yu, L. Løvstakken, "Eigen-based clutter filter design for ultrasound color flow imaging: a review," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em> 57(5), 1096–1111, 2010. <b>Figs. 5 and 6</b> (also Figs. 9 and 10). <a href="https://doi.org/10.1109/TUFFC.2010.1521" target="_blank" rel="noopener">doi:10.1109/TUFFC.2010.1521</a> (open copy: <a href="https://hub.hku.hk/bitstream/10722/129218/1/Content.pdf" target="_blank" rel="noopener">HKU Scholars Hub</a>)</p>
+    <p>Doppler power maps from an intra-operative coronary frame in systole (Fig. 5, N = 10) and a thyroid nodule (Fig. 6, N = 12), filtered by polynomial regression with and without down-mixing and by three eigen-filter variants. These are the ensemble lengths of Demo 09.6: look at where regression leaves tissue flash when the clutter moves, the failure mode that motivates the data-adaptive filters of Module 06. Figs. 9 and 10 track filtered power and velocity frame by frame.</p>
+  </div>
+  <div class="litfig">
+    <h4>IIR wall filter: what the initialization does to the response on short ensembles</h4>
+    <p class="cite">S. Bjærum, H. Torp, "Statistical evaluation of clutter filters in color flow imaging," <em>Ultrasonics</em> 38, 376–380, 2000. <b>Figs. 1, 2 and 3</b>. Open copy: <a href="https://htorp.folk.ntnu.no/publ/Paper/96-00/StatEvalClutterUS00.pdf" target="_blank" rel="noopener">NTNU (author page)</a></p>
+    <p>Fig. 2 shows the frequency responses of a fourth-order Chebyshev high-pass with different initializations, Fig. 1 those of fifth-order FIR filters and Fig. 3 polynomial regression filters of order 0–3 for N = 9, all defined as in <span class="eqref">(09.11)</span>. Compare Fig. 2 with rule 13's figure (zero, step, projection) and Fig. 3 with the re-plot below; the paper then evaluates the filters on thyroid recordings.</p>
+  </div>
+  <div class="litfig">
+    <h4>The regression filter in closed form, and its frequency response</h4>
+    <p class="cite">H. Torp, "Clutter rejection filters in color flow imaging: a theoretical approach," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em> 44(2), 417–424, 1997. <b>Figs. 2 and 3</b>. Author copy: <a href="https://htorp.folk.ntnu.no/publ/Paper/96-00/Clutteruffc97.pdf" target="_blank" rel="noopener">NTNU (author page)</a></p>
+    <p>Fig. 2 shows the power spectra of the first Legendre basis functions and the response of a third-order regression filter; Fig. 3 the responses of regression filters of order 0 to 4 for N = 10. The figure below is re-computed from the same definition, \(1 - \lVert\mathbf{Q}^H\mathbf{e}_f\rVert^2/N\) with Legendre (orthonormal polynomial) columns, so the curves should coincide with the published ones.</p>
+    <div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Re-plotted from Torp (1997), Fig. 3: regression-filter power response for N = 10, orders p = 0 (gray), 1 (blue), 2 (green), 3 (pink), 4 (amber), computed from the published definition; JS.</span><canvas id="m9-lit-torp" aria-label="Regression filter power responses for N equal to 10 and orders 0 to 4"></canvas></div>
+  </div>
+  <div class="litfig">
+    <h4>Extraripple and equiripple low-pass filters: the alternation theorem on a plot</h4>
+    <p class="cite">L. R. Rabiner, O. Herrmann, "On the design of optimum FIR lowpass filters with even impulse response duration," <em>IEEE Trans. Audio Electroacoust.</em> AU-21(4), 329–336, 1973. <b>Fig. 3</b> and <b>Fig. 7</b>. Author reprint: <a href="https://web.ece.ucsb.edu/Faculty/Rabiner/ece259/Reprints/057_optimal%20design.pdf" target="_blank" rel="noopener">UCSB (Rabiner reprints)</a></p>
+    <p>Fig. 3 puts an extraripple design (seven error maxima) beside an equiripple one (six maxima) at the same short length, which makes the alternation count of Section 09.3 visible; Fig. 7 shows how the optimum moves as the ripple ratio is scaled, ending at an equiripple filter with M/2 + 1 peaks. The same authors' companion paper (Herrmann, Rabiner and Chan, 1973) turned such designs into the \(D_\infty(\delta_p, \delta_s)\) length formula quoted after <span class="eqref">(09.4)</span>.</p>
+  </div>
+
+  <!-- ===================== 09.15 Go deeper ===================== -->
+  <h2><span class="sec">09.15</span>Go deeper</h2>
+  <ul class="refs">
+    <li>A. V. Oppenheim and R. W. Schafer, <em>Discrete-Time Signal Processing</em>, 3rd ed., Pearson, 2010. Chapters 5–7: pole-zero analysis, linear phase types, window and optimal FIR design, bilinear transform.</li>
+    <li>J. F. Kaiser, "Nonrecursive digital filter design using the I<sub>0</sub>-sinh window function," Proc. IEEE Int. Symp. Circuits and Systems, 20–23, 1974. The β and order formulas.</li>
+    <li>J. H. McClellan, T. W. Parks and L. R. Rabiner, "A computer program for designing optimum FIR linear phase digital filters," IEEE Trans. Audio Electroacoustics AU-21(6), 506–526, 1973. <a href="https://doi.org/10.1109/TAU.1973.1162525" target="_blank" rel="noopener">doi:10.1109/TAU.1973.1162525</a>.</li>
+    <li>O. Herrmann, L. R. Rabiner and D. S. K. Chan, "Practical design rules for optimum finite impulse response lowpass digital filters," Bell System Technical Journal 52(6), 769–799, 1973.</li>
+    <li>E. B. Hogenauer, "An economical class of digital filters for decimation and interpolation," IEEE Trans. Acoustics, Speech, and Signal Processing 29(2), 155–162, 1981. <a href="https://doi.org/10.1109/TASSP.1981.1163535" target="_blank" rel="noopener">doi:10.1109/TASSP.1981.1163535</a>. The CIC filter.</li>
+    <li>R. E. Crochiere and L. R. Rabiner, <em>Multirate Digital Signal Processing</em>, Prentice-Hall, 1983. Polyphase structures and multistage decimation.</li>
+    <li>S. J. Orfanidis, "Lecture notes on elliptic filter design," Rutgers University, 2006. The Landen-transformation algorithm used in Demo 09.3.</li>
+    <li>S. Bjaerum, H. Torp and K. Kristoffersen, "Clutter filter design for ultrasound color flow imaging," IEEE Trans. Ultrasonics, Ferroelectrics, and Frequency Control 49(2), 204–216, 2002. FIR, IIR with initialization, regression and their power responses on short ensembles.</li>
+    <li>C. Demené et al., "Spatiotemporal clutter filtering of ultrafast ultrasound data highly increases Doppler and fUltrasound sensitivity," IEEE Trans. Medical Imaging 34(11), 2271–2285, 2015. <a href="https://doi.org/10.1109/TMI.2015.2428634" target="_blank" rel="noopener">doi:10.1109/TMI.2015.2428634</a>. The SVD filter that replaces frequency-based wall filters for long ensembles (Module 06).</li>
+    <li>R. G. Lyons, <em>Understanding Digital Signal Processing</em>, 3rd ed., Prentice Hall, 2010. Practical chapters on CIC filters, half-bands and fixed-point effects.</li>
+  </ul>
+  <div class="next"><a href="#m8">← 08 Analytic signal &amp; IQ</a><a href="#m10">10 Matched filtering →</a></div>
+</section>
+<style>
+#m9 .prov-legend .prov, #m9 .m9-fig .fh .prov { margin-left: 0; }
+#m9 .rule-fig .prov { margin: 0 0 4px; }
+#m9 .rule-fig .prov-note { margin: 0 0 4px; }
+#m9 .m9-fig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 12px; margin: 18px 0; }
+#m9 .m9-fig .fh { font-size: 0.9rem; margin-bottom: 6px; }
+#m9 .m9-fig .cap { font-size: 0.88rem; color: var(--muted); margin: 6px 0 0; }
+#m9 .m9-fig .mx-scroll > svg { min-width: 600px; width: 100%; height: auto; display: block; }
+#m9 .m9-fig .mx-scroll text { font: 12px var(--f-mono); fill: var(--ink); }
+#m9 .m9-fig .mx-scroll text.m { fill: var(--muted); }
+#m9 .m9-fig .mx-scroll text.s { font-size: 11px; fill: var(--muted); }
+#m9 .m9-fig .mx-scroll text.t { font-weight: 600; font-size: 12.5px; }
+#m9 .m9-fig .mx-scroll .w { stroke: var(--ink); fill: none; stroke-width: 1.4; }
+#m9 .m9-fig .mx-scroll .box { fill: var(--paper); stroke: var(--ink); stroke-width: 1.3; }
+#m9 .litfig h4 { margin: 0 0 4px; font-size: 0.98rem; }
+#m9 .litfig p { margin: 4px 0; }
+#m9 .litfig .rule-fig canvas { display: block; width: 100%; }
+</style>
+
+<script>
+(function () {
+  /* ===== DSP core: verified in node against SciPy (zpk designs, freqz, group delay, sosfilt, wall-filter matrices) ===== */
+  const D = (function () {
+  const PI = Math.PI;
+  /* complex helpers: [re, im] */
+  const C = {
+    add: (a, b) => [a[0] + b[0], a[1] + b[1]], sub: (a, b) => [a[0] - b[0], a[1] - b[1]],
+    mul: (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]],
+    div: (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; },
+    abs: a => Math.hypot(a[0], a[1]), conj: a => [a[0], -a[1]], sc: (a, s) => [a[0] * s, a[1] * s],
+    sqrt: a => { const r = Math.hypot(a[0], a[1]); let re = Math.sqrt((r + a[0]) / 2), im = Math.sqrt(Math.max(0, (r - a[0]) / 2)); if (a[1] < 0) im = -im; return [re, im]; },
+    exp: a => { const e = Math.exp(a[0]); return [e * Math.cos(a[1]), e * Math.sin(a[1])]; },
+    log: a => [Math.log(Math.hypot(a[0], a[1])), Math.atan2(a[1], a[0])],
+    cos: a => [Math.cos(a[0]) * Math.cosh(a[1]), -Math.sin(a[0]) * Math.sinh(a[1])],
+    sin: a => [Math.sin(a[0]) * Math.cosh(a[1]), Math.cos(a[0]) * Math.sinh(a[1])]
+  };
+  C.acos = a => { /* acos z = -j log(z + j sqrt(1 - z^2)) */ const s = C.sqrt(C.sub([1, 0], C.mul(a, a))); const l = C.log(C.add(a, [-s[1], s[0]])); return [l[1], -l[0]]; };
+  /* polynomial from roots (complex), returns real coefficient array (descending powers of z^-1 convention: [1, c1, c2...]) */
+  function poly(roots) { let p = [[1, 0]]; roots.forEach(r => { const q = p.map(v => v.slice()); q.push([0, 0]); for (let i = 1; i < q.length; i++) q[i] = C.sub(q[i], C.mul(r, p[i - 1])); p = q; }); return p.map(v => v[0]); }
+  /* frequency response of b/a at nw points on [0, wmax] (rad/sample); returns {w, re, im, mag, gd} */
+  function freqz(b, a, nw, wmax, wmin) {
+    wmax = wmax === undefined ? PI : wmax; wmin = wmin || 0; const w = new Float64Array(nw), mag = new Float64Array(nw), ph = new Float64Array(nw), gd = new Float64Array(nw);
+    const ev = (c, wk) => { let re = 0, im = 0, nre = 0, nim = 0; for (let n = 0; n < c.length; n++) { const cs = Math.cos(wk * n), sn = -Math.sin(wk * n); re += c[n] * cs; im += c[n] * sn; nre += n * c[n] * cs; nim += n * c[n] * sn; } return [re, im, nre, nim]; };
+    for (let k = 0; k < nw; k++) { const wk = wmin + (wmax - wmin) * k / (nw - 1); w[k] = wk; const B = ev(b, wk), A = ev(a, wk);
+      const H = C.div([B[0], B[1]], [A[0], A[1]]); mag[k] = C.abs(H); ph[k] = Math.atan2(H[1], H[0]);
+      const tb = C.div([B[2], B[3]], [B[0], B[1]])[0], ta = C.div([A[2], A[3]], [A[0], A[1]])[0]; gd[k] = tb - ta; }
+    return { w, mag, ph, gd };
+  }
+  function unwrap(p) { const o = Float64Array.from(p); for (let i = 1; i < o.length; i++) { let d = o[i] - o[i - 1]; while (d > PI) { o[i] -= 2 * PI; d -= 2 * PI; } while (d < -PI) { o[i] += 2 * PI; d += 2 * PI; } } return o; }
+  /* modified Bessel I0 by series */
+  function I0(x) { let s = 1, t = 1; const y = x * x / 4; for (let k = 1; k < 200; k++) { t *= y / (k * k); s += t; if (t < 1e-17 * s) break; } return s; }
+  function kaiserBeta(A) { return A > 50 ? 0.1102 * (A - 8.7) : A >= 21 ? 0.5842 * Math.pow(A - 21, 0.4) + 0.07886 * (A - 21) : 0; }
+  function kaiserOrder(A, dw) { return (A - 8) / (2.285 * dw); }
+  function kaiserWin(M, beta) { const w = new Float64Array(M + 1), I = I0(beta); for (let n = 0; n <= M; n++) { const r = 2 * n / M - 1; w[n] = I0(beta * Math.sqrt(Math.max(0, 1 - r * r))) / I; } return w; }
+  /* ideal band response h_d for bands [[w1,w2,gain],...] (rad/sample), delay M/2 */
+  function idealBands(M, bands) { const h = new Float64Array(M + 1), al = M / 2;
+    for (let n = 0; n <= M; n++) { const m = n - al; let v = 0; bands.forEach(([w1, w2, g]) => { v += g * (Math.abs(m) < 1e-12 ? (w2 - w1) / PI : (Math.sin(w2 * m) - Math.sin(w1 * m)) / (PI * m)); }); h[n] = v; } return h; }
+  function firWindow(M, bands, win) { const h = idealBands(M, bands); for (let n = 0; n <= M; n++) h[n] *= win[n]; return h; }
+  /* dense linear solve (Gauss, partial pivot); A array of rows, b array -> x */
+  function solve(A, b) { const n = b.length; const M = A.map((r, i) => r.concat([b[i]]));
+    for (let c = 0; c < n; c++) { let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r; [M[c], M[p]] = [M[p], M[c]];
+      const d = M[c][c]; for (let r = c + 1; r < n; r++) { const f = M[r][c] / d; if (f) for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; } }
+    const x = new Array(n).fill(0); for (let r = n - 1; r >= 0; r--) { let s = M[r][n]; for (let k = r + 1; k < n; k++) s -= M[r][k] * x[k]; x[r] = s / M[r][r]; } return x; }
+  /* Type I linear-phase FIR (M even) by weighted least squares on a grid, optional IRLS (Lawson) to approach equiripple.
+     spec: array of {w1, w2, d, wt} bands (rad/sample). Returns h (M+1 taps). */
+  function firLS(M, spec, iters, ng) {
+    ng = ng || 16 * M + 200; const L = M / 2; const gw = [], gd = [], gwt = [];
+    const tot = spec.reduce((s, b) => s + (b.w2 - b.w1), 0);
+    spec.forEach(b => { const n = Math.max(8, Math.round(ng * (b.w2 - b.w1) / tot)); for (let i = 0; i < n; i++) { gw.push(b.w1 + (b.w2 - b.w1) * i / (n - 1)); gd.push(b.d); gwt.push(b.wt); } });
+    const G = gw.length; const cosT = gw.map(w => { const r = new Float64Array(L + 1); for (let k = 0; k <= L; k++) r[k] = Math.cos(w * k); return r; });
+    let u = gwt.slice(); let a = null;
+    const nIt = iters || 1;
+    for (let it = 0; it < nIt; it++) {
+      const AtA = Array.from({ length: L + 1 }, () => new Array(L + 1).fill(0)), Atb = new Array(L + 1).fill(0);
+      for (let g = 0; g < G; g++) { const r = cosT[g], wg = u[g] * u[g]; for (let i = 0; i <= L; i++) { const ri = r[i] * wg; Atb[i] += ri * gd[g]; for (let j = i; j <= L; j++) AtA[i][j] += ri * r[j]; } }
+      for (let i = 0; i <= L; i++) { AtA[i][i] *= 1 + 1e-12; for (let j = 0; j < i; j++) AtA[i][j] = AtA[j][i]; }
+      a = solve(AtA, Atb);
+      if (it < nIt - 1) { /* Lawson update on weighted error envelope */
+        let s = 0; const e = new Float64Array(G); for (let g = 0; g < G; g++) { let A = 0; const r = cosT[g]; for (let k = 0; k <= L; k++) A += a[k] * r[k]; e[g] = Math.abs(gwt[g] * (A - gd[g])); }
+        for (let g = 0; g < G; g++) { u[g] = u[g] * Math.sqrt(e[g] + 1e-14); s += u[g] * u[g]; } const nrm = Math.sqrt(s / G); for (let g = 0; g < G; g++) u[g] /= nrm; }
+    }
+    const h = new Float64Array(M + 1); h[L] = a[0]; for (let k = 1; k <= L; k++) { h[L - k] = a[k] / 2; h[L + k] = a[k] / 2; } return h;
+  }
+  /* Kaiser (1974) equiripple order estimate: N = (-20 log10 sqrt(dp ds) - 13) / (09.6 df), df = transition / fs */
+  function eqOrderKaiser(dp, ds, df) { return (-20 * Math.log10(Math.sqrt(dp * ds)) - 13) / (14.6 * df); }
+  /* Herrmann, Rabiner & Chan (1973) estimate (lowpass) */
+  function eqOrderHerrmann(dp, ds, df) { const a = [0.005309, 0.07114, -0.4761, 0.00266, 0.5941, 0.4278]; const lp = Math.log10(dp), ls = Math.log10(ds);
+    const Dinf = ls * (a[0] * lp * lp + a[1] * lp + a[2]) - (a[3] * lp * lp + a[4] * lp + a[5]); const f = 11.01217 + 0.51244 * (lp - ls); return Dinf / df - f * df; }
+
+  /* ---------- analog prototypes (passband edge 1 rad/s), zpk ---------- */
+  function butterAP(N) { const p = []; for (let k = 1; k <= N; k++) { const th = PI * (2 * k + N - 1) / (2 * N); p.push([Math.cos(th), Math.sin(th)]); } return { z: [], p, k: 1 }; }
+  function cheb1AP(N, Ap) { const ep = Math.sqrt(Math.pow(10, Ap / 10) - 1), mu = Math.asinh(1 / ep) / N, p = [];
+    for (let k = 1; k <= N; k++) { const th = PI * (2 * k - 1) / (2 * N); p.push([-Math.sinh(mu) * Math.sin(th), Math.cosh(mu) * Math.cos(th)]); }
+    let g = [1, 0]; p.forEach(q => g = C.mul(g, C.sc(q, -1))); let k0 = g[0]; if (N % 2 === 0) k0 /= Math.sqrt(1 + ep * ep); return { z: [], p, k: k0 }; }
+  /* Chebyshev II normalized so the STOPBAND edge is 1 rad/s */
+  function cheb2AP(N, As) { const es = 1 / Math.sqrt(Math.pow(10, As / 10) - 1), mu = Math.asinh(1 / es) / N, p = [], z = [];
+    for (let k = 1; k <= N; k++) { const th = PI * (2 * k - 1) / (2 * N); const q = [-Math.sinh(mu) * Math.sin(th), Math.cosh(mu) * Math.cos(th)]; p.push(C.div([1, 0], q)); const c = Math.cos(th); if (Math.abs(c) > 1e-12) z.push([0, 1 / c]); }
+    let num = [1, 0], den = [1, 0]; p.forEach(q => den = C.mul(den, C.sc(q, -1))); z.forEach(q => num = C.mul(num, C.sc(q, -1))); return { z, p, k: C.div(den, num)[0] }; }
+  /* elliptic prototype (Orfanidis, Lecture notes on elliptic filter design), passband edge 1 rad/s */
+  function landen(k, M) { const v = []; for (let i = 0; i < (M || 7); i++) { k = Math.pow(k / (1 + Math.sqrt(1 - k * k)), 2); v.push(k); } return v; }
+  function cde(u, k) { const v = landen(k); let w = C.cos(C.sc(u, PI / 2)); for (let i = v.length - 1; i >= 0; i--) w = C.div(C.sc(w, 1 + v[i]), C.add([1, 0], C.sc(C.mul(w, w), v[i]))); return w; }
+  function sne(u, k) { const v = landen(k); let w = C.sin(C.sc(u, PI / 2)); for (let i = v.length - 1; i >= 0; i--) w = C.div(C.sc(w, 1 + v[i]), C.add([1, 0], C.sc(C.mul(w, w), v[i]))); return w; }
+  function ellK(k) { const v = landen(k); let K = PI / 2; v.forEach(x => K *= 1 + x); return K; }
+  function acde(w, k) { const v = landen(k); for (let i = 0; i < v.length; i++) { const v1 = i === 0 ? k : v[i - 1];
+      w = C.sc(C.div(w, C.add([1, 0], C.sqrt(C.sub([1, 0], C.sc(C.mul(w, w), v1 * v1))))), 2 / (1 + v[i])); }
+    let u = C.sc(C.acos(w), 2 / PI); const K = ellK(k), Kp = ellK(Math.sqrt(1 - k * k)); const R = Kp / K;
+    const srem = (x, y) => { let z = x - y * Math.round(x / y); return z; };
+    return [srem(u[0], 4), srem(u[1], 2 * R)]; }
+  function asne(w, k) { const u = acde(w, k); return [1 - u[0], -u[1]]; }
+  function ellipdeg(N, k1) { const L = Math.floor(N / 2), kp1 = Math.sqrt(1 - k1 * k1); let kp = Math.pow(kp1, N);
+    for (let i = 1; i <= L; i++) { const s = sne([(2 * i - 1) / N, 0], kp1)[0]; kp *= Math.pow(s, 4); } return Math.sqrt(1 - kp * kp); }
+  function ellipAP(N, Ap, As) { const ep = Math.sqrt(Math.pow(10, Ap / 10) - 1), es = Math.sqrt(Math.pow(10, As / 10) - 1), k1 = ep / es, k = ellipdeg(N, k1);
+    const L = Math.floor(N / 2), r = N % 2, z = [], p = [];
+    const v0 = C.sc(asne([0, 1 / ep], k1), 1 / N); /* asne(j/ep) / N, then multiply by -j */
+    const v0r = [v0[1], -v0[0]]; /* -j * v0 */
+    for (let i = 1; i <= L; i++) { const ui = (2 * i - 1) / N; const zeta = cde([ui, 0], k)[0];
+      const zz = [0, 1 / (k * zeta)]; z.push(zz, C.conj(zz));
+      const pa = C.mul([0, 1], cde(C.sub([ui, 0], C.mul([0, 1], v0r)), k)); p.push(pa, C.conj(pa)); }
+    if (r) { const pa0 = C.mul([0, 1], sne(C.mul([0, 1], v0r), k)); p.push([pa0[0], 0]); }
+    let num = [1, 0], den = [1, 0]; p.forEach(q => den = C.mul(den, C.sc(q, -1))); z.forEach(q => num = C.mul(num, C.sc(q, -1)));
+    let g = C.div(den, num)[0]; if (!r) g /= Math.sqrt(1 + ep * ep); return { z, p, k: g, ksel: k }; }
+  /* analog transforms */
+  function lp2lp(f, W) { return { z: f.z.map(q => C.sc(q, W)), p: f.p.map(q => C.sc(q, W)), k: f.k * Math.pow(W, f.p.length - f.z.length) }; }
+  function lp2hp(f, W) { /* s -> W/s */ const z = f.z.map(q => C.div([W, 0], q)), p = f.p.map(q => C.div([W, 0], q)); for (let i = f.z.length; i < f.p.length; i++) z.push([0, 0]);
+    let num = [1, 0], den = [1, 0]; f.z.forEach(q => num = C.mul(num, C.sc(q, -1))); f.p.forEach(q => den = C.mul(den, C.sc(q, -1))); return { z, p, k: f.k * C.div(num, den)[0] }; }
+  function lp2bp(f, W0, Bw) { /* s -> (s^2 + W0^2)/(Bw s) */ const map = q => { const b = C.sc(q, Bw / 2); const d = C.sqrt(C.sub(C.mul(b, b), [W0 * W0, 0])); return [C.add(b, d), C.sub(b, d)]; };
+    const z = [], p = []; f.z.forEach(q => z.push(...map(q))); f.p.forEach(q => p.push(...map(q))); for (let i = f.z.length; i < f.p.length; i++) z.push([0, 0]);
+    return { z, p, k: f.k * Math.pow(Bw, f.p.length - f.z.length) }; }
+  /* bilinear transform, fs2 = 2/T (use 2 for normalized rad/sample with prewarp Omega = 2 tan(w/2)) */
+  function bilinear(f, fs2) { fs2 = fs2 || 2; const bz = q => C.div(C.add([fs2, 0], q), C.sub([fs2, 0], q));
+    const z = f.z.map(bz), p = f.p.map(bz); for (let i = f.z.length; i < f.p.length; i++) z.push([-1, 0]);
+    let num = [1, 0], den = [1, 0]; f.z.forEach(q => num = C.mul(num, C.sub([fs2, 0], q))); f.p.forEach(q => den = C.mul(den, C.sub([fs2, 0], q)));
+    return { z, p, k: f.k * C.div(num, den)[0] }; }
+  const prewarp = w => 2 * Math.tan(w / 2);
+  /* zpk -> transfer function b, a (real) */
+  function zpk2tf(f) { const b = poly(f.z).map(v => v * f.k), a = poly(f.p); return { b, a }; }
+  /* zpk -> second-order sections [[b0,b1,b2,1,a1,a2],...]; pairs poles (closest to circle first) with nearest zeros */
+  function zpk2sos(f) { const take = (arr) => { const cpx = arr.filter(q => q[1] > 1e-10), re = arr.filter(q => Math.abs(q[1]) <= 1e-10).map(q => q[0]); return { cpx, re }; };
+    const P = take(f.p), Z = take(f.z); const pp = [];
+    P.cpx.forEach(q => pp.push([q, C.conj(q)])); P.re.sort((a, b) => Math.abs(b) - Math.abs(a)); for (let i = 0; i < P.re.length; i += 2) pp.push(i + 1 < P.re.length ? [[P.re[i], 0], [P.re[i + 1], 0]] : [[P.re[i], 0]]);
+    const zz = []; Z.cpx.forEach(q => zz.push([q, C.conj(q)])); for (let i = 0; i < Z.re.length; i += 2) zz.push(i + 1 < Z.re.length ? [[Z.re[i], 0], [Z.re[i + 1], 0]] : [[Z.re[i], 0]]);
+    pp.sort((a, b) => C.abs(b[0]) - C.abs(a[0])); const used = new Array(zz.length).fill(false); const sos = [];
+    pp.forEach(pr => { let best = -1, bd = 1e99; zz.forEach((zr, j) => { if (used[j]) return; const d = C.abs(C.sub(zr[0], pr[0])); if (d < bd) { bd = d; best = j; } });
+      const zr = best >= 0 ? (used[best] = true, zz[best]) : []; const b = poly(zr), a = poly(pr); while (b.length < 3) b.push(0); while (a.length < 3) a.push(0); sos.push([b[0], b[1], b[2], 1, a[1], a[2]]); });
+    sos[0] = sos[0].map((v, i) => i < 3 ? v * f.k : v); return sos; }
+  /* filter b, a (direct form II transposed) with optional initial state zi */
+  function filt(b, a, x, zi) { const n = Math.max(b.length, a.length), B = b.slice(), A = a.slice(); while (B.length < n) B.push(0); while (A.length < n) A.push(0);
+    const a0 = A[0]; for (let i = 0; i < n; i++) { B[i] /= a0; A[i] /= a0; } const z = zi ? zi.slice() : new Array(n - 1).fill(0); const y = new Float64Array(x.length);
+    for (let i = 0; i < x.length; i++) { const yi = B[0] * x[i] + (n > 1 ? z[0] : 0); for (let k = 1; k < n - 1; k++) z[k - 1] = B[k] * x[i] + z[k] - A[k] * yi; if (n > 1) z[n - 2] = B[n - 1] * x[i] - A[n - 1] * yi; y[i] = yi; } return y; }
+  function sosfilt(sos, x) { let y = x; sos.forEach(s => { y = filt([s[0], s[1], s[2]], [1, s[4], s[5]], y); }); return y; }
+  function sosfreqz(sos, nw, wmax, wmin) { let r = null; sos.forEach(s => { const f = freqz([s[0], s[1], s[2]], [1, s[4], s[5]], nw, wmax, wmin); if (!r) r = { w: f.w, mag: f.mag, ph: f.ph, gd: f.gd }; else { r = { w: r.w, mag: r.mag.map((v, i) => v * f.mag[i]), ph: r.ph.map((v, i) => v + f.ph[i]), gd: r.gd.map((v, i) => v + f.gd[i]) }; } }); return r; }
+  /* ---------- extras: roots, lfilter_zi, wall-filter matrices ---------- */
+  function roots(c) { /* c: [c0..cn] coefficients of c0 z^n + ... + cn (same as z^-k taps); Durand-Kerner */
+    const cm = Math.max(...c.map(Math.abs)) * 1e-13; let s = 0; while (s < c.length - 1 && Math.abs(c[s]) <= cm) s++; let a = c.slice(s); let e = a.length - 1; while (e > 0 && Math.abs(a[e]) <= cm) e--;
+    const nz0 = a.length - 1 - e; a = a.slice(0, e + 1); const n = a.length - 1; const out = []; for (let i = 0; i < nz0; i++) out.push([0, 0]); if (n < 1) return out;
+    const an = a.map(v => v / a[0]); const ev = zz => { let r = [1, 0]; for (let k = 1; k <= n; k++) r = C.add(C.mul(r, zz), [an[k], 0]); return r; };
+    const r0 = Math.pow(Math.abs(an[n]) || 1e-12, 1 / n); let z = []; for (let i = 0; i < n; i++) z.push(C.sc(C.exp([0, 2 * PI * i / n + 0.4]), r0 * 1.02));
+    for (let it = 0; it < 800; it++) { let mx = 0; for (let i = 0; i < n; i++) { let d = [1, 0]; for (let j = 0; j < n; j++) if (j !== i) d = C.mul(d, C.sub(z[i], z[j])); let dz = C.div(ev(z[i]), d); if (!isFinite(dz[0]) || !isFinite(dz[1])) dz = [1e-3 * (i + 1), 1e-3]; const ad = C.abs(dz), cap = 0.5 * (1 + C.abs(z[i])); if (ad > cap) dz = C.sc(dz, cap / ad); z[i] = C.sub(z[i], dz); mx = Math.max(mx, C.abs(dz)); } if (mx < 1e-14) break; }
+    return out.concat(z); }
+  function lfilterZi(b, a) { const n = Math.max(a.length, b.length), B = b.slice(), A = a.slice(); while (B.length < n) B.push(0); while (A.length < n) A.push(0);
+    const a0 = A[0]; for (let i = 0; i < n; i++) { B[i] /= a0; A[i] /= a0; } const m = n - 1; if (m < 1) return [];
+    const M = Array.from({ length: m }, (_, i) => Array.from({ length: m }, (_, j) => (i === j ? 1 : 0)));
+    /* I - companion(a).T ; companion: row0 = -a[1:], subdiag ones -> transpose: col0 = -a[1:], superdiag ones */
+    for (let i = 0; i < m; i++) { M[i][0] += A[i + 1]; if (i + 1 < m) M[i][i + 1] -= 1; }
+    const rhs = []; for (let i = 0; i < m; i++) rhs.push(B[i + 1] - A[i + 1] * B[0]); return solve(M, rhs); }
+  /* apply procedure fun (x -> y) to unit vectors: returns matrix rows (Nout x N) */
+  function matOf(fun, N) { const cols = []; for (let k = 0; k < N; k++) { const e = new Array(N).fill(0); e[k] = 1; cols.push(Array.from(fun(e))); } const No = cols[0].length; return Array.from({ length: No }, (_, i) => cols.map(cl => cl[i])); }
+  function iirMat(b, a, N, init) { if (init === 'zero') return matOf(x => filt(b, a, x), N);
+    const zi = lfilterZi(b, a); if (init === 'step') return matOf(x => filt(b, a, x, zi.map(v => v * x[0])), N);
+    const F = matOf(x => filt(b, a, x), N), n = zi.length; const G = []; for (let i = 0; i < n; i++) { const s0 = new Array(n).fill(0); s0[i] = 1; G.push(Array.from(filt(b, a, new Array(N).fill(0), s0))); }
+    /* P = I - G' (G G')^-1 G  (G stored as n rows of length N) */
+    const GG = G.map(r => G.map(q => r.reduce((s, v, k) => s + v * q[k], 0))); const P = Array.from({ length: N }, (_, i) => Array.from({ length: N }, (_, j) => (i === j ? 1 : 0)));
+    const inv = []; for (let j = 0; j < n; j++) { const e = new Array(n).fill(0); e[j] = 1; inv.push(solve(GG.map(r => r.slice()), e)); }
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { let s = 0; for (let p = 0; p < n; p++) for (let q = 0; q < n; q++) s += G[p][i] * inv[q][p] * G[q][j]; P[i][j] -= s; }
+    return P.map(r => F[0].map((_, j) => r.reduce((s, v, k) => s + v * F[k][j], 0))); }
+  function regMat(N, p) { const Q = []; for (let d = 0; d <= p; d++) { let v = []; for (let n = 0; n < N; n++) v.push(Math.pow(2 * n / (N - 1) - 1, d));
+      Q.forEach(q => { const c = q.reduce((s, x, i) => s + x * v[i], 0); v = v.map((x, i) => x - c * q[i]); }); const nr = Math.sqrt(v.reduce((s, x) => s + x * x, 0)); Q.push(v.map(x => x / nr)); }
+    return Array.from({ length: N }, (_, i) => Array.from({ length: N }, (_, j) => (i === j ? 1 : 0) - Q.reduce((s, q) => s + q[i] * q[j], 0))); }
+  function firMat(h, N) { const K = h.length - 1, A = []; for (let i = 0; i < N - K; i++) { const r = new Array(N).fill(0); for (let k = 0; k <= K; k++) r[i + K - k] = h[k]; A.push(r); } return A; }
+  /* windowed-sinc high-pass wall FIR (Hamming), unit-DC-normalized low-pass removed: exact zero at DC */
+  function wallFir(K, fc) { const lp = []; for (let n = 0; n <= K; n++) { const m = n - K / 2; const w = 0.54 - 0.46 * Math.cos(2 * PI * n / K); lp.push(w * (Math.abs(m) < 1e-12 ? 2 * fc : Math.sin(2 * PI * fc * m) / (PI * m))); }
+    const s = lp.reduce((p, v) => p + v, 0); return lp.map((v, n) => (n === K / 2 ? 1 : 0) - v / s); }
+  function presp(A, f) { const N = A[0].length; let s = 0; for (let i = 0; i < A.length; i++) { let re = 0, im = 0; for (let n = 0; n < N; n++) { re += A[i][n] * Math.cos(2 * PI * f * n); im += A[i][n] * Math.sin(2 * PI * f * n); } s += re * re + im * im; } return s / A.length; }
+  function applyC(A, xr, xi) { return A.map(r => { let re = 0, im = 0; for (let n = 0; n < r.length; n++) { re += r[n] * xr[n]; im += r[n] * xi[n]; } return [re, im]; }); }
+  return { roots, lfilterZi, matOf, iirMat, regMat, firMat, wallFir, presp, applyC, C, poly, freqz, unwrap, I0, kaiserBeta, kaiserOrder, kaiserWin, idealBands, firWindow, firLS, solve, eqOrderKaiser, eqOrderHerrmann,
+    butterAP, cheb1AP, cheb2AP, ellipAP, ellipdeg, ellK, cde, sne, lp2lp, lp2hp, lp2bp, bilinear, prewarp, zpk2tf, zpk2sos, filt, sosfilt, sosfreqz };
+})();
+
+  /* ===================== shared helpers ===================== */
+  const $ = id => document.getElementById(id), PI = Math.PI, FS = 40, M_ = Lab.mini;
+  const dB = v => 20 * Math.log10(Math.max(Math.abs(v), 1e-15));
+  const fmt = (v, d) => { const s = Math.abs(v).toFixed(d); return (v < 0 && +s !== 0 ? '−' : '') + s; };
+  const tauRoot = (q, w) => { const r = Math.hypot(q[0], q[1]), th = Math.atan2(q[1], q[0]), c = Math.cos(w - th), d = 1 - 2 * r * c + r * r; return d < 1e-14 ? 0.5 : (r * r - r * c) / d; };
+  /* digital zpk (equal numbers of zeros and poles) evaluated on the circle: [mag, gd] */
+  function zpkAt(f, w) { const e = [Math.cos(w), Math.sin(w)]; let m = Math.abs(f.k), g = 0;
+    f.z.forEach(q => { m *= D.C.abs(D.C.sub(e, q)); g += tauRoot(q, w); }); f.p.forEach(q => { m /= D.C.abs(D.C.sub(e, q)); g -= tauRoot(q, w); }); return [m, g]; }
+  const expand = L => { const out = []; L.forEach(r => { if (r.im > 1e-9) { out.push([r.re, r.im], [r.re, -r.im]); } else out.push([r.re, 0]); }); return out; };
+  const upper = arr => arr.filter(q => q[1] >= -1e-9).map(q => [q[0], Math.max(0, q[1])]);
+  function zAxes(ctx, box, rng, c) { /* square z-plane: returns map */ const X = re => box.x + (re + rng) / (2 * rng) * box.w, Y = im => box.y + (rng - im) / (2 * rng) * box.h, s = box.w / (2 * rng);
+    ctx.save(); ctx.strokeStyle = c.grid; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(box.x, Y(0)); ctx.lineTo(box.x + box.w, Y(0)); ctx.moveTo(X(0), box.y); ctx.lineTo(X(0), box.y + box.h); ctx.stroke();
+    ctx.strokeStyle = c.rule; ctx.strokeRect(box.x + 0.5, box.y + 0.5, box.w, box.h); ctx.strokeStyle = c.muted; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(X(0), Y(0), s, 0, 2 * PI); ctx.stroke(); ctx.restore();
+    return { X, Y, s }; }
+  function markX(ctx, x, y, col, r, lw) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = lw || 2; ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.moveTo(x - r, y + r); ctx.lineTo(x + r, y - r); ctx.stroke(); ctx.restore(); }
+  function markO(ctx, x, y, col, r, lw) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = lw || 2; ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * PI); ctx.stroke(); ctx.restore(); }
+  function stemsAx(ctx, ax, ys, x0, col, r) { ctx.save(); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.2; const y0 = ax.Y(0);
+    ys.forEach((v, i) => { const px = ax.X(x0 + i), py = ax.Y(v); ctx.beginPath(); ctx.moveTo(px, y0); ctx.lineTo(px, py); ctx.stroke(); ctx.beginPath(); ctx.arc(px, py, r || 2, 0, 2 * PI); ctx.fill(); }); ctx.restore(); }
+  function hline(ctx, ax, y, x0, x1, col, dash) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 1.2; if (dash) ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(ax.X(x0), ax.Y(y)); ctx.lineTo(ax.X(x1), ax.Y(y)); ctx.stroke(); ctx.restore(); }
+  function vline(ctx, ax, x, col, dash) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 1.2; if (dash) ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(ax.X(x), ax.box.y); ctx.lineTo(ax.X(x), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
+  const clampArr = (a, lo, hi) => Array.from(a, v => Math.max(lo, Math.min(hi, v)));
+  /* analytic-signal envelope by FFT (length must be power of 2) */
+  function envelope(x) { const n = x.length, re = Float64Array.from(x), im = new Float64Array(n); Lab.fft(re, im, false);
+    for (let k = 1; k < n / 2; k++) { re[k] *= 2; im[k] *= 2; } for (let k = n / 2 + 1; k < n; k++) { re[k] = 0; im[k] = 0; } Lab.fft(re, im, true); return Array.from(re, (v, i) => Math.hypot(v, im[i])); }
+  function gaussPulse(n, n0, f0, bw) { /* f0 in MHz, bw fractional -6 dB; sampled at FS */ const B = bw * f0, st = Math.sqrt(2 * Math.log(2)) / (PI * B) * FS; const x = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) { const t = i - n0; x[i] = Math.exp(-t * t / (2 * st * st)) * Math.cos(2 * PI * f0 * t / FS); } return x; }
+  function fbFilt(sos, x) { let y = D.sosfilt(sos, x); y = Array.from(y).reverse(); y = D.sosfilt(sos, y); return Array.from(y).reverse(); }
+  function sosZi(sos, x0) { let g = x0; return sos.map(s => { const zi = D.lfilterZi([s[0], s[1], s[2]], [1, s[4], s[5]]).map(v => v * g); g *= (s[0] + s[1] + s[2]) / (1 + s[4] + s[5]); return zi; }); }
+  function sosfiltZi(sos, x, zis) { let y = x; sos.forEach((s, i) => { y = D.filt([s[0], s[1], s[2]], [1, s[4], s[5]], y, zis[i]); }); return y; }
+  function bestRho(y, x, lo, hi) { const nx = Math.sqrt(x.reduce((s, v) => s + v * v, 0)), ny = Math.sqrt(y.reduce((s, v) => s + v * v, 0)); let best = -2, bl = 0;
+    for (let L = lo; L <= hi; L++) { let s = 0; for (let n = 0; n < x.length; n++) { const m = n + L; if (m >= 0 && m < y.length) s += y[m] * x[n]; } if (s > best) { best = s; bl = L; } } return { rho: best / (nx * ny), lag: bl }; }
+
+  /* ===================== Demo 09.1: pole-zero ===================== */
+  const PZ = { roots: [], drag: null, lay: null };
+  function pzPreset(k) { const R = (t, r, th) => ({ t, re: r * Math.cos(th), im: Math.abs(r * Math.sin(th)) });
+    const fromZpk = f => upper(f.p).map(q => ({ t: 'p', re: q[0], im: q[1] })).concat(upper(f.z).map(q => ({ t: 'z', re: q[0], im: q[1] })));
+    const L = { lp1: [R('p', 0.8, 0)], res: [R('p', 0.95, PI / 4)], notch: [R('z', 1, PI / 3), R('p', 0.95, PI / 3)],
+      bw2: fromZpk(D.bilinear(D.lp2lp(D.butterAP(2), D.prewarp(0.2 * PI)))), ap: [R('p', 0.8, PI / 3), R('z', 1.25, PI / 3)],
+      lin: [R('z', 1, 0.6 * PI), R('z', 1, 0.8 * PI), R('z', 0.7, 0.2 * PI), R('z', 1 / 0.7, 0.2 * PI)],
+      wall: fromZpk(D.bilinear(D.lp2hp(D.butterAP(2), D.prewarp(0.2 * PI)))), unst: [R('p', 1.05, 0)] }[k];
+    PZ.roots = L.map(r => Object.assign({}, r, { im: r.im < 1e-6 ? 0 : r.im })); }
+  function pzTF() { const P = expand(PZ.roots.filter(r => r.t === 'p')), Z = expand(PZ.roots.filter(r => r.t === 'z')); return { P, Z, b: D.poly(Z), a: D.poly(P) }; }
+  function drawPZ() { const c = Lab.colors(), cv = $('m9-pz-cv'); const wv = cv.clientWidth || 600; const wide = wv >= 640;
+    const S = wide ? Math.min(340, Math.round(wv * 0.42)) : Math.min(wv - 16, 340); const H = wide ? 430 : S + 450;
+    const { ctx, w } = Lab.canvas(cv, H); const zb = wide ? { x: 6, y: 20, w: S, h: S } : { x: Math.round((w - S) / 2), y: 8, w: S, h: S };
+    const zm = zAxes(ctx, zb, 1.6, c); PZ.lay = { zb, zm };
+    const { P, Z, b, a } = pzTF(); const NW = 512; const fr = D.freqz(b, a, NW, PI); let pk = 0, ipk = 0; fr.mag.forEach((v, i) => { if (v > pk) { pk = v; ipk = i; } }); const g = pk > 0 && isFinite(pk) ? 1 / pk : 1;
+    const wp = +$('m9-pz-w').value * PI; $('m9-pz-w-o').textContent = (wp / PI).toFixed(3);
+    /* probe vectors */
+    const ex = Math.cos(wp), ey = Math.sin(wp); let dz = 1, dp = 1;
+    ctx.save(); ctx.strokeStyle = c.sig3; ctx.lineWidth = 1.1; ctx.globalAlpha = 0.85;
+    Z.concat(P).forEach(q => { ctx.beginPath(); ctx.moveTo(zm.X(q[0]), zm.Y(q[1])); ctx.lineTo(zm.X(ex), zm.Y(ey)); ctx.stroke(); }); ctx.restore();
+    Z.forEach(q => dz *= Math.hypot(ex - q[0], ey - q[1])); P.forEach(q => dp *= Math.hypot(ex - q[0], ey - q[1]));
+    ctx.save(); ctx.fillStyle = c.sig3; ctx.beginPath(); ctx.arc(zm.X(ex), zm.Y(ey), 5, 0, 2 * PI); ctx.fill(); ctx.restore();
+    Z.forEach(q => markO(ctx, zm.X(q[0]), zm.Y(q[1]), c.accent, 6, 2)); P.forEach(q => markX(ctx, zm.X(q[0]), zm.Y(q[1]), c.sig2, 6, 2.2));
+    ctx.save(); ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.fillText('z-plane (drag roots)', zb.x + 6, zb.y + 14); ctx.restore();
+    /* plots */
+    const px = wide ? zb.x + S + 64 : 50, pw = wide ? w - px - 10 : w - 62; const y0 = wide ? 22 : S + 40, step = 102, ph = 66;
+    const wn = Array.from(fr.w, v => v / PI); const magdB = Array.from(fr.mag, v => dB(v * g));
+    const ax1 = Lab.axes(ctx, { x: px, y: y0, w: pw, h: ph }, [0, 1], [-50, 5], { ylabel: '|H| (dB)', yticks: [-40, -20, 0], noXLabels: false, nx: 5, xfmt: v => v.toFixed(1) });
+    ax1.clip(); Lab.line(ctx, ax1, wn, clampArr(magdB, -60, 10), c.accent, 1.8); vline(ctx, ax1, wp / PI, c.sig3, [3, 3]); ax1.unclip();
+    const ph_ = D.unwrap(fr.ph); const phn = Array.from(ph_, v => v / PI); let lo = Math.min(...phn), hi = Math.max(...phn); if (hi - lo < 1) { const m = (hi + lo) / 2; lo = m - 0.5; hi = m + 0.5; }
+    const ax2 = Lab.axes(ctx, { x: px, y: y0 + step, w: pw, h: ph }, [0, 1], [lo - 0.1, hi + 0.1], { ylabel: 'phase/π', yticks: Lab.ticks(lo, hi, 2), nx: 5, xfmt: v => v.toFixed(1) });
+    ax2.clip(); Lab.line(ctx, ax2, wn, phn, c.sig2, 1.6); vline(ctx, ax2, wp / PI, c.sig3, [3, 3]); ax2.unclip();
+    const gd = Array.from(fr.gd); const finite = gd.filter(v => isFinite(v)); let glo = Math.min(-1, ...finite), ghi = Math.max(2, ...finite); glo = Math.max(glo, -60); ghi = Math.min(ghi, 80);
+    const ax3 = Lab.axes(ctx, { x: px, y: y0 + 2 * step, w: pw, h: ph }, [0, 1], [glo, ghi * 1.08], { ylabel: 'τg (samples)', yticks: Lab.ticks(glo, ghi, 2), nx: 5, xfmt: v => v.toFixed(1) });
+    ax3.clip(); Lab.line(ctx, ax3, wn, clampArr(gd, -100, 200), c.sig4, 1.8); vline(ctx, ax3, wp / PI, c.sig3, [3, 3]); ax3.unclip();
+    ctx.save(); ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.textAlign = 'right'; ctx.fillText('ω/π', px + pw, y0 + 2 * step + ph + 30); ctx.restore();
+    const imp = new Array(40).fill(0); imp[0] = 1; const hn = Array.from(D.filt(b.map(v => v * g), a, imp)); let hm = Math.max(1e-9, ...hn.map(Math.abs)); const lim = Math.min(hm, 1e6);
+    const ax4 = Lab.axes(ctx, { x: px, y: y0 + 3 * step, w: pw, h: ph }, [-1, 40], [-lim * 1.1, lim * 1.1], { ylabel: 'h[n]', ny: 2, nx: 8, yfmt: v => Lab.fmt(v, Math.abs(v) >= 10 ? 0 : 2) });
+    ax4.clip(); stemsAx(ctx, ax4, clampArr(hn, -lim * 1.2, lim * 1.2), 0, c.sig4, 2); ax4.unclip();
+    ctx.save(); ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.textAlign = 'right'; ctx.fillText('n', px + pw, y0 + 3 * step + ph + 18); ctx.restore();
+    /* readout */
+    const rmax = P.length ? Math.max(...P.map(q => Math.hypot(q[0], q[1]))) : 0, zmax = Z.length ? Math.max(...Z.map(q => Math.hypot(q[0], q[1]))) : 0;
+    const k = Math.round(wp / PI * (NW - 1)); const geo = g * dz / dp; const fe = D.freqz(b, a, 2, wp + 1e-12, wp); const hx = g * fe.mag[0], gx = fe.gd[0];
+    $('m9-pz-read').innerHTML = (rmax < 1 ? 'stable: max |p| = <b>' + rmax.toFixed(3) + '</b>' : '<span style="color:var(--bad)">UNSTABLE: max |p| = ' + rmax.toFixed(3) + '</span>') +
+      '<br>' + (rmax < 1 && zmax <= 1 + 1e-9 ? 'minimum phase (all roots inside)' : 'not minimum phase') +
+      '<br>at ω = ' + (wp / PI).toFixed(3) + 'π: g·Πd<sub>z</sub>/Πd<sub>p</sub> = <b>' + geo.toPrecision(5) + '</b><br>|H| from polynomials = ' + (g * fr.mag[k]).toPrecision(4) + ' (' + fmt(dB(g * fr.mag[k]), 1) + ' dB)' +
+      '<br>τ<sub>g</sub> at probe = <b>' + (isFinite(gx) ? fmt(gx, 2) : '∞') + '</b> samples<br>peak at ω = ' + (fr.w[ipk] / PI).toFixed(3) + 'π, τ<sub>g</sub> there ' + fmt(fr.gd[ipk], 1); }
+  function pzPos(e) { const r = $('m9-pz-cv').getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  $('m9-pz-cv').addEventListener('pointerdown', e => { if (!PZ.lay) return; const [x, y] = pzPos(e), zm = PZ.lay.zm; let best = -1, bd = 16;
+    PZ.roots.forEach((r, i) => { [r.im, -r.im].forEach(im => { const d = Math.hypot(zm.X(r.re) - x, zm.Y(im) - y); if (d < bd) { bd = d; best = i; } }); });
+    if (best >= 0) { PZ.drag = best; $('m9-pz-cv').setPointerCapture(e.pointerId); e.preventDefault(); } });
+  $('m9-pz-cv').addEventListener('pointermove', e => { if (PZ.drag === null) return; const [x, y] = pzPos(e), zb = PZ.lay.zb; let re = (x - zb.x) / zb.w * 3.2 - 1.6, im = 1.6 - (y - zb.y) / zb.h * 3.2;
+    const rr = Math.hypot(re, im); if (rr > 1.6) { re *= 1.6 / rr; im *= 1.6 / rr; } im = Math.abs(im); if (im < 0.03) im = 0; const r = PZ.roots[PZ.drag]; r.re = re; r.im = im; drawPZ(); });
+  const pzUp = () => { PZ.drag = null; }; $('m9-pz-cv').addEventListener('pointerup', pzUp); $('m9-pz-cv').addEventListener('pointercancel', pzUp);
+  $('m9-pz-pre').addEventListener('change', () => { pzPreset($('m9-pz-pre').value); drawPZ(); });
+  $('m9-pz-w').addEventListener('input', drawPZ);
+  $('m9-pz-ap').addEventListener('click', () => { if (PZ.roots.length < 16) PZ.roots.push({ t: 'p', re: 0.5 * Math.cos(1.9), im: 0.5 * Math.sin(1.9) }); drawPZ(); });
+  $('m9-pz-az').addEventListener('click', () => { if (PZ.roots.length < 16) PZ.roots.push({ t: 'z', re: Math.cos(2.4), im: Math.sin(2.4) }); drawPZ(); });
+  $('m9-pz-del').addEventListener('click', () => { PZ.roots.pop(); drawPZ(); });
+  pzPreset('res');
+
+  /* ===================== Demo 09.2: FIR bench ===================== */
+  let firT = null;
+  function firParams() { const fp = +$('m9-fir-fp').value, tw = +$('m9-fir-tw').value, As = +$('m9-fir-a').value, ratio = +$('m9-fir-dp').value, M = +$('m9-fir-o').value, meth = $('m9-fir-m').value;
+    const fsb = Math.min(fp + tw, 19.9); return { fp, tw, fsb, As, ratio, M, meth, wp: 2 * PI * fp / FS, ws: 2 * PI * fsb / FS, ds: Math.pow(10, -As / 20) }; }
+  function firEst(P) { const dpT = Math.min(0.3, P.ratio * P.ds), df = (P.fsb - P.fp) / FS; return { kai: D.kaiserOrder(P.As, P.ws - P.wp), eq: D.eqOrderKaiser(dpT, P.ds, df), her: D.eqOrderHerrmann(dpT, P.ds, df) }; }
+  function firOutputs() { const P = firParams(); $('m9-fir-fp-o').textContent = P.fp + ' MHz'; $('m9-fir-tw-o').textContent = P.tw + ' MHz'; $('m9-fir-a-o').textContent = P.As + ' dB'; $('m9-fir-o-o').textContent = P.M; return P; }
+  function drawFIR() { const P = firOutputs(), c = Lab.colors(); let h;
+    if (P.meth === 'kai') h = D.firWindow(P.M, [[0, (P.wp + P.ws) / 2, 1]], D.kaiserWin(P.M, D.kaiserBeta(P.As)));
+    else h = D.firLS(P.M, [{ w1: 0, w2: P.wp, d: 1, wt: 1 }, { w1: P.ws, w2: PI, d: 0, wt: P.ratio }], P.meth === 'eq' ? 25 : 1, 6 * P.M + 150);
+    const fr = D.freqz(Array.from(h), [1], 1601, PI); let mp = 0, ms = 0; const fM = Array.from(fr.w, v => v / (2 * PI) * FS);
+    fM.forEach((f, i) => { if (f <= P.fp) mp = Math.max(mp, Math.abs(fr.mag[i] - 1)); if (f >= P.fsb) ms = Math.max(ms, fr.mag[i]); });
+    const cv = $('m9-fir-cv'), { ctx, w } = Lab.canvas(cv, 440); const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 62, h: 250 }, [0, 20], [-110, 5], { ylabel: '|H| (dB)', xlabel: 'frequency (MHz), fs = 40 MHz', yticks: [-100, -80, -60, -40, -20, 0] });
+    ax.clip(); ctx.save(); ctx.fillStyle = c.sig2; ctx.globalAlpha = 0.08; ctx.fillRect(ax.X(P.fp), ax.box.y, ax.X(P.fsb) - ax.X(P.fp), ax.box.h); ctx.restore();
+    hline(ctx, ax, -P.As, P.fsb, 20, c.sig2); vline(ctx, ax, P.fp, c.sig2, [3, 3]); vline(ctx, ax, P.fsb, c.sig2, [3, 3]);
+    hline(ctx, ax, dB(1 + Math.min(0.3, P.ratio * P.ds)), 0, P.fp, c.sig2); Lab.line(ctx, ax, fM, Array.from(fr.mag, v => Math.max(-120, dB(v))), c.accent, 1.6); ax.unclip();
+    const hm = Math.max(...Array.from(h).map(Math.abs)); const ax2 = Lab.axes(ctx, { x: 50, y: 320, w: w - 62, h: 90 }, [-2, 162], [-hm * 0.35, hm * 1.1], { ylabel: 'h[n]', ny: 2, nx: 8, yfmt: v => v.toFixed(2) });
+    ax2.clip(); stemsAx(ctx, ax2, Array.from(h), 0, c.sig4, 1.4); ax2.unclip();
+    const E = firEst(P), dpT = Math.min(0.3, P.ratio * P.ds); const meetP = mp <= (P.meth === 'kai' ? P.ds : dpT) * 1.0001 || (P.meth === 'kai' && mp <= dpT), meetS = ms <= P.ds * 1.0001;
+    $('m9-fir-read').innerHTML = 'taps <b>' + (P.M + 1) + '</b>, delay M/2 = ' + P.M / 2 + ' samples = ' + (P.M / 2 / FS).toFixed(3) + ' µs = ' + (P.M / 2 / FS * 0.77).toFixed(2) + ' mm' +
+      '<br>' + (P.meth === 'kai' ? 'β = <b>' + D.kaiserBeta(P.As).toFixed(3) + '</b> (δ<sub>p</sub> = δ<sub>s</sub>)' : 'weight W<sub>s</sub>/W<sub>p</sub> = ' + P.ratio) +
+      '<br>estimates: Kaiser window M = <b>' + E.kai.toFixed(1) + '</b><br>equiripple M = <b>' + E.eq.toFixed(1) + '</b> (Kaiser), ' + E.her.toFixed(1) + ' (Herrmann)' +
+      '<br>measured δ<sub>p</sub> = ' + mp.toFixed(4) + ' (target ' + (P.meth === 'kai' ? P.ds : dpT).toPrecision(2) + ')' + '<br>measured stopband = <b>' + fmt(dB(ms), 1) + ' dB</b> (target −' + P.As + ')' +
+      '<br>' + (meetP && meetS ? '<span style="color:var(--good)">meets spec</span>' : '<span style="color:var(--bad)">misses spec</span>') + ' · multiplies/output (folded) ' + (P.M / 2 + 1); }
+  function firSchedule() { firOutputs(); clearTimeout(firT); firT = setTimeout(drawFIR, $('m9-fir-m').value === 'kai' ? 0 : 60); }
+  ['m9-fir-fp', 'm9-fir-tw', 'm9-fir-a', 'm9-fir-o'].forEach(id => $(id).addEventListener('input', firSchedule));
+  ['m9-fir-m', 'm9-fir-dp'].forEach(id => $(id).addEventListener('change', firSchedule));
+  $('m9-fir-est').addEventListener('click', () => { const P = firParams(), E = firEst(P); let m = P.meth === 'kai' ? E.kai : E.eq; m = Math.ceil(m); if (m % 2) m++; m = Math.max(4, Math.min(160, m)); $('m9-fir-o').value = m; firSchedule(); });
+
+  /* ===================== Demo 09.3: IIR families ===================== */
+  function iirFamilies(N, Ap, As, fp) { const ep = Math.sqrt(Math.pow(10, Ap / 10) - 1), es = Math.sqrt(Math.pow(10, As / 10) - 1), Op = D.prewarp(2 * PI * fp / FS);
+    const rC = Math.cosh(Math.acosh(es / ep) / N); const el = D.ellipAP(N, Ap, As);
+    const an = [D.lp2lp(D.butterAP(N), Op / Math.pow(ep, 1 / N)), D.lp2lp(D.cheb1AP(N, Ap), Op), D.lp2lp(D.cheb2AP(N, As), Op * rC), D.lp2lp(el, Op)];
+    const stopO = [Op * Math.pow(es / ep, 1 / N), Op * rC, Op * rC, Op / el.ksel];
+    return { dig: an.map(f => D.bilinear(f)), stopF: stopO.map(O => FS / PI * Math.atan(O / 2)) }; }
+  function drawIIR() { const c = Lab.colors(), N = +$('m9-iir-n').value, Ap = +$('m9-iir-ap').value, As = +$('m9-iir-as').value, sel = +$('m9-iir-pz').value;
+    $('m9-iir-n-o').textContent = N; $('m9-iir-ap-o').textContent = Ap.toFixed(1) + ' dB'; $('m9-iir-as-o').textContent = As + ' dB';
+    const F = iirFamilies(N, Ap, As, 8), cols = [c.muted, c.accent, c.sig4, c.sig2]; const cv = $('m9-iir-cv'); const wv = cv.clientWidth || 600, wide = wv >= 600;
+    const inS = wide ? 170 : Math.min(230, wv - 60); const { ctx, w } = Lab.canvas(cv, wide ? 410 : 440 + inS + 10);
+    const mw = wide ? w - inS - 78 : w - 62; const ax = Lab.axes(ctx, { x: 50, y: 14, w: mw, h: 200 }, [0, 20], [-100, 5], { ylabel: '|H| (dB)', xlabel: 'frequency (MHz)', yticks: [-100, -80, -60, -40, -20, 0] });
+    const nf = 500, fs_ = [], resp = F.dig.map(() => []); for (let i = 0; i < nf; i++) { const f = 20 * i / (nf - 1); fs_.push(f); F.dig.forEach((d, j) => resp[j].push(zpkAt(d, 2 * PI * f / FS))); }
+    ax.clip(); hline(ctx, ax, -As, 0, 20, c.rule, [4, 3]); vline(ctx, ax, 8, c.rule, [4, 3]); resp.forEach((r, j) => Lab.line(ctx, ax, fs_, r.map(v => Math.max(-130, dB(v[0]))), cols[j], j === sel ? 2.2 : 1.5)); ax.unclip();
+    const gy = 270;
+    let gmax = 1; resp.forEach(r => r.forEach((v, i) => { if (fs_[i] <= 12) gmax = Math.max(gmax, v[1]); })); gmax = Math.min(gmax * 1.1, 200);
+    const ax3 = Lab.axes(ctx, { x: 50, y: gy, w: w - 62, h: 110 }, [0, 12], [0, gmax], { ylabel: 'τg (samples)', xlabel: 'frequency (MHz)', ny: 4 });
+    ax3.clip(); vline(ctx, ax3, 8, c.rule, [4, 3]); resp.forEach((r, j) => { const xs = [], ys = []; r.forEach((v, i) => { if (fs_[i] <= 12.05) { xs.push(fs_[i]); ys.push(v[1]); } }); Lab.line(ctx, ax3, xs, ys, cols[j], j === sel ? 2.2 : 1.5); }); ax3.unclip();
+    /* inset z-plane */
+    const ib = wide ? { x: w - inS - 8, y: 14, w: inS, h: inS } : { x: Math.round((w - inS) / 2), y: gy + 160, w: inS, h: inS };
+    const zm = zAxes(ctx, ib, 1.25, c); const d = F.dig[sel]; d.z.forEach(q => markO(ctx, zm.X(q[0]), zm.Y(q[1]), c.accent, 4, 1.6)); d.p.forEach(q => markX(ctx, zm.X(q[0]), zm.Y(q[1]), c.sig2, 4, 1.8));
+    ctx.save(); ctx.fillStyle = c.muted; ctx.font = '10.5px ' + c.mono; ctx.fillText(['Butterworth', 'Chebyshev I', 'Chebyshev II', 'elliptic'][sel], ib.x + 4, ib.y + 12); ctx.restore();
+    const names = ['Butter', 'Cheb I', 'Cheb II', 'ellip']; let s = 'A<sub>s</sub> reached at · τ<sub>g</sub>(0) · τ<sub>g</sub> max';
+    F.dig.forEach((dd, j) => { let gm = 0; resp[j].forEach((v, i) => { if (fs_[i] <= 12) gm = Math.max(gm, v[1]); }); const sf = F.stopF[j];
+      s += '<br>' + names[j] + ': <b>' + (sf > 19.95 ? '&gt;20' : sf.toFixed(2)) + ' MHz</b> · ' + resp[j][0][1].toFixed(1) + ' · ' + gm.toFixed(1); });
+    $('m9-iir-read').innerHTML = s + '<br>biquads: ' + Math.ceil(N / 2) + ' each (5 multiplies)<br><span class="muted">τ<sub>g</sub> in samples at 40 MHz; edge 8 MHz.</span>'; }
+  ['m9-iir-n', 'm9-iir-ap', 'm9-iir-as'].forEach(id => $(id).addEventListener('input', drawIIR)); $('m9-iir-pz').addEventListener('change', drawIIR);
+
+  /* ===================== Demo 09.4: FIR vs IIR band-pass ===================== */
+  let CMP = null;
+  function cmpInit() { if (CMP) return CMP; const W = f => 2 * PI * f / FS, dp = 0.028774368, ds = 0.01, wt = dp / ds;
+    const h = Array.from(D.firLS(72, [{ w1: 0, w2: W(2), d: 0, wt }, { w1: W(3), w2: W(7), d: 1, wt: 1 }, { w1: W(8), w2: PI, d: 0, wt }], 40, 800));
+    const W1 = D.prewarp(W(3)), W2 = D.prewarp(W(7)), W0 = Math.sqrt(W1 * W2), B = W2 - W1, Ap = 0.5, As = 40, ep = Math.sqrt(Math.pow(10, Ap / 10) - 1);
+    const fam = { e: D.ellipAP(5, Ap, As), c: D.cheb1AP(8, Ap), b: D.lp2lp(D.butterAP(17), Math.pow(ep, -1 / 17)) }, iir = {};
+    Object.keys(fam).forEach(k => { const z = D.bilinear(D.lp2bp(fam[k], W0, B)); iir[k] = { zpk: z, sos: D.zpk2sos(z), order: fam[k].p.length * 2 }; });
+    CMP = { h, iir, firFr: D.freqz(h, [1], 801, PI) }; return CMP; }
+  function drawCMP() { const c = Lab.colors(), Cm = cmpInit(), fam = $('m9-cmp-fam').value, f0 = +$('m9-cmp-f0').value, bw = +$('m9-cmp-bw').value / 100, zp = $('m9-cmp-zp').checked;
+    $('m9-cmp-f0-o').textContent = f0.toFixed(1) + ' MHz'; $('m9-cmp-bw-o').textContent = Math.round(bw * 100) + ' %';
+    const I = Cm.iir[fam], NS = 1024, n0 = 200; const x = gaussPulse(NS, n0, f0, bw);
+    const yF = []; for (let n = 0; n < NS; n++) { let s = 0; for (let k = 0; k <= 72; k++) if (n - k >= 0) s += Cm.h[k] * x[n - k]; yF.push(s); }
+    const yI = zp ? fbFilt(I.sos, x) : Array.from(D.sosfilt(I.sos, x));
+    /* magnitude-only version of the IIR (|H| or |H|^2 with zero phase) via FFT */
+    const re = Float64Array.from(x), im = new Float64Array(NS); Lab.fft(re, im, false);
+    for (let k = 0; k <= NS / 2; k++) { let m = zpkAt(I.zpk, 2 * PI * k / NS)[0]; if (zp) m *= m; re[k] *= m; im[k] *= m; if (k > 0 && k < NS / 2) { re[NS - k] *= m; im[NS - k] *= m; } } Lab.fft(re, im, true); const yM = Array.from(re);
+    const rF = bestRho(yF, x, 0, 80), rI = bestRho(yI, x, -60, 200), rM = bestRho(yM, x, -60, 60);
+    const eF = envelope(yF), eI = envelope(yI); const aF = eF.indexOf(Math.max(...eF)), aI = eI.indexOf(Math.max(...eI));
+    const wid = (cv => cv.clientWidth || 600)($('m9-cmp-cv')), wide = wid >= 600; const { ctx, w } = Lab.canvas($('m9-cmp-cv'), wide ? 400 : 560);
+    const pw = wide ? (w - 120) / 2 : w - 62; const b1 = { x: 50, y: 14, w: pw, h: 140 }, b2 = wide ? { x: 50 + pw + 58, y: 14, w: pw, h: 140 } : { x: 50, y: 200, w: pw, h: 140 };
+    const ax1 = Lab.axes(ctx, b1, [0, 20], [-80, 5], { ylabel: '|H| (dB)', xlabel: 'MHz', yticks: [-80, -60, -40, -20, 0], nx: 4 });
+    const nf = 401, ff = [], mI = [], gI = []; for (let i = 0; i < nf; i++) { const f = 20 * i / (nf - 1); ff.push(f); const r = zpkAt(I.zpk, 2 * PI * f / FS); mI.push(zp ? 2 * dB(r[0]) : dB(r[0])); gI.push(zp ? 0 : r[1]); }
+    ax1.clip(); hline(ctx, ax1, -40, 0, 2, c.rule, [4, 3]); hline(ctx, ax1, -40, 8, 20, c.rule, [4, 3]); Lab.line(ctx, ax1, Array.from(Cm.firFr.w, v => v / (2 * PI) * FS), Array.from(Cm.firFr.mag, v => Math.max(-100, dB(v))), c.accent, 1.5);
+    Lab.line(ctx, ax1, ff, mI.map(v => Math.max(-100, v)), c.sig2, 1.5); vline(ctx, ax1, f0, c.sig3, [3, 3]); ax1.unclip();
+    const ax2 = Lab.axes(ctx, b2, [1, 9], [0, 120], { ylabel: 'τg (samples)', xlabel: 'MHz', ny: 4, nx: 4 });
+    ax2.clip(); hline(ctx, ax2, 36, 1, 9, c.accent); const xs = [], ys = []; ff.forEach((f, i) => { if (f >= 1 && f <= 9) { xs.push(f); ys.push(Math.min(150, gI[i])); } }); Lab.line(ctx, ax2, xs, ys, c.sig2, 1.6);
+    vline(ctx, ax2, f0, c.sig3, [3, 3]); ax2.unclip();
+    const by = wide ? 210 : 390, b3 = { x: 50, y: by, w: w - 62, h: wide ? 150 : 130 }; const t0 = n0 + 36, tr = [-1.5, 3];
+    const ax3 = Lab.axes(ctx, b3, tr, [-1.15, 1.15], { ylabel: 'amplitude', xlabel: 'time (µs) after input + FIR delay', ny: 2 });
+    const tx = [], xi = [], xf = [], xI = []; for (let n = Math.round(t0 + tr[0] * FS); n <= Math.round(t0 + tr[1] * FS); n++) { tx.push((n - t0) / FS); xi.push(x[n - 36] || 0); xf.push(yF[n] || 0); xI.push(yI[n] || 0); }
+    ax3.clip(); Lab.line(ctx, ax3, tx, xi, c.muted, 2.4); Lab.line(ctx, ax3, tx, xf, c.accent, 1.3); Lab.line(ctx, ax3, tx, xI, c.sig2, 1.3);
+    Lab.line(ctx, ax3, tx, tx.map((_, i) => eI[Math.round(t0 + tr[0] * FS) + i]), c.sig2, 1, [3, 3]); Lab.line(ctx, ax3, tx, tx.map((_, i) => eF[Math.round(t0 + tr[0] * FS) + i]), c.accent, 1, [3, 3]); ax3.unclip();
+    const gdF0 = zp ? 0 : zpkAt(I.zpk, 2 * PI * f0 / FS)[1]; let gmn = 1e9, gmx = -1e9; ff.forEach((f, i) => { if (f >= 3 && f <= 7) { gmn = Math.min(gmn, gI[i]); gmx = Math.max(gmx, gI[i]); } });
+    const mulI = Math.round(I.order / 2) * 5; const shift = aI - aF;
+    $('m9-cmp-read').innerHTML = 'FIR: order 72, <b>37</b> mult/output, τ<sub>g</sub> = 36 samples (0.90 µs)<br>IIR: order ' + I.order + ', ' + (zp ? 2 * mulI : mulI) + ' mult/output' + (zp ? ' (two passes)' : '') +
+      '<br>IIR τ<sub>g</sub>(f<sub>0</sub>) = <b>' + gdF0.toFixed(1) + '</b> samples; over 3–7 MHz ' + gmn.toFixed(1) + ' to ' + gmx.toFixed(1) +
+      '<br>envelope peak, IIR − FIR: <b>' + fmt(shift, 0) + '</b> samples (' + fmt(shift / FS * 1000, 0) + ' ns)' +
+      '<br>ρ FIR = <b>' + rF.rho.toFixed(3) + '</b> · ρ IIR = <b>' + rI.rho.toFixed(3) + '</b><br>ρ IIR, magnitude only = ' + rM.rho.toFixed(3); }
+  ['m9-cmp-f0', 'm9-cmp-bw'].forEach(id => $(id).addEventListener('input', drawCMP)); ['m9-cmp-fam', 'm9-cmp-zp'].forEach(id => $(id).addEventListener('change', drawCMP));
+
+  /* ===================== Demo 09.5: zero-phase and edges ===================== */
+  function drawZP() { const c = Lab.colors(), Nb = +$('m9-zp-n').value, dc = +$('m9-zp-dc').value, edge = $('m9-zp-edge').value, showEnv = $('m9-zp-env').checked;
+    $('m9-zp-n-o').textContent = Nb; $('m9-zp-dc-o').textContent = dc.toFixed(2);
+    const W = f => 2 * PI * f / FS, W1 = D.prewarp(W(3)), W2 = D.prewarp(W(7)); const sos = D.zpk2sos(D.bilinear(D.lp2bp(D.butterAP(Nb), Math.sqrt(W1 * W2), W2 - W1)));
+    const N = 480, L = 1600, ech = [[16, 1], [180, 0.7], [340, 0.85]]; const p = gaussPulse(81, 40, 5, 0.5);
+    const sig = n => { let v = dc * (1 + 0.4 * n / N); ech.forEach(([t, a]) => { const k = n - t + 40; if (k >= 0 && k < 81) v += a * p[k]; }); return v; };
+    const xe = []; for (let n = -L; n < N + L; n++) xe.push(sig(n)); const ref = fbFilt(sos, xe).slice(L, L + N); const x = xe.slice(L, L + N);
+    const yc = Array.from(D.sosfilt(sos, x)); let yf;
+    if (edge === 'none') yf = fbFilt(sos, x); else { const pl = 6 * Nb * 2, xp = []; for (let i = pl; i >= 1; i--) xp.push(2 * x[0] - x[i]); x.forEach(v => xp.push(v)); for (let i = 1; i <= pl; i++) xp.push(2 * x[N - 1] - x[N - 1 - i]);
+      let y = sosfiltZi(sos, xp, sosZi(sos, xp[0])); y = Array.from(y).reverse(); y = sosfiltZi(sos, y, sosZi(sos, y[0])); yf = Array.from(y).reverse().slice(pl, pl + N); }
+    const rms = (a, b, i0, i1) => { let s = 0; for (let i = i0; i < i1; i++) s += (a[i] - b[i]) ** 2; return Math.sqrt(s / (i1 - i0)); };
+    const envOf = a => { const n2 = 512, z = new Array(n2).fill(0); a.forEach((v, i) => z[i] = v); return envelope(z).slice(0, N); };
+    const eR = envOf(ref), eC = envOf(yc), eF = envOf(yf); const pkIn = (e, i0, i1) => { let m = -1, k = i0; for (let i = i0; i < i1; i++) if (e[i] > m) { m = e[i]; k = i; } return k; };
+    const kR = pkIn(eR, 150, 300), kC = pkIn(eC, 150, 330), kF = pkIn(eF, 150, 300);
+    const { ctx, w } = Lab.canvas($('m9-zp-cv'), 360); const tt = Array.from({ length: N }, (_, i) => i / FS);
+    const ax1 = Lab.axes(ctx, { x: 50, y: 14, w: w - 62, h: 150 }, [0, 12], showEnv ? [0, 1.3] : [-1.3, 1.3], { ylabel: showEnv ? 'envelope' : 'RF', xlabel: 'time (µs)', ny: 3 });
+    ax1.clip(); if (showEnv) { Lab.line(ctx, ax1, tt, eR, c.muted, 3); Lab.line(ctx, ax1, tt, eC, c.sig2, 1.4); Lab.line(ctx, ax1, tt, eF, c.accent, 1.4); }
+    else { Lab.line(ctx, ax1, tt, ref, c.muted, 2.6); Lab.line(ctx, ax1, tt, yc, c.sig2, 1.1); Lab.line(ctx, ax1, tt, yf, c.accent, 1.1); } ax1.unclip();
+    const ax2 = Lab.axes(ctx, { x: 50, y: 214, w: w - 62, h: 110 }, [0, 2], [-1.6, 1.6], { ylabel: 'RF, first 2 µs', xlabel: 'time (µs)', ny: 2 });
+    const z = tt.slice(0, 81); ax2.clip(); Lab.line(ctx, ax2, z, ref.slice(0, 81), c.muted, 2.6); Lab.line(ctx, ax2, z, yc.slice(0, 81).map(v => Math.max(-3, Math.min(3, v))), c.sig2, 1.2); Lab.line(ctx, ax2, z, yf.slice(0, 81).map(v => Math.max(-3, Math.min(3, v))), c.accent, 1.4); ax2.unclip();
+    const dBc = v => dB(v) < -100 ? '&lt; −100' : fmt(dB(v), 1); const e0c = rms(yc, ref, 0, 40), e0f = rms(yf, ref, 0, 40), e1f = rms(yf, ref, N - 40, N);
+    $('m9-zp-read').innerHTML = 'filter order ' + 2 * Nb + ' (' + sos.length + ' biquads)<br>echo 2 envelope peak vs reference:<br>&nbsp; causal <b>' + fmt(kC - kR, 0) + '</b> samples (' + fmt((kC - kR) / FS * 1000, 0) + ' ns)<br>&nbsp; forward–backward <b>' + fmt(kF - kR, 0) + '</b> samples' +
+      '<br>RMS error, first 1 µs:<br>&nbsp; causal ' + fmt(dB(e0c), 1) + ' dB · f–b <b>' + dBc(e0f) + ' dB</b><br>RMS error, last 1 µs (f–b): ' + dBc(e1f) + ' dB<br><span class="muted">dB re echo amplitude 1</span>'; }
+  ['m9-zp-n', 'm9-zp-dc'].forEach(id => $(id).addEventListener('input', drawZP)); ['m9-zp-edge', 'm9-zp-env'].forEach(id => $(id).addEventListener('change', drawZP));
+
+  /* ===================== Demo 09.6: wall filters ===================== */
+  function wallSet(N, fc, ord, init, K, p) { const tf = D.zpk2tf(D.bilinear(D.lp2hp(D.butterAP(ord), D.prewarp(2 * PI * fc))));
+    const h = D.wallFir(K, fc); return { fir: D.firMat(h, N), iir: D.iirMat(tf.b, tf.a, N, init), iir0: D.iirMat(tf.b, tf.a, N, 'zero'), reg: D.regMat(N, p), K }; }
+  function drawWF() { const c = Lab.colors(), N = +$('m9-wf-n').value, fc = +$('m9-wf-fc').value, ord = +$('m9-wf-ord').value, init = $('m9-wf-init').value, K = +$('m9-wf-k').value, p = +$('m9-wf-p').value, ft = +$('m9-wf-vt').value;
+    $('m9-wf-n-o').textContent = N; $('m9-wf-fc-o').textContent = fc.toFixed(2); $('m9-wf-ord-o').textContent = ord; $('m9-wf-k-o').textContent = K; $('m9-wf-p-o').textContent = p; $('m9-wf-vt-o').textContent = ft.toFixed(4);
+    const Kc = Math.min(K, N - 2); const S = wallSet(N, fc, ord, init, Kc, Math.min(p, N - 2)); const list = [['fir', c.sig3, 1.8], ['iir0', c.muted, 1.2, [4, 3]], ['iir', c.sig2, 1.8], ['reg', c.accent, 1.8]];
+    const { ctx, w } = Lab.canvas($('m9-wf-cv'), 400); const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 62, h: 170 }, [0, 0.5], [-80, 5], { ylabel: 'power resp. (dB)', xlabel: 'f / PRF', yticks: [-80, -60, -40, -20, 0] });
+    const fg = []; for (let i = 0; i <= 200; i++) fg.push(0.5 * i / 200);
+    ax.clip(); vline(ctx, ax, ft, c.sig3, [2, 3]); vline(ctx, ax, 0.25, c.good, [2, 3]); list.forEach(([k, col, lw, da]) => Lab.line(ctx, ax, fg, fg.map(f => Math.max(-100, 10 * Math.log10(D.presp(S[k], f) + 1e-30))), col, lw, da)); ax.unclip();
+    const xr = [], xi = [], cr = [], ci = [], br = [], bi = []; for (let n = 0; n < N; n++) { const a = 2 * PI * ft * n, b = 2 * PI * 0.25 * n + 0.7; cr.push(100 * Math.cos(a)); ci.push(100 * Math.sin(a)); br.push(Math.cos(b)); bi.push(Math.sin(b)); xr.push(cr[n] + br[n]); xi.push(ci[n] + bi[n]); }
+    const ax2 = Lab.axes(ctx, { x: 50, y: 236, w: w - 62, h: 120 }, [-0.5, N - 0.5], [-30, 45], { ylabel: '|y[n]| (dB)', xlabel: 'slow-time sample n', yticks: [-20, 0, 20, 40], nx: Math.min(10, N) });
+    ax2.clip(); hline(ctx, ax2, 40, -0.5, N - 0.5, c.rule, [4, 3]); hline(ctx, ax2, 0, -0.5, N - 0.5, c.good, [2, 3]);
+    list.forEach(([k, col, lw, da]) => { const y = D.applyC(S[k], xr, xi).map(v => Math.max(-40, dB(Math.hypot(v[0], v[1])))); const off = k === 'fir' ? Kc : 0; const xs = y.map((_, i) => i + off); Lab.line(ctx, ax2, xs, y, col, lw, da); Lab.dots(ctx, ax2, xs, y, col, 2.4); }); ax2.unclip();
+    const row = (nm, k) => { const A = S[k], r0 = 10 * Math.log10(D.presp(A, 0) + 1e-30), rt = 10 * Math.log10(D.presp(A, ft) + 1e-30), rb = 10 * Math.log10(D.presp(A, 0.25) + 1e-30);
+      const pc = D.applyC(A, cr, ci).reduce((s, v) => s + v[0] * v[0] + v[1] * v[1], 0), pb = D.applyC(A, br, bi).reduce((s, v) => s + v[0] * v[0] + v[1] * v[1], 0);
+      const f1 = v => v < -99 ? '&lt;−99' : fmt(v, 1); return nm + ' ' + f1(r0) + ' / ' + f1(rt) + ' / ' + f1(rb) + ' · N<sub>out</sub> ' + A.length + ' · CBR <b>' + fmt(10 * Math.log10(pc / pb), 1) + '</b>'; };
+    $('m9-wf-read').innerHTML = 'response (dB) at 0 / f<sub>t</sub> / 0.25 PRF; clutter-to-blood after filter (input +40 dB)<br>' + row('FIR K=' + Kc + ':', 'fir') + '<br>' + row('IIR ' + init + ':', 'iir') + '<br>' + row('IIR zero:', 'iir0') + '<br>' + row('regr. p=' + Math.min(p, N - 2) + ':', 'reg'); }
+  ['m9-wf-n', 'm9-wf-fc', 'm9-wf-ord', 'm9-wf-k', 'm9-wf-p', 'm9-wf-vt'].forEach(id => $(id).addEventListener('input', drawWF)); $('m9-wf-init').addEventListener('change', drawWF);
+
+  /* ===================== mini figures: card grids and rule figures ===================== */
+  const one = (cv, h) => { const r = M_.size(cv, h); r.B = { x: 4, y: 16, w: r.w - 8, h: h - 36 }; return r; };
+  function pl(x, m, xs, ys, col, lw, dash) { x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.beginPath();
+    let st = false; for (let i = 0; i < xs.length; i++) { if (!isFinite(ys[i])) { st = false; continue; } const px = m.X(xs[i]), py = m.Y(Math.max(m.yr[0] - 1e3, Math.min(m.yr[1] + 1e3, ys[i]))); if (st) x.lineTo(px, py); else { x.moveTo(px, py); st = true; } }
+    x.strokeStyle = col; x.lineWidth = lw || 1.6; if (dash) x.setLineDash(dash); x.stroke(); x.restore(); }
+  function dotsM(x, m, xs, ys, col, r) { x.save(); x.fillStyle = col; xs.forEach((v, i) => { x.beginPath(); x.arc(m.X(v), m.Y(ys[i]), r || 2.4, 0, 2 * PI); x.fill(); }); x.restore(); }
+  function zmini(x, box, rng, P, Z, c, opt) { opt = opt || {}; const X = re => box.x + (re - (opt.cx || 0) + rng) / (2 * rng) * box.w, Y = im => box.y + (rng - im) / (2 * rng) * box.h, s = box.w / (2 * rng);
+    x.save(); x.beginPath(); x.rect(box.x, box.y, box.w, box.h); x.clip(); x.strokeStyle = c.grid; x.lineWidth = 1; x.beginPath(); x.moveTo(box.x, Y(0)); x.lineTo(box.x + box.w, Y(0)); if (!opt.cx) { x.moveTo(X(0), box.y); x.lineTo(X(0), box.y + box.h); } x.stroke();
+    x.strokeStyle = c.mu; x.lineWidth = 1.1; x.beginPath(); x.arc(X(0), Y(0), s, 0, 2 * PI); x.stroke();
+    Z.forEach(q => markO(x, X(q[0]), Y(q[1]), opt.zc || c.a, opt.r || 3.6, 1.5)); P.forEach(q => markX(x, X(q[0]), Y(q[1]), opt.pc || c.b, opt.r || 3.6, 1.7)); x.restore();
+    x.save(); x.strokeStyle = c.rule; x.strokeRect(box.x + 0.5, box.y + 0.5, box.w, box.h); x.restore(); return { X, Y }; }
+  const grid = (n, a, b) => Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1));
+  const kai21 = (() => { let v = null; return () => v || (v = Array.from(D.firWindow(20, [[0, 0.42 * PI, 1]], D.kaiserWin(20, 5)))); })();
+  const magOf = (b, a, ws) => ws.map(w => { let br = 0, bi = 0, ar = 0, ai = 0; b.forEach((v, n) => { br += v * Math.cos(w * n); bi -= v * Math.sin(w * n); }); a.forEach((v, n) => { ar += v * Math.cos(w * n); ai -= v * Math.sin(w * n); }); return Math.hypot(br, bi) / Math.hypot(ar, ai); });
+  const fsamp = (Np, Hk) => { const al = (Np - 1) / 2, h = []; for (let n = 0; n < Np; n++) { let s = Hk[0]; for (let k = 1; k <= (Np - 1) / 2; k++) s += 2 * Hk[k] * Math.cos(2 * PI * k * (n - al) / Np); h.push(s / Np); } return h; };
+  const anaMag = (f, W) => { let n = [Math.abs(f.k), 0], d = [1, 0]; f.z.forEach(q => n = D.C.mul(n, D.C.sub([0, W], q))); f.p.forEach(q => d = D.C.mul(d, D.C.sub([0, W], q))); return D.C.abs(D.C.div(n, d)); };
+  let RF6 = null; const rf6 = () => RF6 || (RF6 = { eq: Array.from(D.firLS(54, [{ w1: 0, w2: 0.4 * PI, d: 1, wt: 1 }, { w1: 0.5 * PI, w2: PI, d: 0, wt: 10 }], 40, 600)),
+    kai: Array.from(D.firWindow(74, [[0, 0.45 * PI, 1]], D.kaiserWin(74, D.kaiserBeta(61)))) });
+
+  /* ---- 09.2 grid ---- */
+  const G2 = [
+    { prov: 'exact', q: 'Which β for which attenuation?', a: '<b>β = 0.1102(A − 8.7)</b> above 50 dB, the 0.4-power law from 21 to 50 dB, 0 below: <b>3.40, 5.65, 7.86</b> for 40, 60, 80 dB. Below 21 dB a rectangular window already suffices.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140); const m = M_.panel(x, B, [10, 100], [0, 10], { lab: 'Kaiser β vs A (dB)', ticks: [[21, '21'], [40, '40'], [60, '60'], [80, '80']] });
+        M_.curve(x, m, A => D.kaiserBeta(A), c.a); dotsM(x, m, [40, 60, 80], [40, 60, 80].map(D.kaiserBeta), c.b, 3); } },
+    { prov: 'exact', q: 'Does a longer Kaiser filter ripple less?', a: '<b>No.</b> β = 5.65 gives the same −60 dB floor at M = 40 (pink) and M = 120 (blue); the transition is <b>3× narrower</b> for the longer filter. Length buys sharpness, β buys attenuation.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), ws = grid(500, 0, PI); const m = M_.panel(x, B, [0, 0.5], [-100, 5], { lab: '|H| (dB) vs f/fs', base: -100, hlines: [[-59.8, '−60']], ticks: [[0.25, 'fc'], [0.4, '0.4']] });
+        [[40, c.b], [120, c.a]].forEach(([M, col]) => { const h = Array.from(D.firWindow(M, [[0, 0.5 * PI, 1]], D.kaiserWin(M, 5.653))); pl(x, m, ws.map(w => w / (2 * PI)), magOf(h, [1], ws).map(v => Math.max(-110, dB(v))), col, 1.4); }); } },
+    { prov: 'exact', q: 'Where is the cutoff of a window design?', a: 'At <b>half amplitude (−6 dB)</b>, for every window: rectangular (pink), Hann (gold) and Kaiser β = 5.65 (blue), all M = 60, cross 0.5 at f<sub>c</sub>. Specify ω<sub>c</sub> = (ω<sub>p</sub> + ω<sub>s</sub>)/2.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), ws = grid(400, 2 * PI * 0.19, 2 * PI * 0.31); const m = M_.panel(x, B, [0.19, 0.31], [-0.1, 1.15], { lab: '|H| (linear) vs f/fs', hlines: [[0.5, '0.5']], ticks: [[0.25, 'fc']] });
+        const hann = Array.from({ length: 61 }, (_, n) => 0.5 - 0.5 * Math.cos(2 * PI * n / 60)), rect = new Array(61).fill(1);
+        [[rect, c.b], [hann, c.c], [Array.from(D.kaiserWin(60, 5.653)), c.a]].forEach(([wv, col]) => { const h = Array.from(D.firWindow(60, [[0, 0.5 * PI, 1]], wv)); pl(x, m, ws.map(w => w / (2 * PI)), magOf(h, [1], ws), col, 1.5); }); } }
+  ];
+  /* ---- 09.4 grid ---- */
+  const G4 = [
+    { prov: 'exact', q: 'Impulse invariance or bilinear?', a: 'Impulse invariance samples h(t), so the spectrum aliases: a 2nd-order Butterworth at 0.25 f<sub>s</sub> is only <b>4.7 dB</b> below DC at Nyquist (pink) against 12.3 dB for the analog filter (gray). Bilinear (blue) has a null at Nyquist and no aliasing.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), Wc = PI / 2, ws = grid(300, 0.001, PI); const pa = D.butterAP(2).p.map(q => D.C.sc(q, Wc)), k = Wc * Wc;
+        const r1 = D.C.div([k, 0], D.C.sub(pa[0], pa[1])), r2 = D.C.div([k, 0], D.C.sub(pa[1], pa[0])); const ii = w => { const e = [Math.cos(-w), Math.sin(-w)]; const t = q => D.C.div([1, 0], D.C.sub([1, 0], D.C.mul(D.C.exp(q), e))); return D.C.abs(D.C.add(D.C.mul(r1, t(pa[0])), D.C.mul(r2, t(pa[1])))); };
+        const ii0 = ii(0.0001), bl = D.bilinear(D.lp2lp(D.butterAP(2), D.prewarp(Wc))); const m = M_.panel(x, B, [0, 0.5], [-40, 3], { lab: '|H| (dB) vs f/fs', base: -40, ticks: [[0.25, 'fc'], [0.4, '0.4']] });
+        pl(x, m, ws.map(w => w / (2 * PI)), ws.map(w => dB(1 / Math.sqrt(1 + Math.pow(w / Wc, 4)))), c.mu, 1.3, [4, 3]); pl(x, m, ws.map(w => w / (2 * PI)), ws.map(w => dB(ii(w) / ii0)), c.b, 1.6); pl(x, m, ws.map(w => w / (2 * PI)), ws.map(w => dB(zpkAt(bl, w)[0])), c.a, 1.6); } },
+    { prov: 'exact', q: 'Where do the four families put their roots?', a: 'Analog prototypes, N = 5, 1/40 dB. Butterworth poles on a <b>circle</b>; Chebyshev I on an <b>ellipse</b> near the jΩ axis; Chebyshev II and elliptic add <b>zeros on the jΩ axis</b> to carve the stopband.',
+      draw: cv => { const c = M_.col(), { x, w, h } = M_.size(cv, 140), n = 4, sw = Math.min((w - 8) / n - 6, h - 26); const fams = [D.butterAP(5), D.cheb1AP(5, 1), D.cheb2AP(5, 40), D.ellipAP(5, 1, 40)], names = ['Butter', 'Cheb I', 'Cheb II', 'ellip'];
+        fams.forEach((f, i) => { const bx = { x: 4 + i * ((w - 8) / n), y: 18, w: sw, h: sw }; const rng = 2.4; const X = re => bx.x + (re + rng) / (2 * rng) * bx.w, Y = im => bx.y + (rng - im) / (2 * rng) * bx.h;
+          x.save(); x.strokeStyle = c.rule; x.strokeRect(bx.x + 0.5, bx.y + 0.5, bx.w, bx.h); x.beginPath(); x.rect(bx.x, bx.y, bx.w, bx.h); x.clip(); x.strokeStyle = c.grid; x.beginPath(); x.moveTo(X(0), bx.y); x.lineTo(X(0), bx.y + bx.h); x.moveTo(bx.x, Y(0)); x.lineTo(bx.x + bx.w, Y(0)); x.stroke();
+          f.z.forEach(q => markO(x, X(q[0]), Y(q[1]), c.a, 3, 1.4)); f.p.forEach(q => markX(x, X(q[0]), Y(q[1]), c.b, 3, 1.6)); x.restore(); M_.text(x, names[i], bx.x + 2, 9, c.mu); }); } }
+  ];
+  /* ---- 09.6 grid ---- */
+  const G6 = [
+    { prov: 'exact', q: 'What does a half-band filter look like?', a: 'Every other tap is <b>exactly zero</b> (top, hollow dots; 23 taps, Kaiser β = 5) and the response is antisymmetric about f<sub>s</sub>/4: <b>A(ω) + A(π − ω) = 1</b>, so δ<sub>p</sub> = δ<sub>s</sub>. 6 multiplies per output.',
+      draw: cv => { const c = M_.col(), { x, w } = M_.size(cv, 150), h = Array.from(D.firWindow(22, [[0, PI / 2, 1]], D.kaiserWin(22, 5))); const mt = M_.panel(x, { x: 4, y: 16, w: w - 8, h: 44 }, [-1, 23], [-0.15, 0.6], { lab: 'h[n]', yaxis: false });
+        x.save(); h.forEach((v, n) => { const px = mt.X(n); if (Math.abs(v) < 1e-12) { x.strokeStyle = c.mu; x.lineWidth = 1; x.beginPath(); x.arc(px, mt.y0, 2.2, 0, 7); x.stroke(); return; } x.strokeStyle = c.a; x.fillStyle = c.a; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, mt.y0); x.lineTo(px, mt.Y(v)); x.stroke(); x.beginPath(); x.arc(px, mt.Y(v), 2.4, 0, 7); x.fill(); }); x.restore(); const ws = grid(300, 0, PI); const mb = M_.panel(x, { x: 4, y: 84, w: w - 8, h: 46 }, [0, 0.5], [-70, 5], { lab: '|H| (dB) vs f/fs', base: -70, ticks: [[0.25, '1/4'], [0.4, '0.4']] });
+        pl(x, mb, ws.map(v => v / (2 * PI)), magOf(h, [1], ws).map(v => Math.max(-80, dB(v))), c.b, 1.5); } },
+    { prov: 'exact', q: 'How long must a Hilbert FIR be?', a: 'Hamming-windowed type III: <b>15 taps</b> droop 3.4 dB at 0.1 Nyquist (pink), <b>31 taps</b> 0.19 dB (blue), 63 taps 0.03 dB (green). All are forced to zero at DC and Nyquist.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), ws = grid(300, 0.001, PI - 0.001); const m = M_.panel(x, B, [0, 0.5], [-6, 1], { lab: '|H| (dB) vs f/fs', base: -6, ticks: [[0.05, '0.1 Nyq'], [0.45, '0.9 Nyq']] });
+        [[15, c.b], [31, c.a], [63, c.d]].forEach(([L, col]) => { const Mo = L - 1, h = []; for (let n = 0; n < L; n++) { const k = n - Mo / 2; h.push((k % 2 ? 2 / (PI * k) : 0) * (0.54 - 0.46 * Math.cos(2 * PI * n / Mo))); } pl(x, m, ws.map(v => v / (2 * PI)), magOf(h, [1], ws).map(dB), col, 1.5); }); } }
+  ];
+  /* ---- 09.8 visual summary ---- */
+  const VIS = [
+    { prov: 'exact', q: 'Where must the poles of a causal filter live?', a: 'Inside the unit circle. A pole pair at radius r gives <b>h[n] ∝ rⁿ cos(θn)</b>: r = 0.9 decays (blue), r = 1.03 grows without bound (pink). An FIR has all its poles at z = 0.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140); const m = M_.panel(x, B, [-1, 41], [-3.2, 3.2], { lab: 'impulse response, θ = 0.5 rad', yaxis: false });
+        const ps = (r, col) => { const p = []; for (let n = 0; n <= 40; n++) p.push([n, Math.pow(r, n) * Math.cos(0.5 * n)]); x.save(); x.strokeStyle = col; x.fillStyle = col; p.forEach(([n, v]) => { const vv = Math.max(-3.2, Math.min(3.2, v)); x.beginPath(); x.moveTo(m.X(n), m.y0); x.lineTo(m.X(n), m.Y(vv)); x.stroke(); x.beginPath(); x.arc(m.X(n), m.Y(vv), 2, 0, 7); x.fill(); }); x.restore(); };
+        ps(1.03, c.b); ps(0.9, c.a); } },
+    { prov: 'exact', q: 'What does a zero on the unit circle do?', a: 'An <b>exact null</b> at its angle. A pole just inside at the same angle sets the notch width, about <b>2(1 − r)</b> rad/sample: r = 0.98 (blue) is 5× narrower than r = 0.9 (pink).',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), th = 2 * PI * 0.15, ws = grid(600, 0, PI); const m = M_.panel(x, B, [0, 0.5], [-40, 3], { lab: 'notch |H| (dB) vs f/fs', base: -40, ticks: [[0.15, '0.15']] });
+        [[0.9, c.b], [0.98, c.a]].forEach(([r, col]) => pl(x, m, ws.map(w => w / (2 * PI)), magOf([1, -2 * Math.cos(th), 1], [1, -2 * r * Math.cos(th), r * r], ws).map(v => Math.max(-50, dB(v))), col, 1.5)); } },
+    { prov: 'exact', q: 'What is an all-pass for?', a: '<b>|H| = 1</b> everywhere (gray): only delay changes. A pole p with a zero at 1/p* (here r = 0.8, θ = π/3, with its conjugate pair) peaks near <b>(1 + r)/(1 − r) = 9</b> samples. Used to flatten an IIR\'s group delay.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), p = [0.8 * Math.cos(PI / 3), 0.8 * Math.sin(PI / 3)], z = [1.25 * Math.cos(PI / 3), 1.25 * Math.sin(PI / 3)];
+        const f = { z: [z, D.C.conj(z)], p: [p, D.C.conj(p)], k: 0.64 }; const ws = grid(400, 0, PI); const m = M_.panel(x, B, [0, 1], [-1, 11], { lab: 'τg (samples) vs ω/π', hlines: [[9, '9']], ticks: [[1 / 3, '1/3']] });
+        pl(x, m, ws.map(w => w / PI), ws.map(w => zpkAt(f, w)[0]), c.mu, 1.4); pl(x, m, ws.map(w => w / PI), ws.map(w => zpkAt(f, w)[1]), c.a, 1.7); } },
+    { prov: 'exact', q: 'Minimum phase or linear phase?', a: 'Same |H|. Reflecting the zeros outside the circle to 1/z* moves the energy to the start (pink) instead of the middle (blue): <b>less delay, no linear phase</b>. 21-tap Kaiser low-pass.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), h = kai21(); const Z = D.roots(h); let g = h[0]; const Zm = Z.map(q => { const r = Math.hypot(q[0], q[1]); if (r > 1 + 1e-6) { g *= r; return D.C.div([1, 0], D.C.conj(q)); } return q; });
+        const hm = D.poly(Zm).map(v => v * g); const m = M_.panel(x, B, [-1, 21], [-0.15, 0.6], { lab: 'h[n]', yaxis: false });
+        x.save(); const st = (arr, col, dx) => { x.strokeStyle = col; x.fillStyle = col; arr.forEach((v, n) => { x.beginPath(); x.moveTo(m.X(n + dx), m.y0); x.lineTo(m.X(n + dx), m.Y(v)); x.stroke(); x.beginPath(); x.arc(m.X(n + dx), m.Y(v), 2, 0, 7); x.fill(); }); }; st(h, c.a, -0.15); st(hm, c.b, 0.15); x.restore(); } },
+    { prov: 'exact', q: 'Frequency sampling: why add a transition sample?', a: 'The response is exact at ω<sub>k</sub> = 2πk/(M + 1) (dots) and ripples between. One free sample at <b>0.39</b> in the transition lifts the stopband from <b>−16 dB</b> (pink) to <b>−42 dB</b> (blue), 33 taps.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), Np = 33, ws = grid(500, 0, PI); const H0 = new Array(17).fill(0); for (let k = 0; k <= 5; k++) H0[k] = 1; const H1 = H0.slice(); H1[6] = 0.39;
+        const m = M_.panel(x, B, [0, 0.5], [-70, 5], { lab: '|H| (dB) vs f/fs', base: -70 }); [[H0, c.b], [H1, c.a]].forEach(([Hk, col]) => { const h = fsamp(Np, Hk); pl(x, m, ws.map(w => w / (2 * PI)), magOf(h, [1], ws).map(v => Math.max(-80, dB(v))), col, 1.4); });
+        dotsM(x, m, H1.map((_, k) => k / Np), H1.map(v => Math.max(-68, dB(v))), c.a, 2.2); } },
+    { prov: 'sim', q: 'Least squares or equiripple?', a: 'Least squares minimizes error energy: tiny ripple far from the edges, largest next to them (pink). Equiripple minimizes the peak: <b>all extrema equal</b> (blue), so the worst-case stopband is lower at the same order (M = 40).',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), ws = grid(500, 0, PI); const bands = [{ w1: 0, w2: 0.4 * PI, d: 1, wt: 1 }, { w1: 0.5 * PI, w2: PI, d: 0, wt: 1 }];
+        const m = M_.panel(x, B, [0, 0.5], [-70, 5], { lab: '|H| (dB) vs f/fs', base: -70, ticks: [[0.2, '.2'], [0.25, '.25']] });
+        [[1, c.b], [40, c.a]].forEach(([it, col]) => pl(x, m, ws.map(w => w / (2 * PI)), magOf(Array.from(D.firLS(40, bands, it, 500)), [1], ws).map(v => Math.max(-80, dB(v))), col, 1.4)); } },
+    { prov: 'exact', q: 'How fast does a Butterworth roll off?', a: '<b>−6.02N dB per octave</b> (−20N dB/decade) above the cutoff, and −3.01 dB at Ω<sub>c</sub> for every N. N = 1, 2, 3, 4 shown against log frequency.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140); const m = M_.panel(x, B, [-1, 1.15], [-80, 5], { lab: '|H| (dB) vs log10(Ω/Ωc)', base: -80, hlines: [[-3.01, '−3']], ticks: [[-1, '0.1'], [0, '1'], [1, '10']] });
+        [c.mu, c.a, c.d, c.b].forEach((col, i) => M_.curve(x, m, u => 10 * Math.log10(1 / (1 + Math.pow(10, 2 * (i + 1) * u))), col)); } },
+    { prov: 'sim', q: 'What does a dispersive filter do to an echo?', a: 'Frequencies near the steep edge arrive late: the order-10 elliptic band-pass of Demo 09.4 turns a symmetric 3.5 MHz, 40 % echo (gray) into one with a <b>trailing tail</b> (pink, best-aligned). A linear-phase FIR only delays it.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), Cm = cmpInit(), NS = 512, xin = gaussPulse(NS, 120, 3.5, 0.4), y = Array.from(D.sosfilt(Cm.iir.e.sos, xin)); const r = bestRho(y, xin, -40, 120);
+        const m = M_.panel(x, B, [-1, 2.5], [-1.1, 1.1], { lab: 'RF vs time (µs)', ticks: [[0, '0'], [1, '1'], [2, '2']] }); const ts = [], a = [], b = []; for (let n = 80; n < 230; n++) { ts.push((n - 120) / FS); a.push(xin[n]); b.push(y[n + r.lag] || 0); }
+        pl(x, m, ts, a, c.mu, 2.2); pl(x, m, ts, b, c.b, 1.3); } },
+    { prov: 'schem', q: 'Why filter before decimating?', a: 'Decimation by D folds every band onto [0, f<sub>s</sub>/(2D)]: an interferer at 0.30 f<sub>s</sub> (pink; spectra drawn as idealized shapes, the folding is exact) lands at <b>0.05 f<sub>s</sub></b> after ↓4, on top of the signal (blue). Filter first, with f<sub>stop</sub> = f<sub>s</sub>/D − f<sub>pass</sub>.',
+      draw: cv => { const c = M_.col(), { x, w } = M_.size(cv, 150); const sigF = f => Math.max(0, 1 - Math.abs(f) / 0.05), intF = f => 0.7 * Math.exp(-Math.pow((f - 0.3) / 0.012, 2));
+        const m1 = M_.panel(x, { x: 4, y: 16, w: w - 8, h: 42 }, [0, 0.5], [0, 1.15], { lab: 'before, |X| vs f/fs', yaxis: false, ticks: [[0.125, 'fs/8'], [0.3, '.30']] }); M_.curve(x, m1, sigF, c.a, { fill: true }); M_.curve(x, m1, intF, c.b, { fill: true });
+        const fold = f => { let g = ((f % 0.25) + 0.25) % 0.25; return g > 0.125 ? 0.25 - g : g; }; const m2 = M_.panel(x, { x: 4, y: 86, w: w - 8, h: 42 }, [0, 0.5], [0, 1.15], { lab: 'after ↓4 (only 0 … fs/8 remains)', yaxis: false, ticks: [[0.05, '.05'], [0.125, 'fs/8']] });
+        M_.curve(x, m2, f => f <= 0.125 ? sigF(f) : 0, c.a, { fill: true }); M_.curve(x, m2, f => f <= 0.125 ? 0.7 * Math.exp(-Math.pow((f - fold(0.3)) / 0.012, 2)) : 0, c.b, { fill: true }); } },
+    { prov: 'exact', q: 'How long is the start-up transient?', a: 'An FIR is exact after <b>M samples</b> (blue, 21-tap low-pass, M = 20) and then in steady state. An IIR (pink, 4th-order Chebyshev I, 0.5 dB, f<sub>c</sub> = 0.1 f<sub>s</sub>) rings on and never settles exactly.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), st = new Array(60).fill(1); const yF = Array.from(D.filt(kai21(), [1], st)); const tf = D.zpk2tf(D.bilinear(D.lp2lp(D.cheb1AP(4, 0.5), D.prewarp(0.2 * PI)))); const yI = Array.from(D.filt(tf.b, tf.a, st));
+        const m = M_.panel(x, B, [0, 59], [-0.1, 1.3], { lab: 'step response vs n', ticks: [[20, 'M = 20'], [40, '40']] }); pl(x, m, yF.map((_, i) => i), yF, c.a, 1.7); pl(x, m, yI.map((_, i) => i), yI, c.b, 1.5); } },
+    { prov: 'model', q: 'Where does a wall filter cut the Doppler spectrum?', a: 'Clutter sits near 0, 40 dB above blood (gray); blood at 0.25 PRF (pink); both Gaussian model spectra. A degree-2 regression filter on N = 10 (blue) is −3 dB at <b>0.127 PRF</b>: anything slower is removed with the clutter.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), A = D.regMat(10, 2); const m = M_.panel(x, B, [-0.5, 0.5], [-70, 45], { lab: 'dB vs f / PRF', base: -70, ticks: [[-0.25, '−.25'], [0.25, '.25'], [0.127, '.127']] });
+        M_.curve(x, m, f => 40 + 10 * Math.log10(Math.exp(-Math.pow(f / 0.01, 2)) + 1e-9), c.mu, { fill: true }); M_.curve(x, m, f => 10 * Math.log10(Math.exp(-Math.pow((f - 0.25) / 0.04, 2)) + 1e-9), c.b, { fill: true });
+        M_.curve(x, m, f => 10 * Math.log10(D.presp(A, f) + 1e-12), c.a, { w: 1.8 }); } },
+    { prov: 'model', q: 'How slow a flow survives the wall filter?', a: '<b>v<sub>min</sub> ∝ PRF/N</b>. At PRF 4 kHz and 5 MHz, a degree-2 regression filter cuts at <b>7.8 cm/s</b> for N = 10 and 4.8 cm/s for N = 16 (blue); degree 1 (pink) about a third lower.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140); const m = M_.panel(x, B, [6, 33], [0, 14], { lab: '−3 dB velocity (cm/s) vs N', ticks: [[10, '10'], [16, '16'], [24, '24'], [30, '30']] });
+        [[1, c.b], [2, c.a]].forEach(([p, col]) => M_.curve(x, m, N => 100 * 1540 * (0.44 + 0.41 * p) * 4000 / N / (2 * 5e6), col)); } },
+    { prov: 'exact', q: 'How many coefficient bits does a 60 dB FIR need?', a: 'Rounding taps to q = 2<sup>−B</sup> adds an error spectrum of RMS <b>q√((M + 1)/12)</b>: with 75 taps, −40 dB at B = 8 (pink) and −64 dB at B = 12 (blue) against the exact design (gray). Rule of thumb: about A/6 + 2 bits.',
+      draw: cv => { const c = M_.col(), { x, B } = one(cv, 140), h = rf6().kai, ws = grid(500, 0, PI); const m = M_.panel(x, B, [0, 0.5], [-100, 5], { lab: '|H| (dB) vs f/fs', base: -100, hlines: [[-60, '−60']] });
+        const q = (b) => h.map(v => Math.round(v * Math.pow(2, b)) / Math.pow(2, b)); [[h, c.mu, 2.2], [q(8), c.b, 1.3], [q(12), c.a, 1.3]].forEach(([hh, col, lw]) => pl(x, m, ws.map(w => w / (2 * PI)), magOf(hh, [1], ws).map(v => Math.max(-110, dB(v))), col, lw)); } }
+  ];
+  /* ---- rule figures ---- */
+  const RF = [
+    cv => { const c = M_.col(), { x, w, h } = M_.size(cv, 150), S = Math.min(130, Math.round(w * 0.32)); const p = [0.95 * Math.cos(PI / 4), 0.95 * Math.sin(PI / 4)];
+      const zm = zmini(x, { x: 4, y: 12, w: S, h: S }, 1.3, [p, D.C.conj(p)], [], c); const e = [Math.cos(PI / 4), Math.sin(PI / 4)]; x.save(); x.strokeStyle = c.c; x.lineWidth = 1.2; [p, D.C.conj(p)].forEach(q => { x.beginPath(); x.moveTo(zm.X(q[0]), zm.Y(q[1])); x.lineTo(zm.X(e[0]), zm.Y(e[1])); x.stroke(); }); x.fillStyle = c.c; x.beginPath(); x.arc(zm.X(e[0]), zm.Y(e[1]), 3.5, 0, 7); x.fill(); x.restore();
+      const ws = grid(400, 0, PI), a = D.poly([p, D.C.conj(p)]); const m = M_.panel(x, { x: S + 16, y: 16, w: w - S - 20, h: h - 36 }, [0, 1], [-10, 25], { lab: '|H| (dB) vs ω/π', base: -10, hlines: [[dB(1.789), 'DC 5.1'], [dB(14.5), '23.2']], ticks: [[0.25, '1/4']] });
+      pl(x, m, ws.map(v => v / PI), magOf([1], a, ws).map(dB), c.a, 1.7); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140); const m = M_.panel(x, B, [-0.4, 0.4], [-20, 1], { lab: 'one-pole peak (dB) vs ω − θ (rad/sample)', base: -20, hlines: [[-3.01, '−3']], ticks: [[-0.05, '−.05'], [0.05, '.05'], [0.2, '.2'], [-0.2, '−.2']] });
+      [[0.8, c.b], [0.9, c.c], [0.95, c.a]].forEach(([r, col]) => M_.curve(x, m, d => 10 * Math.log10((1 - r) * (1 - r) / (1 - 2 * r * Math.cos(d) + r * r)), col)); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140), ws = grid(500, 0, PI); const m = M_.panel(x, B, [0, 1], [-2, 21], { lab: 'τg (samples) of a pole pair at θ = π/4', hlines: [[19, '19']], ticks: [[0.25, '1/4'], [0.5, '1/2']] });
+      [[0.8, c.b], [0.9, c.c], [0.95, c.a]].forEach(([r, col]) => { const p = [r * Math.cos(PI / 4), r * Math.sin(PI / 4)], f = { z: [[0, 0], [0, 0]], p: [p, D.C.conj(p)], k: 1 }; pl(x, m, ws.map(v => v / PI), ws.map(w => zpkAt(f, w)[1]), col, 1.6); }); },
+    cv => { const c = M_.col(), { x, w, h } = M_.size(cv, 170), S = Math.min(h - 10, w - 8); const Z = D.roots(kai21()); zmini(x, { x: Math.round((w - S) / 2), y: 5, w: S, h: S }, 2.3, [], Z, c, { r: 3.4 });
+      M_.text(x, '20 zeros, 21 taps', Math.round((w - S) / 2) + 6, 16, c.mu); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140), h = Array.from(D.firWindow(148, [[0, 0.425 * PI, 1]], D.kaiserWin(148, D.kaiserBeta(61)))), ws = grid(700, 0, PI);
+      const m = M_.panel(x, B, [0, 20], [-100, 5], { lab: '|H| (dB) vs MHz, M = 148, β = 5.76', base: -100, hlines: [[-60, '−60']], ticks: [[8, '8'], [9, '9'], [20, '20']] }); pl(x, m, ws.map(v => v / (2 * PI) * FS), magOf(h, [1], ws).map(v => Math.max(-110, dB(v))), c.a, 1.3);
+      x.save(); x.strokeStyle = c.b; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(m.X(9), m.Y(-60)); x.lineTo(m.X(9), m.Y(5)); x.moveTo(m.X(8), m.Y(-100)); x.lineTo(m.X(8), m.Y(5)); x.stroke(); x.restore(); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140), ws = grid(500, 2 * PI * 0.15, 2 * PI * 0.35); const m = M_.panel(x, B, [0.15, 0.35], [-0.15, 1.2], { lab: '|H| (linear) vs f/fs, rectangular window', hlines: [[1.0895, '1.09']], ticks: [[0.25, 'fc']] });
+      [[20, c.b], [80, c.a]].forEach(([M, col]) => { const h = Array.from(D.firWindow(M, [[0, 0.5 * PI, 1]], new Array(M + 1).fill(1))); pl(x, m, ws.map(v => v / (2 * PI)), magOf(h, [1], ws), col, 1.5); }); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140), R = rf6(), ws = grid(600, 0, PI); const m = M_.panel(x, B, [0, 20], [-100, 5], { lab: '|H| (dB) vs MHz: 8/10 MHz, 60 dB', base: -100, hlines: [[-60, '−60']], ticks: [[8, '8'], [10, '10']] });
+      pl(x, m, ws.map(v => v / (2 * PI) * FS), magOf(R.kai, [1], ws).map(v => Math.max(-110, dB(v))), c.b, 1.3); pl(x, m, ws.map(v => v / (2 * PI) * FS), magOf(R.eq, [1], ws).map(v => Math.max(-110, dB(v))), c.a, 1.5); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140); const m = M_.panel(x, B, [0.01, 0.1], [0, 400], { lab: 'taps ≈ A/(22 Δf) vs Δf', ticks: [[0.025, '.025'], [0.05, '.05'], [0.1, '.1']], hlines: [[109, '109']] });
+      [[40, c.d], [60, c.a], [80, c.b]].forEach(([A, col]) => M_.curve(x, m, df => A / (22 * df), col)); dotsM(x, m, [0.025], [109], c.a, 3.2); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140); const m = M_.panel(x, B, [0.5, 16.5], [0, 72], { lab: 'multiplies per input sample, 64 taps, vs D', hlines: [[64, '64']], ticks: [[2, '2'], [4, '4'], [8, '8'], [16, '16']] });
+      const Ds = Array.from({ length: 16 }, (_, i) => i + 1); x.save(); Ds.forEach(d => { const bw = (m.X(1) - m.X(0)) * 0.36; x.fillStyle = c.a; x.fillRect(m.X(d) - bw / 2, m.Y(64 / d), bw, m.Y(0) - m.Y(64 / d)); }); x.restore(); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140); const m = M_.panel(x, B, [0, 42], [0, 21], { lab: 'digital f (MHz) vs analog f (MHz), fs = 40', ticks: [[15, '15'], [30, '30']], hlines: [[20, 'Nyquist'], [11.04, '11.0']] });
+      M_.curve(x, m, f => f, c.mu, { dash: [4, 3], w: 1.1 }); M_.curve(x, m, f => FS / PI * Math.atan(PI * f / FS), c.a); dotsM(x, m, [15], [11.04], c.b, 3.2); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140), fam = [D.butterAP(6), D.cheb1AP(6, 1), D.ellipAP(6, 1, 60)]; const m = M_.panel(x, B, [0, 4], [-90, 5], { lab: '|H| (dB) vs Ω/Ωp, N = 6', base: -90, hlines: [[-60, '−60']], ticks: [[1, '1'], [1.34, '1.34'], [2.11, '2.11'], [3.54, '3.54']] });
+      const bw = D.lp2lp(fam[0], 1 / Math.pow(Math.sqrt(Math.pow(10, 0.1) - 1), 1 / 6)); [[bw, c.mu], [fam[1], c.a], [fam[2], c.b]].forEach(([f, col]) => M_.curve(x, m, W => Math.max(-100, dB(anaMag(f, W))), col, { w: 1.5 })); },
+    cv => { const c = M_.col(), { x, w, h } = M_.size(cv, 160); const z = D.bilinear(D.lp2lp(D.butterAP(8), D.prewarp(2 * PI * 0.02))); const tf = D.zpk2tf(z); const a = tf.a, mx = Math.max(...a.map(Math.abs)), ib = Math.ceil(Math.log2(mx)) + 1, fr = 16 - ib;
+      const aq = a.map(v => Math.round(v * Math.pow(2, fr)) / Math.pow(2, fr)), Pq = D.roots(aq); const S = Math.min(h - 10, w - 8), bx = { x: Math.round((w - S) / 2), y: 5, w: S, h: S };
+      const zz = zmini(x, bx, 0.5, z.p, [], c, { cx: 0.92, pc: c.a, r: 3.6 }); const X = zz.X, Y = zz.Y;
+      x.save(); x.beginPath(); x.rect(bx.x, bx.y, S, S); x.clip(); Pq.forEach(q => markX(x, X(q[0]), Y(q[1]), c.b, 3.6, 1.7)); x.restore(); M_.text(x, 'Re z 0.42 to 1.42', bx.x + 6, bx.y + 11, c.mu); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140), z = D.bilinear(D.lp2lp(D.butterAP(4), D.prewarp(0.2 * PI))), ws = grid(400, 0, PI / 2);
+      const m = M_.panel(x, B, [0, 0.25], [-30, 2], { lab: 'dB vs f/fs, Butterworth N = 4, fc = 0.1', base: -30, hlines: [[-3.01, '−3'], [-6.02, '−6']], ticks: [[0.0896, '0.896 fc']] });
+      pl(x, m, ws.map(v => v / (2 * PI)), ws.map(w => dB(zpkAt(z, w)[0])), c.b, 1.5); pl(x, m, ws.map(v => v / (2 * PI)), ws.map(w => 2 * dB(zpkAt(z, w)[0])), c.a, 1.7); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140), tf = D.zpk2tf(D.bilinear(D.lp2hp(D.butterAP(2), D.prewarp(0.2 * PI)))); const m = M_.panel(x, B, [0, 0.5], [-60, 3], { lab: 'power response (dB) vs f/PRF, N = 10', base: -60, ticks: [[0.01, ''], [0.1, '.1'], [0.25, '.25']] });
+      [['zero', c.mu], ['step', c.c], ['proj', c.b]].forEach(([i, col]) => { const A = D.iirMat(tf.b, tf.a, 10, i); M_.curve(x, m, f => Math.max(-70, 10 * Math.log10(D.presp(A, f) + 1e-30)), col, { w: 1.6 }); }); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140); const m = M_.panel(x, B, [0, 0.5], [-60, 3], { lab: 'power response (dB) vs f/PRF, N = 12', base: -60, hlines: [[-3.01, '−3']], ticks: [[0.037, ''], [0.105, ''], [0.25, '.25']] });
+      [c.mu, c.a, c.d, c.b].forEach((col, p) => { const A = D.regMat(12, p); M_.curve(x, m, f => Math.max(-70, 10 * Math.log10(D.presp(A, f) + 1e-30)), col, { w: 1.5 }); }); },
+    cv => { const c = M_.col(), { x, B } = one(cv, 140), R = 8; const m = M_.panel(x, B, [0, 0.5], [-80, 3], { lab: 'CIC |H| (dB) vs f/f_in, R = 8', base: -80, ticks: [[0.125, '1/8'], [0.25, '2/8'], [0.375, '3/8']] });
+      [c.mu, c.a, c.d, c.b].forEach((col, i) => M_.curve(x, m, f => { const s = Math.sin(PI * f); const v = Math.abs(s) < 1e-9 ? 1 : Math.abs(Math.sin(PI * f * R) / (R * s)); return Math.max(-90, (i + 1) * dB(v)); }, col, { w: 1.4 })); }
+  ];
+  function drawLit() { const cv = $('m9-lit-torp'); if (!cv) return; const c = M_.col(), { x, B } = one(cv, 150);
+    const m = M_.panel(x, B, [0, 0.5], [-60, 3], { lab: 'power response (dB) vs f/PRF, N = 10, orders 0 to 4', base: -60, hlines: [[-3.01, '−3']], ticks: [[0.1, '.1'], [0.2, '.2'], [0.3, '.3'], [0.4, '.4']] });
+    [c.mu, c.a, c.d, c.b, c.c].forEach((col, p) => { const A = D.regMat(10, p); M_.curve(x, m, f => Math.max(-70, 10 * Math.log10(D.presp(A, f) + 1e-30)), col, { w: 1.5 }); }); }
+  function drawRules() { RF.forEach((f, i) => { const cv = $('m9-rf-' + i); if (cv) { try { f(cv); } catch (e) { console.error(e); } } }); }
+
+  Lab.cardGrid('m9', 'm9-g2', G2);
+  Lab.cardGrid('m9', 'm9-g4', G4);
+  Lab.cardGrid('m9', 'm9-g6', G6);
+  Lab.cardGrid('m9', 'm9-vis', VIS);
+  Lab.onShow('m9', () => { drawPZ(); drawFIR(); drawIIR(); drawCMP(); drawZP(); drawWF(); drawRules(); drawLit(); });
+})();
+</script>

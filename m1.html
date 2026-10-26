@@ -1,0 +1,1439 @@
+<section class="view" id="m1" data-title="Complex numbers and phasors" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part I · Module 01</div>
+    <h1>Complex numbers, phasors and the meaning of j</h1>
+    <p class="lede">Every IQ sample, every FFT bin and every phase-based delay estimate is an arrow in a plane. This module rebuilds that arrow from nothing: j as a quarter turn, multiplication as rotation, Euler's formula three ways, the rotating phasor, why real signals carry negative frequencies, and what the "imaginary" part of a signal physically is.</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>Do complex arithmetic by hand and draw each operation as an arrow move</li>
+        <li>Prove \(e^{j\theta} = \cos\theta + j\sin\theta\) by series, by a differential equation and by a limit</li>
+        <li>Explain negative frequencies and the quadrature (Q) component in physical terms</li>
+        <li>Demodulate four samples to I/Q by hand, convert phase to delay, and unwrap phase safely</li>
+        <li>Predict the effect of adding phasors, of beats and of differentiation (\(\times j\omega\))</li>
+      </ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li>Trigonometry (cos, sin, radians) and the idea of a derivative</li>
+        <li>Daily use of FFT, IQ data and beamforming; nothing about complex analysis</li>
+        <li>No earlier module. Next: <a href="#m2">Module 02</a> and <a href="#m3">Module 03</a> build on this one</li>
+      </ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>numerical solution run in this page (JS) or in the Octave scripts</span><span><span class="prov model">Approx. model</span>simplified physics; assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not computed, not to scale</span><span>Almost every figure in this module is exact: complex arithmetic and closed-form sinusoids drawn as computed. The echo figures assume a Gaussian-envelope pulse; the I/Q and unwrap demos run their own FFT mixing and unwrap code in JS.</span></div>
+
+  <!-- ===================== 01.1 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">01.1</span>Numbers as arrows; j is a quarter turn</h2>
+    <p>Start with the real line. A real number is an arrow from 0: its length is the magnitude and its direction (left or right) is the sign. Multiplying by a positive number stretches the arrow. Multiplying by a negative number also turns it around. That second effect, a rotation, is the whole seed of complex numbers.</p>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 1 · Multiplying by −1 is a half turn</h3>
+        <p>Multiplication by −1 keeps the length and reverses the direction, a rotation by 180°. Two half turns make a full turn, which is why \((-1)(-1) = +1\). Nothing about this is a rule to memorize; it is geometry.</p>
+        <div class="hand">2 × (−1) = −2 &nbsp;(the arrow of length 2 turns 180°)<br>(−2) × (−1) = +2 &nbsp;(another 180°: back home)</div>
+        <p class="take">A sign is a direction, and multiplying by −1 is a rotation by 180°.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-1" aria-label="Real line: multiplying by minus one turns the arrow 180 degrees"></canvas><div class="cap"><span class="prov exact">Exact formula</span> ×(−1) turns 2 into −2: a half turn.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 2 · j is the operation that, done twice, is a half turn</h3>
+        <p>Ask for an operation that, applied twice, gives −1. Geometrically: what done twice is a half turn? A quarter turn. Call it j. The equation \(j^2 = -1\) is the sentence "two quarter turns are a half turn." No arrow that stays on the real line can turn 90°, so the arrow must leave the line: the second dimension is forced on us. Engineers write j because i is current; mathematicians write i.</p>
+        <div class="eqn" id="m1-eq1">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} j\cdot 1 = j, \qquad j\cdot j = j^2 = -1, \\ j\cdot(-1) = -j, \qquad j\cdot(-j) = 1 \end{gathered} \]</div><span class="eqn-no">(01.1)</span></div>
+      <dl class="where"><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+          <span class="note">Four quarter turns bring the arrow home: \(j^4 = 1\).</span>
+        </div>
+        <div class="hand">\(j^2 = -1,\; j^3 = -j,\; j^4 = 1,\; j^5 = j\) (the cycle repeats every 4)<br>\(1/j = -j\), because \(j\cdot(-j) = -j^2 = +1\) (a quarter turn backwards)</div>
+        <p class="take">j is not a quantity you imagine; it is the instruction "turn 90° counterclockwise."</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-2" aria-label="Powers of j on the unit circle"></canvas><div class="cap"><span class="prov exact">Exact formula</span> 1 → j → −1 → −j → 1: each ×j is +90°.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 3 · The complex plane and the rectangular form</h3>
+        <p>Once arrows can point anywhere in the plane, any arrow is "a units along 1, then b units along j": \(z = a + jb\). The horizontal coordinate a is the real part, the vertical b the imaginary part. The word "imaginary" goes back to Descartes (1637) and was meant dismissively; the b coordinate is exactly as real as a, it is just perpendicular to it.</p>
+        <div class="hand">\(z = 3 + 4j\): go 3 to the right, then 4 up.<br>\(\operatorname{Re} z = 3,\ \operatorname{Im} z = 4\) (Im z is the number 4, not 4j)</div>
+        <p class="take">A complex number is a 2-D arrow written as (along 1) + j(along j).</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-3" aria-label="z equals 3 plus 4j with its real and imaginary components"></canvas><div class="cap"><span class="prov exact">Exact formula</span> z = 3 + 4j and its two components.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 4 · Polar form: length and angle</h3>
+        <p>The same arrow is described by its length \(r = \lvert z\rvert\) (Pythagoras) and its angle \(\theta = \angle z\) from the positive real axis. Going back uses the definitions of cos and sin. Section 01.3 shows that \(\cos\theta + j\sin\theta\) is \(e^{j\theta}\), which gives the compact polar form.</p>
+        <div class="eqn" id="m1-eq2">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} r &amp;= \sqrt{a^2 + b^2}, &amp; \theta &amp;= \operatorname{atan2}(b, a) \\ a &amp;= r\cos\theta, &amp; b &amp;= r\sin\theta, \qquad z = r\,e^{j\theta} \end{aligned} \]</div><span class="eqn-no">(01.2)</span></div>
+          <dl class="where"><dt>\(a,\ b\)</dt><dd>real and imaginary parts (rectangular coordinates)</dd><dt>\(r = \lvert z\rvert\)</dt><dd>length (magnitude, modulus)</dd><dt>\(\theta = \angle z\)</dt><dd>angle from the positive real axis, rad, in \((-\pi, \pi]\)</dd><dt>\(z=a+jb\)</dt><dd>complex number</dd><dt>\(\operatorname{atan2}(b,a)\)</dt><dd>four-quadrant arctangent, rad</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+          <span class="note">atan2 looks at the signs of a and b separately and returns θ in (−π, π]; MATLAB angle(z) does the same.</span>
+        </div>
+        <div class="hand">3 + 4j: \(r = \sqrt{9 + 16} = 5\), θ = atan2(4, 3) = 53.13° = 0.9273 rad<br>back: 5 cos 53.13° = 3.000, 5 sin 53.13° = 4.000<br>−3 − 4j: atan(b/a) = atan(4/3) = 53.13° (wrong), atan2 = −126.87°</div>
+        <p class="take">Rectangular form is for adding, polar form is for multiplying; use atan2, never atan(b/a).</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-4" aria-label="Polar form of 3 plus 4j, and minus 3 minus 4j showing the atan pitfall"></canvas><div class="cap"><span class="prov exact">Exact formula</span> r = 5, θ = 53.13°; the mirror −3 − 4j has θ = −126.87°.</div></div>
+    </div>
+  </div>
+  <div class="callout intuit"><span class="label">Intuition</span><p>Read "−" as "turn around" and "j" as "turn left a quarter." Then \((-1)(-1) = 1\) and \(j\cdot j = -1\) are the same kind of statement: turning twice. The algebra of complex numbers is the algebra of turning and stretching arrows in a plane.</p></div>
+
+  <!-- ===================== 01.2 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">01.2</span>Arithmetic is geometry: add, multiply, mirror, divide</h2>
+    <p>Each arithmetic operation is one arrow move. Addition slides arrows tip to tail. Multiplication rotates and stretches. Conjugation mirrors. Division undoes a rotation and a stretch. Work each case once by hand, then drag the arrows in Demo 01.1.</p>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 5 · Addition: tip to tail</h3>
+        <p>Add the real parts and add the imaginary parts. Geometrically, put the tail of w at the tip of z; the sum runs from the origin to the new tip. This is vector addition, nothing more.</p>
+        <div class="eqn" id="m1-eq3">
+          <div class="eqn-body"><div class="eqn-math">\[ (a + jb) + (c + jd) = (a + c) + j(b + d) \]</div><span class="eqn-no">(01.3)</span></div>
+      <dl class="where"><dt>\(a,\ b,\ c,\ d\)</dt><dd>real and imaginary parts of the two numbers</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+        </div>
+        <div class="hand">(3 + 4j) + (1 + 2j) = 4 + 6j<br>\(\lvert z + w\rvert = \sqrt{16 + 36} = 7.211\)<br>\(\le \lvert z\rvert + \lvert w\rvert = 5 + 2.236 = 7.236\) (triangle inequality)</div>
+        <p class="take">Adding complex numbers is adding displacement arrows; echoes from several scatterers add this way (01.8).</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-5" aria-label="Tip to tail addition of 3 plus 4j and 1 plus 2j"></canvas><div class="cap"><span class="prov exact">Exact formula</span> z + w = 4 + 6j.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 6 · Multiplication: rotate and scale</h3>
+        <p>Expand with \(j^2 = -1\). Then look at what multiplying by \(w = c + jd\) does to z: it makes c copies of z plus d copies of z turned 90° (that is what jz is). A stretched copy plus a stretched perpendicular copy is exactly a rotation by \(\angle w\) combined with a scaling by \(\lvert w\rvert\). The 2×2 matrix shows it.</p>
+        <div class="eqn" id="m1-eq4">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} (a + jb)(c + jd) &amp;= ac + jad + jbc + j^2 bd \\ &amp;= (ac - bd) + j(ad + bc) \end{aligned} \]</div><span class="eqn-no">(01.4)</span></div>
+      <dl class="where"><dt>\(a,\ b,\ c,\ d\)</dt><dd>real and imaginary parts of the two factors, as in (01.3)</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+        </div>
+        <div class="eqn key" id="m1-eq5">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} w\,z = c\,z + d\,(jz) \;\Leftrightarrow\; \begin{bmatrix} c &amp; -d \\ d &amp; c \end{bmatrix} = \lvert w\rvert \begin{bmatrix} \cos\theta_w &amp; -\sin\theta_w \\ \sin\theta_w &amp; \cos\theta_w \end{bmatrix} \\[4pt] r_1 e^{j\theta_1}\cdot r_2 e^{j\theta_2} = r_1 r_2\, e^{j(\theta_1 + \theta_2)} \end{gathered} \]</div><span class="eqn-no">(01.5)</span></div>
+          <dl class="where"><dt>\(w = c + jd\)</dt><dd>the multiplier; \(\lvert w\rvert = \sqrt{c^2 + d^2}\)</dd><dt>\(\theta_w = \angle w\)</dt><dd>its angle, rad</dd><dt>\(r_1, r_2\)</dt><dd>lengths of the two factors</dd><dt>\(\theta_1, \theta_2\)</dt><dd>angles of the two factors, rad</dd><dt>\(z\)</dt><dd>complex number (arrow) being multiplied by \(w\)</dd><dt>\(c,\ d\)</dt><dd>real and imaginary parts of \(w\)</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd><dt>\(e^{j\theta}\)</dt><dd>unit arrow at angle \(\theta\) (01.8)</dd><dt>\(\Leftrightarrow\)</dt><dd>is equivalent to</dd></dl>
+          <span class="note">Multiplying by a complex number is a rotation matrix times a scale: multiply the lengths, add the angles.</span>
+        </div>
+        <div class="hand">(3 + 4j)(1 + 2j) = 3 + 6j + 4j + 8j² = −5 + 10j<br>polar check: \(\lvert zw\rvert = 5 \times 2.236 = 11.18 = \sqrt{25 + 100}\) ✓<br>∠zw = 53.13° + 63.43° = 116.57° = atan2(10, −5) ✓</div>
+        <p class="take">Multiply the lengths, add the angles. Multiplying by \(e^{j\alpha}\) (length 1) is a pure rotation: a phase shift.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-6" aria-label="Multiplication of complex numbers: lengths multiply, angles add"></canvas><div class="cap"><span class="prov exact">Exact formula</span> z w = −5 + 10j: 5 × 2.236 at 53.13° + 63.43°.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 7 · Conjugate: the mirror, and |z|² = z z*</h3>
+        <p>The conjugate \(z^* = a - jb\) flips the sign of the imaginary part: the same arrow mirrored in the real axis, same length, negated angle. Multiplying z by z* rotates by θ and then by −θ, so the result lands on the positive real axis with length \(r\cdot r\).</p>
+        <div class="eqn" id="m1-eq6">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} z\,z^* = (a + jb)(a - jb) = a^2 + b^2 = \lvert z\rvert^2 \\[2pt] \operatorname{Re} z = \frac{z + z^*}{2}, \qquad \operatorname{Im} z = \frac{z - z^*}{2j} \end{gathered} \]</div><span class="eqn-no">(01.6)</span></div>
+          <dl class="where"><dt>\(z^*\)</dt><dd>complex conjugate, \(a - jb = r\,e^{-j\theta}\)</dd><dt>\(z=a+jb\)</dt><dd>complex number; \(a,\ b\) real and imaginary parts</dd><dt>\(\lvert z\rvert^2\)</dt><dd>squared magnitude (power)</dd><dt>\(\operatorname{Re},\ \operatorname{Im}\)</dt><dd>real part, imaginary part</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+        </div>
+        <div class="hand">(3 + 4j)(3 − 4j) = 9 − 12j + 12j − 16j² = 25 = 5²<br>but \(z^2 = (3 + 4j)^2 = 9 + 24j - 16 = -7 + 24j\) (not the power)</div>
+        <p class="take">Power is the arrow times its mirror; the conjugate undoes a rotation.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-7" aria-label="Conjugate as a mirror image in the real axis"></canvas><div class="cap"><span class="prov exact">Exact formula</span> z* = 3 − 4j; z z* = 25 on the real axis.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 8 · Division: unrotate and unscale</h3>
+        <p>To divide by w, multiply top and bottom by w*: the denominator becomes the real number \(\lvert w\rvert^2\), and the top is a single multiplication. Geometrically z/w has length \(\lvert z\rvert/\lvert w\rvert\) and angle \(\angle z - \angle w\).</p>
+        <div class="eqn" id="m1-eq7">
+          <div class="eqn-body"><div class="eqn-math">\[ \frac{z}{w} = \frac{z\,w^*}{w\,w^*} = \frac{z\,w^*}{\lvert w\rvert^2} \]</div><span class="eqn-no">(01.7)</span></div>
+      <dl class="where"><dt>\(z,\ w\)</dt><dd>complex numbers, \(w\neq 0\)</dd><dt>\(w^*\)</dt><dd>complex conjugate of \(w\)</dd><dt>\(\lvert w\rvert\)</dt><dd>magnitude of \(w\)</dd></dl>
+        </div>
+        <div class="hand">\(\dfrac{3 + 4j}{1 + 2j} = \dfrac{(3 + 4j)(1 - 2j)}{5}\)<br>\(= \dfrac{3 - 6j + 4j - 8j^2}{5} = \dfrac{11 - 2j}{5} = 2.2 - 0.4j\)<br>polar check: 5/2.236 = 2.236, 53.13° − 63.43° = −10.30° ✓</div>
+        <p class="take">Division is multiplication by the mirror, divided by a length squared.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-8" aria-label="Division: z over w"></canvas><div class="cap"><span class="prov exact">Exact formula</span> z / w = 2.2 − 0.4j: angle 53.13° − 63.43°.</div></div>
+    </div>
+  </div>
+
+  <div class="prose"><p>The four moves on one arrow, as a reference drawing:</p></div>
+  <div class="m1-svg">
+    <div class="m1-svg-head"><span class="prov schem">Schematic</span><span class="prov-note">Drawn to the numbers z = 3 + 4j (r = 5, θ = 53.13°), but annotations and the arc radii are not to scale.</span></div>
+    <svg viewBox="0 0 640 330" role="img" aria-label="One arrow z equal 3 plus 4j with its rectangular coordinates, its polar length and angle, the arrow j z turned 90 degrees, and the mirror image z star">
+      <g style="stroke:var(--grid);stroke-width:1">
+        <line x1="40" y1="165" x2="600" y2="165"/><line x1="320" y1="20" x2="320" y2="310"/>
+      </g>
+      <g style="fill:var(--muted);font:11px var(--f-mono)">
+        <text x="596" y="158" text-anchor="end">Re</text><text x="328" y="30">Im</text>
+        <text x="344" y="180" text-anchor="middle">1</text><text x="368" y="180" text-anchor="middle">2</text>
+        <text x="314" y="145" text-anchor="end">j</text><text x="314" y="121" text-anchor="end">2j</text>
+      </g>
+      <!-- z = 3+4j, scale 24 px per unit along each axis: (3,4) -> (392, 69) -->
+      <line x1="320" y1="165" x2="392" y2="69" style="stroke:var(--accent);stroke-width:3"/>
+      <polygon points="392,69 380,76 388,82" style="fill:var(--accent)"/>
+      <line x1="320" y1="165" x2="392" y2="165" style="stroke:var(--accent);stroke-width:1.4;stroke-dasharray:4 3"/>
+      <line x1="392" y1="165" x2="392" y2="69" style="stroke:var(--accent);stroke-width:1.4;stroke-dasharray:4 3"/>
+      <path d="M 348 165 A 28 28 0 0 0 337 143" style="fill:none;stroke:var(--ink);stroke-width:1.3"/>
+      <!-- j z = -4 + 3j -> (224, 93) -->
+      <line x1="320" y1="165" x2="224" y2="93" style="stroke:var(--sig2);stroke-width:3"/>
+      <polygon points="224,93 238,94 232,102" style="fill:var(--sig2)"/>
+      <path d="M 362 109 A 70 70 0 0 0 264 123" style="fill:none;stroke:var(--sig2);stroke-width:1.2;stroke-dasharray:3 3"/>
+      <!-- z* = 3 - 4j -> (392, 261) -->
+      <line x1="320" y1="165" x2="392" y2="261" style="stroke:var(--sig3);stroke-width:3"/>
+      <polygon points="392,261 380,254 388,248" style="fill:var(--sig3)"/>
+      <g style="font:12px var(--f-mono)">
+        <text x="398" y="64" style="fill:var(--accent)">z = 3 + 4j = 5∠53.13°</text>
+        <text x="384" y="182" style="fill:var(--accent)">a = 3</text>
+        <text x="398" y="120" style="fill:var(--accent)">b = 4</text>
+        <text x="352" y="161" style="fill:var(--ink)">θ</text>
+        <text x="352" y="141" style="fill:var(--accent)">r = 5</text>
+        <text x="226" y="62" text-anchor="end" style="fill:var(--sig2)">j·z = −4 + 3j</text>
+        <text x="226" y="78" text-anchor="end" style="fill:var(--sig2)">(+90°, same length)</text>
+        <text x="270" y="102" style="fill:var(--sig2)">×j</text>
+        <text x="398" y="276" style="fill:var(--sig3)">z* = 3 − 4j = 5∠−53.13°</text>
+        <text x="398" y="292" style="fill:var(--sig3)">(mirror in the real axis)</text>
+        <text x="40" y="246" style="fill:var(--ink)">add: tip to tail</text>
+        <text x="40" y="262" style="fill:var(--ink)">multiply: lengths ×, angles +</text>
+        <text x="40" y="278" style="fill:var(--ink)">conjugate: angle → −angle</text>
+        <text x="40" y="294" style="fill:var(--ink)">divide: lengths ÷, angles −</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 01.1</span><h3>Drag the arrows: add, multiply, mirror, divide</h3><span class="prov exact">Exact formula</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m1-mul-cv" aria-label="Complex plane with draggable arrows z and w and the result of the chosen operation"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>z (drag)</span><span><i style="background:var(--sig2)"></i>w (drag)</span><span><i style="background:var(--sig4)"></i>result</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m1-mul-op">Operation</label>
+          <select id="m1-mul-op"><option value="mul" selected>z · w (rotate and scale)</option><option value="add">z + w (tip to tail)</option><option value="conj">z* and z z* (mirror)</option><option value="div">z / w (unrotate)</option><option value="jz">j·z (quarter turn)</option></select></div>
+        <div class="btn-row"><button class="btn" id="m1-mul-wj" type="button">w = j</button><button class="btn" id="m1-mul-wn" type="button">w = −1</button><button class="btn" id="m1-mul-wh" type="button">w = 0.5</button><button class="btn solid" id="m1-mul-reset" type="button">Reset</button></div>
+        <div class="readout" id="m1-mul-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> drag the tips (they snap to a 0.5 grid). In z · w, set w = j: the result is z turned 90°, same length. Set w = −1: a half turn. Drag w around the circle \(\lvert w\rvert = 1\) and watch the product swing around without changing length. In z / w, put w on top of z: the result is 1.</div>
+  </div>
+
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Every IQ sample is one of these arrows. A phase rotation in an IQ beamformer is a multiplication by \(e^{j\alpha}\) (Step 6 with \(\lvert w\rvert = 1\)). Power and B-mode intensity are \(z z^*\) (Step 7). The Kasai lag-one autocorrelation \(R(1) = \sum_n \mathrm{IQ}_{n+1}\,\mathrm{IQ}_n^*\) uses the conjugate to subtract angles: \(\angle(z_2 z_1^*) = \theta_2 - \theta_1\) is the phase advanced between two pulses (Module 11).</p></div>
+
+  <!-- ===================== 01.3 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">01.3</span>Euler's formula, three ways</h2>
+    <p>The claim is <span class="eqref">(01.8)</span>: raising e to an imaginary power gives a unit-length arrow at angle θ radians. Three independent arguments lead to the same picture. Each one is useful later: the series explains numerical evaluation, the differential equation explains why phasors are the natural signals of linear systems (Module 03), and the limit explains why naive time-stepping of oscillators spirals outward.</p>
+    <div class="eqn key" id="m1-eq8">
+      <div class="eqn-body"><div class="eqn-math">\[ e^{j\theta} = \cos\theta + j\sin\theta, \qquad e^{j\pi} = -1, \qquad z = r\,e^{j\theta} \]</div><span class="eqn-no">(01.8)</span></div>
+      <dl class="where"><dt>\(\theta\)</dt><dd>angle in radians (not degrees)</dd><dt>\(e^{j\theta}\)</dt><dd>unit-length arrow at angle θ: real part \(\cos\theta\), imaginary part \(\sin\theta\)</dd><dt>\(r\)</dt><dd>length of a general arrow z</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd><dt>\(z\)</dt><dd>complex number, \(z=r\,e^{j\theta}\)</dd><dt>\(\pi\)</dt><dd>3.14159, rad</dd></dl>
+      <span class="note">Euler's formula: e to an imaginary power is a rotation, not a growth.</span>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 9 · The Taylor series, side by side</h3>
+        <p>Write the three known series and substitute \(x = j\theta\) into the exponential. Because the powers of j cycle 1, j, −1, −j, the even terms are real with alternating signs (the cosine series) and the odd terms are imaginary with alternating signs (the sine series). Each term is the previous one turned 90° and multiplied by θ/k, so the partial sums spiral in on the answer.</p>
+        <div class="eqn" id="m1-eq9">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} e^{x} &amp;= 1 + x + \frac{x^2}{2!} + \frac{x^3}{3!} + \frac{x^4}{4!} + \frac{x^5}{5!} + \cdots \\ \cos\theta &amp;= 1 - \frac{\theta^2}{2!} + \frac{\theta^4}{4!} - \cdots \\ \sin\theta &amp;= \theta - \frac{\theta^3}{3!} + \frac{\theta^5}{5!} - \cdots \\ e^{j\theta} &amp;= 1 + j\theta - \frac{\theta^2}{2!} - j\frac{\theta^3}{3!} + \frac{\theta^4}{4!} + j\frac{\theta^5}{5!} - \cdots \\ &amp;= \cos\theta + j\sin\theta \end{aligned} \]</div><span class="eqn-no">(01.9)</span></div>
+      <dl class="where"><dt>\(x\)</dt><dd>any real (or complex) number</dd><dt>\(\theta\)</dt><dd>angle, rad</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd><dt>\(n!\)</dt><dd>factorial, \(n!=1\cdot2\cdots n\)</dd><dt>\(\cdots\)</dt><dd>continuing series</dd></dl>
+        </div>
+        <div class="hand">θ = 1: terms 1, j, −0.5, −0.1667j, 0.0417, 0.0083j, −0.0014 …<br>partial sums: 1 → 1 + j → 0.5 + j → 0.5 + 0.8333j → 0.5417 + 0.8333j → 0.5417 + 0.8417j → 0.5403 + 0.8417j<br>cos 1 = 0.5403, sin 1 = 0.8415; 8 terms leave an error of \(2.5\times10^{-5}\)</div>
+        <p class="take">Plug jθ into the exponential series and the real and imaginary parts sort themselves into cos and sin.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-9" aria-label="Taylor series terms for theta equals 1 drawn tip to tail"></canvas><div class="cap"><span class="prov exact">Exact formula</span> θ = 1: each term is the last one turned 90° and shrunk by θ/k.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 10 · The differential equation: velocity is perpendicular to position</h3>
+        <p>The exponential is the function whose rate of change is proportional to itself: \(\frac{d}{d\theta} e^{a\theta} = a\,e^{a\theta}\). With a = j, the velocity \(f' = j f\) is the position turned 90°. A point whose velocity is always perpendicular to its position cannot get closer to or farther from the origin, so it moves on a circle. Its speed \(\lvert f'\rvert = \lvert f\rvert = 1\), so after "time" θ it has travelled an arc of length θ, which on a unit circle is an angle of θ radians.</p>
+        <div class="eqn" id="m1-eq10">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &amp;f' = j f,\quad f(0) = 1 \\ &amp;\Rightarrow\; \frac{d}{d\theta}\lvert f\rvert^2 = f' f^* + f\, f'^* = j\lvert f\rvert^2 - j\lvert f\rvert^2 = 0 \\ &amp;\Rightarrow\; \lvert f\rvert = 1 \end{aligned} \]</div><span class="eqn-no">(01.10)</span></div>
+      <dl class="where"><dt>\(f(\theta)\)</dt><dd>test function \(e^{j\theta}\), complex</dd><dt>\(f'\)</dt><dd>derivative \(df/d\theta\)</dd><dt>\(f^*\)</dt><dd>complex conjugate of \(f\)</dd><dt>\(\theta\)</dt><dd>angle, rad</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd><dt>\(\Rightarrow\)</dt><dd>implies</dd></dl>
+          <span class="note">Unit circle, unit speed, start at 1, counterclockwise: the coordinates after arc length θ are (cos θ, sin θ) by definition.</span>
+        </div>
+        <div class="hand">θ = π/2: f = j (straight up), f′ = j·j = −1 (pointing left): tangent to the circle ✓<br>θ = π: f = −1 after an arc of length π, half the circumference 2π</div>
+        <p class="take">\(e^{j\theta}\) is the point that moves around the unit circle at unit speed; this is why θ must be in radians.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-10" aria-label="Position and velocity arrows on the unit circle"></canvas><div class="cap"><span class="prov exact">Exact formula</span> Velocity j·f (pink) is always the position f (blue) turned 90°.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 11 · The limit: n small rotations</h3>
+        <p>Compound interest at an imaginary rate. Each factor \(1 + j\theta/n\) is a tiny rotation by \(\operatorname{atan}(\theta/n) \approx \theta/n\) with a tiny stretch \(\sqrt{1 + \theta^2/n^2}\). Multiply n of them: the angles add to \(n\operatorname{atan}(\theta/n) \to \theta\) and the length \((1 + \theta^2/n^2)^{n/2} \approx e^{\theta^2/(2n)} \to 1\).</p>
+        <div class="eqn" id="m1-eq11">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} e^{j\theta} = \lim_{n\to\infty} \left(1 + \frac{j\theta}{n}\right)^{n} \\[2pt] \left\lvert 1 + \frac{j\theta}{n}\right\rvert^{n} = \left(1 + \frac{\theta^2}{n^2}\right)^{n/2} \approx e^{\theta^2/(2n)} \end{gathered} \]</div><span class="eqn-no">(01.11)</span></div>
+      <dl class="where"><dt>\(n\)</dt><dd>number of small rotation steps, integer</dd><dt>\(\theta\)</dt><dd>total angle, rad</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd><dt>\(\lim\)</dt><dd>limit as \(n\to\infty\)</dd><dt>\(\lvert\cdot\rvert\)</dt><dd>magnitude</dd></dl>
+          <span class="note">This is also forward-Euler integration of \(f' = jf\) with step \(h = \theta/n\): each step moves along the tangent, overshoots the circle and spirals out by a factor \(\sqrt{1 + h^2}\) per step. Explicit Euler is unstable for undamped oscillators for any step size.</span>
+        </div>
+        <div class="hand">θ = 1, n = 2: (1 + 0.5j)² = 1 + j + 0.25j² = 0.75 + j<br>n = 4: 0.6289 + 0.9375j; exact 0.5403 + 0.8415j<br>θ = π, n = 4: length 2.614 at 152.6°; n = 100: length 1.0506 (\(e^{\pi^2/200} = 1.0506\)) at 179.94°</div>
+        <p class="take">Many tiny rotate-and-stretch steps converge to a pure rotation; the length error shrinks like θ²/(2n).</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-11" aria-label="Polygons of powers of 1 plus j pi over n for n equal 4, 8 and 32"></canvas><div class="cap"><span class="prov exact">Exact formula</span> \((1 + j\pi/n)^k\): n = 4, 8, 32 approach the half circle to −1.</div></div>
+    </div>
+    <p>All three routes give \(e^{j\pi} = -1\): a half turn. And they explain the polar form of Step 4: \(z = r(\cos\theta + j\sin\theta) = r\,e^{j\theta}\), so multiplication adds exponents and therefore angles.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 01.2</span><h3>Euler three ways: series, velocity, limit</h3><span class="prov exact">Exact formula</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m1-eu-cv" aria-label="Euler formula: Taylor partial sums, velocity field, or limit polygon, with error versus number of terms"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>real terms / position / polygon</span><span><i style="background:var(--sig2)"></i>imaginary terms / velocity</span><span><i style="background:var(--sig4)"></i>target \(e^{j\theta}\)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m1-eu-mode">Route</label><select id="m1-eu-mode"><option value="taylor" selected>Taylor series</option><option value="ode">ODE: f′ = j f</option><option value="limit">Limit (1 + jθ/n)ⁿ</option></select></div>
+        <div class="ctrl"><label for="m1-eu-th">Angle θ <output id="m1-eu-th-o">1.00 rad</output></label><input type="range" id="m1-eu-th" min="0" max="6.28" step="0.01" value="1"></div>
+        <div class="ctrl"><label for="m1-eu-n">Terms N / steps n <output id="m1-eu-n-o">4</output></label><input type="range" id="m1-eu-n" min="1" max="40" step="1" value="4"></div>
+        <div class="readout" id="m1-eu-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> Taylor at θ = 3.14: the first terms overshoot to −3.9 + 3.1j before spiralling in on −1; 13 terms bring the error below \(10^{-3}\). Switch to the limit at the same θ: n = 40 still misses by 0.13, because the error falls like \(\pi^2/(2n)\) instead of factorially. The ODE view shows why: each Euler step leaves the circle along the tangent.</div>
+  </div>
+
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Euler's formula is in radians. \(e^{j\cdot 90}\) is a rotation by 90 rad (≈ 5157°, i.e. 116.6° after removing whole turns), not by 90°. In code, every phase term is \(2\pi f t\) or \(2\pi f\tau\) with f in Hz and t in s; a missing 2π is the most common phase bug, and a degree/radian mix-up is the second.</p></div>
+
+  <!-- ===================== 01.4 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">01.4</span>The rotating phasor \(e^{j\omega t}\)</h2>
+    <p>Now let the angle grow with time, \(\theta = \omega t + \varphi\). The arrow spins. This single object, a phasor, is the building block of every signal in the rest of the course.</p>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 12 · Frequency is turns per second</h3>
+        <p>\(e^{j(\omega t + \varphi)}\) rotates at ω radians per second, i.e. \(f = \omega/(2\pi)\) full turns per second. One turn takes the period \(T = 1/f\). The starting angle φ is the phase.</p>
+        <div class="eqn" id="m1-eq12">
+          <div class="eqn-body"><div class="eqn-math">\[ z(t) = A\,e^{j(2\pi f t + \varphi)}, \qquad \omega = 2\pi f, \qquad T = \frac{1}{f} \]</div><span class="eqn-no">(01.12)</span></div>
+          <dl class="where"><dt>\(A\)</dt><dd>amplitude (arrow length)</dd><dt>\(f\)</dt><dd>frequency, turns per second (Hz); the sign gives the direction</dd><dt>\(\omega\)</dt><dd>angular frequency, rad/s</dd><dt>\(\varphi\)</dt><dd>phase (angle at t = 0), rad</dd><dt>\(T\)</dt><dd>period, s</dd><dt>\(z(t)\)</dt><dd>complex phasor, rotating arrow</dd><dt>\(t\)</dt><dd>time, s</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+        </div>
+        <div class="hand">f = 5 MHz: 5 × 10⁶ turns/s, ω = 3.142 × 10⁷ rad/s, T = 200 ns<br>t = 50 ns: angle = 2π × 5 × 10⁶ × 50 × 10⁻⁹ = π/2 → z = j<br>t = 30 ns: angle = 54° → z = 0.588 + 0.809j</div>
+        <p class="take">A phasor is a clock hand: its length is the amplitude, its speed is the frequency, its starting angle is the phase.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-12" aria-label="A 5 MHz phasor at 0, 30, 50, 100 and 150 ns"></canvas><div class="cap"><span class="prov exact">Exact formula</span> 5 MHz phasor at t = 0, 30, 50, 100, 150 ns.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 13 · The sign of ω is the direction</h3>
+        <p>\(e^{-j\omega t}\) turns clockwise. Its real part is identical to that of \(e^{+j\omega t}\) because cos is even, \(\cos(-x) = \cos x\); only the imaginary part changes sign, because sin is odd. So a negative frequency is not time running backwards; it is clockwise rotation.</p>
+        <div class="hand">t = 50 ns at 5 MHz: \(e^{+j\omega t} = j,\ e^{-j\omega t} = -j\)<br>both have real part 0; t = 30 ns: 0.588 ± 0.809j</div>
+        <p class="take">The real part alone cannot tell which way the arrow turns; the imaginary part can.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-13" aria-label="Real and imaginary parts of positive and negative frequency phasors"></canvas><div class="cap"><span class="prov exact">Exact formula</span> +f and −f: same cos (blue), opposite sin (pink solid / dashed).</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 14 · cos and sin are shadows</h3>
+        <p>Shine a light from above: the shadow of the arrow tip on the real axis moves as \(A\cos(\omega t + \varphi)\). Shine it from the side: the shadow on the imaginary axis moves as \(A\sin(\omega t + \varphi)\). The sine is the cosine a quarter period later: \(\sin\omega t = \cos(\omega t - \pi/2)\).</p>
+        <div class="eqn" id="m1-eq13">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \operatorname{Re}\{A\,e^{j(\omega t + \varphi)}\} &amp;= A\cos(\omega t + \varphi) \\ \operatorname{Im}\{A\,e^{j(\omega t + \varphi)}\} &amp;= A\sin(\omega t + \varphi) \end{aligned} \]</div><span class="eqn-no">(01.13)</span></div>
+      <dl class="where"><dt>\(A,\ \omega,\ \varphi\)</dt><dd>amplitude, angular frequency (rad/s), phase (rad), as in (01.12)</dd><dt>\(t\)</dt><dd>time, s</dd><dt>\(\operatorname{Re},\ \operatorname{Im}\)</dt><dd>real part, imaginary part</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+        </div>
+        <div class="hand">A = 1, φ = 0, t = T/8 = 25 ns at 5 MHz: angle 45°<br>real shadow cos 45° = 0.707, imaginary shadow sin 45° = 0.707</div>
+        <p class="take">A real sinusoid is the shadow of a rotating arrow; the shadow loses the direction of rotation.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-14" aria-label="Rotating arrow with its cosine and sine shadows"></canvas><div class="cap"><span class="prov exact">Exact formula</span> Horizontal shadow = cos, vertical shadow = sin.</div></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 01.3</span><h3>A rotating phasor and its two shadows</h3><span class="prov exact">Exact formula</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m1-rot-cv" aria-label="Rotating phasor with the imaginary shadow traced to the right and the real shadow traced below"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>real part (cos)</span><span><i style="background:var(--sig2)"></i>imaginary part (sin)</span><span><i style="background:var(--ink)"></i>phasor</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m1-rot-f">Frequency |f| <output id="m1-rot-f-o">2 MHz</output></label><input type="range" id="m1-rot-f" min="0.5" max="10" step="0.5" value="2"></div>
+        <div class="ctrl"><label for="m1-rot-dir">Direction</label><select id="m1-rot-dir"><option value="1" selected>+f (counterclockwise)</option><option value="-1">−f (clockwise)</option></select></div>
+        <div class="ctrl"><label for="m1-rot-phi">Phase φ <output id="m1-rot-phi-o">0°</output></label><input type="range" id="m1-rot-phi" min="-180" max="180" step="5" value="0"></div>
+        <div class="ctrl"><label for="m1-rot-t">Time t <output id="m1-rot-t-o">0 ns</output></label><input type="range" id="m1-rot-t" min="0" max="1000" step="1" value="0"></div>
+        <div class="btn-row"><button class="btn solid" id="m1-rot-play" type="button">Play</button></div>
+        <div class="readout" id="m1-rot-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> press Play, then switch the direction: the blue cos trace does not change at all, the pink sin trace flips sign. Set f = 5 MHz and scrub to t = 50 ns: the arrow points straight up (j). Change φ: both traces slide left or right together, because a phase is a time shift of \(\varphi/(2\pi f)\).</div>
+  </div>
+
+  <!-- ===================== 01.5 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">01.5</span>Why real signals need negative frequencies, and what "imaginary" means physically</h2>
+    <p>One rotating arrow never stays on the real axis. A measured RF voltage is real. So a real sinusoid must be built from something whose imaginary part is zero at every instant. The answer is two arrows turning in opposite directions.</p>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 15 · cos is two counter-rotating halves</h3>
+        <p>Add Euler's formula for +θ and for −θ: the sines cancel and the cosines double. Subtract and the cosines cancel.</p>
+        <div class="eqn key" id="m1-eq14">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} e^{j\theta} + e^{-j\theta} &amp;= (\cos\theta + j\sin\theta) + (\cos\theta - j\sin\theta) = 2\cos\theta \\ \cos\theta &amp;= \frac{e^{j\theta} + e^{-j\theta}}{2}, \qquad \sin\theta = \frac{e^{j\theta} - e^{-j\theta}}{2j} \end{aligned} \]</div><span class="eqn-no">(01.14)</span></div>
+          <dl class="where"><dt>\(e^{j\theta}\)</dt><dd>counterclockwise unit arrow (positive frequency when \(\theta = \omega t\))</dd><dt>\(e^{-j\theta}\)</dt><dd>its clockwise mirror (negative frequency)</dd><dt>\(\theta\)</dt><dd>angle, rad</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+          <span class="note">A real cosine is two half-length arrows turning opposite ways; their imaginary parts cancel at every instant.</span>
+        </div>
+        <div class="hand">θ = 60°: \(e^{j60^\circ} = 0.5 + 0.866j,\ e^{-j60^\circ} = 0.5 - 0.866j\)<br>half-sum = (1.0 + 0j)/2 = 0.5 = cos 60°: the ±0.433j parts cancel</div>
+        <p class="take">A real cosine is a pair of half-length arrows, one at +f and one at −f, whose vertical parts cancel.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-15" aria-label="Two counter-rotating half phasors summing to a real number"></canvas><div class="cap"><span class="prov exact">Exact formula</span> θ = 60°: \(\tfrac12 e^{j60^\circ} + \tfrac12 e^{-j60^\circ} = 0.5\).</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 16 · So the spectrum of every real signal has two mirror halves</h3>
+        <p>For \(A\cos(2\pi f_0 t + \varphi)\) the two arrows are \((A/2)e^{j\varphi}\) at \(+f_0\) and \((A/2)e^{-j\varphi}\) at \(-f_0\): a conjugate pair. Any real signal is a sum of such pairs, so its spectrum obeys \(X(-f) = X^*(f)\). The negative-frequency half carries no new information; it is the mirror image needed to cancel the imaginary parts. If the two halves are unequal, the sum leaves the real axis and the signal is complex.</p>
+        <div class="eqn" id="m1-eq15">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} A\cos(2\pi f_0 t + \varphi) = \frac{A}{2}e^{j\varphi}\,e^{j2\pi f_0 t} + \frac{A}{2}e^{-j\varphi}\,e^{-j2\pi f_0 t} \\[2pt] \Rightarrow\quad x(t)\ \text{real} \;\Leftrightarrow\; X(-f) = X^*(f) \end{gathered} \]</div><span class="eqn-no">(01.15)</span></div>
+          <dl class="where"><dt>\(f_0\)</dt><dd>frequency of the sinusoid, Hz</dd><dt>\(X(f)\)</dt><dd>spectrum (Fourier transform) of x(t)</dd><dt>\(A,\ \varphi\)</dt><dd>amplitude and phase of the cosine, as in (01.12)</dd><dt>\(t\)</dt><dd>time, s</dd><dt>\(x(t)\)</dt><dd>real signal</dd><dt>\(X(-f),\ X^*(f)\)</dt><dd>spectrum at \(-f\); complex conjugate of the spectrum at \(f\)</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd><dt>\(\Leftrightarrow\)</dt><dd>if and only if</dd></dl>
+        </div>
+        <div class="hand">halves 0.5 and 0.5: sum always real (a line segment)<br>halves 0.5 and 0.25: imaginary part (0.5 − 0.25) sin θ, at most 0.25 (an ellipse)<br>halves 0.5 and 0: a circle, the complex phasor \(0.5\,e^{j\theta}\)</div>
+        <p class="take">Negative frequencies exist because real signals need a clockwise partner for every counterclockwise arrow.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-16" aria-label="Line spectra: a cosine has two half-height lines, a complex phasor one"></canvas><div class="cap"><span class="prov exact">Exact formula</span> cos: ½ at ±f₀ (top). \(e^{j2\pi f_0 t}\): 1 at +f₀ only (bottom).</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 17 · I and Q: the imaginary part is the quadrature component</h3>
+        <p>Expand a sinusoid of arbitrary phase with the angle-sum identity. It is always a mix of two fixed references: the cosine itself and the cosine shifted 90° ahead. The phasor \(A e^{j\varphi} = I + jQ\) stores the two mixing amounts. The real part says how much in-phase reference is present; the imaginary part says how much quadrature (90°-shifted) reference is present. Hardware measures Q with a second mixer whose local oscillator is delayed by a quarter period. Nothing about it is imaginary.</p>
+        <div class="eqn key" id="m1-eq16">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} A\cos(\omega t + \varphi) &amp;= A\cos\varphi\cdot\cos\omega t - A\sin\varphi\cdot\sin\omega t \\ &amp;= I\cos\omega t + Q\cos(\omega t + 90^\circ) \\ I &amp;= A\cos\varphi = \operatorname{Re}\{A e^{j\varphi}\} \\ Q &amp;= A\sin\varphi = \operatorname{Im}\{A e^{j\varphi}\} \end{aligned} \]</div><span class="eqn-no">(01.16)</span></div>
+          <dl class="where"><dt>\(A,\ \varphi\)</dt><dd>amplitude and phase of the sinusoid</dd><dt>\(\omega\)</dt><dd>angular frequency of the reference, rad/s</dd><dt>\(I\)</dt><dd>in-phase amount: weight of \(\cos\omega t\)</dd><dt>\(Q\)</dt><dd>quadrature amount: weight of \(\cos(\omega t + 90^\circ)\)</dd><dt>\(t\)</dt><dd>time, s</dd><dt>\(90^\circ\)</dt><dd>quarter-cycle shift, \(\pi/2\) rad</dd><dt>\(\operatorname{Re},\ \operatorname{Im}\)</dt><dd>real part, imaginary part</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+          <span class="note">The phasor \(I + jQ = A e^{j\varphi}\) is two ordinary real weights; "imaginary" only marks the 90°-shifted one.</span>
+        </div>
+        <div class="hand">A = 1, φ = 30°: I = cos 30° = 0.866, Q = sin 30° = 0.500<br>check at ωt = 0: 0.866·1 + 0.5·cos 90° = 0.866 = cos 30° ✓</div>
+        <p class="take">The imaginary part of a phasor is the amount of the 90°-shifted copy in the signal.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-17" aria-label="A 30 degree sinusoid as I times cosine plus Q times the 90 degree shifted cosine"></canvas><div class="cap"><span class="prov exact">Exact formula</span> cos(ωt + 30°) (black) = 0.866 cos ωt (blue) + 0.5 cos(ωt + 90°) (pink).</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 18 · Q is what the signal was doing a quarter period earlier</h3>
+        <p>Go back a quarter period from the reference instant \(t_0\) (where the reference cosine peaks): the phasor turns back by 90°, which is multiplication by −j, and the real part of \(-j(I + jQ)\) is Q. So for a narrowband signal the quadrature value is simply the real signal sampled T/4 earlier. This is the basis of quadrature sampling at \(f_s = 4f_0\).</p>
+        <div class="eqn" id="m1-eq17">
+          <div class="eqn-body"><div class="eqn-math">\[ x\!\left(t_0 - \frac{T}{4}\right) = \operatorname{Re}\{(I + jQ)\,e^{-j\pi/2}\} = \operatorname{Re}\{-jI + Q\} = Q \]</div><span class="eqn-no">(01.17)</span></div>
+      <dl class="where"><dt>\(t_0\)</dt><dd>time at which \(x\) is read, s</dd><dt>\(T\)</dt><dd>carrier period, \(1/f\), s</dd><dt>\(x(t)\)</dt><dd>real signal \(I\cos\omega t+Q\cos(\omega t+90^\circ)\) of (01.16)</dd><dt>\(I,\ Q\)</dt><dd>in-phase and quadrature amounts, as in (01.16)</dd><dt>\(\operatorname{Re}\)</dt><dd>real part</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+        </div>
+        <div class="hand">x(t) = cos(ωt + 30°): x(0) = cos 30° = 0.866 = I<br>x(−T/4) = cos(−90° + 30°) = cos(−60°) = 0.500 = Q ✓</div>
+        <p class="take">For a narrowband echo, I is "now" and Q is "a quarter period ago"; both are ordinary real measurements.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-18" aria-label="RF sinusoid sampled at t0 giving I and a quarter period earlier giving Q"></canvas><div class="cap"><span class="prov exact">Exact formula</span> Sample at 0 → I = 0.866; at −T/4 → Q = 0.5.</div></div>
+    </div>
+    <p>The same reading applies to a spectrum. \(X(f) = \int x(t)\cos(2\pi f t)\,dt - j\int x(t)\sin(2\pi f t)\,dt\), so \(\operatorname{Re} X(f)\) is the correlation of the signal with a cosine at f and \(\operatorname{Im} X(f)\) is minus its correlation with a sine at f: the quadrature content at that frequency. For a real signal, the even part of x(t) produces Re X and the odd part produces Im X. Module 02 builds the DFT on exactly this.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 01.4</span><h3>Two counter-rotating phasors make a real cosine</h3><span class="prov exact">Exact formula</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m1-cr-cv" aria-label="Two counter-rotating phasors added tip to tail and the real and imaginary parts of their sum versus angle"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>\(A_+ e^{j(\omega t + \varphi)}\)</span><span><i style="background:var(--sig2)"></i>\(A_- e^{-j(\omega t + \varphi)}\)</span><span><i style="background:var(--sig4)"></i>sum, real part</span><span><i style="background:var(--sig3)"></i>imaginary part of sum</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m1-cr-am">Clockwise half A₋ <output id="m1-cr-am-o">0.50</output></label><input type="range" id="m1-cr-am" min="0" max="0.5" step="0.01" value="0.5"></div>
+        <div class="ctrl"><label for="m1-cr-phi">Phase φ <output id="m1-cr-phi-o">0°</output></label><input type="range" id="m1-cr-phi" min="-180" max="180" step="5" value="0"></div>
+        <div class="ctrl"><label for="m1-cr-t">Angle ωt <output id="m1-cr-t-o">60°</output></label><input type="range" id="m1-cr-t" min="0" max="720" step="1" value="60"></div>
+        <div class="btn-row"><button class="btn solid" id="m1-cr-play" type="button">Play</button></div>
+        <div class="readout" id="m1-cr-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> with A₋ = A₊ = 0.5 the tip of the sum slides along the real axis only: a real cosine of amplitude 1. Lower A₋: the path opens into an ellipse with semi-axes \(A_+ + A_-\) and \(A_+ - A_-\), and the imaginary trace (amber) appears. At A₋ = 0 the path is a circle: the analytic signal, one arrow, one frequency.</div>
+  </div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Doppler direction needs Q. A scatterer moving toward the probe shifts the echo phasor to a positive Doppler frequency, away from the probe to a negative one. A single real channel sees \(\cos(\pm 2\pi f_D t)\), identical for both signs (Step 13), so the spectral Doppler display cannot tell flow toward from flow away without the quadrature channel. A gain or phase mismatch between the I and Q channels makes the \(A_+ \ne A_-\) situation in reverse: some of the \(+f_D\) arrow leaks into \(-f_D\) (a 1 % gain and 1° phase error leave a mirror image at −40 dB).</p></div>
+
+  <!-- ===================== 01.6 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">01.6</span>I/Q: two projections of one arrow, and demodulation as stopping the rotation</h2>
+    <p>An RF echo is a phasor spinning at the carrier \(f_0\) whose length and angle change slowly. I/Q demodulation removes the fast spin so that only the slow arrow is left. Module 08 covers the filters, decimation and beamforming on IQ; here the goal is to see the mechanism with four numbers.</p>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 19 · Multiply by \(e^{-j\omega_d t}\): spin backwards at the carrier rate</h3>
+        <p>Write the echo as its two counter-rotating halves and multiply by a clockwise phasor at the demodulation frequency \(f_d = f_0\). The counterclockwise half stops dead; the clockwise half now spins twice as fast. A low-pass filter removes the fast one, and a factor 2 restores the amplitude. In hardware this is two mixers: \(I = 2\cdot\operatorname{LPF}\{x\cos\omega_d t\}\), \(Q = -2\cdot\operatorname{LPF}\{x\sin\omega_d t\}\).</p>
+        <div class="eqn" id="m1-eq18">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} x(t)\,e^{-j\omega_0 t} &amp;= \frac{A}{2}e^{j\varphi} + \frac{A}{2}e^{-j(2\omega_0 t + \varphi)} \\ &amp;\xrightarrow{\ \operatorname{LPF},\ \times 2\ }\; \mathrm{IQ} = A\,e^{j\varphi} = I + jQ \end{aligned} \]</div><span class="eqn-no">(01.18)</span></div>
+          <dl class="where"><dt>\(\omega_d = 2\pi f_d\)</dt><dd>demodulation (mixer) frequency; here \(f_d = f_0\)</dd><dt>\(\operatorname{LPF}\)</dt><dd>low-pass filter that keeps the band near 0 Hz and rejects \(-2f_0\)</dd><dt>\(x(t)\)</dt><dd>real RF signal, \(A\cos(\omega_0 t+\varphi)\)</dd><dt>\(t\)</dt><dd>time, s</dd><dt>\(\omega_0\)</dt><dd>carrier angular frequency, rad/s</dd><dt>\(A,\ \varphi\)</dt><dd>amplitude and phase</dd><dt>\(I,\ Q\)</dt><dd>in-phase and quadrature parts of the IQ sample, as in (01.16)</dd><dt>\(\mathrm{IQ}\)</dt><dd>complex baseband sample, \(I+jQ\)</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd><dt>\(\times 2\)</dt><dd>gain restoring the factor \(A/2\) to \(A\)</dd></dl>
+        </div>
+        <div class="hand">spectrum: lines at +f₀ and −f₀ shift to 0 and −2f₀<br>at f₀ = 5 MHz the unwanted line sits at −10 MHz, far outside a ±5 MHz low-pass</div>
+        <p class="take">Demodulation is a frequency shift by −f₀ followed by throwing away the shifted mirror.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-19" aria-label="Spectrum of an RF echo before and after multiplication by a clockwise phasor"></canvas><div class="cap"><span class="prov exact">Exact formula</span><span class="prov-note">Gaussian-envelope echo (band σ = 1.3 MHz), ideal LPF.</span> RF bands at ±f₀ (top) → 0 and −2f₀ after mixing; the LPF keeps 0 (bottom).</div></div>
+    </div>
+
+    <div class="m1-svg">
+      <div class="m1-svg-head"><span class="prov schem">Schematic</span><span class="prov-note">Signal flow of a quadrature demodulator with typical numbers for a 5 MHz linear array; blocks not to scale. Many systems digitize the RF first and do the same operations in the FPGA.</span></div>
+      <svg viewBox="0 0 680 256" role="img" aria-label="Quadrature demodulator: the RF signal splits into two mixers driven by cos and minus sin of the local oscillator at f d, each followed by a low-pass filter and a gain of 2, giving I and Q, which combine into I plus j Q">
+        <g style="fill:var(--panel);stroke:var(--ink);stroke-width:1.4">
+          <rect x="18" y="104" width="92" height="42" rx="4"/>
+          <circle cx="212" cy="62" r="18"/><circle cx="212" cy="188" r="18"/>
+          <rect x="290" y="40" width="110" height="44" rx="4"/><rect x="290" y="166" width="110" height="44" rx="4"/>
+          <rect x="440" y="44" width="54" height="36" rx="4"/><rect x="440" y="170" width="54" height="36" rx="4"/>
+          <rect x="560" y="104" width="104" height="42" rx="4"/>
+          <rect x="166" y="108" width="92" height="34" rx="4"/>
+        </g>
+        <g style="fill:none;stroke:var(--ink);stroke-width:1.3">
+          <path d="M110 125 H140 V62 H194"/><path d="M140 125 V188 H194"/>
+          <path d="M230 62 H290"/><path d="M230 188 H290"/>
+          <path d="M400 62 H440"/><path d="M400 188 H440"/>
+          <path d="M494 62 H530 V112 H560"/><path d="M494 188 H530 V138 H560"/>
+          <path d="M212 108 V80" style="stroke:var(--accent)"/><path d="M212 142 V170" style="stroke:var(--sig2)"/>
+        </g>
+        <g style="stroke:var(--ink);stroke-width:1.3">
+          <line x1="199" y1="49" x2="225" y2="75"/><line x1="225" y1="49" x2="199" y2="75"/>
+          <line x1="199" y1="175" x2="225" y2="201"/><line x1="225" y1="175" x2="199" y2="201"/>
+        </g>
+        <g style="font:12px var(--f-mono);fill:var(--ink)" text-anchor="middle">
+          <text x="64" y="122">RF x(t)</text><text x="64" y="138" style="fill:var(--muted)">f₀ = 5 MHz</text>
+          <text x="212" y="122">LO at f<tspan dy="3" style="font-size:9px">d</tspan></text><text x="212" y="136" style="fill:var(--muted)">= 5 MHz</text>
+          <text x="345" y="60">low-pass</text><text x="345" y="76" style="fill:var(--muted)">f<tspan dy="3" style="font-size:9px">c</tspan><tspan dy="-3"> ≈ 3–5 MHz</tspan></text>
+          <text x="345" y="186">low-pass</text><text x="345" y="202" style="fill:var(--muted)">f<tspan dy="3" style="font-size:9px">c</tspan><tspan dy="-3"> ≈ 3–5 MHz</tspan></text>
+          <text x="467" y="67">× 2</text><text x="467" y="193">× 2</text>
+          <text x="612" y="122">I + jQ</text><text x="612" y="140" style="fill:var(--muted)">= A·e<tspan dy="-6" style="font-size:9px">jφ</tspan></text>
+        </g>
+        <g style="font:12px var(--f-mono)">
+          <text x="220" y="98" style="fill:var(--accent)">cos ω<tspan dy="3" style="font-size:9px">d</tspan><tspan dy="-3">t</tspan></text>
+          <text x="220" y="160" style="fill:var(--sig2)">−sin ω<tspan dy="3" style="font-size:9px">d</tspan><tspan dy="-3">t</tspan></text>
+          <text x="236" y="54" style="fill:var(--muted)">0, 2f₀</text>
+          <text x="236" y="180" style="fill:var(--muted)">0, 2f₀</text>
+          <text x="504" y="56" style="fill:var(--accent)">I</text>
+          <text x="504" y="182" style="fill:var(--sig2)">Q</text>
+          <text x="18" y="232" style="fill:var(--muted)">After the low-pass the band is ±B/2 around 0 Hz,</text><text x="18" y="247" style="fill:var(--muted)">so IQ can be decimated (e.g. 40 MHz RF → 10 MHz complex).</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 20 · I/Q by hand from four samples (\(f_s = 4f_0\))</h3>
+        <p>Sample the echo once per quarter period. The clockwise phasor \(e^{-j\omega_0 t}\) at those instants is 1, −j, −1, j: no multiplications needed. Averaging four products is a crude low-pass that removes the \(2f_0\) term exactly, because that term alternates +, −, +, − at quarter-period sampling and sums to zero.</p>
+        <div class="hand">x = cos(ω₀t + 30°) at ω₀t = 0°, 90°, 180°, 270°: 0.866, −0.500, −0.866, 0.500<br>× (1, −j, −1, j): 0.866, +0.5j, 0.866, +0.5j<br>mean = 0.433 + 0.25j; × 2 = 0.866 + 0.500j = \(1\cdot e^{j30^\circ}\) ✓</div>
+        <p class="take">Four quarter-period samples and sign flips give the phasor: I and Q are averages, nothing more mysterious.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-20" aria-label="Four products of samples and the clockwise phasor, summed tip to tail"></canvas><div class="cap"><span class="prov exact">Exact formula</span> The four products tip to tail sum to 1.732 + 1.0j; ×2/4 gives 1∠30°.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 21 · A delay is a rotation of the IQ arrow</h3>
+        <p>Delay the echo by τ and demodulate at \(f_0\): the slow arrow turns by \(-2\pi f_0\tau\) while its length (the envelope) is unchanged. One full turn is one carrier period, so the phase measures delay only modulo T.</p>
+        <div class="eqn key" id="m1-eq19">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} x(t - \tau) \;\to\; \mathrm{IQ}(t) = A(t - T_e - \tau)\,e^{-j2\pi f_0 (T_e + \tau)} \\[2pt] \Delta\angle = -2\pi f_0\tau, \qquad \Delta z = \frac{c\,\tau}{2} \end{gathered} \]</div><span class="eqn-no">(01.19)</span></div>
+          <dl class="where"><dt>\(\tau\)</dt><dd>extra round-trip delay of the echo, s</dd><dt>\(A(t)\)</dt><dd>envelope of the echo</dd><dt>\(T_e\)</dt><dd>reference echo time; choosing \(f_0 T_e\) an integer makes the reference phase zero</dd><dt>\(\Delta\angle\)</dt><dd>change of the IQ angle, rad (wrapped into \((-\pi, \pi]\))</dd><dt>\(\Delta z\)</dt><dd>depth shift for round-trip delay τ; c = 1540 m/s</dd><dt>\(x(t)\)</dt><dd>real RF echo</dd><dt>\(t\)</dt><dd>time, s</dd><dt>\(f_0\)</dt><dd>demodulation frequency, Hz</dd><dt>\(\mathrm{IQ}(t)\)</dt><dd>complex baseband echo</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd><dt>\(c\)</dt><dd>sound speed, 1540 m/s</dd><dt>\(\to\)</dt><dd>after demodulation gives</dd></dl>
+          <span class="note">Phase is delay in disguise: −360° per carrier period of delay.</span>
+        </div>
+        <div class="hand">f₀ = 5 MHz: τ = 13 ns → −360° × 5 × 10⁶ × 13 × 10⁻⁹ = −23.4°<br>τ = 50 ns → −90°; τ = 200 ns → −360° ≡ 0° (the phase cannot tell)<br>depth: Δz = cτ/2 = 1540 × 13 ns / 2 = 10 µm for −23.4°</div>
+        <p class="take">Phase is delay in disguise: −360° per carrier period, i.e. per λ/2 of round-trip depth.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-21" aria-label="Measured IQ phase versus delay, a sawtooth wrapping every 200 ns"></canvas><div class="cap"><span class="prov exact">Exact formula</span> ∠IQ vs τ at 5 MHz: a line of slope −360°/200 ns that wraps.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 22 · Demodulating at the wrong frequency leaves a slow spin</h3>
+        <p>If \(f_d \ne f_0\) the arrow is not quite stopped: it keeps turning at \(f_0 - f_d\). The envelope \(\lvert\mathrm{IQ}\rvert\) is untouched; the phase gains a ramp. That ramp is real information (a frequency offset), or a bias if it is mistaken for motion.</p>
+        <div class="eqn" id="m1-eq20">
+          <div class="eqn-body"><div class="eqn-math">\[ \mathrm{IQ}(t) = A(t - T_e)\,e^{\,j\left[2\pi (f_0 - f_d)\,t \;-\; 2\pi f_0 T_e\right]} \]</div><span class="eqn-no">(01.20)</span></div>
+      <dl class="where"><dt>\(f_0\)</dt><dd>carrier frequency of the echo, Hz</dd><dt>\(f_d\)</dt><dd>demodulation frequency, Hz</dd><dt>\(t\)</dt><dd>time, s</dd><dt>\(A(t-T_e)\)</dt><dd>echo envelope, delayed by \(T_e\)</dd><dt>\(T_e\)</dt><dd>echo arrival time, s</dd><dt>\(\mathrm{IQ}(t)\)</dt><dd>complex baseband signal</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+        </div>
+        <div class="hand">f₀ = 5 MHz, f_d = 4.5 MHz: residual 0.5 MHz = one turn per 2 µs = 0.18° per ns<br>m01_phasors_and_iq.m measures 0.501 MHz inside the echo</div>
+        <p class="take">The envelope ignores the demodulation frequency; the phase does not.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-22" aria-label="IQ trajectory of an echo for matched and mismatched demodulation frequency"></canvas><div class="cap"><span class="prov exact">Exact formula</span><span class="prov-note">Gaussian envelope, σ = 125 ns.</span> IQ plane: \(f_d = f_0\) traces a fixed line (blue); \(f_d\) = 4.5 MHz bends it into a loop (amber).</div></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 01.5</span><h3>I/Q of an RF echo: delay, demodulation frequency, bandwidth</h3><span class="prov sim">Simulation</span><span class="prov-note">JS: Gaussian-envelope 5 MHz echo sampled at 160 MHz, mixed with \(e^{-j2\pi f_d t}\), ideal FFT low-pass at 5 MHz, ×2. Dots show every 4th sample (40 MHz).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m1-iq-cv" aria-label="RF echo with envelope, I and Q traces, and the IQ trajectory in the complex plane"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>RF / I</span><span><i style="background:var(--sig2)"></i>Q</span><span><i style="background:var(--ink)"></i>envelope |IQ|</span><span><i style="background:var(--sig3)"></i>40 MHz samples</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m1-iq-tau">Echo delay τ <output id="m1-iq-tau-o">13 ns</output></label><input type="range" id="m1-iq-tau" min="0" max="250" step="1" value="13"></div>
+        <div class="ctrl"><label for="m1-iq-fd">Demodulation \(f_d\) <output id="m1-iq-fd-o">5.00 MHz</output></label><input type="range" id="m1-iq-fd" min="4" max="6" step="0.05" value="5"></div>
+        <div class="ctrl"><label for="m1-iq-bw">Fractional bandwidth (−6 dB) <output id="m1-iq-bw-o">60 %</output></label><input type="range" id="m1-iq-bw" min="20" max="100" step="5" value="60"></div>
+        <label class="check"><input type="checkbox" id="m1-iq-smp" checked>show 40 MHz samples</label>
+        <div class="readout" id="m1-iq-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> sweep τ from 0 to 200 ns with \(f_d\) = 5 MHz: the RF shifts by one period and the IQ arrow makes exactly one clockwise turn while the envelope just slides. Move \(f_d\) off 5 MHz: the I and Q traces start to oscillate under the envelope and the trajectory bends into a loop, but \(\lvert\mathrm{IQ}\rvert\) does not change.</div>
+  </div>
+
+  <!-- ===================== 01.7 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">01.7</span>Phase: wrapping and unwrapping</h2>
+    <p>An arrow at angle θ and one at θ + 2π are the same arrow. So any measured angle is known only modulo 2π, and turning measured angles back into a continuous phase history (unwrapping) needs an assumption.</p>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 23 · Measured angles live in (−π, π]</h3>
+        <p>angle() and atan2 return the principal value. A phase that grows steadily therefore comes back as a sawtooth: every time it passes +π it reappears near −π.</p>
+        <div class="hand">true phase 0, 2, 4, 6 rad<br>wrapped: 0, 2, 4 − 2π = −2.283, 6 − 2π = −0.283</div>
+        <p class="take">A single phase value cannot tell how many whole turns have happened.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-23" aria-label="Linearly increasing phase and its wrapped sawtooth"></canvas><div class="cap"><span class="prov exact">Exact formula</span> True phase (black) and wrapped values (pink dots).</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 24 · Unwrap by assuming small steps</h3>
+        <p>Walk along the sequence. Whenever two neighbours differ by more than π, assume a wrap happened and add the multiple of 2π that brings the difference back into (−π, π]. MATLAB unwrap does exactly this.</p>
+        <div class="hand">differences of (0, 2, −2.283, −0.283): 2, −4.283, 2<br>−4.283 &lt; −π → add 2π → 2.000<br>cumulative: 0, 2, 4, 6 ✓</div>
+        <p class="take">Unwrapping is a guess that the true phase never jumps by more than half a turn between samples.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-24" aria-label="Phase differences before and after adding two pi"></canvas><div class="cap"><span class="prov exact">Exact formula</span> Differences: the −4.28 rad step becomes +2.00 rad.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 25 · The guess fails when the true step exceeds π</h3>
+        <p>A step of more than half a turn looks exactly like a step the other way, so unwrap picks the wrong one and every later sample inherits the error. This is the sampling theorem applied to phase: at least two samples per turn. In echo tracking a round-trip displacement Δz rotates the phase by \(-4\pi f_0\Delta z/c\), so the limit is λ/4 per sample; in Kasai Doppler it is the aliasing velocity.</p>
+        <div class="eqn" id="m1-eq21">
+          <div class="eqn-body"><div class="eqn-math">\[ \lvert\Delta\varphi\rvert &lt; \pi \;\Leftrightarrow\; \lvert\Delta z\rvert &lt; \frac{\lambda}{4}\ \text{per sample}, \qquad v_{\text{alias}} = \frac{c\cdot\mathrm{PRF}}{4 f_0} \]</div><span class="eqn-no">(01.21)</span></div>
+          <dl class="where"><dt>\(\Delta\varphi\)</dt><dd>true phase step between consecutive samples (frames or pulses), rad</dd><dt>\(\lambda = c/f_0\)</dt><dd>wavelength, 0.308 mm at 5 MHz</dd><dt>\(\mathrm{PRF}\)</dt><dd>pulse repetition frequency, Hz</dd><dt>\(v_{\text{alias}}\)</dt><dd>largest unambiguous axial velocity, m/s</dd><dt>\(\Delta z\)</dt><dd>axial displacement between samples, m</dd><dt>\(c\)</dt><dd>sound speed, 1540 m/s</dd><dt>\(f_0\)</dt><dd>center frequency, Hz</dd><dt>\(\lvert\cdot\rvert\)</dt><dd>magnitude</dd></dl>
+        </div>
+        <div class="hand">5 MHz: λ/4 = 0.308 mm / 4 = 77 µm per frame<br>PRF = 5 kHz: \(v_{\text{alias}}\) = 1540 × 5000 / (4 × 5 × 10⁶) = 0.385 m/s<br>step growing 0.1 rad per sample: first failure at sample 32 (true step 3.15 rad)</div>
+        <p class="take">Phase is unambiguous only below half a turn per sample; above that it aliases like any undersampled signal.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-25" aria-label="Unwrap failure once the phase step exceeds pi"></canvas><div class="cap"><span class="prov sim">Simulation</span><span class="prov-note">JS unwrap of the phase ½·a·n², a = 0.1 rad.</span> True (black) vs unwrapped (blue): they part at sample 32.</div></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 01.6</span><h3>Wrapped, unwrapped and true phase of an accelerating target</h3><span class="prov sim">Simulation</span><span class="prov-note">JS: phase ½·a·n² plus Gaussian phase noise (fixed seed), wrapped with atan2, then unwrapped with the same rule as MATLAB unwrap.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m1-wr-cv" aria-label="True, wrapped and unwrapped phase versus sample, and the phase step per sample against the pi limit"></canvas>
+        <div class="legend"><span><i style="background:var(--ink)"></i>true phase</span><span><i style="background:var(--sig2)"></i>wrapped (angle)</span><span><i style="background:var(--accent)"></i>unwrapped</span><span><i style="background:var(--sig3)"></i>step per sample</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m1-wr-a">Step growth a <output id="m1-wr-a-o">0.10 rad</output></label><input type="range" id="m1-wr-a" min="0.02" max="0.3" step="0.01" value="0.1"></div>
+        <div class="ctrl"><label for="m1-wr-nz">Phase noise σ <output id="m1-wr-nz-o">0.00 rad</output></label><input type="range" id="m1-wr-nz" min="0" max="1.2" step="0.05" value="0"></div>
+        <div class="readout" id="m1-wr-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> the true phase is \(\tfrac12 a n^2\), so the step between samples grows linearly. Unwrapping is exact until the step crosses π (amber line meets the dashed limit) and then drifts by −2π per sample. Add noise: with σ near 1 rad, single noisy steps exceed π long before the motion does, and unwrap fails early.</div>
+  </div>
+
+  <!-- ===================== 01.8 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">01.8</span>Adding sinusoids: phasor sums and beats</h2>
+    <p>Real sinusoids of the same frequency are awkward to add with trigonometric identities and trivial to add as arrows. Sinusoids of different frequencies add as arrows that turn relative to each other, which produces beats.</p>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 26 · Same frequency: add the phasors</h3>
+        <p>Both signals share the factor \(e^{j\omega t}\), so it factors out. Add the stationary arrows, then let the result spin.</p>
+        <div class="eqn" id="m1-eq22">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &amp;A_1\cos(\omega t + \varphi_1) + A_2\cos(\omega t + \varphi_2) \\ &amp;\quad = \operatorname{Re}\left\{\left(A_1 e^{j\varphi_1} + A_2 e^{j\varphi_2}\right) e^{j\omega t}\right\} \end{aligned} \]</div><span class="eqn-no">(01.22)</span></div>
+      <dl class="where"><dt>\(A_1,\ A_2\)</dt><dd>amplitudes of the two echoes</dd><dt>\(\varphi_1,\ \varphi_2\)</dt><dd>their phases, rad</dd><dt>\(\omega\)</dt><dd>common angular frequency, rad/s</dd><dt>\(t\)</dt><dd>time, s</dd><dt>\(\operatorname{Re}\)</dt><dd>real part</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+        </div>
+        <div class="hand">cos ωt + cos(ωt + 90°): 1 + j = 1.414∠45° → 1.414 cos(ωt + 45°)<br>1∠0° + 0.5∠120° = 1 + (−0.25 + 0.433j) = 0.75 + 0.433j = 0.866∠30°<br>1∠0° + 1∠120° + 1∠240° = 0 (three-phase balance)</div>
+        <p class="take">Amplitudes of equal-frequency sinusoids do not add; their arrows do.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-26" aria-label="Phasor sum of 1 at 0 degrees and 1 at 90 degrees"></canvas><div class="cap"><span class="prov exact">Exact formula</span> 1∠0° + 1∠90° = 1.414∠45°.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 27 · Two scatterers in one resolution cell</h3>
+        <p>Two equal echoes whose depths differ by Δz arrive with a round-trip phase difference \(4\pi\Delta z/\lambda\). Their sum has length \(2\lvert\cos(2\pi\Delta z/\lambda)\rvert\): full addition when the separation is a multiple of λ/2, complete cancellation at λ/4. Many random arrows of this kind are speckle (Module 07).</p>
+        <div class="eqn" id="m1-eq23">
+          <div class="eqn-body"><div class="eqn-math">\[ \left\lvert 1 + e^{-j4\pi\Delta z/\lambda}\right\rvert = 2\left\lvert\cos\frac{2\pi\Delta z}{\lambda}\right\rvert \]</div><span class="eqn-no">(01.23)</span></div>
+          <dl class="where"><dt>\(\Delta z\)</dt><dd>axial separation of the two scatterers, m</dd><dt>\(\lambda\)</dt><dd>wavelength at the centre frequency, m</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(\lvert\cdot\rvert\)</dt><dd>magnitude of the summed phasor; the second echo has unit relative amplitude</dd></dl>
+        </div>
+        <div class="hand">5 MHz, λ = 0.308 mm: Δz = 38.5 µm → 1.414; Δz = 77 µm (λ/4) → 0; Δz = 154 µm (λ/2) → 2</div>
+        <p class="take">A quarter wavelength in depth is half a turn of phase: two equal scatterers can erase each other.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-27" aria-label="Amplitude of two equal echoes versus their depth separation"></canvas><div class="cap"><span class="prov exact">Exact formula</span> |sum| vs Δz/λ: nulls at λ/4, 3λ/4.</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 28 · Different frequencies: beats</h3>
+        <p>In a frame that turns with the first arrow, the second arrow turns at the difference frequency Δf. The resultant length, which is the envelope, swings between \(A_1 + A_2\) and \(\lvert A_1 - A_2\rvert\) once per 1/Δf. The product identity says the same in real form.</p>
+        <div class="eqn" id="m1-eq24">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} \cos\omega_1 t + \cos\omega_2 t = 2\cos\!\left(\frac{\Delta\omega\, t}{2}\right)\cos(\bar\omega\, t) \\[2pt] \Delta\omega = \omega_2 - \omega_1, \qquad \bar\omega = \frac{\omega_1 + \omega_2}{2} \end{gathered} \]</div><span class="eqn-no">(01.24)</span></div>
+          <dl class="where"><dt>\(\Delta\omega = 2\pi\Delta f\)</dt><dd>difference angular frequency; the envelope repeats every \(1/\lvert\Delta f\rvert\)</dd><dt>\(\bar\omega\)</dt><dd>mean (carrier) angular frequency</dd><dt>\(\omega_1,\ \omega_2\)</dt><dd>the two angular frequencies, rad/s</dd><dt>\(t\)</dt><dd>time, s</dd></dl>
+        </div>
+        <div class="hand">5.0 + 5.5 MHz: carrier 5.25 MHz, envelope \(\lvert 2\cos(\pi\times 0.5\ \text{MHz}\times t)\rvert\)<br>envelope period 1/Δf = 2 µs (the cosine factor has period 4 µs; its magnitude 2 µs)<br>nulls at 1, 3, 5 µs; m01_phase_and_derivative.m measures 2.000 µs</div>
+        <p class="take">Two frequencies beat at their difference because one arrow laps the other Δf times per second.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-28" aria-label="Beats of 5.0 and 5.5 MHz with envelope"></canvas><div class="cap"><span class="prov exact">Exact formula</span> 5.0 + 5.5 MHz: the envelope repeats every 2 µs.</div></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 01.7</span><h3>Phasor addition and beats</h3><span class="prov exact">Exact formula</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m1-bt-cv" aria-label="Second phasor turning around the tip of the first in a rotating frame, and the summed signal with its envelope"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>phasor 1 (5 MHz, frame)</span><span><i style="background:var(--sig2)"></i>phasor 2</span><span><i style="background:var(--sig4)"></i>sum / envelope</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m1-bt-a2">Amplitude A₂ <output id="m1-bt-a2-o">1.00</output></label><input type="range" id="m1-bt-a2" min="0" max="1" step="0.05" value="1"></div>
+        <div class="ctrl"><label for="m1-bt-df">Frequency offset Δf <output id="m1-bt-df-o">0.50 MHz</output></label><input type="range" id="m1-bt-df" min="0" max="2" step="0.05" value="0.5"></div>
+        <div class="ctrl"><label for="m1-bt-phi">Phase φ₂ <output id="m1-bt-phi-o">0°</output></label><input type="range" id="m1-bt-phi" min="-180" max="180" step="5" value="0"></div>
+        <div class="ctrl"><label for="m1-bt-t">Time t <output id="m1-bt-t-o">0 ns</output></label><input type="range" id="m1-bt-t" min="0" max="4000" step="5" value="0"></div>
+        <div class="btn-row"><button class="btn solid" id="m1-bt-play" type="button">Play</button></div>
+        <div class="readout" id="m1-bt-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> set Δf = 0 and turn φ₂: the sum is a single sinusoid whose amplitude is the length of the arrow sum (2 at 0°, 1.414 at 90°, 0 at 180°). Then raise Δf: phasor 2 circles the tip of phasor 1 and the envelope breathes with period 1/Δf. Lower A₂ to 0.5: the envelope no longer reaches zero; it swings between 1.5 and 0.5.</div>
+  </div>
+
+  <!-- ===================== 01.9 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">01.9</span>Derivative = multiply by jω; preview of the analytic signal</h2>
+    <p>The phasor makes calculus into arithmetic. Differentiating a rotating arrow gives its velocity, which (Step 10) is the arrow turned 90° and scaled by its angular speed.</p>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 29 · d/dt of a phasor is jω times the phasor</h3>
+        <p>The chain rule on \(e^{j\omega t}\) gives \(j\omega\,e^{j\omega t}\): multiply by ω (longer for faster arrows) and by j (90° ahead). Taking the real part gives the familiar result for cosines.</p>
+        <div class="eqn key" id="m1-eq25">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \frac{d}{dt}\,e^{j\omega t} &amp;= j\omega\,e^{j\omega t} \\ \frac{d}{dt}\cos\omega t &amp;= -\omega\sin\omega t = \omega\cos(\omega t + 90^\circ) \end{aligned} \]</div><span class="eqn-no">(01.25)</span></div>
+          <dl class="where"><dt>\(\omega = 2\pi f\)</dt><dd>angular frequency of the phasor, rad/s</dd><dt>\(j\omega\)</dt><dd>the derivative as a multiplier: ×ω in length, +90° in angle</dd><dt>\(t\)</dt><dd>time, s</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+          <span class="note">Calculus on phasors is arithmetic: d/dt becomes multiplication by jω.</span>
+        </div>
+        <div class="hand">f = 5 MHz, A = 1: derivative amplitude ω = 2π × 5 × 10⁶ = 3.14 × 10⁷ s⁻¹<br>it leads by 90°, i.e. by T/4 = 50 ns</div>
+        <p class="take">Differentiation rotates every phasor by +90° and stretches it by its own angular frequency.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-29" aria-label="A phasor and its derivative, turned 90 degrees and scaled by omega"></canvas><div class="cap"><span class="prov exact">Exact formula</span> z and dz/dt = jωz (scaled down for display).</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 30 · So a differentiator is a filter with H(f) = j2πf</h3>
+        <p>Every frequency component is scaled by \(2\pi\lvert f\rvert\) and rotated by +90° (−90° for negative f, since j times a negative number points down). Doubling f doubles the gain: +6.02 dB per octave, +20 dB per decade. An integrator, \(1/(j2\pi f)\), does the opposite: −6 dB per octave, −90°. Differentiation therefore shifts a pulse's spectrum upward and amplifies high-frequency noise.</p>
+        <div class="eqn" id="m1-eq26">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} H(f) = j2\pi f, \qquad \lvert H(f)\rvert = 2\pi\lvert f\rvert \\[2pt] \angle H = \begin{cases} +90^\circ, &amp; f &gt; 0 \\ -90^\circ, &amp; f &lt; 0 \end{cases} \end{gathered} \]</div><span class="eqn-no">(01.26)</span></div>
+      <dl class="where"><dt>\(H(f)\)</dt><dd>frequency response of the derivative operator</dd><dt>\(f\)</dt><dd>frequency, Hz</dd><dt>\(\angle H\)</dt><dd>phase of \(H\)</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd><dt>\(\lvert H\rvert\)</dt><dd>magnitude of \(H\)</dd></dl>
+        </div>
+        <div class="hand">gain at 10 MHz / gain at 5 MHz = 2 → 20 log₁₀ 2 = 6.02 dB<br>Gaussian pulse, σ = 100 ns, f₀ = 5 MHz: spectral peak 5.00 → 5.46 MHz after d/dt<br>(peak of \(f\,e^{-(f - f_0)^2/(2\sigma_f^2)}\) at \(\tfrac12\big(f_0 + \sqrt{f_0^2 + 4\sigma_f^2}\big)\) = 5.46 MHz, \(\sigma_f = 1/(2\pi\sigma)\) = 1.59 MHz)</div>
+        <p class="take">d/dt is a high-pass filter with a constant +90° phase.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-30" aria-label="Magnitude in dB versus log frequency and phase of a differentiator"></canvas><div class="cap"><span class="prov exact">Exact formula</span> |H| rises 6.02 dB per octave (blue); phase +90° (pink).</div></div>
+    </div>
+
+    <div class="stepbox">
+      <div>
+        <h3>Step 31 · Preview: the analytic signal keeps one arrow</h3>
+        <p>A real signal is pairs of counter-rotating arrows (Step 16). Delete every clockwise arrow and double every counterclockwise one: the result \(x_a = x + j\mathcal{H}\{x\}\) has the original signal as its real part, the quadrature copy as its imaginary part, the envelope as its length and the instantaneous phase as its angle. The Hilbert transform \(\mathcal{H}\) multiplies positive frequencies by −j (−90°) and negative ones by +j. IQ demodulation (01.6) is this analytic signal turned backwards at \(f_d\). Module 08 develops it.</p>
+        <div class="eqn" id="m1-eq27">
+          <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} x_a(t) = x(t) + j\,\mathcal{H}\{x\}(t), \qquad X_a(f) = 2u(f)\,X(f) \\[2pt] \mathrm{IQ}(t) = x_a(t)\,e^{-j2\pi f_d t} \end{gathered} \]</div><span class="eqn-no">(01.27)</span></div>
+          <dl class="where"><dt>\(x_a\)</dt><dd>analytic signal of the real signal x</dd><dt>\(\mathcal{H}\)</dt><dd>Hilbert transform, frequency response \(-j\operatorname{sgn} f\)</dd><dt>\(u(f)\)</dt><dd>unit step: 1 for f &gt; 0, 0 for f &lt; 0</dd><dt>\(f_d\)</dt><dd>demodulation frequency, Hz</dd><dt>\(x(t)\)</dt><dd>real signal</dd><dt>\(t\)</dt><dd>time, s</dd><dt>\(X(f),\ X_a(f)\)</dt><dd>spectra of \(x\) and \(x_a\)</dd><dt>\(f\)</dt><dd>frequency, Hz</dd><dt>\(\mathrm{IQ}(t)\)</dt><dd>complex baseband signal</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
+        </div>
+        <div class="hand">x = cos(ωt + 30°): \(\mathcal{H}\{x\}\) = sin(ωt + 30°), \(x_a = e^{j(\omega t + 30^\circ)}\)<br>at t = 0: \(x_a\) = 0.866 + 0.5j, the I/Q of Step 17 before demodulation</div>
+        <p class="take">The analytic signal is the single counterclockwise arrow whose shadow is your real signal.</p>
+      </div>
+      <div class="fig"><canvas id="m1-st-31" aria-label="Spectrum of a real RF pulse and of its analytic signal"></canvas><div class="cap"><span class="prov exact">Exact formula</span><span class="prov-note">Gaussian-envelope pulse, band σ = 1.3 MHz.</span> Real pulse: bands at ±f₀ (blue). Analytic: one band at +f₀, doubled (pink).</div></div>
+    </div>
+  </div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>On axis in the far field, the pressure radiated by a small baffled source is proportional to the time derivative of its surface velocity (the Rayleigh integral gives \(p = \rho_0 S\,\dot v(t - r/c)/(2\pi r)\)), so the radiated pulse is a differentiated, upward-shifted version of the face motion. Strain imaging differentiates displacement in space, with the same noise penalty (Module 11); estimators use least-squares slopes over a kernel instead of point differences for that reason.</p></div>
+
+  <!-- ===================== 01.10 Visual summary ===================== -->
+  <div class="prose"><h2><span class="sec">01.10</span>Visual summary</h2>
+  <p>Fifteen pictures that carry the module, each computed from its formula: the question you should answer in five seconds, the answer with its number, and the figure to keep in mind.</p></div>
+  <div class="rf-grid" id="m1-vis"></div>
+
+  <!-- ===================== 01.11 How experts think ===================== -->
+  <div class="prose">
+    <h2><span class="sec">01.11</span>How experts think about it</h2>
+    <p>An expert never sees a complex number as a pair of numbers with a strange rule; they see an arrow, and every operation as a move of that arrow: add slides, multiply turns and stretches, conjugate mirrors, d/dt turns by 90° and stretches by ω. A real signal is the shadow of arrows turning both ways; IQ is the arrow with the carrier spin removed; phase is delay modulo one period. Most bugs in phase-based processing are a missing 2π, a sign convention, or an unwrap that assumed small steps.</p>
+  </div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">j is the quarter-turn operator; j² = −1 just says two quarter turns make a half turn.</div>
+      <div class="keynum"><span>\(j^2 = -1\)</span><span>\(j^4 = 1\)</span><span>\(1/j = -j\)</span></div>
+      <div class="why"><p>Multiplication by −1 rotates an arrow by 180°. An operation that applied twice gives −1 is a 90° rotation, which forces arrows out of the line into a plane <span class="eqref">(01.1)</span>. The powers cycle with period 4, which is why Taylor terms of \(e^{j\theta}\) sort into cos and sin, and why the DFT twiddle factors at N = 4 are just 1, −j, −1, j.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-1" aria-label="Powers of j on the unit circle"></canvas></div></div>
+      <div class="limits">Nothing breaks; but remember the convention: physics and mathematics write i, engineering writes j, and some texts use \(e^{-i\omega t}\) for time dependence, which flips the sign of every imaginary part you read.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Multiplying complex numbers multiplies lengths and adds angles.</div>
+      <div class="keynum"><span>\(\lvert zw\rvert = \lvert z\rvert\lvert w\rvert\)</span><span>\(\angle zw = \angle z + \angle w\)</span><span>\((3+4j)(1+2j) = -5+10j\)</span></div>
+      <div class="why"><p>\(w z = c\,z + d\,(jz)\): a scaled copy plus a scaled perpendicular copy, i.e. the rotation matrix \(\begin{bmatrix} c &amp; -d \\ d &amp; c\end{bmatrix} = \lvert w\rvert R(\angle w)\) <span class="eqref">(01.5)</span>. Worked: 5 × 2.236 = 11.18 and 53.13° + 63.43° = 116.57°, matching −5 + 10j. A unit-length multiplier \(e^{j\alpha}\) only rotates: every phase shift, steering phase or demodulation is this.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-2" aria-label="Multiplication as rotate and scale"></canvas></div></div>
+      <div class="limits">Angles add modulo 2π: the product angle reported by angle() is wrapped into (−π, π] even when \(\theta_1 + \theta_2\) exceeds π.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Use atan2 (or angle), never atan(b/a).</div>
+      <div class="keynum"><span>−3−4j: −126.87°</span><span>atan(4/3) = 53.13°</span><span>range (−π, π]</span></div>
+      <div class="why"><p>b/a loses the individual signs: 3 + 4j and −3 − 4j have the same ratio. atan2(b, a) uses both signs and returns the true angle in (−π, π] <span class="eqref">(01.2)</span>. A phase-based delay estimate built on atan(Q/I) is wrong by π in half the plane, which at 5 MHz is a 100 ns (77 µm round-trip) error.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-3" aria-label="Two arrows with the same ratio b over a in opposite quadrants"></canvas></div></div>
+      <div class="limits">The angle of z = 0 is undefined (MATLAB returns 0); for low-amplitude IQ samples the angle is noise, so weight phase estimates by \(\lvert z\rvert^2\) (as the Kasai estimator does implicitly).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Power is z times its mirror: |z|² = z z*, not z².</div>
+      <div class="keynum"><span>\((3+4j)(3-4j) = 25\)</span><span>\((3+4j)^2 = -7+24j\)</span></div>
+      <div class="why"><p>The conjugate has the negated angle, so \(z z^*\) turns by θ and back by −θ and lands on the positive real axis with length r² <span class="eqref">(01.6)</span>. Intensity, \(\lvert X(f)\rvert^2\), coherence magnitudes and power Doppler are all \(z z^*\). Cross products \(z_2 z_1^*\) carry the angle difference, which is how lag-one autocorrelation measures Doppler phase.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-4" aria-label="z and its conjugate mirrored in the real axis"></canvas></div></div>
+      <div class="limits">For real numbers \(z^2 = \lvert z\rvert^2\), which is why the habit survives; in complex code (x.^2 instead of abs(x).^2) it produces silently wrong powers.</div>
+    </div>
+    <div class="rule">
+      <div class="say">e<sup>jθ</sup> moves around the unit circle because its velocity is always perpendicular to its position.</div>
+      <div class="keynum"><span>\(f' = jf\)</span><span>\(d\lvert f\rvert^2/d\theta = 0\)</span><span>speed 1 rad/rad</span></div>
+      <div class="why"><p>jf is f turned 90°, so the velocity is tangent; then \(d\lvert f\rvert^2/d\theta = j\lvert f\rvert^2 - j\lvert f\rvert^2 = 0\) and the length stays 1 <span class="eqref">(01.10)</span>. Unit speed means arc length θ after "time" θ, hence angle θ in radians. The same argument is why phasors are eigenfunctions of linear time-invariant systems: d/dt (and any LTI operation) maps \(e^{j\omega t}\) to a multiple of itself (Module 03).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-5" aria-label="Velocity arrows tangent to the unit circle"></canvas></div></div>
+      <div class="limits">Requires θ in radians; in degrees the derivative picks up π/180.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The Taylor series of e<sup>jθ</sup> converges for every θ, but the terms first grow like θ<sup>k</sup>/k!.</div>
+      <div class="keynum"><span>θ = 1: 8 terms → \(2.5\times10^{-5}\)</span><span>θ = π: 13 terms → \(4.6\times10^{-4}\)</span></div>
+      <div class="why"><p>Each term is the previous one turned 90° and scaled by θ/k <span class="eqref">(01.9)</span>, so the terms grow while k &lt; θ and then shrink factorially. At θ = π the partial sums swing out to −3.93 + 3.14j before spiralling in on −1. Libraries therefore reduce the argument modulo 2π (and to a small interval by symmetry) before using a short polynomial.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-6" aria-label="Taylor partial sums spiral in on minus one for theta equals pi"></canvas></div></div>
+      <div class="limits">In floating point, summing the raw series at large θ loses digits to cancellation: at θ = 20 the largest term is about \(4\times10^{7}\) while the result has magnitude 1.</div>
+    </div>
+    <div class="rule">
+      <div class="say">(1 + jθ/n)ⁿ is n small rotations, and its length error θ²/(2n) is why forward Euler blows up oscillators.</div>
+      <div class="keynum"><span>θ = π, n = 4: 2.614∠152.6°</span><span>n = 100: 1.0506</span></div>
+      <div class="why"><p>Each factor turns by atan(θ/n) and stretches by \(\sqrt{1 + \theta^2/n^2}\), so the product has angle \(n\operatorname{atan}(\theta/n) \to \theta\) and length \((1 + \theta^2/n^2)^{n/2} \approx e^{\theta^2/(2n)}\) <span class="eqref">(01.11)</span>. This is exactly forward-Euler integration of \(f' = jf\): every step leaves the circle along the tangent, so amplitude grows by \(\sqrt{1 + \omega^2\Delta t^2}\) per step for any step size. Wave-equation solvers use leapfrog or other energy-conserving schemes for this reason.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-7" aria-label="Limit polygons for n equal 4, 8 and 32"></canvas></div></div>
+      <div class="limits">The 1/n convergence is slow; the limit is a proof device, not a way to compute \(e^{j\theta}\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Frequency is turns per second; the sign of the frequency is the direction of turning.</div>
+      <div class="keynum"><span>5 MHz = 5×10⁶ turns/s</span><span>T = 200 ns</span><span>\(\omega = 2\pi f\)</span></div>
+      <div class="why"><p>\(e^{j2\pi f t}\) turns counterclockwise for f &gt; 0 and clockwise for f &lt; 0 <span class="eqref">(01.12)</span>. Their real parts are identical (cos is even) and their imaginary parts opposite (sin is odd). Hence a real channel cannot measure the sign of a frequency, while an IQ channel can: Doppler direction and the side of the spectrum in complex baseband both rely on it.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-8" aria-label="Positive and negative frequency phasors: identical cosine, opposite sine"></canvas></div></div>
+      <div class="limits">Sampled phasors are only defined modulo \(f_s\): a phasor at f and at \(f - f_s\) give the same samples, so "clockwise" is relative to the sampling rate.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A real signal is two counter-rotating phasors; negative frequencies are the mirror needed to cancel the imaginary part.</div>
+      <div class="keynum"><span>\(\cos\theta = \frac{e^{j\theta} + e^{-j\theta}}{2}\)</span><span>\(X(-f) = X^*(f)\)</span></div>
+      <div class="why"><p>One arrow never stays on the real axis; two arrows of equal length turning opposite ways keep their vertical parts cancelled at every instant <span class="eqref">(01.14)</span>. For \(A\cos(2\pi f_0 t + \varphi)\) the halves are \((A/2)e^{\pm j\varphi}\) at \(\pm f_0\) <span class="eqref">(01.15)</span>. Unequal halves trace an ellipse with semi-axes \(A_+ + A_-\) and \(\lvert A_+ - A_-\rvert\), i.e. a complex signal. The FFT of a real cosine of amplitude A therefore shows two peaks of A/2 (A·N/2 in unnormalized bins).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-9" aria-label="Counter-rotating halves and the ellipse traced when they are unequal"></canvas></div></div>
+      <div class="limits">Only real-valued signals need the mirror; complex baseband (IQ) data has independent positive and negative halves.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The imaginary part is the quadrature: the amount of the 90°-shifted copy, i.e. what a narrowband signal did a quarter period earlier.</div>
+      <div class="keynum"><span>\(I = A\cos\varphi\)</span><span>\(Q = A\sin\varphi\)</span><span>\(x(t_0 - T/4) = Q\)</span></div>
+      <div class="why"><p>\(A\cos(\omega t + \varphi) = I\cos\omega t + Q\cos(\omega t + 90^\circ)\) <span class="eqref">(01.16)</span>. Going back T/4 multiplies the phasor by −j, and \(\operatorname{Re}\{-j(I + jQ)\} = Q\) <span class="eqref">(01.17)</span>. Worked: cos(ωt + 30°) gives I = x(0) = 0.866 and Q = x(−T/4) = 0.5. Hardware gets Q from a mixer with a quarter-period-delayed oscillator; nothing about it is imaginary.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-10" aria-label="I sample at t0 and Q sample a quarter period earlier"></canvas></div></div>
+      <div class="limits">Narrowband only: on a Gaussian 5 MHz echo the pair \((x(t),\ x(t - T/4))\) differs from the analytic signal by 3.3 % rms at 10 % bandwidth and 19.8 % at 60 % (m01_phasors_and_iq.m). Use a Hilbert filter or proper IQ demodulation for broadband echoes.</div>
+    </div>
+    <div class="rule">
+      <div class="say">I/Q demodulation stops the carrier from spinning; what is left is the slow arrow.</div>
+      <div class="keynum"><span>\(\mathrm{IQ} = 2\operatorname{LPF}\{x\,e^{-j2\pi f_d t}\}\)</span><span>\(f_s = 4f_0\): ×(1, −j, −1, j)</span></div>
+      <div class="why"><p>Mixing shifts the \(+f_0\) band to 0 and the \(-f_0\) band to \(-2f_0\); the low-pass keeps the first <span class="eqref">(01.18)</span>. At four samples per period the mixer values are 1, −j, −1, j, and averaging one period cancels the \(2f_0\) term exactly: samples (0.866, −0.5, −0.866, 0.5) give 2 × mean = 0.866 + 0.5j = 1∠30°. With \(f_d \ne f_0\) the arrow keeps turning at \(f_0 - f_d\); the envelope is unchanged <span class="eqref">(01.20)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-11" aria-label="Four product arrows summed tip to tail"></canvas></div></div>
+      <div class="limits">The single-period average is a poor filter for broadband echoes and leaks the \(2f_0\) band when the envelope changes within a period; use a real low-pass and track the exact \(f_d\) used, or phases from different systems cannot be compared.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Phase is delay in disguise: one turn per carrier period, one turn per λ/2 of round-trip depth.</div>
+      <div class="keynum"><span>\(\Delta\angle = -2\pi f_0\tau\)</span><span>5 MHz: 200 ns/turn</span><span>λ/2 = 154 µm</span></div>
+      <div class="why"><p>A delayed narrowband echo is the same slow arrow multiplied by \(e^{-j2\pi f_0\tau}\) <span class="eqref">(01.19)</span>. τ = 13 ns at 5 MHz is −23.4°, a 10 µm depth shift. Phase gives sub-nanosecond delay resolution from a single sample pair, which is why Kasai Doppler, phase-based speckle tracking and fine aberration estimates use it, and why coarse delays come from cross-correlation first.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-12" aria-label="Phase versus delay wrapping every carrier period"></canvas></div></div>
+      <div class="limits">Valid while the envelope barely moves and \(f_0\) is the true centre frequency of the echo; attenuation lowers the centre frequency with depth, so converting phase with the transmit \(f_0\) biases the delay (Module 08).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Unwrapping works only if the true phase step between samples is below π.</div>
+      <div class="keynum"><span>\(\lvert\Delta\varphi\rvert &lt; \pi\)</span><span>λ/4 = 77 µm per frame at 5 MHz</span><span>\(v_{\text{alias}} = c\cdot\mathrm{PRF}/(4f_0)\)</span></div>
+      <div class="why"><p>A step of π + ε is indistinguishable from −π + ε, so unwrap chooses the smaller one. This is the sampling theorem for phase: at least two samples per turn <span class="eqref">(01.21)</span>. For round-trip tracking \(\Delta\varphi = -4\pi f_0\Delta z/c\), so the limit is λ/4 per frame; at PRF 5 kHz and 5 MHz the Doppler aliasing velocity is 0.385 m/s. Errors propagate: one wrong decision offsets every later sample by 2π.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">JS unwrap of ½·a·n², a = 0.1 rad.</span><canvas id="m1-rf-13" aria-label="Unwrap failure after the step exceeds pi"></canvas></div></div>
+      <div class="limits">Noise makes it worse: a phase noise σ near 1 rad produces single steps beyond π even for slow motion; 2-D/3-D unwrapping and correlation-guided unwrapping exist for that reason.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Equal-frequency sinusoids add like arrows: amplitudes do not add, phasors do.</div>
+      <div class="keynum"><span>cos + cos(·+90°) = 1.414∠45°</span><span>λ/4 apart → cancel</span></div>
+      <div class="why"><p>The common \(e^{j\omega t}\) factors out, so the sum is a single sinusoid with phasor \(A_1 e^{j\varphi_1} + A_2 e^{j\varphi_2}\) <span class="eqref">(01.22)</span>. Two equal scatterers Δz apart in depth give \(\lvert\text{sum}\rvert = 2\lvert\cos(2\pi\Delta z/\lambda)\rvert\) <span class="eqref">(01.23)</span>: 2 at 0 or λ/2, zero at λ/4 = 77 µm at 5 MHz. Speckle is the same sum with many random arrows, and coherent compounding works because aligned arrows add while misaligned ones do not.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-14" aria-label="Two-scatterer interference amplitude versus separation"></canvas></div></div>
+      <div class="limits">Exactly true only for the same frequency; broadband echoes are sums over frequency, so complete cancellation happens only at the centre frequency and the residual has a shifted spectrum.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Two frequencies beat at their difference: the envelope is one arrow lapping the other.</div>
+      <div class="keynum"><span>\(T_{\text{beat}} = 1/\Delta f\)</span><span>5.0 + 5.5 MHz → 2 µs</span><span>envelope 1 ± A₂</span></div>
+      <div class="why"><p>In the frame of the first arrow the second turns at Δf, so the resultant length swings between \(A_1 + A_2\) and \(\lvert A_1 - A_2\rvert\) once per 1/Δf. The product form \(2\cos(\pi\Delta f\,t)\cos(2\pi\bar f t)\) <span class="eqref">(01.24)</span> has a 4 µs cosine factor whose magnitude repeats every 2 µs. The same mechanism, with time and frequency swapped, gives the spectral ripple (scalloping) of two echoes Δt apart, with period 1/Δt, used to size thin layers; close tones in a short DFT window interfere the same way (Module 02).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-15" aria-label="Beats of two close frequencies with envelope"></canvas></div></div>
+      <div class="limits">The "carrier at \(\bar f\)" picture assumes \(\Delta f \ll \bar f\); for widely separated tones there is no useful envelope.</div>
+    </div>
+    <div class="rule">
+      <div class="say">d/dt is multiplication by jω: +90° and ×ω, so differentiators gain 6 dB per octave.</div>
+      <div class="keynum"><span>\(H = j2\pi f\)</span><span>+6.02 dB/octave</span><span>integrator −90°</span></div>
+      <div class="why"><p>\(\frac{d}{dt}e^{j\omega t} = j\omega\,e^{j\omega t}\) <span class="eqref">(01.25)</span>. Gain doubles when f doubles (20 log₁₀ 2 = 6.02 dB), so differentiation shifts a 5 MHz, σ = 100 ns Gaussian pulse's spectral peak from 5.00 to 5.46 MHz and amplifies broadband noise: for white noise band-limited to B, the derivative variance grows as B³. Velocity from displacement, strain from displacement gradient and instantaneous frequency from phase all pay this price.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m1-rf-16" aria-label="Differentiator magnitude and phase"></canvas></div></div>
+      <div class="limits">Holds for ideal continuous differentiation; a discrete first difference has \(\lvert H\rvert = 2 f_s\lvert\sin(\pi f/f_s)\rvert\), close to \(2\pi f\) only well below \(f_s/2\), and a half-sample delay.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The analytic signal is the one counterclockwise arrow whose shadow is your real signal.</div>
+      <div class="keynum"><span>\(X_a = 2u(f)X\)</span><span>\(\lvert x_a\rvert\) = envelope</span><span>\(\mathcal{H}: -j\operatorname{sgn} f\)</span></div>
+      <div class="why"><p>Delete the negative-frequency half and double the positive half <span class="eqref">(01.27)</span>: the real part is unchanged, the imaginary part is the 90°-shifted copy \(\mathcal{H}\{x\}\), the magnitude is the envelope and the angle is the instantaneous phase. cos(ωt + 30°) becomes \(e^{j(\omega t + 30^\circ)}\). IQ data is this arrow multiplied by \(e^{-j2\pi f_d t}\), so B-mode envelopes from analytic signals and from IQ agree exactly.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Gaussian-envelope pulse, band σ = 1.3 MHz.</span><canvas id="m1-rf-17" aria-label="Real and analytic spectra"></canvas></div></div>
+      <div class="limits">Requires a band-limited signal away from DC; a pulse with energy near 0 Hz gives an envelope that is not a smooth outline of the carrier.</div>
+    </div>
+  </div>
+
+  <!-- ===================== 01.12 Cheat sheet ===================== -->
+  <div class="prose"><h2><span class="sec">01.12</span>Cheat sheet</h2></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Concept</th><th>Formula</th><th>Ultrasound use</th></tr></thead>
+    <tbody>
+      <tr><td>j</td><td>\(j^2 = -1\); ×j = +90°</td><td>Quadrature mixer, 90° phase shifts</td></tr>
+      <tr><td>Rectangular ↔ polar</td><td>\(z = a + jb = r e^{j\theta}\), \(r = \sqrt{a^2 + b^2}\), \(\theta = \operatorname{atan2}(b, a)\)</td><td>I/Q ↔ envelope and phase</td></tr>
+      <tr><td>Product</td><td>\((ac - bd) + j(ad + bc)\); \(r_1 r_2\,e^{j(\theta_1 + \theta_2)}\)</td><td>Phase rotation in IQ beamforming, steering</td></tr>
+      <tr><td>Conjugate, power</td><td>\(z^* = a - jb\); \(\lvert z\rvert^2 = z z^*\)</td><td>Intensity, \(\lvert X(f)\rvert^2\), power Doppler</td></tr>
+      <tr><td>Phase difference</td><td>\(\angle(z_2 z_1^*) = \theta_2 - \theta_1\)</td><td>Kasai lag-one autocorrelation, phase tracking</td></tr>
+      <tr><td>Division</td><td>\(z/w = z w^*/\lvert w\rvert^2\)</td><td>Deconvolution, transfer functions</td></tr>
+      <tr><td>Euler</td><td>\(e^{j\theta} = \cos\theta + j\sin\theta\); \(e^{j\pi} = -1\)</td><td>Every phasor, DFT kernel, steering vector</td></tr>
+      <tr><td>Rotating phasor</td><td>\(A e^{j(2\pi f t + \varphi)}\), f in turns/s</td><td>Carrier, Doppler, plane-wave phase</td></tr>
+      <tr><td>Real sinusoid</td><td>\(\cos\theta = \frac{e^{j\theta} + e^{-j\theta}}{2}\); \(X(-f) = X^*(f)\)</td><td>Why RF spectra are two-sided</td></tr>
+      <tr><td>Quadrature</td><td>\(A\cos(\omega t + \varphi) = I\cos\omega t + Q\cos(\omega t + 90^\circ)\)</td><td>Meaning of the Q channel</td></tr>
+      <tr><td>Quarter-period sample</td><td>\(x(t_0 - T/4) = Q\) (narrowband)</td><td>Quadrature sampling at \(f_s = 4f_0\)</td></tr>
+      <tr><td>Demodulation</td><td>\(\mathrm{IQ} = 2\operatorname{LPF}\{x\,e^{-j2\pi f_d t}\}\)</td><td>Baseband IQ data, decimation</td></tr>
+      <tr><td>Delay ↔ phase</td><td>\(\Delta\angle = -2\pi f_0\tau\); \(\Delta z = c\tau/2\)</td><td>Displacement, Doppler, fine aberration delays</td></tr>
+      <tr><td>Unwrap limit</td><td>\(\lvert\Delta\varphi\rvert &lt; \pi \Leftrightarrow \Delta z &lt; \lambda/4\) per sample</td><td>Aliasing velocity \(c\cdot\mathrm{PRF}/(4f_0)\)</td></tr>
+      <tr><td>Phasor sum</td><td>\(\sum_k A_k e^{j\varphi_k}\)</td><td>Speckle, coherent compounding, interference</td></tr>
+      <tr><td>Beats</td><td>\(\cos\omega_1 t + \cos\omega_2 t = 2\cos(\Delta\omega t/2)\cos(\bar\omega t)\)</td><td>Thin-layer scalloping, close-tone leakage</td></tr>
+      <tr><td>Derivative</td><td>\(d/dt \leftrightarrow \times j2\pi f\) (+90°, +6 dB/oct)</td><td>Radiated pressure ∝ dv/dt, strain noise</td></tr>
+      <tr><td>Analytic signal</td><td>\(x_a = x + j\mathcal{H}\{x\}\), \(X_a = 2u(f)X\)</td><td>Envelope detection, instantaneous phase</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ===================== 01.13 Interview ===================== -->
+  <div class="prose"><h2><span class="sec">01.13</span>Interview and qualifying-exam questions</h2></div>
+  <details class="quiz"><summary><span class="q">I1</span><span>What does j mean geometrically, and why is j² = −1 not mysterious? <span class="muted">· screen</span></span></summary><div class="a"><p>j is the operator "rotate by +90°". Multiplying by −1 is a 180° rotation, so \(j^2 = -1\) says two quarter turns make a half turn. The plane is forced because no arrow on the real line can turn 90°. Follow-up: "So what is 1/j?" A quarter turn back, −j, since \(j(-j) = 1\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>Compute (3 + 4j)(1 + 2j) and explain the result in polar form. <span class="muted">· screen</span></span></summary><div class="a"><p>\(3 + 6j + 4j + 8j^2 = -5 + 10j\). Polar: \(\lvert z\rvert = 5\), \(\lvert w\rvert = 2.236\), product 11.18; angles 53.13° + 63.43° = 116.57°, and atan2(10, −5) = 116.57°. Multiplication multiplies lengths and adds angles because \(wz = c\,z + d\,(jz)\) is a rotation matrix times \(\lvert w\rvert\). Follow-up: "And the quotient?" \((3 + 4j)(1 - 2j)/5 = 2.2 - 0.4j\), length 2.236, angle −10.30°.</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>Why does the FFT of a real cosine show two peaks? What is a negative frequency? <span class="muted">· screen</span></span></summary><div class="a"><p>\(\cos\theta = (e^{j\theta} + e^{-j\theta})/2\): two half-amplitude phasors turning in opposite directions, whose imaginary parts cancel at every instant. A negative frequency is clockwise rotation, not time reversal. For any real signal \(X(-f) = X^*(f)\), so the negative half is redundant. Follow-up: "Amplitude of each peak for A = 1, N points, no normalization?" N/2 each, when the tone is exactly on a bin.</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>What is the physical meaning of the Q channel, and how is it measured? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(A\cos(\omega t + \varphi) = I\cos\omega t + Q\cos(\omega t + 90^\circ)\), with \(I + jQ = A e^{j\varphi}\). Q is the amount of the 90°-shifted reference in the signal. It is measured with a second mixer whose oscillator is shifted by a quarter period (\(Q = -2\operatorname{LPF}\{x\sin\omega_d t\}\)), or, for a narrowband signal, by sampling the RF a quarter period earlier: \(x(t_0 - T/4) = Q\). Follow-up: "When does the quarter-period trick fail?" When the envelope changes within T/4: about 20 % rms error at 60 % bandwidth for a 5 MHz Gaussian echo.</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>Derive Euler's formula without the Taylor series. <span class="muted">· onsite</span></span></summary><div class="a"><p>Let \(f(\theta) = e^{j\theta}\), so \(f' = jf\), \(f(0) = 1\). Then \(d\lvert f\rvert^2/d\theta = f'f^* + f f'^* = j\lvert f\rvert^2 - j\lvert f\rvert^2 = 0\), so \(\lvert f\rvert = 1\); the speed \(\lvert f'\rvert = 1\), so the point covers arc length θ on the unit circle starting at 1, counterclockwise because the velocity at 1 is j. Its coordinates are (cos θ, sin θ). Alternatively, \((1 + j\theta/n)^n\) is n rotations by atan(θ/n) with total stretch \(e^{\theta^2/(2n)} \to 1\). Follow-up: "What does the limit tell you about forward Euler on an oscillator?" It spirals outward by \(\sqrt{1 + \omega^2\Delta t^2}\) per step for any Δt.</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>You demodulate at f<sub>d</sub> = 4.5 MHz but the echo is centred at 5 MHz. What changes in I, Q and the envelope? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(\mathrm{IQ}(t) = A(t - T_e)\,e^{j[2\pi(f_0 - f_d)t - 2\pi f_0 T_e]}\): the envelope \(\lvert\mathrm{IQ}\rvert\) is unchanged (as long as the band stays inside the low-pass), but the arrow keeps turning at +0.5 MHz, one turn per 2 µs. I and Q oscillate under the envelope; phase-based estimators see a frequency offset. Follow-up: "Why does depth matter?" Attenuation lowers the echo centre frequency with depth, so a fixed \(f_d\) creates a depth-dependent residual rotation that biases phase-to-delay conversions.</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>Two equal point scatterers lie in one resolution cell, separated axially by Δz. When do they cancel at 5 MHz? <span class="muted">· onsite</span></span></summary><div class="a"><p>Round-trip phase difference \(4\pi\Delta z/\lambda\); \(\lvert\text{sum}\rvert = 2\lvert\cos(2\pi\Delta z/\lambda)\rvert\), zero at Δz = λ/4 = 77 µm (λ = 0.308 mm), maximum at multiples of λ/2 = 154 µm. Follow-up: "So what is speckle?" The sum of many such arrows with random phases: a 2-D random walk whose length is Rayleigh distributed (Module 07).</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>In phase-based displacement estimation, what limits the displacement per frame, and how do you extend it? <span class="muted">· research</span></span></summary><div class="a"><p>The phase step must stay below π, i.e. \(\lvert\Delta z\rvert &lt; \lambda/4\) per frame (77 µm at 5 MHz), otherwise unwrapping chooses the wrong turn and the error propagates. Extensions: higher frame rate; lower \(f_0\) for the coarse estimate; coarse delay from cross-correlation of envelopes or RF and fine delay from phase; spatial or temporal continuity priors for 2-D/3-D unwrapping; or using the phase of a lower difference frequency (two-frequency methods). Follow-up: "What does noise do?" A phase noise σ near 1 rad produces steps beyond π by itself, so unwrap fails even for slow motion.</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>Your I and Q channels have a 1 % gain mismatch and a 1° phase error. What artefact appears in spectral Doppler, and how large is it? <span class="muted">· research</span></span></summary><div class="a"><p>\(z = \cos\theta + j g\sin(\theta + \delta)\) \(= e^{j\theta}\frac{1 + g e^{j\delta}}{2} + e^{-j\theta}\frac{1 - g e^{-j\delta}}{2}\). The second term is a mirror image at \(-f_D\) with relative level \(\lvert 1 - g e^{-j\delta}\rvert / \lvert 1 + g e^{j\delta}\rvert\) = −40.0 dB for g = 1.01, δ = 1° (−26 dB for 5 % and 5°). Geometrically the counter-rotating halves are unequal in the wrong direction, so the IQ circle becomes an ellipse. Follow-up: "How do you correct it?" Estimate g and δ from a calibration tone and apply the inverse 2×2 transform to (I, Q).</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>Why do differentiation-based estimates (velocity from displacement, strain, instantaneous frequency) amplify noise, and by how much? <span class="muted">· research</span></span></summary><div class="a"><p>d/dt multiplies each component by \(j2\pi f\), so the noise power spectrum is weighted by \((2\pi f)^2\). For white noise of density \(N_0\) band-limited to ±B, the derivative variance is \(\int_{-B}^{B} N_0 (2\pi f)^2\,df = N_0 (2\pi)^2\,\frac{2B^3}{3}\), growing as B³ while the signal's derivative grows only with its own bandwidth. Strain estimators therefore fit a least-squares slope over a kernel (a low-pass differentiator), trading resolution for SNR. Follow-up: "Discrete first difference?" \(\lvert H\rvert = 2 f_s\lvert\sin(\pi f/f_s)\rvert\) with a half-sample delay.</p></div></details>
+  <details class="quiz"><summary><span class="q">I11</span><span>How does a time delay appear on IQ data, and why must you rotate after interpolating IQ samples? <span class="muted">· onsite</span></span></summary><div class="a"><p>RF delayed by τ has analytic signal \(A(t - \tau)e^{j2\pi f_0(t - \tau)}\). After demodulation at \(f_d\), \(\mathrm{IQ}_{\text{delayed}}(t) = A(t - \tau)e^{j2\pi f_0(t - \tau)}e^{-j2\pi f_d t}\) \(= \mathrm{IQ}(t - \tau)\,e^{-j2\pi f_d\tau}\). A beamformer undoes the delay: interpolating a channel at \(t + \tau\) realigns the envelope but not the carrier phase, which still carries the factor \(e^{-j2\pi f_d\tau}\). So the interpolated sample must be multiplied by \(e^{+j2\pi f_d\tau}\) (the sign is for demodulation with \(e^{-j2\pi f_d t}\); it flips with the opposite convention). Without it, channels add with phase errors of \(2\pi f_d\tau\) and the beam is destroyed. Follow-up: "Which frequency, \(f_0\) or \(f_d\)?" \(f_d\), the frequency actually removed (Module 08).</p></div></details>
+
+  <!-- ===================== 01.14 MATLAB ===================== -->
+  <div class="prose"><h2><span class="sec">01.14</span>MATLAB lab</h2>
+    <p class="code-note">Base MATLAB only (no toolboxes); each script runs as-is in MATLAB R2019b+ and GNU Octave 8. Every hand calculation on this page is printed by one of these scripts.</p></div>
+  <details class="code">
+    <summary><span class="fname">m01_complex_basics.m</span><button class="copy" type="button">Copy</button><span class="what">Rectangular/polar, add, multiply, conjugate, divide, powers of j, atan vs atan2, drawn as arrows · change z and w · runtime ≈ 1 s</span></summary>
+    <pre><code data-file="matlab/m01_complex_basics.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> |z| = 5, 53.13°; z·w = −5 + 10j with |zw| = 11.1803 = |z||w| and 116.57° = 53.13° + 63.43°; z/w = 2.2 − 0.4j; z z* = 25 but z² = −7 + 24j; j⁰…j⁴ cycle +1, j, −1, −j, +1; atan gives 53.13° for −3 − 4j while atan2 gives −126.87°.</p></div>
+  <details class="code">
+    <summary><span class="fname">m01_euler_three_ways.m</span><button class="copy" type="button">Copy</button><span class="what">Taylor partial sums, the ODE f′ = j f, and the limit (1 + jθ/n)ⁿ = forward Euler · change θ and n · runtime ≈ 1 s</span></summary>
+    <pre><code data-file="matlab/m01_euler_three_ways.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> at θ = 1 the partial sums reproduce the hand table (0.5 + 0.8333j after 4 terms) and 8 terms leave \(2.47\times10^{-5}\); at θ = π 13 terms leave \(4.56\times10^{-4}\). The ODE check gives \(\operatorname{Re}(f^* f') \approx 10^{-14}\) (velocity ⟂ position). The limit at θ = π has length 2.6142 at n = 4 and 1.0506 at n = 100, matching \(e^{\pi^2/(2n)}\), and is identical to forward Euler to machine precision.</p></div>
+  <details class="code">
+    <summary><span class="fname">m01_phasors_and_iq.m</span><button class="copy" type="button">Copy</button><span class="what">Phasor direction, cos as two halves, Q = quarter-period-earlier sample, I/Q by hand at 4f₀, demodulation of a 5 MHz echo · change τ, f<sub>d</sub>, bandwidth · runtime ≈ 1 s</span></summary>
+    <pre><code data-file="matlab/m01_phasors_and_iq.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> 90.0° at 50 ns; imaginary residue 0 for balanced halves and 0.25 for (0.5, 0.25); x(0) = 0.8660 = I and x(−T/4) = 0.5000 = Q; the hand I/Q 0.8660 + 0.5000j; the echo phase −23.40° for τ = 13 ns (predicted −23.40°); residual rotation 0.501 MHz for \(f_d\) = 4.5 MHz; quarter-period copy vs Hilbert 3.3 % rms at 10 % bandwidth and 19.8 % at 60 %.</p></div>
+  <details class="code">
+    <summary><span class="fname">m01_phase_and_derivative.m</span><button class="copy" type="button">Copy</button><span class="what">Phasor sums, two-scatterer interference, beats, phase unwrap failure, d/dt = j2πf by FFT · change the phasors, Δf, the step growth a · runtime ≈ 1 s</span></summary>
+    <pre><code data-file="matlab/m01_phase_and_derivative.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> 1.4142 at 45°, 0.8660 at 30°, and 0 for the three-phase set; |sum| = 1.414, 0, 2 at Δz = 38.5, 77, 154 µm; envelope minima every 2.000 µs; unwrap first wrong at sample 32 (true step 3.150 rad); the FFT derivative matches the analytic one to \(1.8\times10^{-7}\ \mathrm{s^{-1}}\) out of \(2.9\times10^{7}\ \mathrm{s^{-1}}\) (\(\approx 6\times10^{-15}\) relative); 6.02 dB per octave; spectral peak 5.00 → 5.46 MHz on a zero-padded FFT grid, matching the predicted 5.46 MHz.</p></div>
+
+  <!-- ===================== 01.15 Self-check ===================== -->
+  <div class="prose"><h2><span class="sec">01.15</span>Self-check</h2></div>
+  <details class="quiz"><summary><span class="q">Q1</span><span>Convert −2 + 2j to polar form.</span></summary><div class="a"><p>\(r = \sqrt{4 + 4} = 2.828\); θ = atan2(2, −2) = 135° (second quadrant; atan(2/−2) would give −45°). So \(-2 + 2j = 2.828\,e^{j3\pi/4}\).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>Compute (1 + j)⁸ without expanding.</span></summary><div class="a"><p>\(1 + j = \sqrt2\,\angle 45^\circ\). Eighth power: \((\sqrt2)^8 = 16\) and 8 × 45° = 360° ≡ 0°. Result: 16.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>Show that j<sup>j</sup> is a real number and find its principal value.</span></summary><div class="a"><p>\(j = e^{j\pi/2}\), so \(j^j = e^{j\cdot j\pi/2} = e^{-\pi/2} = 0.2079\). (Other branches, \(j = e^{j(\pi/2 + 2\pi k)}\), give \(e^{-\pi/2 - 2\pi k}\), all real.)</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>A 5 MHz phasor starts at angle 0. Where is it at t = 30 ns, and what changes if its frequency is −5 MHz?</span></summary><div class="a"><p>Angle = 360° × 5 × 10⁶ × 30 × 10⁻⁹ = 54°: 0.588 + 0.809j. At −5 MHz: 0.588 − 0.809j. Same real part (cos even), opposite imaginary part (sin odd).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>Four samples taken at f<sub>s</sub> = 4f₀ are 0.5, 0.5, −0.5, −0.5. Find I, Q, amplitude and phase.</span></summary><div class="a"><p>Multiply by 1, −j, −1, j: 0.5, −0.5j, 0.5, −0.5j. Sum 1 − j; mean 0.25 − 0.25j; ×2 → I + jQ = 0.5 − 0.5j: amplitude 0.707, phase −45°. Check: 0.707 cos(ωt − 45°) at 0°, 90°, 180°, 270° gives 0.5, 0.5, −0.5, −0.5 ✓.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>The phase of an echo at 5 MHz goes from 170° in one frame to −175° in the next. What is the true step and the axial displacement?</span></summary><div class="a"><p>Raw difference −345°, beyond ±180°, so add 360°: +15° (assuming |step| &lt; 180°). Phase = \(-2\pi f_0\tau\), so τ decreased by (15/360) × 200 ns = 8.33 ns, and the scatterer moved \(\Delta z = c\Delta\tau/2\) = 6.4 µm toward the probe.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>Simplify 2cos(ωt) + 2cos(ωt + 120°) + 2cos(ωt + 240°), and 3cos(ωt) + 4sin(ωt).</span></summary><div class="a"><p>First: phasors 2∠0°, 2∠120°, 2∠240° form a closed triangle, sum 0. Second: sin ωt = cos(ωt − 90°), so the phasor is 3 − 4j = 5∠−53.13°: 5cos(ωt − 53.13°).</p></div></details>
+
+  <!-- ===================== 01.16 Literature figures ===================== -->
+  <div class="prose"><h2><span class="sec">01.16</span>Figures from the literature</h2>
+  <p>For a fundamentals module the best published figures are textbook ones: the same arrows drawn by the people who taught them best, and one ultrasound paper where the phase rotator of <span class="eqref">(01.19)</span> sits inside a real beamformer. Figure and section numbers were checked against the online editions; images are not reproduced, follow the links.</p></div>
+  <div class="litfig">
+    <h4>Feynman builds e<sup>iθ</sup> by repeated multiplication</h4>
+    <p class="cite">R. P. Feynman, R. B. Leighton and M. Sands, <em>The Feynman Lectures on Physics</em>, Vol. I, Ch. 22 "Algebra", Sec. 22-5 and 22-6, Table 22-3, Table 22-4 and Fig. 22-1 (free online edition, Caltech). <a href="https://www.feynmanlectures.caltech.edu/I_22.html" target="_blank" rel="noopener">feynmanlectures.caltech.edu/I_22.html</a></p>
+    <p>Table 22-3 starts from \(10^{i/1024} \approx 1 + 0.0022486i\) and squares it repeatedly; Table 22-4 lists the powers of \(10^{i/8}\), and Fig. 22-1 plots them as dots on a circle. This is the limit route of Step 11 done by hand with real numbers: a tiny rotate-and-stretch factor, multiplied many times, walks around the unit circle. Eq. (22.9) then states \(e^{i\theta} = \cos\theta + i\sin\theta\), and Fig. 22-2 draws \(x + iy = re^{i\theta}\), the polar form of <span class="eqref">(01.2)</span>.</p>
+  </div>
+  <div class="litfig">
+    <h4>A complex sinusoid and its two projections</h4>
+    <p class="cite">J. O. Smith III, <em>Mathematics of the Discrete Fourier Transform (DFT), with Audio Applications</em>, 2nd ed., W3K Publishing, 2007, "Projection of Circular Motion", Fig. 4.9 (free online edition, CCRMA Stanford). <a href="https://ccrma.stanford.edu/~jos/mdft/Projection_Circular_Motion.html" target="_blank" rel="noopener">ccrma.stanford.edu/~jos/mdft/Projection_Circular_Motion.html</a></p>
+    <p>Fig. 4.9 plots \(e^{j\omega t}\) as a helix in (Re, Im, t) space with its three shadows: a circle in the complex plane, a cosine on the real-versus-time wall and a sine on the imaginary-versus-time wall. It is Step 14 and Demo 01.3 in one 3-D picture. The neighbouring page "Positive and Negative Frequencies" gives <span class="eqref">(01.14)</span> and the symmetry \(\lvert X(-\omega)\rvert = \lvert X(\omega)\rvert\) for real signals.</p>
+  </div>
+  <div class="litfig">
+    <h4>Building the analytic signal in the frequency domain</h4>
+    <p class="cite">J. O. Smith III, <em>Mathematics of the DFT</em>, 2nd ed., 2007, "Analytic Signals and Hilbert Transform Filters", Fig. 4.16. <a href="https://ccrma.stanford.edu/~jos/mdft/Analytic_Signals_Hilbert_Transform.html" target="_blank" rel="noopener">ccrma.stanford.edu/~jos/mdft/Analytic_Signals_Hilbert_Transform.html</a></p>
+    <p>Four panels: the spectrum of \(\cos\omega_0 t\) (lines at \(\pm\omega_0\)), of the quadrature copy \(\sin\omega_0 t\) (imaginary lines of opposite sign), of \(j\sin\omega_0 t\), and of their sum, where the negative-frequency lines cancel and the positive ones add to a single line at \(+\omega_0\). That is <span class="eqref">(01.27)</span>, \(X_a = 2u(f)X\), and the bottom panel of the Step 16 figure, derived line by line.</p>
+  </div>
+  <div class="litfig">
+    <h4>Quadrature signals with pictures: counter-rotating phasors and the I/Q mixer</h4>
+    <p class="cite">R. G. Lyons, "A Quadrature Signals Tutorial: Complex, But Not Complicated," DSPRelated.com, 2013, Figs. 5–7 and 12–15. <a href="https://www.dsprelated.com/showarticle/192.php" target="_blank" rel="noopener">dsprelated.com/showarticle/192.php</a></p>
+    <p>Fig. 5 shows \(e^{j2\pi f_0 t}\) and \(e^{-j2\pi f_0 t}\) orbiting in opposite directions, Fig. 6 the corkscrew of a single phasor along the time axis with its cosine and sine projections, and Fig. 7 a cosine built from two half-magnitude counter-rotating phasors (Steps 15 and 16). Fig. 12 shows quadrature mixing shifting a spectrum by \(f_0\), and Figs. 14–15 the I/Q down-conversion block diagram with the spectra in each path: compare with the demodulator drawing in 01.6. The same material appears in Lyons, <em>Understanding Digital Signal Processing</em>, 3rd ed., Ch. 8.</p>
+  </div>
+  <div class="litfig">
+    <h4>The phase rotator inside an ultrasound IQ beamformer</h4>
+    <p class="cite">V. Perrot, M. Polichetti, F. Varray and D. Garcia, "So you think you can DAS? A viewpoint on delay-and-sum beamforming," Ultrasonics 111:106309, 2021, Eq. (10) and Figs. 6, 10 and 14. <a href="https://doi.org/10.1016/j.ultras.2020.106309" target="_blank" rel="noopener">doi:10.1016/j.ultras.2020.106309</a> · preprint <a href="https://arxiv.org/abs/2007.11960" target="_blank" rel="noopener">arXiv:2007.11960</a></p>
+    <p>Eq. (10) beamforms I/Q signals as \(\sum_i \mathrm{IQ}_i(\tau_i)\,e^{2i\pi f_c\tau_i}\): interpolate each channel at its delay, then rotate by the carrier phase removed by the delay, exactly the I11 answer (their sign follows their demodulation convention). Fig. 14 shows the sparse DAS matrix that holds those interpolation weights and phase rotators. Fig. 6 shows how the assumed speed of sound changes the DAS output and introduces a phase-based quality metric; Fig. 10 applies that metric to choose the speed of sound in eight carotids in vivo: the IQ phase used as a sound-speed sensor, the step before aberration correction.</p>
+  </div>
+
+  <!-- ===================== 01.17 Go deeper ===================== -->
+  <div class="prose"><h2><span class="sec">01.17</span>Go deeper</h2>
+  <ul class="refs">
+    <li>T. Needham, <em>Visual Complex Analysis</em>, Oxford University Press, 1997. Complex numbers as rotations and stretches throughout; chapter 1 is this module done properly.</li>
+    <li>P. J. Nahin, <em>An Imaginary Tale: The Story of √−1</em>, Princeton University Press, 1998. History and the geometric meaning of i, including Euler's formula.</li>
+    <li>R. P. Feynman, R. B. Leighton, M. Sands, <em>The Feynman Lectures on Physics</em>, Vol. I, Ch. 22 "Algebra", Addison-Wesley, 1963. Builds e<sup>iθ</sup> numerically from repeated multiplication, close to the limit route of Step 11.</li>
+    <li>A. V. Oppenheim, A. S. Willsky, S. H. Nawab, <em>Signals and Systems</em>, 2nd ed., Prentice Hall, 1997. Complex exponentials as eigenfunctions of LTI systems (Module 03).</li>
+    <li>R. G. Lyons, <em>Understanding Digital Signal Processing</em>, 3rd ed., Prentice Hall, 2010. Quadrature signals and complex down-conversion explained with pictures.</li>
+    <li>J. O. Smith III, <em>Mathematics of the Discrete Fourier Transform (DFT)</em>, W3K Publishing, 2007. Complex numbers, Euler's identity and sinusoids as a lead-in to the DFT (Module 02).</li>
+    <li>T. L. Szabo, <em>Diagnostic Ultrasound Imaging: Inside Out</em>, 2nd ed., Academic Press, 2014. Analytic signals, IQ and Doppler in the ultrasound context.</li>
+  </ul></div>
+  <div class="next"><a href="#home">← Part I home</a><a href="#m2">02 The DFT and FFT by hand →</a></div>
+</section>
+
+
+<style>
+#m1 .stepbox { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 4px 22px; align-items: start; border-top: 1px dashed var(--rule); margin: 16px 0 6px; }
+#m1 .stepbox h3 { margin-top: 14px; }
+#m1 .stepbox .fig { margin-top: 18px; min-width: 0; }
+#m1 .stepbox .fig canvas { display: block; width: 100%; }
+#m1 .stepbox .fig .cap { font: 400 0.78rem/1.4 var(--f-mono); color: var(--muted); margin-top: 4px; }
+#m1 .hand { font: 400 0.85rem/1.62 var(--f-mono); background: var(--code-bg); border: 1px solid var(--rule); border-left: 3px solid var(--sig3); border-radius: 0 var(--radius) var(--radius) 0; padding: 8px 12px; margin: 10px 0; overflow-wrap: anywhere; }
+#m1 .hand::before { content: "By hand"; display: block; font: 600 0.68rem/1.4 var(--f-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--sig3); margin-bottom: 2px; }
+#m1 .take { font-weight: 600; }
+#m1 .take::before { content: "Takeaway: "; color: var(--accent); }
+#m1 .stepbox .fig .cap .prov { margin: 0 6px 0 0; }
+#m1 .stepbox .fig .cap .prov-note { margin: 2px 0 3px; }
+#m1 .m1-svg { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; margin: 14px 0 18px; }
+#m1 .m1-svg svg { display: block; width: 100%; height: auto; max-width: 720px; margin: 6px auto 0; }
+#m1 .m1-svg-head .prov { margin-left: 0; }
+#m1 .rule-fig .prov-note { margin-bottom: 4px; }
+#m1 .eqn-math mjx-container[display="true"] > svg { max-width: 100% !important; height: auto !important; }
+#m1 .hand mjx-container { max-width: 100%; }
+#m1 mjx-assistive-mml { transform: scale(0.001); transform-origin: 0 0; }
+#m1 .litfig a { overflow-wrap: anywhere; word-break: break-word; }
+@media (max-width: 760px) { #m1 .stepbox { grid-template-columns: minmax(0, 1fr); } #m1 .stepbox .fig { margin-top: 4px; max-width: 420px; } }
+</style>
+<script>
+(function () {
+  const $ = id => document.getElementById(id), PI = Math.PI, M = Lab.mini, D2R = PI / 180;
+  /* ---------------- complex arithmetic ---------------- */
+  const C = (re, im) => ({ re: re, im: im || 0 });
+  const cadd = (a, b) => C(a.re + b.re, a.im + b.im);
+  const cmul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+  const cconj = a => C(a.re, -a.im);
+  const cabs = a => Math.hypot(a.re, a.im);
+  const carg = a => Math.atan2(a.im, a.re);
+  const cdiv = (a, b) => { const d = b.re * b.re + b.im * b.im; return C((a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d); };
+  const cex = (th, r) => { r = r === undefined ? 1 : r; return C(r * Math.cos(th), r * Math.sin(th)); };
+  const csc = (a, s) => C(a.re * s, a.im * s);
+  const cpow = (a, n) => { let r = C(1, 0); for (let i = 0; i < n; i++) r = cmul(r, a); return r; };
+  const wrapPi = a => { a = (a + PI) % (2 * PI); if (a < 0) a += 2 * PI; return a - PI === -PI ? PI : a - PI; };
+  const fn = (v, d) => { d = d === undefined ? 3 : d; const lim = 0.5 * Math.pow(10, -d); return (Math.abs(v) < lim ? 0 : v).toFixed(d).replace('-', '−'); };
+  const fz = (z, d) => { d = d === undefined ? 3 : d; const lim = 0.5 * Math.pow(10, -d); const im = Math.abs(z.im) < lim ? 0 : z.im; return fn(z.re, d) + (im < 0 ? ' − ' : ' + ') + Math.abs(im).toFixed(d) + 'j'; };
+  const fdeg = (rad, d) => fn(rad / D2R, d === undefined ? 2 : d) + '°';
+  const fpol = (z, d) => fn(cabs(z), d === undefined ? 3 : d) + '∠' + fdeg(carg(z));
+  const fe = v => { if (v === 0) return '0'; const e = Math.floor(Math.log10(Math.abs(v))); const m = v / Math.pow(10, e); return m.toFixed(2) + '×10<sup>' + String(e).replace('-', '−') + '</sup>'; };
+
+  /* ---------------- drawing helpers ---------------- */
+  function plane(x, w, h, R, o) {
+    o = o || {}; const c = M.col(); const pad = o.pad === undefined ? 12 : o.pad; const top = o.top || 0; const bx = o.bx || 0, bw = o.bw || w, by = o.by || 0, bh = o.bh || h;
+    const s = Math.min((bw - 2 * pad) / (R[1] - R[0]), (bh - top - 2 * pad) / (R[3] - R[2]));
+    const cx = bx + bw / 2 - s * (R[0] + R[1]) / 2, cy = by + top + (bh - top) / 2 + s * (R[2] + R[3]) / 2;
+    const X = v => cx + s * v, Y = v => cy - s * v;
+    const x0 = (bx - cx) / s, x1 = (bx + bw - cx) / s, y0 = (cy - by - bh) / s, y1 = (cy - by - top) / s;
+    const st = o.step || 1;
+    x.save(); x.beginPath(); x.rect(bx, by + top, bw, bh - top); x.clip();
+    if (o.grid !== false) { x.strokeStyle = c.grid; x.lineWidth = 1; x.beginPath();
+      for (let v = Math.ceil(x0 / st) * st; v <= x1; v += st) { const p = Math.round(X(v)) + 0.5; x.moveTo(p, by + top); x.lineTo(p, by + bh); }
+      for (let v = Math.ceil(y0 / st) * st; v <= y1; v += st) { const p = Math.round(Y(v)) + 0.5; x.moveTo(bx, p); x.lineTo(bx + bw, p); }
+      x.stroke(); }
+    x.strokeStyle = c.rule; x.lineWidth = 1.2; x.beginPath();
+    x.moveTo(bx, Y(0)); x.lineTo(bx + bw, Y(0)); x.moveTo(X(0), by + top); x.lineTo(X(0), by + bh); x.stroke();
+    x.fillStyle = c.mu; x.font = '10.5px ' + c.mono;
+    if (o.labels !== false) { x.textAlign = 'right'; x.textBaseline = 'bottom'; x.fillText('Re', bx + bw - 3, Y(0) - 2); x.textAlign = 'left'; x.textBaseline = 'top'; x.fillText('Im', X(0) + 4, by + top + 2); }
+    if (o.ticks) { x.textAlign = 'center'; x.textBaseline = 'top'; o.ticks.forEach(v => { if (v) x.fillText(String(v).replace('-', '−'), X(v), Y(0) + 3); }); x.textAlign = 'right'; x.textBaseline = 'middle'; o.ticks.forEach(v => { if (v) x.fillText(String(v).replace('-', '−') + 'j', X(0) - 3, Y(v)); }); }
+    x.restore();
+    return { X, Y, s, inv: (px, py) => C((px - cx) / s, (cy - py) / s) };
+  }
+  const arr = (x, P, a, b, col, w) => { if (cabs(C(b.re - a.re, b.im - a.im)) * P.s < 1) return; Lab.arrow(x, P.X(a.re), P.Y(a.im), P.X(b.re), P.Y(b.im), col, w || 2); };
+  const seg = (x, P, a, b, col, w, dash) => { x.save(); x.strokeStyle = col; x.lineWidth = w || 1; if (dash) x.setLineDash(dash); x.beginPath(); x.moveTo(P.X(a.re), P.Y(a.im)); x.lineTo(P.X(b.re), P.Y(b.im)); x.stroke(); x.restore(); };
+  const dot = (x, P, z, col, r) => { x.save(); x.fillStyle = col; x.beginPath(); x.arc(P.X(z.re), P.Y(z.im), r || 3, 0, 7); x.fill(); x.restore(); };
+  const ring = (x, P, z, col, r) => { x.save(); x.strokeStyle = col; x.lineWidth = 2; x.beginPath(); x.arc(P.X(z.re), P.Y(z.im), r || 6, 0, 7); x.stroke(); x.restore(); };
+  const circ = (x, P, r, col, dash, cen) => { cen = cen || C(0, 0); x.save(); x.strokeStyle = col; x.lineWidth = 1; if (dash) x.setLineDash(dash); x.beginPath(); x.arc(P.X(cen.re), P.Y(cen.im), r * P.s, 0, 7); x.stroke(); x.restore(); };
+  const arcA = (x, P, r, a0, a1, col, w, cen) => { cen = cen || C(0, 0); x.save(); x.strokeStyle = col; x.lineWidth = w || 1.4; x.beginPath(); x.arc(P.X(cen.re), P.Y(cen.im), r * P.s, -a0, -a1, a1 > a0); x.stroke(); x.restore(); };
+  const tx = (x, s, px, py, col, al) => M.text(x, s, px, py, col, al);
+  const tz = (x, P, s, z, col, dx, dy, al) => tx(x, s, P.X(z.re) + (dx || 0), P.Y(z.im) + (dy || 0), col, al);
+  const poly = (x, P, pts, col, w, dash) => { x.save(); x.strokeStyle = col; x.lineWidth = w || 1.5; if (dash) x.setLineDash(dash); x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(P.X(p.re), P.Y(p.im)) : x.moveTo(P.X(p.re), P.Y(p.im))); x.stroke(); x.restore(); };
+  /* polyline in a time panel m (from Lab.mini.panel), breaking where |jump| > brk */
+  const tline = (x, m, xs, ys, col, w, dash, brk) => { x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.strokeStyle = col; x.lineWidth = w || 1.6; if (dash) x.setLineDash(dash); x.beginPath();
+    for (let i = 0; i < xs.length; i++) { const px = m.X(xs[i]), py = m.Y(ys[i]); if (i && !(brk && Math.abs(ys[i] - ys[i - 1]) > brk)) x.lineTo(px, py); else x.moveTo(px, py); } x.stroke(); x.restore(); };
+  const tdots = (x, m, xs, ys, col, r) => { x.save(); x.fillStyle = col; for (let i = 0; i < xs.length; i++) { const py = m.Y(ys[i]); if (py < m.b.y - 3 || py > m.b.y + m.b.h + 3) continue; x.beginPath(); x.arc(m.X(xs[i]), py, r || 2.5, 0, 7); x.fill(); } x.restore(); };
+  const vmark = (x, m, xv, col, dash) => { x.save(); x.strokeStyle = col; x.lineWidth = 1.2; x.setLineDash(dash || [3, 3]); x.beginPath(); x.moveTo(m.X(xv), m.b.y); x.lineTo(m.X(xv), m.b.y + m.b.h); x.stroke(); x.restore(); };
+  const gauss = (u, s) => Math.exp(-u * u / (2 * s * s));
+
+  /* ---------------- figure library: each F.name(cv, h) draws one picture ---------------- */
+  const F = {};
+  F.halfTurn = (cv, h) => { const g = M.size(cv, h || 150), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-2.8, 2.8, -0.7, 2.6], { ticks: [-2, -1, 1, 2] });
+    x.save(); x.setLineDash([4, 3]); x.strokeStyle = c.mu; x.lineWidth = 1.3; x.beginPath(); x.arc(P.X(0), P.Y(0), 2 * P.s, -0.06, -PI + 0.06, true); x.stroke(); x.restore();
+    Lab.arrow(x, P.X(-1.9) + 1, P.Y(0.62), P.X(-2.0), P.Y(0.25), c.mu, 1.3);
+    arr(x, P, C(0, 0), C(2, 0), c.a, 3); arr(x, P, C(0, 0), C(-2, 0), c.b, 3);
+    tz(x, P, '×(−1) = 180°', C(0, 2.25), c.fg, 0, 0, 'center'); tz(x, P, '+2', C(1.6, 0), c.a, 0, -10, 'center'); tz(x, P, '−2', C(-1.6, 0), c.b, 0, -10, 'center'); };
+  F.powersJ = (cv, h) => { const g = M.size(cv, h || 200), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-1.55, 1.55, -1.45, 1.45], { step: 0.5 });
+    circ(x, P, 1, c.mu, [3, 3]);
+    [[0, c.a, '1', 10, -9, 'left'], [PI / 2, c.b, 'j', 8, 6, 'left'], [PI, c.c, '−1', -6, -9, 'right'], [-PI / 2, c.d, '−j', 8, -6, 'left']].forEach(([a, col, l, dx, dy, al]) => { arr(x, P, C(0, 0), cex(a), col, 2.4); tz(x, P, l, cex(a), col, dx, dy, al); });
+    [0, 1, 2, 3].forEach(k => { arcA(x, P, 0.42, k * PI / 2 + 0.12, (k + 1) * PI / 2 - 0.12, c.mu, 1.2); const e = cex((k + 1) * PI / 2 - 0.12, 0.42), e0 = cex((k + 1) * PI / 2 - 0.3, 0.42); arr(x, P, e0, e, c.mu, 1.2); });
+    tz(x, P, '×j', cex(PI / 4, 0.62), c.fg, 0, 0, 'center'); };
+  F.rect = (cv, h) => { const g = M.size(cv, h || 200), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-0.7, 4.8, -0.6, 4.7], { ticks: [1, 2, 3, 4] });
+    arr(x, P, C(0, 0), C(3, 0), c.a, 2.2); arr(x, P, C(3, 0), C(3, 4), c.b, 2.2); arr(x, P, C(0, 0), C(3, 4), c.fg, 2.6);
+    tz(x, P, 'a = 3', C(1.5, 0), c.a, 0, -9, 'center'); tz(x, P, 'b = 4', C(3, 2), c.b, 6, 0, 'left'); tz(x, P, 'z = 3 + 4j', C(3, 4), c.fg, -6, -4, 'right'); };
+  F.polar = (cv, h) => { const g = M.size(cv, h || 210), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-4.4, 4.4, -4.6, 4.6], { step: 1 });
+    seg(x, P, C(-4.4 * 0.75, -4.4), C(4.4 * 0.75, 4.4), c.mu, 1, [2, 3]);
+    arr(x, P, C(0, 0), C(3, 4), c.a, 2.4); arr(x, P, C(0, 0), C(-3, -4), c.b, 2.2);
+    arcA(x, P, 1.3, 0, Math.atan2(4, 3), c.a, 1.6); arcA(x, P, 0.8, 0, Math.atan2(-4, -3), c.b, 1.4);
+    tz(x, P, 'r = 5', C(1.2, 2.6), c.a, -4, 0, 'right'); tz(x, P, '53.13°', C(1.5, 0.55), c.a, 2, 0, 'left'); tz(x, P, '3 + 4j', C(3, 4), c.a, 4, 6, 'left');
+    tz(x, P, '−126.87°', C(0.6, -0.9), c.b, 2, 4, 'left'); tz(x, P, '−3 − 4j', C(-3, -4), c.b, 4, -2, 'left'); tz(x, P, 'same b/a', C(-1.2, -3.6), c.mu, 0, 0, 'right'); };
+  F.add = (cv, h) => { const g = M.size(cv, h || 210), x = g.x, c = M.col(); const z = C(3, 4), w = C(1, 2), s = cadd(z, w); const P = plane(x, g.w, g.h, [-0.6, 5.2, -0.5, 6.6], { ticks: [2, 4, 6] });
+    seg(x, P, C(0, 0), w, c.b, 1, [3, 3]); seg(x, P, w, s, c.a, 1, [3, 3]);
+    arr(x, P, C(0, 0), z, c.a, 2.4); arr(x, P, z, s, c.b, 2.4); arr(x, P, C(0, 0), s, c.d, 2.6);
+    tz(x, P, 'z', C(1.5, 2), c.a, -6, 0, 'right'); tz(x, P, 'w', C(3.5, 5), c.b, 6, 0, 'left'); tz(x, P, 'z + w = 4 + 6j', s, c.d, -6, -6, 'right'); };
+  F.mul = (cv, h) => { const g = M.size(cv, h || 220), x = g.x, c = M.col(); const z = C(3, 4), w = C(1, 2), p = cmul(z, w); const P = plane(x, g.w, g.h, [-6.2, 4.4, -0.9, 10.8], { step: 2 });
+    arcA(x, P, 1.3, 0, carg(w), c.b, 1.5); arcA(x, P, 2.1, 0, carg(z), c.a, 1.5); arcA(x, P, 3.0, 0, carg(p), c.d, 1.5);
+    arr(x, P, C(0, 0), z, c.a, 2.4); arr(x, P, C(0, 0), w, c.b, 2.4); arr(x, P, C(0, 0), p, c.d, 2.6);
+    tz(x, P, 'z = 5∠53.1°', z, c.a, 4, 8, 'left'); tz(x, P, 'w = 2.24∠63.4°', C(1.2, 0.5), c.b, 4, 4, 'left'); tz(x, P, 'zw = 11.2∠116.6°', p, c.d, 6, 2, 'left'); };
+  F.conj = (cv, h) => { const g = M.size(cv, h || 210), x = g.x, c = M.col(); const z = C(3, 4); const P = plane(x, g.w, g.h, [-1.2, 5.6, -4.8, 4.8], { step: 1 });
+    seg(x, P, z, cconj(z), c.mu, 1, [3, 3]);
+    arr(x, P, C(0, 0), z, c.a, 2.4); arr(x, P, C(0, 0), cconj(z), c.c, 2.4);
+    arcA(x, P, 1.2, 0, carg(z), c.a, 1.4); arcA(x, P, 1.2, 0, -carg(z), c.c, 1.4);
+    tz(x, P, 'z = 3 + 4j', z, c.a, 6, 4, 'left'); tz(x, P, 'z* = 3 − 4j', cconj(z), c.c, 6, -4, 'left'); tz(x, P, '+53°', C(1.3, 0.6), c.a, 2, 0, 'left'); tz(x, P, '−53°', C(1.3, -0.6), c.c, 2, 0, 'left');
+    tz(x, P, 'z z* = 25 (on Re)', C(5.4, -2.6), c.d, 0, 0, 'right'); };
+  F.div = (cv, h) => { const g = M.size(cv, h || 210), x = g.x, c = M.col(); const z = C(3, 4), w = C(1, 2), q = cdiv(z, w); const P = plane(x, g.w, g.h, [-0.8, 4.6, -1.3, 4.7], { ticks: [1, 2, 3, 4] });
+    arr(x, P, C(0, 0), z, c.a, 2.3); arr(x, P, C(0, 0), w, c.b, 2.3); arr(x, P, C(0, 0), q, c.d, 2.6);
+    arcA(x, P, 0.9, carg(w), carg(z), c.mu, 1.3); arcA(x, P, 1.4, 0, carg(q), c.d, 1.4);
+    tz(x, P, 'z', z, c.a, 4, 6, 'left'); tz(x, P, 'w', w, c.b, -4, -6, 'right'); tz(x, P, 'z/w = 2.2 − 0.4j', q, c.d, 6, 12, 'left'); tz(x, P, '−10.3°', C(0.35, -0.95), c.d, 0, 0, 'left'); };
+  /* Taylor partial sums of e^(j theta): N terms, tip to tail */
+  F.taylorAt = (theta, N) => (cv, h) => { const g = M.size(cv, h || 210), x = g.x, c = M.col();
+    const pts = [C(0, 0)]; let s = C(0, 0); for (let k = 0; k < N; k++) { s = cadd(s, csc(cpow(C(0, theta), k), 1 / fact(k))); pts.push(s); }
+    let r0 = 0.2, r1 = 0.2, i0 = 0.2, i1 = 0.2; pts.concat([cex(theta)]).forEach(p => { r0 = Math.max(r0, -p.re + 0.15); r1 = Math.max(r1, p.re + 0.15); i0 = Math.max(i0, -p.im + 0.15); i1 = Math.max(i1, p.im + 0.15); });
+    const P = plane(x, g.w, g.h, [-r0, r1, -i0, i1], { step: r0 + r1 > 6 ? 1 : 0.25 });
+    circ(x, P, 1, c.mu, [3, 3]);
+    for (let k = 0; k < N; k++) arr(x, P, pts[k], pts[k + 1], k % 2 ? c.b : c.a, k < 4 ? 2.3 : 1.5);
+    ring(x, P, cex(theta), c.d, 6); dot(x, P, pts[N], c.fg, 2.5);
+    tz(x, P, 'e^(j' + (Math.abs(theta - PI) < 1e-9 ? 'π' : fn(theta, 0)) + ')', cex(theta), c.d, 8, theta > 2 ? 12 : -10, 'left'); };
+  const fact = k => { let f = 1; for (let i = 2; i <= k; i++) f *= i; return f; };
+  F.ode = (cv, h) => { const g = M.size(cv, h || 210), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-1.55, 1.55, -1.5, 1.5], { step: 0.5 });
+    circ(x, P, 1, c.mu, [3, 3]);
+    for (let k = 0; k < 12; k++) { const p = cex(k * PI / 6); arr(x, P, p, cadd(p, csc(cmul(C(0, 1), p), 0.32)), c.b, 1.2); }
+    const th = 1, p = cex(th);
+    x.save(); x.strokeStyle = c.d; x.lineWidth = 3.5; x.globalAlpha = 0.7; x.beginPath(); x.arc(P.X(0), P.Y(0), P.s, 0, -th, true); x.stroke(); x.restore();
+    arr(x, P, C(0, 0), p, c.a, 2.6); arr(x, P, p, cadd(p, csc(cmul(C(0, 1), p), 0.7)), c.b, 2.6);
+    tz(x, P, 'f', csc(p, 0.5), c.a, -4, -8, 'right'); tz(x, P, 'f′ = j f', cadd(p, csc(cmul(C(0, 1), p), 0.7)), c.b, -4, -8, 'right'); tz(x, P, 'arc = θ', cex(0.45, 1.13), c.d, 2, 0, 'left'); };
+  F.limit = (cv, h) => { const g = M.size(cv, h || 210), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-2.55, 1.35, -0.45, 2.05], { step: 0.5 });
+    circ(x, P, 1, c.mu, [3, 3]);
+    [[4, c.b], [8, c.c], [32, c.a]].forEach(([n, col]) => { const f = C(1, PI / n), pts = []; let p = C(1, 0); for (let k = 0; k <= n; k++) { pts.push(p); p = cmul(p, f); } poly(x, P, pts, col, 1.8); pts.forEach(q => dot(x, P, q, col, n > 8 ? 1.8 : 2.8)); });
+    ring(x, P, C(-1, 0), c.d, 6);
+    tz(x, P, 'n = 4', C(-2.3, 1.25), c.b, 0, -10, 'left'); tz(x, P, 'n = 8', C(-1.75, 0.27), c.c, 0, -12, 'left'); tz(x, P, 'n = 32', C(0.4, 1.0), c.a, 4, -10, 'left'); tz(x, P, '−1', C(-1, 0), c.d, 0, 14, 'center'); };
+  F.times = (cv, h) => { const g = M.size(cv, h || 210), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-1.55, 1.55, -1.45, 1.45], { step: 0.5 });
+    circ(x, P, 1, c.mu, [3, 3]);
+    [[0, '0'], [30, '30 ns'], [50, '50 ns'], [100, '100 ns'], [150, '150 ns']].forEach(([t, l], i) => { const a = 2 * PI * 5e6 * t * 1e-9, p = cex(a); const col = [c.fg, c.c, c.b, c.a, c.d][i]; arr(x, P, C(0, 0), p, col, 2); tz(x, P, l, cex(a, 1.12), col, 0, 0, a > PI / 2 + 0.1 && a < 3 * PI / 2 + 0.1 ? 'right' : 'left'); });
+    arcA(x, P, 0.3, 0.1, 2 * PI - 0.6, c.mu, 1); tz(x, P, '200 ns per turn', C(0, -1.32), c.mu, 0, 0, 'center'); };
+  F.rotDir = (cv, h) => { const g = M.size(cv, h || 160), x = g.x, c = M.col(); const m = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: g.h - 36 }, [0, 400], [-1.25, 1.25], { lab: 'e^(±jωt), 5 MHz: Re and Im vs t (ns)', ticks: [[100, '100'], [200, '200'], [300, '300']] });
+    M.curve(x, m, t => Math.cos(2 * PI * 5e6 * t * 1e-9), c.a, { w: 2.2 }); M.curve(x, m, t => Math.sin(2 * PI * 5e6 * t * 1e-9), c.b, { w: 1.6 }); M.curve(x, m, t => -Math.sin(2 * PI * 5e6 * t * 1e-9), c.b, { w: 1.6, dash: [4, 3] });
+    tx(x, 'Re (both)', m.X(205), m.Y(1.05), c.a, 'left'); tx(x, 'Im +f', m.X(50), m.Y(1.12), c.b, 'center'); tx(x, 'Im −f', m.X(50), m.Y(-1.12), c.b, 'center'); };
+  F.shadows = (cv, h) => { const g = M.size(cv, h || 200), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-1.4, 1.4, -1.35, 1.35], { step: 0.5 });
+    circ(x, P, 1, c.mu, [3, 3]); const p = cex(PI / 4);
+    seg(x, P, p, C(p.re, 0), c.a, 1.2, [3, 3]); seg(x, P, p, C(0, p.im), c.b, 1.2, [3, 3]);
+    x.save(); x.lineWidth = 4; x.strokeStyle = c.a; x.beginPath(); x.moveTo(P.X(0), P.Y(0)); x.lineTo(P.X(p.re), P.Y(0)); x.stroke(); x.strokeStyle = c.b; x.beginPath(); x.moveTo(P.X(0), P.Y(0)); x.lineTo(P.X(0), P.Y(p.im)); x.stroke(); x.restore();
+    arr(x, P, C(0, 0), p, c.fg, 2.4); arcA(x, P, 0.3, 0, PI / 4, c.mu, 1.2);
+    tz(x, P, 'cos θ = 0.707', C(p.re, 0), c.a, 0, 12, 'center'); tz(x, P, 'sin θ', C(0, p.im), c.b, -6, 0, 'right'); tz(x, P, 'θ = 45°', C(0.32, 0.12), c.mu, 2, 0, 'left'); };
+  F.cosPair = (cv, h) => { const g = M.size(cv, h || 200), x = g.x, c = M.col(); const th = PI / 3, a = cex(th, 0.5), b = cex(-th, 0.5); const P = plane(x, g.w, g.h, [-0.25, 1.15, -0.6, 0.6], { step: 0.25 });
+    circ(x, P, 0.5, c.mu, [3, 3]);
+    seg(x, P, C(0, 0), b, c.b, 1, [3, 3]); seg(x, P, b, cadd(a, b), c.a, 1, [3, 3]);
+    arr(x, P, C(0, 0), a, c.a, 2.4); arr(x, P, a, cadd(a, b), c.b, 2.4); arr(x, P, C(0, 0), cadd(a, b), c.d, 3);
+    tz(x, P, '½e^(j60°)', a, c.a, 6, -4, 'left'); tz(x, P, '½e^(−j60°)', b, c.b, 6, 4, 'left'); tz(x, P, '= 0.5', cadd(a, b), c.d, 6, 10, 'left'); };
+  F.ellipse = (cv, h) => { const g = M.size(cv, h || 200), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-1.15, 1.15, -0.65, 0.65], { step: 0.25 });
+    [[0.5, c.d], [0.25, c.c], [0, c.a]].forEach(([am, col]) => { const pts = []; for (let i = 0; i <= 120; i++) { const t = 2 * PI * i / 120; pts.push(cadd(cex(t, 0.5), cex(-t, am))); } poly(x, P, pts, col, 2); });
+    tz(x, P, 'A₋ = 0.5: line', C(1.12, 0.56), c.d, 0, 0, 'right'); tz(x, P, 'A₋ = 0.25: ellipse', C(-1.12, 0.56), c.c, 0, 0, 'left'); tz(x, P, 'A₋ = 0: circle', C(-1.12, -0.56), c.a, 0, 0, 'left'); };
+  F.spec2 = (cv, h) => { const g = M.size(cv, h || 180), x = g.x, c = M.col(); const hh = (g.h - 20) / 2;
+    const tk = [[-1, '−f₀'], [0, '0'], [1, 'f₀']];
+    const m1 = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: hh - 26 }, [-1.6, 1.6], [0, 1.15], { lab: 'cos(2πf₀t): X(f)', ticks: tk }); M.stems(x, m1, [[-1, 0.5], [1, 0.5]], c.a); tx(x, '½', m1.X(-1) + 8, m1.Y(0.5), c.a); tx(x, '½', m1.X(1) + 8, m1.Y(0.5), c.a);
+    const m2 = M.panel(x, { x: 4, y: 16 + hh + 4, w: g.w - 8, h: hh - 26 }, [-1.6, 1.6], [0, 1.15], { lab: 'e^(j2πf₀t): X(f)', ticks: tk }); M.stems(x, m2, [[1, 1]], c.b); tx(x, '1', m2.X(1) + 8, m2.Y(0.9), c.b); };
+  F.iqDecomp = (cv, h) => { const g = M.size(cv, h || 170), x = g.x, c = M.col(); const m = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: g.h - 36 }, [0, 2], [-1.2, 1.2], { lab: 'vs t / T', ticks: [[0.5, '½'], [1, '1'], [1.5, '1½']] });
+    M.curve(x, m, u => Math.cos(2 * PI * u) * Math.cos(30 * D2R), c.a, { w: 1.6 }); M.curve(x, m, u => 0.5 * Math.cos(2 * PI * u + PI / 2), c.b, { w: 1.6 }); M.curve(x, m, u => Math.cos(2 * PI * u + 30 * D2R), c.fg, { w: 2.2 });
+    tx(x, 'I = 0.866', m.X(1.02), m.Y(1.0), c.a); tx(x, 'Q = 0.5', m.X(0.18), m.Y(-0.62), c.b); };
+  F.quarter = (cv, h) => { const g = M.size(cv, h || 170), x = g.x, c = M.col(); const m = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: g.h - 36 }, [-0.65, 1.15], [-1.2, 1.2], { lab: 'cos(ωt + 30°) vs t / T', ticks: [[-0.25, '−T/4'], [0.5, 'T/2'], [1, 'T']] });
+    M.curve(x, m, u => Math.cos(2 * PI * u + 30 * D2R), c.fg, { w: 1.8 });
+    M.stems(x, m, [[0, 0.866]], c.a); M.stems(x, m, [[-0.25, 0.5]], c.b);
+    tx(x, 'I = 0.866', m.X(0) + 7, m.Y(0.98), c.a); tx(x, 'Q = 0.5', m.X(-0.25) - 6, m.Y(0.66), c.b, 'right'); };
+  F.demodSpec = (cv, h) => { const g = M.size(cv, h || 180), x = g.x, c = M.col(); const hh = (g.h - 20) / 2, sf = 1.3, band = (f, f0) => gauss(f - f0, sf);
+    const m1 = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: hh - 26 }, [-14, 9], [0, 1.15], { lab: 'RF |X(f)| (MHz)', ticks: [[-5, '−5'], [0, '0'], [5, '5']] });
+    M.curve(x, m1, f => 0.5 * (band(f, 5) + band(f, -5)), c.a, { fill: true });
+    const m2 = M.panel(x, { x: 4, y: 16 + hh + 4, w: g.w - 8, h: hh - 26 }, [-14, 9], [0, 1.15], { lab: 'after ×e^(−j2πf₀t)', ticks: [[-10, '−10'], [0, '0'], [5, '5']] });
+    M.curve(x, m2, f => 0.5 * (band(f, 0) + band(f, -10)), c.b, { fill: true }); M.curve(x, m2, f => Math.abs(f) < 5 ? 1.05 : 0, c.d, { w: 1.2, dash: [4, 3] }); tx(x, 'LPF', m2.X(5) + 3, m2.Y(0.95), c.d); };
+  F.iq4 = (cv, h) => { const g = M.size(cv, h || 190), x = g.x, c = M.col(); const prods = [C(0.866, 0), C(0, 0.5), C(0.866, 0), C(0, 0.5)]; const P = plane(x, g.w, g.h, [-0.15, 1.95, -0.2, 1.15], { step: 0.25 });
+    let p = C(0, 0); prods.forEach((q, i) => { const n = cadd(p, q); arr(x, P, p, n, i % 2 ? c.b : c.a, 2.3); p = n; });
+    arr(x, P, C(0, 0), C(0.866, 0.5), c.d, 2.8); seg(x, P, C(0, 0), p, c.mu, 1, [3, 3]);
+    tz(x, P, 'Σ = 1.732 + 1.0j', p, c.fg, -4, -9, 'right'); tz(x, P, '2·mean = 1∠30°', C(0.866, 0.5), c.d, -8, -10, 'right'); };
+  F.phaseDelay = (cv, h) => { const g = M.size(cv, h || 160), x = g.x, c = M.col(); const m = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: g.h - 36 }, [0, 450], [-200, 200], { lab: '∠IQ (deg) vs delay τ (ns), 5 MHz', ticks: [[100, '100'], [200, '200'], [300, '300'], [400, '400']], hlines: [[180, '+180'], [-180, '−180']] });
+    const xs = [], ys = []; for (let i = 0; i <= 900; i++) { const t = i * 0.5; xs.push(t); ys.push(wrapPi(-2 * PI * 5e6 * t * 1e-9) / D2R); } tline(x, m, xs, ys, c.a, 2, null, 180);
+    M.stems(x, m, [[13, -23.4]], c.b); tx(x, '13 ns → −23.4°', m.X(22), m.Y(-60), c.b); };
+  F.iqLoop = (cv, h) => { const g = M.size(cv, h || 200), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-1.15, 1.15, -1.1, 1.1], { step: 0.5, labels: false }); const sg = 125e-9, p0 = -23.4 * D2R;
+    circ(x, P, 1, c.mu, [3, 3]);
+    const A = [], B = []; for (let i = 0; i <= 200; i++) { const u = (i / 200 - 0.5) * 6 * sg, e = gauss(u, sg); A.push(cex(p0, e)); B.push(cex(p0 + 2 * PI * 0.5e6 * u, e)); }
+    poly(x, P, B, c.c, 2); poly(x, P, A, c.a, 3.5); arr(x, P, C(0, 0), cex(p0), c.fg, 1.6);
+    tz(x, P, 'I', C(1.08, 0), c.mu, 0, -8, 'center'); tz(x, P, 'Q', C(0, 1.05), c.mu, 8, 0, 'left'); tz(x, P, 'fd = f₀', C(-1.1, -0.85), c.a, 0, 0, 'left'); tz(x, P, 'fd = 4.5 MHz', C(-1.1, 0.85), c.c, 0, 0, 'left'); };
+  F.wrap = (cv, h) => { const g = M.size(cv, h || 170), x = g.x, c = M.col(); const m = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: g.h - 36 }, [-0.3, 3.4], [-4, 7.5], { lab: 'phase (rad) vs sample', ticks: [[1, '1'], [2, '2'], [3, '3']], hlines: [[PI, 'π'], [-PI, '−π']] });
+    tline(x, m, [0, 3], [0, 6], c.fg, 1.8); const ys = [0, 2, 4, 6].map(v => wrapPi(v)); tdots(x, m, [0, 1, 2, 3], ys, c.b, 4); tdots(x, m, [0, 1, 2, 3], [0, 2, 4, 6], c.fg, 2.5);
+    tx(x, '−2.283', m.X(2) + 7, m.Y(ys[2]), c.b); tx(x, '−0.283', m.X(3) - 6, m.Y(ys[3]) + 10, c.b, 'right'); tx(x, 'true 0, 2, 4, 6', m.X(0.1), m.Y(6.6), c.fg); };
+  F.unwrapBars = (cv, h) => { const g = M.size(cv, h || 170), x = g.x, c = M.col(); const m = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: g.h - 36 }, [0.3, 3.7], [-5, 3.2], { lab: 'phase differences (rad)', ticks: [[1, '1→0'], [2, '2→1'], [3, '3→2']], hlines: [[PI, 'π'], [-PI, '−π']] });
+    const raw = [2, -4.283, 2], fix = [2, 2, 2]; x.save(); [1, 2, 3].forEach((k, i) => { const bw = m.b.w * 0.07; x.globalAlpha = 0.85; x.fillStyle = c.b; x.fillRect(m.X(k) - bw - 2, Math.min(m.Y(0), m.Y(raw[i])), bw, Math.abs(m.Y(raw[i]) - m.Y(0))); x.fillStyle = c.a; x.fillRect(m.X(k) + 2, Math.min(m.Y(0), m.Y(fix[i])), bw, Math.abs(m.Y(fix[i]) - m.Y(0))); }); x.restore();
+    tx(x, 'raw −4.283', m.X(2) - 10, m.Y(-4.6), c.b, 'right'); tx(x, '+2π → 2.000', m.X(2) + 10, m.Y(2.6), c.a, 'left'); };
+  F.wrapFail = (cv, h) => { const g = M.size(cv, h || 170), x = g.x, c = M.col(); const a = 0.1, n = [], tr = [], wr = [];
+    for (let i = 0; i < 60; i++) { n.push(i); tr.push(0.5 * a * i * i); wr.push(wrapPi(0.5 * a * i * i)); } const un = unwrap(wr);
+    const m = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: g.h - 36 }, [0, 59], [-10, 180], { lab: 'phase (rad) vs sample n', ticks: [[10, '10'], [20, '20'], [32, '32'], [50, '50']] });
+    tline(x, m, n, tr, c.fg, 2); tline(x, m, n, un, c.a, 2); tdots(x, m, n, wr, c.b, 1.6); vmark(x, m, 32, c.c);
+    tx(x, 'true', m.X(52), m.Y(150), c.fg, 'right'); tx(x, 'unwrapped', m.X(52), m.Y(30), c.a, 'right'); tx(x, 'step > π', m.X(33), m.Y(120), c.c); };
+  F.phasorSum = (cv, h) => { const g = M.size(cv, h || 200), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-0.3, 1.45, -0.25, 1.3], { step: 0.25 });
+    arr(x, P, C(0, 0), C(1, 0), c.a, 2.4); arr(x, P, C(1, 0), C(1, 1), c.b, 2.4); arr(x, P, C(0, 0), C(1, 1), c.d, 2.8); arcA(x, P, 0.35, 0, PI / 4, c.d, 1.3);
+    tz(x, P, '1∠0°', C(0.5, 0), c.a, 0, 10, 'center'); tz(x, P, '1∠90°', C(1, 0.5), c.b, 6, 0, 'left'); tz(x, P, '1.414∠45°', C(0.5, 0.5), c.d, -6, -4, 'right'); };
+  F.speckle = (cv, h) => { const g = M.size(cv, h || 160), x = g.x, c = M.col(); const m = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: g.h - 36 }, [0, 1], [0, 2.2], { lab: '|sum of two echoes| vs Δz / λ', ticks: [[0.25, 'λ/4'], [0.5, 'λ/2'], [0.75, '3λ/4'], [1, 'λ']] });
+    M.curve(x, m, u => 2 * Math.abs(Math.cos(2 * PI * u)), c.a, { fill: true, w: 2 }); tx(x, '77 µm at 5 MHz', m.X(0.27), m.Y(0.25), c.b); };
+  F.beats = (cv, h) => { const g = M.size(cv, h || 160), x = g.x, c = M.col(); const m = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: g.h - 36 }, [0, 6], [-2.3, 2.3], { lab: 'cos 2π5t + cos 2π5.5t, t in µs', ticks: [[1, '1'], [2, '2'], [3, '3'], [4, '4'], [5, '5']] });
+    M.curve(x, m, t => Math.cos(2 * PI * 5 * t) + Math.cos(2 * PI * 5.5 * t), c.a, { w: 1 }); M.curve(x, m, t => 2 * Math.abs(Math.cos(PI * 0.5 * t)), c.fg, { w: 1.6, dash: [4, 3] }); M.curve(x, m, t => -2 * Math.abs(Math.cos(PI * 0.5 * t)), c.fg, { w: 1.6, dash: [4, 3] }); };
+  F.derivPhasor = (cv, h) => { const g = M.size(cv, h || 200), x = g.x, c = M.col(); const P = plane(x, g.w, g.h, [-1.3, 1.3, -0.35, 1.75], { step: 0.5 }); const z = cex(30 * D2R), d = cex(120 * D2R, 1.6);
+    circ(x, P, 1, c.mu, [3, 3]); arr(x, P, C(0, 0), z, c.a, 2.5); arr(x, P, C(0, 0), d, c.b, 2.5); arcA(x, P, 0.4, 30 * D2R, 120 * D2R, c.mu, 1.3);
+    tz(x, P, 'z', z, c.a, 6, 0, 'left'); tz(x, P, 'jωz', d, c.b, -6, 0, 'right'); tz(x, P, '+90°', cex(75 * D2R, 0.52), c.mu, 2, -2, 'left'); };
+  F.bode = (cv, h) => { const g = M.size(cv, h || 180), x = g.x, c = M.col(); const hh = (g.h - 20) / 2, lt = [[0, '1'], [Math.log10(2), '2'], [Math.log10(4), '4'], [Math.log10(8), '8'], [Math.log10(16), '16 MHz']];
+    const m1 = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: hh - 26 }, [-0.05, 1.35], [-2, 30], { lab: '|H| (dB re 1 MHz) vs f, log axis', ticks: lt, base: -2 });
+    M.curve(x, m1, u => 20 * u, c.a, { w: 2 }); M.stems(x, m1, [[Math.log10(5), 20 * Math.log10(5)], [Math.log10(10), 20]], c.b); tx(x, '+6.02 dB/oct', m1.X(0.1), m1.Y(20), c.a);
+    const m2 = M.panel(x, { x: 4, y: 16 + hh + 4, w: g.w - 8, h: hh - 26 }, [-0.05, 1.35], [-10, 120], { lab: '∠H (deg)', ticks: lt, base: -10 });
+    M.curve(x, m2, () => 90, c.b, { w: 2 }); tx(x, '+90° at every f > 0', m2.X(0.1), m2.Y(60), c.b); };
+  F.analytic = (cv, h) => { const g = M.size(cv, h || 160), x = g.x, c = M.col(); const m = M.panel(x, { x: 4, y: 16, w: g.w - 8, h: g.h - 36 }, [-10, 10], [0, 1.15], { lab: '|X(f)| and |Xa(f)| (MHz)', ticks: [[-5, '−f₀'], [0, '0'], [5, 'f₀']] });
+    M.curve(x, m, f => 0.5 * (gauss(f - 5, 1.3) + gauss(f + 5, 1.3)), c.a, { fill: true, w: 1.8 }); M.curve(x, m, f => f > 0 ? gauss(f - 5, 1.3) : 0, c.b, { w: 2 }); tx(x, 'Xa: ×2, f > 0 only', m.X(3.4), m.Y(0.95), c.b, 'right'); };
+  function unwrap(p) { const o = [p[0]]; let k = 0; for (let i = 1; i < p.length; i++) { const d = p[i] - p[i - 1]; k -= 2 * PI * Math.round(d / (2 * PI)); o.push(p[i] + k); } return o; }
+
+  /* ---------------- step figures, rule figures ---------------- */
+  const STEPS = { 1: F.halfTurn, 2: F.powersJ, 3: F.rect, 4: F.polar, 5: F.add, 6: F.mul, 7: F.conj, 8: F.div, 9: F.taylorAt(1, 8), 10: F.ode, 11: F.limit,
+    12: F.times, 13: F.rotDir, 14: F.shadows, 15: F.cosPair, 16: F.spec2, 17: F.iqDecomp, 18: F.quarter, 19: F.demodSpec, 20: F.iq4, 21: F.phaseDelay, 22: F.iqLoop,
+    23: F.wrap, 24: F.unwrapBars, 25: F.wrapFail, 26: F.phasorSum, 27: F.speckle, 28: F.beats, 29: F.derivPhasor, 30: F.bode, 31: F.analytic };
+  const RULES = { 1: F.powersJ, 2: F.mul, 3: F.polar, 4: F.conj, 5: F.ode, 6: F.taylorAt(PI, 14), 7: F.limit, 8: F.rotDir, 9: F.ellipse, 10: F.quarter, 11: F.iq4,
+    12: F.phaseDelay, 13: F.wrapFail, 14: F.speckle, 15: F.beats, 16: F.bode, 17: F.analytic };
+  const TALL = new Set([F.spec2, F.demodSpec, F.bode]);
+  const PLANES = new Set([F.halfTurn, F.powersJ, F.rect, F.polar, F.add, F.mul, F.conj, F.div, F.ode, F.limit, F.times, F.shadows, F.cosPair, F.ellipse, F.iq4, F.iqLoop, F.phasorSum, F.derivPhasor]);
+  function drawStatic() {
+    Object.keys(STEPS).forEach(k => { const cv = $('m1-st-' + k); if (!cv) return; const f = STEPS[k]; try { f(cv, (k === '9' || PLANES.has(f) || TALL.has(f)) ? 210 : 170); } catch (e) { console.error(e); } });
+    Object.keys(RULES).forEach(k => { const cv = $('m1-rf-' + k); if (!cv) return; try { RULES[k](cv, TALL.has(RULES[k]) ? 200 : 170); } catch (e) { console.error(e); } });
+  }
+
+  /* ---------------- visual summary ---------------- */
+  const V = f => (cv => f(cv, TALL.has(f) ? 200 : 170));
+  Lab.cardGrid('m1', 'm1-vis', [
+    { prov: 'exact', q: 'What is j?', a: 'The quarter-turn operator: <b>\\(j^2 = -1\\)</b> means two quarter turns are a half turn; the powers cycle 1, j, −1, −j.', draw: V(F.powersJ) },
+    { prov: 'exact', q: 'What does multiplying by w do?', a: '<b>Rotates by ∠w and scales by |w|</b>: (3 + 4j)(1 + 2j) = −5 + 10j, length 5 × 2.236 = 11.18, angle 53.13° + 63.43°.', draw: V(F.mul) },
+    { prov: 'exact', q: 'How do you get power from an IQ sample?', a: '<b>\\(\\lvert z\\rvert^2 = z z^*\\)</b>: the mirror cancels the angle. (3 + 4j)(3 − 4j) = 25, while z² = −7 + 24j.', draw: V(F.conj) },
+    { prov: 'exact', q: 'Why is \\(e^{j\\pi} = -1\\), by series?', a: 'Each Taylor term is the last turned 90° and scaled by θ/k: the sums overshoot to −3.93 + 3.14j, then spiral in; <b>13 terms</b> give 4.6 × 10⁻⁴.', draw: V(F.taylorAt(PI, 14)) },
+    { prov: 'exact', q: 'What is \\((1 + j\\theta/n)^n\\)?', a: 'n tiny rotate-and-stretch steps (forward Euler on f′ = jf). Length <b>\\(\\approx e^{\\theta^2/(2n)}\\)</b>: 2.61 at n = 4, 1.05 at n = 100 for θ = π.', draw: V(F.limit) },
+    { prov: 'exact', q: 'What does a negative frequency look like?', a: 'A clockwise arrow. <b>Same cos, opposite sin</b>: a real channel cannot tell the direction; IQ can.', draw: V(F.rotDir) },
+    { prov: 'exact', q: 'Why does a real cosine have two spectral lines?', a: '<b>\\(\\cos\\theta = (e^{j\\theta} + e^{-j\\theta})/2\\)</b>: two half arrows turning opposite ways keep the sum on the real axis.', draw: V(F.cosPair) },
+    { prov: 'exact', q: 'What if the two halves are unequal?', a: 'The sum leaves the real axis: an <b>ellipse</b> with semi-axes A₊ + A₋ and |A₊ − A₋|; one half alone is a circle (analytic signal).', draw: V(F.ellipse) },
+    { prov: 'exact', q: 'What is Q, physically?', a: 'The amount of the 90°-shifted copy: <b>\\(x(t_0 - T/4) = Q\\)</b>. cos(ωt + 30°): I = x(0) = 0.866, Q = x(−T/4) = 0.5.', draw: V(F.quarter) },
+    { prov: 'exact', q: 'I/Q from four samples?', a: 'At \\(f_s = 4f_0\\) multiply by <b>1, −j, −1, j</b>, average, double: (0.866, −0.5, −0.866, 0.5) → 0.866 + 0.5j.', draw: V(F.iq4) },
+    { prov: 'exact', q: 'How does delay show up in IQ?', a: 'As a rotation <b>\\(-2\\pi f_0\\tau\\)</b>: −23.4° for 13 ns at 5 MHz, one full turn per 200 ns (λ/2 of depth).', draw: V(F.phaseDelay) },
+    { prov: 'sim', q: 'When does phase unwrapping fail?', a: 'When the true step exceeds <b>π per sample</b>: λ/4 = 77 µm per frame at 5 MHz. One wrong step offsets all later samples by 2π.', draw: V(F.wrapFail) },
+    { prov: 'exact', q: 'When do two scatterers cancel?', a: '\\(\\lvert\\text{sum}\\rvert = 2\\lvert\\cos(2\\pi\\Delta z/\\lambda)\\rvert\\): zero at <b>Δz = λ/4</b> (77 µm at 5 MHz), double at λ/2.', draw: V(F.speckle) },
+    { prov: 'exact', q: 'Why do two tones beat?', a: 'One arrow laps the other at Δf: the envelope repeats every <b>1/Δf</b> (2 µs for 5.0 + 5.5 MHz).', draw: V(F.beats) },
+    { prov: 'exact', q: 'What does d/dt do to a spectrum?', a: 'Multiplies by <b>\\(j2\\pi f\\)</b>: +90° and +6.02 dB per octave. A 5 MHz, σ = 100 ns Gaussian pulse peak moves 5.00 → 5.46 MHz.', draw: V(F.bode) }
+  ]);
+
+  /* ======================= Demo 01.1: drag multiply ======================= */
+  const mul = { z: C(3, 4), w: C(1, 2), P: null, drag: null };
+  function drawMul() {
+    const c = Lab.colors(), cv = $('m1-mul-cv'); const W = cv.clientWidth || 600; const g = Lab.canvas(cv, Math.round(Math.max(320, Math.min(460, W * 0.66)))); const x = g.ctx;
+    const op = $('m1-mul-op').value; const z = mul.z, w = mul.w; const P = plane(x, g.w, g.h, [-12, 12, -12, 12], { step: 1, pad: 8 }); mul.P = P;
+    x.save(); x.fillStyle = c.muted; x.font = '10px ' + c.mono; x.textAlign = 'center'; x.textBaseline = 'top'; [-8, -4, 4, 8].forEach(v => { x.fillText(String(v).replace('-', '−'), P.X(v), P.Y(0) + 3); }); x.textAlign = 'right'; x.textBaseline = 'middle'; [-8, -4, 4, 8].forEach(v => x.fillText(String(v).replace('-', '−') + 'j', P.X(0) - 4, P.Y(v))); x.restore();
+    circ(x, P, 1, c.muted, [2, 3]);
+    let r = null, lines = [];
+    const zs = 'z = ' + fz(z, 2) + ' = ' + fpol(z), ws = 'w = ' + fz(w, 2) + ' = ' + fpol(w);
+    if (op === 'mul') { r = cmul(z, w);
+      arcA(x, P, 1.6, 0, carg(w), c.sig2, 1.6); arcA(x, P, 2.4, 0, carg(z), c.accent, 1.6); arcA(x, P, 3.2, 0, carg(r), c.sig4, 1.6);
+      lines = [zs, ws, '(a + jb)(c + jd) = (ac − bd) + j(ad + bc)', '= (' + fn(z.re, 1) + '·' + fn(w.re, 1) + ' − ' + fn(z.im, 1) + '·' + fn(w.im, 1) + ') + j(' + fn(z.re, 1) + '·' + fn(w.im, 1) + ' + ' + fn(z.im, 1) + '·' + fn(w.re, 1) + ')',
+        'z·w = <b>' + fz(r, 2) + '</b>', '|z||w| = ' + fn(cabs(z), 3) + ' × ' + fn(cabs(w), 3) + ' = <b>' + fn(cabs(z) * cabs(w), 3) + '</b>', '∠z + ∠w = ' + fdeg(carg(z)) + ' + ' + fdeg(carg(w)) + ' = <b>' + fdeg(carg(z) + carg(w)) + '</b>' + (Math.abs(carg(z) + carg(w)) > PI ? ' ≡ ' + fdeg(carg(r)) : '')]; }
+    else if (op === 'add') { r = cadd(z, w); seg(x, P, C(0, 0), w, c.sig2, 1, [3, 3]); seg(x, P, w, r, c.accent, 1, [3, 3]);
+      lines = [zs, ws, '(a + c) + j(b + d)', 'z + w = <b>' + fz(r, 2) + '</b>', '|z + w| = ' + fn(cabs(r), 3) + ' ≤ |z| + |w| = ' + fn(cabs(z) + cabs(w), 3)]; }
+    else if (op === 'conj') { r = cconj(z); seg(x, P, z, r, c.muted, 1, [3, 3]);
+      lines = [zs, 'z* = <b>' + fz(r, 2) + '</b> = ' + fpol(r), 'z z* = a² + b² = <b>' + fn(cabs(z) ** 2, 2) + '</b> = |z|²', 'z² = ' + fz(cmul(z, z), 2) + ' (not the power)', 'Re z = (z + z*)/2 = ' + fn(z.re, 2) + ', Im z = (z − z*)/(2j) = ' + fn(z.im, 2)]; }
+    else if (op === 'div') { if (cabs(w) < 1e-9) { lines = [zs, ws, 'w = 0: division undefined']; } else { r = cdiv(z, w); arcA(x, P, 1.6, 0, carg(w), c.sig2, 1.6); arcA(x, P, 2.4, 0, carg(z), c.accent, 1.6); arcA(x, P, 3.2, 0, carg(r), c.sig4, 1.6);
+      lines = [zs, ws, 'z/w = z w* / |w|² = (' + fz(cmul(z, cconj(w)), 2) + ') / ' + fn(cabs(w) ** 2, 2), 'z/w = <b>' + fz(r, 3) + '</b>', '|z|/|w| = ' + fn(cabs(z) / cabs(w), 3) + ', ∠z − ∠w = ' + fdeg(carg(z) - carg(w))]; } }
+    else { r = cmul(C(0, 1), z); if (cabs(z) > 0) arcA(x, P, cabs(z) * 0.45, carg(z), carg(z) + PI / 2, c.sig4, 1.6);
+      lines = [zs, 'j·z = j(a + jb) = −b + ja = <b>' + fz(r, 2) + '</b>', 'length ' + fn(cabs(r), 3) + ' (unchanged), angle ' + fdeg(carg(z)) + ' + 90° = ' + fdeg(carg(r))]; }
+    const showW = op !== 'conj' && op !== 'jz';
+    arr(x, P, C(0, 0), z, c.accent, 2.6); if (showW) arr(x, P, op === 'add' ? z : C(0, 0), op === 'add' ? cadd(z, w) : w, c.sig2, 2.6);
+    if (op === 'add') arr(x, P, C(0, 0), w, c.sig2, 1.2);
+    if (r) arr(x, P, C(0, 0), r, c.sig4, 3);
+    dot(x, P, z, c.accent, 5.5); if (showW) dot(x, P, w, c.sig2, 5.5);
+    tz(x, P, 'z', z, c.accent, 8, -8); if (showW) tz(x, P, 'w', w, c.sig2, 8, -8);
+    if (r) tz(x, P, { mul: 'z·w', add: 'z + w', conj: 'z*', div: 'z/w', jz: 'j·z' }[op], r, c.sig4, 8, 10);
+    $('m1-mul-read').innerHTML = lines.join('<br>');
+  }
+  (function wireMul() {
+    const cv = $('m1-mul-cv'); const snap = v => Math.max(-11.5, Math.min(11.5, Math.round(v * 2) / 2));
+    const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    cv.addEventListener('pointerdown', e => { if (!mul.P) return; const [px, py] = pos(e); const P = mul.P; const op = $('m1-mul-op').value;
+      const dz = Math.hypot(px - P.X(mul.z.re), py - P.Y(mul.z.im)), dw = (op === 'conj' || op === 'jz') ? 1e9 : Math.hypot(px - P.X(mul.w.re), py - P.Y(mul.w.im));
+      const best = dz <= dw ? 'z' : 'w'; if (Math.min(dz, dw) > 40) return; mul.drag = best; try { cv.setPointerCapture(e.pointerId); } catch (err) {} e.preventDefault(); });
+    cv.addEventListener('pointermove', e => { if (!mul.drag || !mul.P) return; const [px, py] = pos(e); const q = mul.P.inv(px, py); mul[mul.drag] = C(snap(q.re), snap(q.im)); drawMul(); });
+    const end = () => { mul.drag = null; }; cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+    $('m1-mul-op').addEventListener('change', drawMul);
+    $('m1-mul-wj').addEventListener('click', () => { mul.w = C(0, 1); $('m1-mul-op').value = 'mul'; drawMul(); });
+    $('m1-mul-wn').addEventListener('click', () => { mul.w = C(-1, 0); $('m1-mul-op').value = 'mul'; drawMul(); });
+    $('m1-mul-wh').addEventListener('click', () => { mul.w = C(0.5, 0); $('m1-mul-op').value = 'mul'; drawMul(); });
+    $('m1-mul-reset').addEventListener('click', () => { mul.z = C(3, 4); mul.w = C(1, 2); drawMul(); });
+  })();
+
+  /* ======================= Demo 01.2: Euler three ways ======================= */
+  function drawEu() {
+    const c = Lab.colors(), cv = $('m1-eu-cv'), W = cv.clientWidth || 600; const wide = W >= 560;
+    const g = Lab.canvas(cv, wide ? 360 : 440), x = g.ctx;
+    const mode = $('m1-eu-mode').value, th = +$('m1-eu-th').value, N = +$('m1-eu-n').value;
+    $('m1-eu-th-o').textContent = th.toFixed(2) + ' rad'; $('m1-eu-n-o').textContent = N;
+    const target = cex(th);
+    const pb = wide ? { bx: 0, bw: Math.min(g.h, g.w * 0.56), by: 0, bh: g.h } : { bx: 0, bw: g.w, by: 0, bh: 270 };
+    const eb = wide ? { x: pb.bw + 56, y: 22, w: g.w - pb.bw - 66, h: g.h - 60 } : { x: 48, y: 300, w: g.w - 58, h: g.h - 340 };
+    let pts = [], errs = [], read = '';
+    const eulerN = n => { let y = C(1, 0); const f = C(1, th / n); for (let k = 0; k < n; k++) y = cmul(y, f); return y; };
+    if (mode === 'taylor') { let s = C(0, 0); pts.push(s); for (let k = 0; k < 40; k++) { s = cadd(s, csc(cpow(C(0, th), k), 1 / fact(k))); pts.push(s); errs.push(Math.max(1e-16, cabs(cadd(s, csc(target, -1))))); } }
+    else { for (let n = 1; n <= 40; n++) errs.push(Math.max(1e-16, cabs(cadd(eulerN(n), csc(target, -1))))); }
+    let R;
+    if (mode === 'taylor') { let r0 = 1.3, r1 = 1.3, i0 = 1.3, i1 = 1.3; pts.slice(0, N + 1).forEach(p => { r0 = Math.max(r0, -p.re); r1 = Math.max(r1, p.re); i0 = Math.max(i0, -p.im); i1 = Math.max(i1, p.im); }); R = [-r0 * 1.08, r1 * 1.08, -i0 * 1.08, i1 * 1.08]; }
+    else if (mode === 'limit') { let p = C(1, 0); const f = C(1, th / N); pts = [p]; for (let k = 0; k < N; k++) { p = cmul(p, f); pts.push(p); } let r0 = 1.3, r1 = 1.3, i0 = 1.3, i1 = 1.3; pts.forEach(q => { r0 = Math.max(r0, -q.re); r1 = Math.max(r1, q.re); i0 = Math.max(i0, -q.im); i1 = Math.max(i1, q.im); }); R = [-r0 * 1.08, r1 * 1.08, -i0 * 1.08, i1 * 1.08]; }
+    else R = [-1.75, 1.75, -1.75, 1.75];
+    const span = Math.max(R[1] - R[0], R[3] - R[2]); const P = plane(x, g.w, g.h, R, Object.assign({ step: span > 60 ? 10 : span > 14 ? 2 : span > 5 ? 1 : 0.5 }, pb));
+    circ(x, P, 1, c.muted, [3, 3]);
+    if (mode === 'taylor') {
+      for (let k = 0; k < N; k++) arr(x, P, pts[k], pts[k + 1], k % 2 ? c.sig2 : c.accent, N > 12 && k > 8 ? 1.2 : 2.2);
+      ring(x, P, target, c.sig4, 7); dot(x, P, pts[N], c.fg, 3);
+      const nt = csc(cpow(C(0, th), N), 1 / fact(N));
+      read = 'S<sub>' + N + '</sub> = Σ<sub>k&lt;' + N + '</sub> (jθ)<sup>k</sup>/k! = <b>' + fz(pts[N], 4) + '</b><br>e<sup>jθ</sup> = cos θ + j sin θ = ' + fz(target, 4) + '<br>|error| = <b>' + fe(errs[N - 1]) + '</b><br>next term (jθ)<sup>' + N + '</sup>/' + N + '! = ' + fz(nt, 4) + '<br>largest term: k = ' + Math.max(0, Math.floor(th)) + ', size ' + fn(Math.pow(th, Math.floor(th)) / fact(Math.floor(th)), 3);
+    } else if (mode === 'ode') {
+      for (let k = 0; k < 16; k++) { const p = cex(k * PI / 8); arr(x, P, p, cadd(p, csc(cmul(C(0, 1), p), 0.3)), c.sig2, 1); }
+      x.save(); x.strokeStyle = c.sig4; x.lineWidth = 4; x.globalAlpha = 0.65; x.beginPath(); x.arc(P.X(0), P.Y(0), P.s, 0, -th, true); x.stroke(); x.restore();
+      const ep = [C(1, 0)]; let y = C(1, 0); const f = C(1, th / N); for (let k = 0; k < N; k++) { y = cmul(y, f); ep.push(y); } poly(x, P, ep, c.fg, 1.2, [4, 3]); ep.forEach(q => dot(x, P, q, c.fg, 1.8));
+      arr(x, P, C(0, 0), target, c.accent, 2.6); arr(x, P, target, cadd(target, csc(cmul(C(0, 1), target), 0.7)), c.sig2, 2.6);
+      const v = cmul(C(0, 1), target), dotp = target.re * v.re + target.im * v.im;
+      read = 'position f = e<sup>jθ</sup> = <b>' + fz(target, 4) + '</b><br>velocity f′ = j f = ' + fz(v, 4) + '<br>f · f′ (dot product) = <b>' + fn(dotp, 4) + '</b> → perpendicular<br>speed |f′| = 1, arc length = θ = ' + th.toFixed(2) + ' rad = ' + fdeg(th) + '<br>forward Euler, ' + N + ' steps (dashed): |f| = ' + fn(cabs(ep[N]), 4) + ', error ' + fe(errs[N - 1]);
+    } else {
+      poly(x, P, pts, c.accent, 1.8); pts.forEach(q => dot(x, P, q, c.accent, N > 20 ? 1.6 : 2.6)); arr(x, P, C(1, 0), C(1, th / N), c.sig2, 2.4); ring(x, P, target, c.sig4, 7);
+      const f = C(1, th / N);
+      read = '1 + jθ/n = ' + fz(f, 4) + ': length ' + fn(cabs(f), 4) + ', angle ' + fdeg(carg(f), 3) + '<br>(1 + jθ/n)<sup>' + N + '</sup> = <b>' + fz(pts[N], 4) + '</b><br>length (1 + θ²/n²)<sup>n/2</sup> = <b>' + fn(cabs(pts[N]), 4) + '</b> (e<sup>θ²/2n</sup> = ' + fn(Math.exp(th * th / (2 * N)), 4) + ')<br>angle n·atan(θ/n) = ' + fdeg(N * Math.atan(th / N)) + ' (θ = ' + fdeg(th) + ')<br>|error| = <b>' + fe(errs[N - 1]) + '</b>; identical to forward Euler';
+    }
+    const ax = Lab.axes(x, eb, [0, 41], [-16, 3], { xlabel: mode === 'taylor' ? 'terms N' : 'steps n', ylabel: 'log₁₀ |error|', yticks: [-15, -12, -9, -6, -3, 0, 3], xticks: [0, 10, 20, 30, 40] });
+    const xs = errs.map((e, i) => i + 1), ys = errs.map(e => Math.log10(e)); ax.clip(); Lab.line(x, ax, xs, ys, c.sig3, 1.6); Lab.dots(x, ax, xs, ys, c.sig3, 2); Lab.dots(x, ax, [N], [ys[N - 1]], c.fg, 4.5); ax.unclip();
+    $('m1-eu-read').innerHTML = read;
+  }
+  ['m1-eu-mode', 'm1-eu-th', 'm1-eu-n'].forEach(id => $(id).addEventListener(id === 'm1-eu-mode' ? 'change' : 'input', drawEu));
+
+  /* ======================= Demo 01.3: rotating phasor ======================= */
+  const rot = { raf: null, last: 0 };
+  function drawRot() {
+    const c = Lab.colors(), cv = $('m1-rot-cv'), W = cv.clientWidth || 600; const g = Lab.canvas(cv, Math.round(Math.max(340, Math.min(470, W * 0.66)))), x = g.ctx;
+    const f = +$('m1-rot-f').value * 1e6, sg = +$('m1-rot-dir').value, phi = +$('m1-rot-phi').value * D2R, t = +$('m1-rot-t').value * 1e-9;
+    $('m1-rot-f-o').textContent = Lab.fmt(f / 1e6) + ' MHz'; $('m1-rot-phi-o').textContent = fn(phi / D2R, 0) + '°'; $('m1-rot-t-o').textContent = Math.round(t * 1e9) + ' ns';
+    const sq = Math.min(g.h * 0.52, g.w * (g.w < 560 ? 0.46 : 0.38)), Rr = sq / 2 - 10, cx = 14 + sq / 2, cy = 14 + sq / 2;
+    const th = t2 => sg * 2 * PI * f * t2 + phi; const zt = cex(th(t));
+    // circle
+    x.save(); x.strokeStyle = c.grid; x.lineWidth = 1; x.beginPath(); x.moveTo(cx - Rr - 6, cy); x.lineTo(cx + Rr + 6, cy); x.moveTo(cx, cy - Rr - 6); x.lineTo(cx, cy + Rr + 6); x.stroke();
+    x.strokeStyle = c.muted; x.setLineDash([3, 3]); x.beginPath(); x.arc(cx, cy, Rr, 0, 7); x.stroke(); x.restore();
+    const tipX = cx + Rr * zt.re, tipY = cy - Rr * zt.im;
+    // right panel: Im vs t (time horizontal)
+    const rx0 = cx + Rr + 26, rx1 = g.w - 12, T1 = 1e-6; const TX = tt => rx0 + (rx1 - rx0) * tt / T1;
+    // bottom panel: Re vs t (time downward)
+    const by0 = cy + Rr + 26, by1 = g.h - 22; const TY = tt => by0 + (by1 - by0) * tt / T1;
+    x.save(); x.strokeStyle = c.rule; x.lineWidth = 1; x.beginPath(); x.moveTo(rx0, cy); x.lineTo(rx1, cy); x.moveTo(rx0, cy - Rr); x.lineTo(rx0, cy + Rr); x.moveTo(cx, by0); x.lineTo(cx, by1); x.moveTo(cx - Rr, by0); x.lineTo(cx + Rr, by0); x.stroke();
+    x.fillStyle = c.muted; x.font = '10.5px ' + c.mono; x.textAlign = 'center'; x.textBaseline = 'top'; [0.25, 0.5, 0.75, 1].forEach(v => x.fillText(Lab.fmt(v) + (v === 1 ? ' µs' : ''), TX(v * T1), cy + Rr + 4));
+    x.textAlign = 'left'; x.textBaseline = 'middle'; [0.25, 0.5, 0.75, 1].forEach(v => x.fillText(Lab.fmt(v) + (v === 1 ? ' µs' : ''), cx + Rr + 4, TY(v * T1)));
+    x.textAlign = 'left'; x.textBaseline = 'bottom'; x.fillStyle = c.sig2; x.fillText('Im = sin(θ) vs t →', rx0 + 4, cy - Rr - 2); x.fillStyle = c.accent; x.textAlign = 'right'; x.fillText('Re = cos(θ), t ↓', cx + Rr, by0 - 3); x.restore();
+    const n = 600; const drawTrace = (full) => { x.save(); x.lineWidth = full ? 1 : 2; x.globalAlpha = full ? 0.35 : 1;
+      x.strokeStyle = c.sig2; x.beginPath(); for (let i = 0; i <= n; i++) { const tt = (full ? T1 : t) * i / n; const p = cex(th(tt)); const X = TX(tt), Y = cy - Rr * p.im; i ? x.lineTo(X, Y) : x.moveTo(X, Y); } x.stroke();
+      x.strokeStyle = c.accent; x.beginPath(); for (let i = 0; i <= n; i++) { const tt = (full ? T1 : t) * i / n; const p = cex(th(tt)); const X = cx + Rr * p.re, Y = TY(tt); i ? x.lineTo(X, Y) : x.moveTo(X, Y); } x.stroke(); x.restore(); };
+    drawTrace(true); if (t > 0) drawTrace(false);
+    x.save(); x.setLineDash([3, 3]); x.lineWidth = 1; x.strokeStyle = c.sig2; x.beginPath(); x.moveTo(tipX, tipY); x.lineTo(TX(t), tipY); x.stroke(); x.strokeStyle = c.accent; x.beginPath(); x.moveTo(tipX, tipY); x.lineTo(tipX, TY(t)); x.stroke(); x.restore();
+    x.save(); x.fillStyle = c.sig2; x.beginPath(); x.arc(TX(t), tipY, 4, 0, 7); x.fill(); x.fillStyle = c.accent; x.beginPath(); x.arc(tipX, TY(t), 4, 0, 7); x.fill(); x.restore();
+    // shadows on the axes
+    x.save(); x.lineWidth = 4; x.strokeStyle = c.accent; x.beginPath(); x.moveTo(cx, cy); x.lineTo(tipX, cy); x.stroke(); x.strokeStyle = c.sig2; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx, tipY); x.stroke(); x.restore();
+    Lab.arrow(x, cx, cy, tipX, tipY, c.fg, 2.4);
+    // direction cue
+    x.save(); x.strokeStyle = c.muted; x.lineWidth = 1.2; x.beginPath(); const a0 = th(t); x.arc(cx, cy, Rr * 0.32, -a0, -(a0 + sg * 0.9), sg > 0); x.stroke(); x.restore();
+    const turns = f * t, ang = wrapPi(th(t));
+    $('m1-rot-read').innerHTML = 'θ(t) = ' + (sg > 0 ? '+' : '−') + '2πft + φ = <b>' + fdeg(ang, 1) + '</b> (wrapped)<br>arrow = ' + fz(zt, 3) + '<br>Re = cos θ = <b>' + fn(zt.re, 3) + '</b>, Im = sin θ = <b>' + fn(zt.im, 3) + '</b><br>turns so far f·t = ' + fn(turns, 2) + '<br>period T = 1/f = ' + Lab.fmt(1e9 / f) + ' ns, ω = ' + fn(2 * PI * f / 1e6, 2) + '×10⁶ rad/s';
+  }
+  function stepRot(ts) { if (Lab.current !== 'm1') { rot.raf = null; $('m1-rot-play').textContent = 'Play'; return; } if (!rot.last) rot.last = ts; const dt = (ts - rot.last) / 1000; rot.last = ts; let t = +$('m1-rot-t').value + dt * 100; if (t > 1000) t -= 1000; $('m1-rot-t').value = t; drawRot(); rot.raf = requestAnimationFrame(stepRot); }
+  $('m1-rot-play').addEventListener('click', () => { if (rot.raf) { cancelAnimationFrame(rot.raf); rot.raf = null; $('m1-rot-play').textContent = 'Play'; } else { rot.last = 0; rot.raf = requestAnimationFrame(stepRot); $('m1-rot-play').textContent = 'Pause'; } });
+  ['m1-rot-f', 'm1-rot-phi', 'm1-rot-t'].forEach(id => $(id).addEventListener('input', drawRot)); $('m1-rot-dir').addEventListener('change', drawRot);
+
+  /* ======================= Demo 01.4: counter-rotating ======================= */
+  const cr = { raf: null, last: 0 };
+  function drawCr() {
+    const c = Lab.colors(), cv = $('m1-cr-cv'), W = cv.clientWidth || 600, wide = W >= 560; const g = Lab.canvas(cv, wide ? 320 : 470), x = g.ctx;
+    const Ap = 0.5, Am = +$('m1-cr-am').value, phi = +$('m1-cr-phi').value * D2R, th = +$('m1-cr-t').value * D2R;
+    $('m1-cr-am-o').textContent = Am.toFixed(2); $('m1-cr-phi-o').textContent = fn(phi / D2R, 0) + '°'; $('m1-cr-t-o').textContent = Math.round(th / D2R) + '°';
+    const pb = wide ? { bx: 0, bw: Math.min(g.h, g.w * 0.45), by: 0, bh: g.h } : { bx: 0, bw: g.w, by: 0, bh: 260 };
+    const P = plane(x, g.w, g.h, [-1.1, 1.1, -1.1, 1.1], Object.assign({ step: 0.5 }, pb));
+    const a = cex(th + phi, Ap), b = cex(-(th + phi), Am), s = cadd(a, b);
+    const path = []; for (let i = 0; i <= 160; i++) { const u = 2 * PI * i / 160; path.push(cadd(cex(u, Ap), cex(-u, Am))); } poly(x, P, path, c.fg, 1, [3, 3]);
+    circ(x, P, Ap, c.grid);
+    arr(x, P, C(0, 0), a, c.accent, 2.6); arr(x, P, a, s, c.sig2, 2.6); arr(x, P, C(0, 0), s, c.sig4, 3);
+    seg(x, P, s, C(s.re, 0), c.sig3, 1.2, [2, 2]);
+    const tb = wide ? { x: pb.bw + 50, y: 22, w: g.w - pb.bw - 60, h: g.h - 60 } : { x: 48, y: 290, w: g.w - 58, h: g.h - 330 };
+    const ax = Lab.axes(x, tb, [0, 720], [-1.1, 1.1], { xlabel: 'ωt (deg)', ylabel: 'sum', xticks: [0, 180, 360, 540, 720] });
+    const xs = [], re = [], im = []; for (let i = 0; i <= 360; i++) { const d = i * 2, u = d * D2R; const q = cadd(cex(u + phi, Ap), cex(-(u + phi), Am)); xs.push(d); re.push(q.re); im.push(q.im); }
+    Lab.line(x, ax, xs, re, c.sig4, 2); Lab.line(x, ax, xs, im, c.sig3, 2); Lab.dots(x, ax, [th / D2R], [s.re], c.sig4, 4.5); Lab.dots(x, ax, [th / D2R], [s.im], c.sig3, 4.5);
+    $('m1-cr-read').innerHTML = 'A₊e<sup>j(θ+φ)</sup> = ' + fz(a, 3) + '<br>A₋e<sup>−j(θ+φ)</sup> = ' + fz(b, 3) + '<br>sum = <b>' + fz(s, 3) + '</b><br>Im(sum) = (A₊ − A₋) sin(θ + φ) = <b>' + fn((Ap - Am) * Math.sin(th + phi), 3) + '</b><br>path: ' + (Am === Ap ? '<b>line segment</b> (real signal), amplitude ' + fn(2 * Ap, 2) : Am === 0 ? '<b>circle</b> radius ' + fn(Ap, 2) + ' (analytic, one frequency)' : '<b>ellipse</b>, semi-axes ' + fn(Ap + Am, 2) + ' and ' + fn(Ap - Am, 2));
+  }
+  function stepCr(ts) { if (Lab.current !== 'm1') { cr.raf = null; $('m1-cr-play').textContent = 'Play'; return; } if (!cr.last) cr.last = ts; const dt = (ts - cr.last) / 1000; cr.last = ts; let t = +$('m1-cr-t').value + dt * 60; if (t > 720) t -= 720; $('m1-cr-t').value = t; drawCr(); cr.raf = requestAnimationFrame(stepCr); }
+  $('m1-cr-play').addEventListener('click', () => { if (cr.raf) { cancelAnimationFrame(cr.raf); cr.raf = null; $('m1-cr-play').textContent = 'Play'; } else { cr.last = 0; cr.raf = requestAnimationFrame(stepCr); $('m1-cr-play').textContent = 'Pause'; } });
+  ['m1-cr-am', 'm1-cr-phi', 'm1-cr-t'].forEach(id => $(id).addEventListener('input', drawCr));
+
+  /* ======================= Demo 01.5: IQ of an RF echo ======================= */
+  const IQN = 512, IQFS = 160e6, IQF0 = 5e6, IQTE = 1.6e-6;
+  function iqCompute(tau, fd, bw) {
+    const sig = Math.sqrt(Math.LN2 / 2) / (PI * bw * IQF0 / 2), T = IQTE + tau; const rf = new Float64Array(IQN), re = new Float64Array(IQN), im = new Float64Array(IQN);
+    for (let n = 0; n < IQN; n++) { const t = n / IQFS, u = t - T; rf[n] = gauss(u, sig) * Math.cos(2 * PI * IQF0 * u); re[n] = rf[n] * Math.cos(2 * PI * fd * t); im[n] = -rf[n] * Math.sin(2 * PI * fd * t); }
+    Lab.fft(re, im, false); const kc = 5e6 / (IQFS / IQN);
+    for (let k = 0; k < IQN; k++) { const kk = k <= IQN / 2 ? k : IQN - k; if (kk >= kc) { re[k] = 0; im[k] = 0; } }
+    Lab.fft(re, im, true); for (let n = 0; n < IQN; n++) { re[n] *= 2; im[n] *= 2; }
+    return { rf, re, im, sig, T };
+  }
+  function drawIq() {
+    const c = Lab.colors(), cv = $('m1-iq-cv'), W = cv.clientWidth || 600, wide = W >= 560; const g = Lab.canvas(cv, wide ? 400 : 560), x = g.ctx;
+    const tau = +$('m1-iq-tau').value * 1e-9, fd = +$('m1-iq-fd').value * 1e6, bw = +$('m1-iq-bw').value / 100, smp = $('m1-iq-smp').checked;
+    $('m1-iq-tau-o').textContent = Math.round(tau * 1e9) + ' ns'; $('m1-iq-fd-o').textContent = (fd / 1e6).toFixed(2) + ' MHz'; $('m1-iq-bw-o').textContent = Math.round(bw * 100) + ' %';
+    const r = iqCompute(tau, fd, bw); const t0 = 0.4, t1 = 2.8; const ts = [], rf = [], I = [], Q = [], E = [];
+    for (let n = 0; n < IQN; n++) { const t = n / IQFS * 1e6; if (t < t0 || t > t1) continue; ts.push(t); rf.push(r.rf[n]); I.push(r.re[n]); Q.push(r.im[n]); E.push(Math.hypot(r.re[n], r.im[n])); }
+    const rb = { x: 46, y: 18, w: g.w - 56, h: wide ? 120 : 110 };
+    const a1 = Lab.axes(x, rb, [t0, t1], [-1.15, 1.15], { title: 'RF echo and envelope', yticks: [-1, 0, 1], noXLabels: false, xfmt: v => Lab.fmt(v) });
+    a1.clip(); Lab.line(x, a1, ts, rf, c.accent, 1.4); Lab.line(x, a1, ts, E, c.fg, 1.2, [4, 3]); Lab.line(x, a1, ts, E.map(v => -v), c.fg, 1.2, [4, 3]);
+    if (smp) { const sx = [], sy = []; for (let n = 0; n < IQN; n += 4) { const t = n / IQFS * 1e6; if (t >= t0 && t <= t1) { sx.push(t); sy.push(r.rf[n]); } } Lab.dots(x, a1, sx, sy, c.sig3, 2.2); }
+    a1.unclip();
+    const qb = wide ? { x: 46, y: rb.y + rb.h + 46, w: (g.w - 56) * 0.58, h: g.h - rb.h - 112 } : { x: 46, y: rb.y + rb.h + 46, w: g.w - 56, h: 120 };
+    const a2 = Lab.axes(x, qb, [t0, t1], [-1.15, 1.15], { title: 'I and Q after mixing and low-pass', xlabel: 'time (µs)', yticks: [-1, 0, 1] });
+    a2.clip(); Lab.line(x, a2, ts, E, c.fg, 1, [4, 3]); Lab.line(x, a2, ts, I, c.accent, 1.8); Lab.line(x, a2, ts, Q, c.sig2, 1.8); a2.unclip();
+    const pb = wide ? { bx: qb.x + qb.w + 10, bw: g.w - qb.x - qb.w - 14, by: qb.y - 22, bh: qb.h + 44 } : { bx: 0, bw: g.w, by: qb.y + qb.h + 30, bh: g.h - qb.y - qb.h - 34 };
+    const P = plane(x, g.w, g.h, [-1.15, 1.15, -1.15, 1.15], Object.assign({ step: 0.5, labels: false }, pb));
+    circ(x, P, 1, c.muted, [3, 3]);
+    const traj = []; for (let n = 0; n < IQN; n++) if (Math.hypot(r.re[n], r.im[n]) > 0.02) traj.push(C(r.re[n], r.im[n])); poly(x, P, traj, c.sig4, 2.2);
+    const u = r.T * IQFS, n0 = Math.floor(u), fr = u - n0; const pk = C(r.re[n0] * (1 - fr) + r.re[n0 + 1] * fr, r.im[n0] * (1 - fr) + r.im[n0 + 1] * fr);
+    arr(x, P, C(0, 0), pk, c.fg, 2.4); tz(x, P, 'I', C(1.1, 0), c.muted, 0, -9, 'center'); tz(x, P, 'Q', C(0, 1.1), c.muted, 8, 2, 'left');
+    x.save(); x.fillStyle = c.fg; x.font = '600 12px ' + c.display; x.textAlign = 'left'; x.textBaseline = 'top'; x.fillText('IQ plane', pb.bx + 6, pb.by + 2); x.restore();
+    const pred = wrapPi(-2 * PI * fd * r.T), meas = carg(pk);
+    $('m1-iq-read').innerHTML = 'envelope σ = ' + Math.round(r.sig * 1e9) + ' ns<br>∠IQ at the peak: <b>' + fdeg(meas, 1) + '</b><br>predicted −360°·f<sub>d</sub>·(T<sub>e</sub> + τ): ' + fdeg(pred, 1) + (Math.abs(fd - IQF0) < 1 ? '<br>= −360°·f₀·τ = ' + fdeg(wrapPi(-2 * PI * IQF0 * tau), 1) : '') + '<br>|IQ| at the peak = <b>' + fn(cabs(pk), 3) + '</b><br>residual spin f₀ − f<sub>d</sub> = <b>' + fn((IQF0 - fd) / 1e6, 2) + ' MHz</b><br>depth shift cτ/2 = ' + fn(1540 * tau / 2 * 1e6, 1) + ' µm';
+  }
+  ['m1-iq-tau', 'm1-iq-fd', 'm1-iq-bw'].forEach(id => $(id).addEventListener('input', drawIq)); $('m1-iq-smp').addEventListener('change', drawIq);
+
+  /* ======================= Demo 01.6: wrap / unwrap ======================= */
+  const wrN = 60, wrNoise = (() => { const r = Lab.rng(17); return Array.from({ length: wrN }, () => r.g()); })();
+  function drawWr() {
+    const c = Lab.colors(), cv = $('m1-wr-cv'); const g = Lab.canvas(cv, 380), x = g.ctx;
+    const a = +$('m1-wr-a').value, sn = +$('m1-wr-nz').value; $('m1-wr-a-o').textContent = a.toFixed(2) + ' rad'; $('m1-wr-nz-o').textContent = sn.toFixed(2) + ' rad';
+    const n = [], tr = [], wr = []; for (let i = 0; i < wrN; i++) { n.push(i); const v = 0.5 * a * i * i + sn * wrNoise[i]; tr.push(v); wr.push(wrapPi(v)); } const un = unwrap(wr);
+    let bad = -1; for (let i = 0; i < wrN; i++) if (Math.abs(un[i] - tr[i]) > 1e-6) { bad = i; break; }
+    const lo = Math.min(...tr, ...un) - 3, hi = Math.max(...tr, ...un) + 3;
+    const a1 = Lab.axes(x, { x: 50, y: 20, w: g.w - 62, h: 200 }, [0, wrN - 1], [lo, hi], { title: 'phase (rad) vs sample', yticks: Lab.ticks(lo, hi, 5) });
+    a1.clip(); Lab.line(x, a1, n, tr, c.fg, 2); Lab.line(x, a1, n, un, c.accent, 2); Lab.dots(x, a1, n, wr, c.sig2, 2.4); if (bad >= 0) { x.save(); x.strokeStyle = c.sig3; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(a1.X(bad), 20); x.lineTo(a1.X(bad), 220); x.stroke(); x.restore(); } a1.unclip();
+    const st = tr.map((v, i) => i ? v - tr[i - 1] : 0); const smax = Math.max(4, ...st.map(Math.abs)) * 1.1;
+    const a2 = Lab.axes(x, { x: 50, y: 262, w: g.w - 62, h: 80 }, [0, wrN - 1], [-smax, smax], { title: 'true step per sample (rad)', xlabel: 'sample n', yticks: [-PI, 0, PI], yfmt: v => v === 0 ? '0' : (v > 0 ? 'π' : '−π') });
+    a2.clip(); x.save(); x.strokeStyle = c.sig2; x.setLineDash([4, 3]); x.beginPath(); [PI, -PI].forEach(v => { x.moveTo(50, a2.Y(v)); x.lineTo(g.w - 12, a2.Y(v)); }); x.stroke(); x.restore(); Lab.line(x, a2, n.slice(1), st.slice(1), c.sig3, 2); a2.unclip();
+    const sb = bad >= 0 ? st[bad] : 0;
+    $('m1-wr-read').innerHTML = (bad >= 0 ? 'unwrap first wrong at sample <b>' + bad + '</b><br>true step there <b>' + fn(sb, 3) + ' rad</b> (|step| > π)<br>' : 'unwrap exact over all ' + wrN + ' samples<br>') + 'largest |step| = ' + fn(Math.max(...st.map(Math.abs)), 3) + ' rad<br>at 5 MHz, step π ↔ λ/4 = 77 µm round trip<br>' + (bad >= 0 ? 'displacement at the failing step: ' + fn(1540 * Math.abs(sb) / (4 * PI * 5e6) * 1e6, 1) + ' µm' : '');
+  }
+  ['m1-wr-a', 'm1-wr-nz'].forEach(id => $(id).addEventListener('input', drawWr));
+
+  /* ======================= Demo 01.7: phasor addition and beats ======================= */
+  const bt = { raf: null, last: 0 };
+  function drawBt() {
+    const c = Lab.colors(), cv = $('m1-bt-cv'), W = cv.clientWidth || 600, wide = W >= 560; const g = Lab.canvas(cv, wide ? 320 : 470), x = g.ctx;
+    const a2 = +$('m1-bt-a2').value, df = +$('m1-bt-df').value * 1e6, phi = +$('m1-bt-phi').value * D2R, t = +$('m1-bt-t').value * 1e-9, f1 = 5e6;
+    $('m1-bt-a2-o').textContent = a2.toFixed(2); $('m1-bt-df-o').textContent = (df / 1e6).toFixed(2) + ' MHz'; $('m1-bt-phi-o').textContent = fn(phi / D2R, 0) + '°'; $('m1-bt-t-o').textContent = Math.round(t * 1e9) + ' ns';
+    const pb = wide ? { bx: 0, bw: Math.min(g.h * 1.1, g.w * 0.42), by: 0, bh: g.h } : { bx: 0, bw: g.w, by: 0, bh: 250 };
+    const P = plane(x, g.w, g.h, [-0.25, 2.15, -1.15, 1.15], Object.assign({ step: 0.5 }, pb));
+    const p2 = cex(2 * PI * df * t + phi, a2), s = cadd(C(1, 0), p2);
+    circ(x, P, a2, c.muted, [3, 3], C(1, 0)); circ(x, P, 1, c.grid);
+    arr(x, P, C(0, 0), C(1, 0), c.accent, 2.6); arr(x, P, C(1, 0), s, c.sig2, 2.6); arr(x, P, C(0, 0), s, c.sig4, 3);
+    tz(x, P, 'frame turns at 5 MHz', C(-0.2, -1.05), c.muted, 0, 0, 'left');
+    const tb = wide ? { x: pb.bw + 50, y: 22, w: g.w - pb.bw - 60, h: g.h - 60 } : { x: 48, y: 280, w: g.w - 58, h: g.h - 320 };
+    const ax = Lab.axes(x, tb, [0, 4], [-2.15, 2.15], { xlabel: 'time (µs)', ylabel: 'sum', xticks: [0, 1, 2, 3, 4], yticks: [-2, -1, 0, 1, 2] });
+    const xs = [], ys = [], ev = []; for (let i = 0; i <= 1600; i++) { const tt = 4e-6 * i / 1600; xs.push(tt * 1e6); ys.push(Math.cos(2 * PI * f1 * tt) + a2 * Math.cos(2 * PI * (f1 + df) * tt + phi)); ev.push(cabs(cadd(C(1, 0), cex(2 * PI * df * tt + phi, a2)))); }
+    ax.clip(); Lab.line(x, ax, xs, ys, c.accent, 1); Lab.line(x, ax, xs, ev, c.sig4, 2); Lab.line(x, ax, xs, ev.map(v => -v), c.sig4, 2);
+    x.save(); x.strokeStyle = c.fg; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(ax.X(t * 1e6), tb.y); x.lineTo(ax.X(t * 1e6), tb.y + tb.h); x.stroke(); x.restore(); ax.unclip();
+    const s0 = cadd(C(1, 0), cex(phi, a2));
+    $('m1-bt-read').innerHTML = 'envelope now |1 + A₂e<sup>j(2πΔf t + φ₂)</sup>| = <b>' + fn(cabs(s), 3) + '</b><br>' + (df > 0 ? 'beat period 1/Δf = <b>' + fn(1 / df * 1e6, 3) + ' µs</b><br>' : 'Δf = 0: single sinusoid, amplitude <b>' + fn(cabs(s0), 3) + '</b> at phase ' + fdeg(carg(s0), 1) + '<br>') + 'envelope max 1 + A₂ = ' + fn(1 + a2, 2) + ', min |1 − A₂| = ' + fn(Math.abs(1 - a2), 2) + '<br>carrier ≈ (f₁ + f₂)/2 = ' + fn((f1 + df / 2) / 1e6, 3) + ' MHz';
+  }
+  function stepBt(ts) { if (Lab.current !== 'm1') { bt.raf = null; $('m1-bt-play').textContent = 'Play'; return; } if (!bt.last) bt.last = ts; const dt = (ts - bt.last) / 1000; bt.last = ts; let t = +$('m1-bt-t').value + dt * 400; if (t > 4000) t -= 4000; $('m1-bt-t').value = t; drawBt(); bt.raf = requestAnimationFrame(stepBt); }
+  $('m1-bt-play').addEventListener('click', () => { if (bt.raf) { cancelAnimationFrame(bt.raf); bt.raf = null; $('m1-bt-play').textContent = 'Play'; } else { bt.last = 0; bt.raf = requestAnimationFrame(stepBt); $('m1-bt-play').textContent = 'Pause'; } });
+  ['m1-bt-a2', 'm1-bt-df', 'm1-bt-phi', 'm1-bt-t'].forEach(id => $(id).addEventListener('input', drawBt));
+
+  function drawAll() { drawStatic(); [drawMul, drawEu, drawRot, drawCr, drawIq, drawWr, drawBt].forEach(f => { try { f(); } catch (e) { console.error(e); } }); }
+  Lab.onShow('m1', drawAll);
+})();
+</script>

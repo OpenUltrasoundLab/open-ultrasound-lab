@@ -1,0 +1,1083 @@
+<section class="view" id="m26" data-title="Speckle statistics and image-quality metrics" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part IV · Module 26</div>
+    <h1>Speckle statistics and image-quality metrics</h1>
+    <p class="lede">Speckle is not noise to be wished away; it is a random field whose statistics are fixed by the scatterers and the PSF. Know its distributions, its size and what compounding does to it, and you can measure image quality without fooling yourself or a reviewer.</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>Derive the Rayleigh numbers (\(\mathrm{SNR}_0\) = 1.91, intensity contrast 1, log std 5.57 dB, log-mean offset −2.51 dB) and use them as calibration checks</li>
+        <li>Read envelope statistics: K, Rician, Nakagami \(m\), homodyned K, and how many scatterers make speckle fully developed</li>
+        <li>Predict speckle size from the PSF (Siegert relation) and the gain of incoherent vs coherent compounding from k-space overlap</li>
+        <li>Report contrast, CNR (with a stated definition) and gCNR, and know which ones a display map can inflate</li>
+        <li>Set detection thresholds in Rayleigh and heavier-tailed backgrounds (ULM)</li>
+      </ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 04</a> · Sampling, Fourier &amp; LTI systems: beam = FT of aperture, two-way PSF</li>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 07</a> · Random vectors, covariance &amp; correlation: circular complex Gaussian speckle, correlation functions, van Cittert–Zernike</li>
+        <li><a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 08</a> · Analytic signal &amp; IQ demodulation: envelope and log compression</li>
+        <li><a href="#m23">Module 23</a> · Beam patterns, k-space and compounding: DAS and plane-wave compounding</li>
+      </ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is (including numerical quadrature of a closed-form pdf)</span><span><span class="prov sim">Simulation</span>Monte Carlo or image simulation run in this page (JS) or in the Octave scripts</span><span><span class="prov model">Approx. model</span>simplified physics; assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not computed, not to scale</span><span>Speckle images here are complex white scatterer fields filtered in k-space by a separable pulse-echo transfer function (focal plane, narrowband laterally), computed with a 2D FFT in the page. No Field II or k-Wave output is shown.</span></div>
+
+  <!-- ===================== 26.1 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">26.1</span>Fully developed speckle: the numbers that follow from one assumption</h2>
+    <p>Module 07 showed that the IQ sample \(z\) of a resolution cell that holds many randomly placed scatterers is circular complex Gaussian. Write \(\langle I\rangle = \mathrm{E}\lvert z\rvert^2\) for the mean intensity. Everything in this section follows from that one assumption, and every number is a calibration check you can run on a phantom before you trust a pipeline.</p>
+    <div class="eqn key" id="m26-eq1">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} p_R(R) &amp;= \frac{2R}{\langle I\rangle}\, e^{-R^2/\langle I\rangle}\ \ (\text{Rayleigh}), \qquad \mathrm{E}R = \frac{\sqrt{\pi}}{2}\sqrt{\langle I\rangle} = 0.886\sqrt{\langle I\rangle}, \qquad \mathrm{E}R^2 = \langle I\rangle \\ \mathrm{var}\,R &amp;= \left(1 - \frac{\pi}{4}\right)\langle I\rangle = (0.463)^2\langle I\rangle \;\;\Rightarrow\;\; \mathrm{SNR}_0 = \frac{\mathrm{E}R}{\mathrm{std}\,R} = \sqrt{\frac{\pi}{4 - \pi}} = 1.913 \end{aligned} \]</div><span class="eqn-no">(26.1)</span></div>
+      <dl class="where"><dt>\(z\)</dt><dd>beamformed IQ sample (circular complex Gaussian)</dd><dt>\(R = \lvert z\rvert\)</dt><dd>envelope, linear units</dd><dt>\(\langle I\rangle\)</dt><dd>mean intensity \(\mathrm{E}\lvert z\rvert^2\)</dd><dt>\(\mathrm{SNR}_0\)</dt><dd>envelope mean over envelope std (the "speckle SNR")</dd><dt>\(p_R(R)\)</dt><dd>probability density of the envelope</dd><dt>\(\mathrm{E}\)</dt><dd>expected value</dd><dt>\(\mathrm{var},\ \mathrm{std}\)</dt><dd>variance and standard deviation</dd><dt>\(\pi\)</dt><dd>3.14159</dd><dt>\(e\)</dt><dd>exponential function</dd></dl>
+      <span class="note">The ratio does not depend on \(\langle I\rangle\), so gain, TGC level and transmit power cancel. Wagner, Smith, Sandrik and Lopez (1983) introduced \(\mathrm{SNR}_0\) = 1.91 as the benchmark for fully developed speckle.</span>
+    </div>
+    <div class="eqn" id="m26-eq2">
+      <div class="eqn-body"><div class="eqn-math">\[ I = R^2:\quad p_I(I) = \frac{1}{\langle I\rangle}\, e^{-I/\langle I\rangle} \;\;\Rightarrow\;\; \mathrm{std}\,I = \langle I\rangle, \qquad C_I = \frac{\mathrm{std}\,I}{\langle I\rangle} = 1 \]</div><span class="eqn-no">(26.2)</span></div>
+      <dl class="where"><dt>\(I\)</dt><dd>intensity (squared envelope)</dd><dt>\(C_I\)</dt><dd>intensity speckle contrast, std over mean</dd><dt>\(p_I(I)\)</dt><dd>probability density of the intensity (exponential)</dd><dt>\(\mathrm{std}\,I\)</dt><dd>standard deviation of the intensity</dd><dt>\(\langle I\rangle\)</dt><dd>mean intensity, as in (26.1)</dd></dl>
+      <span class="note">Exponential intensity: the brightest speckle in a region of \(n\) independent cells is about \(\ln n\) times the mean (13.8 for \(n = 10^6\)), which matters for thresholds (Section 26.7).</span>
+    </div>
+    <p>Log compression. Let \(u = \ln(I/\langle I\rangle)\). For an exponential variable, \(\mathrm{E}u = \Gamma'(1) = -\gamma = -0.5772\) and \(\mathrm{var}\,u = \psi'(1) = \pi^2/6\) (\(\gamma\) is Euler's constant, \(\psi'\) the trigamma function). The displayed value \(D = 10\log_{10}(I/\langle I\rangle) = 20\log_{10}(R/\sqrt{\langle I\rangle})\) is \(u\) times \(10/\ln 10 = 4.343\):</p>
+    <div class="eqn key" id="m26-eq3">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \mathrm{E}D &amp;= -4.343\,\gamma = -2.51\ \mathrm{dB}, \qquad \mathrm{std}\,D = 4.343\cdot\frac{\pi}{\sqrt{6}} = 5.57\ \mathrm{dB} \\ p_D(D) &amp;= \frac{\ln 10}{10}\, 10^{D/10} \exp\!\left(-10^{D/10}\right) \end{aligned} \]</div><span class="eqn-no">(26.3)</span></div>
+      <dl class="where"><dt>\(D\)</dt><dd>log-compressed pixel, dB re \(10\log_{10}\langle I\rangle\)</dd><dt>\(\gamma\)</dt><dd>Euler's constant, 0.5772</dd><dt>4.343</dt><dd>\(10/\ln 10\), dB per neper of intensity</dd><dt>\(\mathrm{E}D,\ \mathrm{std}\,D\)</dt><dd>mean and standard deviation of the log-compressed pixel, dB</dd><dt>\(p_D(D)\)</dt><dd>probability density of \(D\)</dd><dt>\(\ln\)</dt><dd>natural logarithm</dd><dt>\(\exp\)</dt><dd>exponential function</dd><dt>\(\pi\)</dt><dd>3.14159</dd></dl>
+      <span class="note">The log-intensity follows a (reversed) Gumbel / Fisher–Tippett law: skewed, with a long tail toward dark values and the mode at 0 dB. Gain shifts \(D\), so the 5.57 dB spread is gain independent. Module 08 quotes the 5.57 dB; the −2.51 dB offset is the one that biases contrast measurements.</span>
+    </div>
+  </div>
+  <div class="rf-grid" id="m26-g1"></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>All of these numbers hold for the linear envelope of unprocessed, fully developed speckle. Scanner B-mode pixels are log compressed, clipped, spatially filtered and scan converted: measuring \(\mathrm{SNR}_0\) on them gives values far from 1.91 even in a perfect phantom. Compute speckle statistics on beamformed IQ (or its envelope) before display processing.</p></div>
+
+  <!-- ===================== 26.2 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">26.2</span>Beyond Rayleigh: K, Rician, Nakagami and homodyned K</h2>
+    <p>Two departures from fully developed speckle are common in tissue, and they push the statistics in opposite directions.</p>
+    <ul>
+      <li><strong>Too few scatterers per cell, or a fluctuating local mean</strong> (pre-Rayleigh): heavier tail, more dark and more very bright pixels, \(C_I &gt; 1\), \(\mathrm{SNR}_0 &lt; 1.91\).</li>
+      <li><strong>A coherent component</strong> (post-Rayleigh): a specular interface, a regular scatterer arrangement or a strong point target adds a steady phasor \(A\); the spread narrows, \(C_I &lt; 1\), \(\mathrm{SNR}_0 &gt; 1.91\).</li>
+    </ul>
+    <p>A simple generative model contains both. In one resolution cell there are a Poisson number of scatterers (mean \(\bar N\)), each with a random phase and an amplitude \(a\) (\(\mathrm{E}a^2 = 1\), \(\kappa = \mathrm{E}a^4/(\mathrm{E}a^2)^2\): 1 for equal amplitudes, 2 for Rayleigh-distributed amplitudes), plus a coherent phasor \(A\). With diffuse power \(P = \bar N\) and \(r = A^2/P\):</p>
+    <div class="eqn" id="m26-eq4">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} z &amp;= A + \sum_{i=1}^{N} a_i\, e^{j\varphi_i}, \qquad N \sim \mathrm{Poisson}(\bar N) \\ \langle I\rangle &amp;= A^2 + P, \qquad \mathrm{var}\,I = P^2 + 2A^2P + \kappa\bar N \\ m &amp;\equiv \frac{\langle I\rangle^2}{\mathrm{var}\,I} = \frac{(1 + r)^2}{1 + 2r + \kappa/\bar N} \end{aligned} \]</div><span class="eqn-no">(26.4)</span></div>
+      <dl class="where"><dt>\(\bar N\)</dt><dd>mean number of scatterers per cell</dd><dt>\(a_i, \varphi_i\)</dt><dd>scatterer amplitude and uniform random phase</dd><dt>\(\kappa\)</dt><dd>amplitude kurtosis \(\mathrm{E}a^4/(\mathrm{E}a^2)^2\)</dd><dt>\(A\)</dt><dd>coherent (steady) phasor amplitude</dd><dt>\(P\)</dt><dd>diffuse power, \(\bar N\) here</dd><dt>\(r\)</dt><dd>coherent-to-diffuse power ratio \(A^2/P\)</dd><dt>\(m\)</dt><dd>Nakagami parameter, \(1/C_I^2\)</dd><dt>\(z\)</dt><dd>complex envelope sample, as in (26.1)</dd><dt>\(N\)</dt><dd>number of scatterers in the cell (random)</dd><dt>\(i\)</dt><dd>scatterer index</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(\sim\ \mathrm{Poisson}(\bar N)\)</dt><dd>N is Poisson distributed with mean \(\bar N\)</dd><dt>\(\langle I\rangle,\ I\)</dt><dd>mean intensity and intensity, as in (26.1)</dd><dt>\(\mathrm{var}\)</dt><dd>variance</dd><dt>\(\equiv\)</dt><dd>defined as</dd></dl>
+      <span class="note">Derivation: \(\lvert A + S\rvert^2 = A^2 + \lvert S\rvert^2 + 2A\,\mathrm{Re}\,S\), odd phase moments vanish, \(\mathrm{E}(\mathrm{Re}\,S)^2 = P/2\), and for a Poisson count \(\mathrm{E}\lvert S\rvert^4 = 2P^2 + \kappa\bar N\). Verified by Monte Carlo in the demo below and in the MATLAB lab.</span>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Model</th><th>Envelope pdf (\(\langle I\rangle = 1\) unless noted)</th><th>\(m = 1/C_I^2\)</th><th>Physical picture</th></tr></thead>
+      <tbody>
+        <tr><td>Rayleigh</td><td>\(2R\,e^{-R^2}\)</td><td class="num">1</td><td>Many scatterers per cell, no coherent part</td></tr>
+        <tr><td>Rician</td><td>\((2R/P)\, e^{-(R^2 + A^2)/P}\, I_0(2AR/P)\)</td><td class="num">\((1+r)^2/(1+2r)\)</td><td>Diffuse speckle plus one steady phasor</td></tr>
+        <tr><td>K (Jakeman and Pusey)</td><td>\((2b/\Gamma(\alpha))\, (bR/2)^{\alpha}\, K_{\alpha-1}(bR)\), \(b = 2\sqrt{\alpha}\)</td><td class="num">\(\alpha/(\alpha+2)\)</td><td>Exponential speckle whose local mean fluctuates as Gamma(\(\alpha\)); exact for a negative-binomial number of steps</td></tr>
+        <tr><td>Nakagami (Shankar 2000)</td><td>\((2m^m/\Gamma(m))\, R^{2m-1} e^{-mR^2}\)</td><td class="num">\(m \ge \tfrac12\)</td><td>Two-parameter fit to the first two intensity moments; covers both sides of Rayleigh</td></tr>
+        <tr><td>Homodyned K (Dutt and Greenleaf 1994)</td><td>coherent \(A\) + K-distributed diffuse part (integral form)</td><td class="num">\((1+r)^2/(1+2r+2/\alpha)\)</td><td>General model: both departures at once</td></tr>
+      </tbody>
+    </table></div>
+    <p>For equal-amplitude Poisson scatterers the second moment matches K with \(\alpha = 2\bar N\); for Rayleigh-amplitude scatterers \(\alpha = \bar N\). The moment estimator \(\hat m = (\mathrm{E}R^2)^2/\mathrm{var}(R^2)\) is what most Nakagami imaging papers compute in a sliding window.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 26.1</span><h3>Random phasor sums: scatterer density, coherent component, envelope statistics</h3><span class="prov sim">Simulation</span><span class="prov-note">Monte Carlo phasor sums (Poisson count, uniform phases, equal or Rayleigh amplitudes, plus a coherent phasor), 4000 cells per realization, JS. Rayleigh and Nakagami curves are closed forms.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m26-d1-cv" aria-label="Phasor walk, envelope histogram and m versus SNR plane"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>histogram / measured point</span><span><i style="background:var(--muted)"></i>Rayleigh</span><span><i style="background:var(--sig2)"></i>Nakagami fit (m̂) · K branch</span><span><i style="background:var(--sig3)"></i>coherent phasor · Rician branch</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m26-d1-n">Mean scatterers per cell N̄ <output id="m26-d1-n-o">10</output></label><input type="range" id="m26-d1-n" min="-0.3" max="2" step="0.02" value="1"></div>
+        <div class="ctrl"><label for="m26-d1-r">Coherent-to-diffuse r = A²/P <output id="m26-d1-r-o">off</output></label><input type="range" id="m26-d1-r" min="-30" max="20" step="1" value="-30"></div>
+        <div class="ctrl"><label for="m26-d1-a">Scatterer amplitudes</label><select id="m26-d1-a"><option value="unit">equal (κ = 1)</option><option value="ray">Rayleigh-distributed (κ = 2)</option></select></div>
+        <div class="btn-row"><button class="btn" id="m26-d1-rs" type="button">New realization</button></div>
+        <div class="readout" id="m26-d1-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> \(\bar N = 1\): 37% (\(e^{-1}\)) of the cells are empty and the histogram piles up at zero (K-like, \(m \approx 0.5\)). Raise \(\bar N\) to 10 and 100: \(\hat m\) climbs toward 1 as \(\bar N/(\bar N + 1)\). Now set \(r\) = 10 dB: \(\hat m \approx 5.8\), \(\mathrm{SNR}_0 \approx 4.6\), and the walk is dominated by the coherent arrow. With \(r\) = 0 dB and \(\bar N = 1\) (equal amplitudes) \(m = 4/(1 + 2 + 1) = 1\) exactly, yet \(\mathrm{SNR}_0 \approx 2.09\) and the histogram is not Rayleigh: one moment ratio cannot tell the two departures apart. \(M\) = 4000 cells per realization, so \(\hat m\) scatters by about \(\pm 2/\sqrt{4000} = \pm 0.03\) near \(m = 1\).</div>
+  </div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Envelope-statistics QUS (Nakagami \(m\), homodyned-K parameters) is used to characterize scatterer concentration and organization, for example in liver and breast tissue characterization; Destrempes and Cloutier (Ultrasound Med. Biol., 2010) review the models. These parameters are fitted to the envelope of beamformed RF after depth (TGC, attenuation) normalization: a mean that drifts across the window itself looks like a K-distribution.</p></div>
+
+  <!-- ===================== 26.3 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">26.3</span>How many scatterers make speckle fully developed?</h2>
+    <p>A resolution cell is not a box: each scatterer at \(x_i\) contributes with the PSF weight \(h(x_i - x_0)\). For a Poisson process of density \(n\) (scatterers per mm² in 2D), Campbell's theorem gives the first two intensity moments directly:</p>
+    <div class="eqn" id="m26-eq5">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \langle I\rangle &amp;= n \int \lvert h\rvert^2, \qquad \mathrm{E}I^2 - 2\langle I\rangle^2 = \kappa\, n \int \lvert h\rvert^4 \\ \Rightarrow\;\; C_I^2 &amp;= 1 + \frac{\kappa}{N_c}, \qquad N_c = \frac{n \left(\int \lvert h\rvert^2\right)^2}{\int \lvert h\rvert^4} \end{aligned} \]</div><span class="eqn-no">(26.5)</span></div>
+      <dl class="where"><dt>\(n\)</dt><dd>scatterer density, mm⁻² (2D)</dd><dt>\(h\)</dt><dd>PSF (amplitude)</dd><dt>\(N_c\)</dt><dd>mean scatterers per correlation cell</dd><dt>\(V_c\)</dt><dd>correlation cell area \((\int\lvert h\rvert^2)^2/\int\lvert h\rvert^4\), mm²</dd><dt>\(\int\)</dt><dd>integral over the PSF support (area, mm²)</dd><dt>\(\mathrm{E}I^{2}\)</dt><dd>second moment of the intensity</dd><dt>\(\langle I\rangle,\ C_I,\ \kappa\)</dt><dd>as in (26.1), (26.2) and (26.4)</dd><dt>\(\lvert\cdot\rvert\)</dt><dd>magnitude</dd></dl>
+      <span class="note">\(N_c\) is the mean number of scatterers per correlation cell of area \(V_c\). So \(m = N_c/(N_c + \kappa)\): the box model of Section 26.2 with \(\bar N \to N_c\).</span>
+    </div>
+    <div class="eqn" id="m26-eq6">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &amp;\text{Gaussian PSF } h = e^{-x^2/2\sigma_x^2 - z^2/2\sigma_z^2}:\quad V_c = 2\pi\sigma_x\sigma_z, \qquad A_6 = 2\ln 2\cdot\pi\sigma_x\sigma_z \\ &amp;\Rightarrow\;\; N_c = \frac{N_{-6\,\mathrm{dB}}}{\ln 2} = 1.44\, N_{-6\,\mathrm{dB}} \end{aligned} \]</div><span class="eqn-no">(26.6)</span></div>
+      <dl class="where"><dt>\(\sigma_x, \sigma_z\)</dt><dd>lateral and axial PSF standard deviations, mm</dd><dt>\(A_6\)</dt><dd>area of the −6 dB ellipse, mm²</dd><dt>\(N_{-6\,\mathrm{dB}}\)</dt><dd>mean scatterers inside the −6 dB ellipse</dd><dt>\(h\)</dt><dd>Gaussian amplitude PSF, as in (26.5)</dd><dt>\(x,\ z\)</dt><dd>lateral and axial position, mm</dd><dt>\(\ln\)</dt><dd>natural logarithm</dd><dt>\(N_c\)</dt><dd>scatterers per correlation cell, as in (26.5)</dd><dt>\(V_c\)</dt><dd>correlation cell area, as in (26.5), mm²</dd></dl>
+      <span class="note">At 10 scatterers per −6 dB resolution cell, \(N_c\) = 14.4: \(m\) = 0.935 for equal amplitudes, 0.878 for Rayleigh amplitudes; \(\mathrm{SNR}_0\) = 1.88 and 1.84 (Monte Carlo, 4×10⁵ pixels), within 2–4% of 1.91. The "about 10 scatterers per resolution cell" rule (Oosterveld, Thijssen and Verhoef, Ultrasonic Imaging, 1985, by 3D simulation) is consistent with this, provided you say which cell you mean.</span>
+    </div>
+    <p>Whether you can <em>see</em> the remaining departure is a separate question. The moment estimator \(\hat m\) from \(n\) independent cells has (delta method on \(\hat\mu^2/\hat v\) with exponential moments \(\mu_2 = 1\), \(\mu_3 = 2\), \(\mu_4 = 9\)):</p>
+    <div class="eqn" id="m26-eq7">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathrm{var}\,\hat m \approx \frac{2^2\cdot 1 + 1^2\cdot(\mu_4 - 1) - 2\cdot 2\cdot 1\cdot\mu_3}{n} = \frac{4 + 8 - 8}{n} = \frac{4}{n} \;\;\Rightarrow\;\; \mathrm{std}\,\hat m \approx \frac{2}{\sqrt{n}} \]</div><span class="eqn-no">(26.7)</span></div>
+      <dl class="where"><dt>\(\hat m\)</dt><dd>moment estimate \(\hat\mu^2/\hat v\) of the Nakagami parameter</dd><dt>\(n\)</dt><dd>independent speckle cells in the window (not pixels)</dd><dt>\(\mu_k\)</dt><dd>central moments of the unit-mean exponential intensity</dd><dt>\(\mathrm{var}\)</dt><dd>variance</dd><dt>\(\mathrm{std}\)</dt><dd>standard deviation</dd></dl>
+      <span class="note">To tell \(m\) = 0.935 from 1 at two standard deviations you need \(2\cdot 2/\sqrt{n} &lt; 0.065\), i.e. \(n &gt; 3800\) independent cells. "Fully developed" is an operational statement about your estimator as much as about the tissue.</span>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 26.2</span><h3>PSF-weighted Poisson scatterers: m and SNR<sub>0</sub> vs scatterers per resolution cell</h3><span class="prov sim">Simulation</span><span class="prov-note">Monte Carlo: Poisson scatterers in a ±3σ box, 2D Gaussian PSF weights, random phases, 2000 pixels per density, JS. Solid curve: closed form \(m = N_c/(N_c + \kappa)\).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m26-d2-cv" aria-label="Nakagami m and SNR0 versus scatterers per resolution cell"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>theory m = N<sub>c</sub>/(N<sub>c</sub>+κ)</span><span><i style="background:var(--sig2)"></i>Monte Carlo (2D Gaussian PSF)</span><span><i style="background:var(--muted)"></i>Rayleigh limit · Nakagami SNR(m)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m26-d2-a">Scatterer amplitudes</label><select id="m26-d2-a"><option value="1">equal (κ = 1)</option><option value="2">Rayleigh-distributed (κ = 2)</option></select></div>
+        <div class="readout" id="m26-d2-read">computing…</div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Model:</strong> scatterers uniformly placed (Poisson) in a ±3σ box around the pixel, Gaussian PSF with \(\sigma_z = 0.6\sigma_x\), random phases; 2000 independent pixels per density. The x axis counts scatterers inside the −6 dB ellipse. Dots scatter by about \(\pm 2/\sqrt{2000} = \pm 0.045\) in \(m\).</div>
+  </div>
+
+  <!-- ===================== 26.4 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">26.4</span>Speckle size is set by the PSF, through the Siegert relation</h2>
+    <p>Model the IQ image as \(z = h * s\) with delta-correlated scatterer reflectivity \(s\). Its field autocorrelation is \(\mathrm{E}[z(x)\, z^*(x + \Delta)] = \langle I\rangle\, \mu(\Delta)\), where \(\mu\) is the normalized autocorrelation of the PSF, the inverse Fourier transform of \(\lvert H\rvert^2\) (Module 07, Wiener–Khinchin). For circular Gaussian fields the fourth moment factors (Isserlis), which gives the Siegert relation for the intensity:</p>
+    <div class="eqn key" id="m26-eq8">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathrm{E}[I(x)\, I(x + \Delta)] = \langle I\rangle^2 \left(1 + \lvert\mu(\Delta)\rvert^2\right) \;\;\Rightarrow\;\; \mathrm{cov}_I(\Delta) = \langle I\rangle^2 \lvert\mu(\Delta)\rvert^2, \qquad \mu = \frac{\mathcal{F}^{-1}\{\lvert H\rvert^2\}}{\int \lvert H\rvert^2} \]</div><span class="eqn-no">(26.8)</span></div>
+      <dl class="where"><dt>\(\Delta\)</dt><dd>spatial (or time) lag</dd><dt>\(\mu(\Delta)\)</dt><dd>normalized field autocorrelation of the PSF</dd><dt>\(\mathrm{cov}_I(\Delta)\)</dt><dd>intensity autocovariance</dd><dt>\(H\)</dt><dd>pulse-echo transfer function (k-space support of the PSF)</dd><dt>\(\mathrm{E}[\cdot]\)</dt><dd>expected value over the speckle ensemble</dd><dt>\(I(x)\)</dt><dd>intensity at position x</dd><dt>\(x\)</dt><dd>position, mm</dd><dt>\(\langle I\rangle\)</dt><dd>mean intensity, as in (26.1)</dd><dt>\(\lvert\mu\rvert^2\)</dt><dd>squared magnitude of the normalized field autocorrelation</dd><dt>\(\mathcal{F}^{-1}\)</dt><dd>inverse Fourier transform</dd><dt>\(\int\)</dt><dd>integral over the transfer-function support</dd></dl>
+      <span class="note">Speckle size here = FWHM of the normalized intensity autocovariance \(\lvert\mu\rvert^2\). Other papers use the correlation length \(\int\lvert\mu\rvert^2\) or the envelope ACF; state yours.</span>
+    </div>
+    <div class="eqn" id="m26-eq9">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &amp;\text{axial (Gaussian pulse): } \lvert H(f)\rvert \propto e^{-(f - f_0)^2/2s_f^2}, \qquad B = 2\sqrt{2\ln 2}\; s_f \ \ (-6\ \mathrm{dB}\ \text{two-way bandwidth}) \\ &amp;\lvert\mu(\tau)\rvert^2 = e^{-2\pi^2 s_f^2 \tau^2} \;\;\Rightarrow\;\; \mathrm{FWHM}_\tau = \frac{4\ln 2}{\pi B} = \frac{0.883}{B} \;\;\Rightarrow\;\; \Delta z_{\mathrm{sp}} = 0.441\,\frac{c}{B} \end{aligned} \]</div><span class="eqn-no">(26.9)</span></div>
+      <dl class="where"><dt>\(s_f\)</dt><dd>std parameter of the Gaussian amplitude spectrum, MHz</dd><dt>\(B\)</dt><dd>−6 dB two-way bandwidth, MHz</dd><dt>\(\tau\)</dt><dd>time lag, µs</dd><dt>\(\Delta z_{\mathrm{sp}}\)</dt><dd>axial speckle size (FWHM of \(\lvert\mu\rvert^2\)), mm</dd><dt>\(f,\ f_0\)</dt><dd>frequency and centre frequency, MHz</dd><dt>\(\lvert H(f)\rvert\)</dt><dd>pulse-echo amplitude spectrum</dd><dt>\(\mathrm{FWHM}_\tau\)</dt><dd>full width at half maximum of \(\lvert\mu\rvert^2\) in time, µs</dd><dt>\(c\)</dt><dd>speed of sound, mm/µs</dd><dt>\(\ln\)</dt><dd>natural logarithm</dd><dt>\(\propto\)</dt><dd>proportional to</dd></dl>
+      <span class="note">This equals the FWHM of the pulse envelope itself. 5 MHz, 60% bandwidth (\(B\) = 3 MHz): 0.226 mm.</span>
+    </div>
+    <p>Lateral (focal plane, narrowband, same rect aperture on transmit and receive): \(\lvert H(u)\rvert\) is a triangle (the coarray) of half-width \(1/(\lambda F_\#)\), so</p>
+    <div class="eqn" id="m26-eq10">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \mathrm{FWHM}\ \text{of}\ \lvert\mu\rvert^2 &amp;= 0.835\,\lambda F_\#\ \ (\text{rect}), \qquad 1.40\,\lambda F_\#\ \ (\text{Hann}) \\ \text{two-way PSF } {-6}\ \mathrm{dB}\ \text{width} &amp;= 0.886\,\lambda F_\#\ \ (\text{rect}), \qquad 1.44\,\lambda F_\#\ \ (\text{Hann}) \end{aligned} \]</div><span class="eqn-no">(26.10)</span></div>
+      <dl class="where"><dt>\(\lambda\)</dt><dd>wavelength at \(f_0\), mm</dd><dt>\(F_\#\)</dt><dd>F-number (focal depth over aperture width)</dd><dt>\(u\)</dt><dd>lateral spatial frequency, units of \(1/(\lambda F_\#)\)</dd><dt>\(\mathrm{FWHM}\)</dt><dd>full width at half maximum, mm</dd><dt>\(\lvert\mu\rvert^2\)</dt><dd>as in (26.8), here along the lateral axis</dd><dt>\(\text{rect},\ \text{Hann}\)</dt><dd>uniform and Hann receive apodization</dd><dt>\(\text{two-way PSF}\)</dt><dd>pulse-echo point-spread function</dd></dl>
+      <span class="note">Speckle is slightly smaller than the −6 dB PSF. 5 MHz, F#2 (\(\lambda F_\#\) = 0.616 mm), rect: 0.514 mm. Speckle correlation area \(\iint\lvert\mu\rvert^2\) = 0.241 mm × 0.554 mm, i.e. 7.5 independent speckle cells per mm².</span>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 26.3</span><h3>Speckle image and its autocovariance vs f<sub>0</sub>, bandwidth, F# and apodization</h3><span class="prov sim">Simulation</span><span class="prov-note">256 × 256 complex white scatterer field filtered in k-space by a separable pulse-echo transfer function (Gaussian axial band, apodization coarray laterally), 2D FFT, JS; theory curves are closed forms.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m26-d3-cv" aria-label="Simulated speckle and axial and lateral autocovariance"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>measured intensity autocovariance</span><span><i style="background:var(--sig2)"></i>theory |μ|²</span><span><i style="background:var(--muted)"></i>two-way PSF amplitude</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m26-d3-f">f₀ (MHz) <output id="m26-d3-f-o">5</output></label><input type="range" id="m26-d3-f" min="2" max="7.5" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m26-d3-b">−6 dB fractional bandwidth (%) <output id="m26-d3-b-o">60</output></label><input type="range" id="m26-d3-b" min="20" max="100" step="5" value="60"></div>
+        <div class="ctrl"><label for="m26-d3-n">F-number <output id="m26-d3-n-o">2</output></label><input type="range" id="m26-d3-n" min="1" max="4" step="0.25" value="2"></div>
+        <div class="ctrl"><label for="m26-d3-a">Apodization (tx = rx)</label><select id="m26-d3-a"><option value="rect">rect</option><option value="hann">Hann</option></select></div>
+        <div class="btn-row"><button class="btn" id="m26-d3-rs" type="button">New scatterers</button></div>
+        <div class="readout" id="m26-d3-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Model:</strong> 256 × 256 complex white scatterer field (5.1 mm depth × 10.2 mm lateral, 20 × 40 µm pixels) multiplied in k-space by a separable pulse-echo transfer function: Gaussian axial band, coarray of the apodization laterally (focal plane, narrowband). One realization, so measured widths scatter by a few percent. <strong>Try:</strong> halve the bandwidth and the axial width doubles; F# 1 → 4 scales the lateral width 4× while the axial width does not move; Hann widens the lateral speckle by 1.68×.</div>
+  </div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Measure speckle size on intensity (or IQ). The log image has a narrower autocovariance (about 0.77 of the intensity width axially in the MATLAB lab) and the envelope about 0.96 of it, because nonlinear maps add higher harmonics of \(\mu\). Scan-converted images also carry the interpolation kernel's correlation.</p></div>
+
+  <!-- ===================== 26.5 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">26.5</span>Compounding: incoherent averaging, coherent summation and decorrelation</h2>
+    <p>Static tissue gives one speckle realization per imaging geometry, so speckle can only be averaged across geometries: sub-apertures (spatial compounding), steering angles, or frequency sub-bands. The question is how many independent looks you really get.</p>
+    <div class="eqn key" id="m26-eq11">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} S &amp;= \sum_{k=1}^{N} I_k\ \ (\text{equal } \langle I\rangle):\qquad C_S^2 = \frac{\sum_{k,l} \rho_{I,kl}}{N^2} \equiv \frac{1}{N_{\mathrm{eff}}}, \qquad \rho_{I,kl} = \lvert r_{kl}\rvert^2\ \ (\text{Siegert}) \\ &amp;\text{equicorrelated looks: } N_{\mathrm{eff}} = \frac{N}{1 + (N - 1)\rho_I}, \qquad \text{independent looks: } C = \frac{1}{\sqrt{N}} \end{aligned} \]</div><span class="eqn-no">(26.11)</span></div>
+      <dl class="where"><dt>\(I_k\)</dt><dd>intensity image of look \(k\)</dd><dt>\(N\)</dt><dd>number of looks</dd><dt>\(r_{kl}\)</dt><dd>complex field correlation between looks \(k\) and \(l\)</dd><dt>\(\rho_{I,kl}\)</dt><dd>intensity correlation, \(\lvert r_{kl}\rvert^2\)</dd><dt>\(C_S\)</dt><dd>speckle contrast of the compound</dd><dt>\(N_{\mathrm{eff}}\)</dt><dd>effective number of independent looks</dd><dt>\(S\)</dt><dd>sum (compound) intensity</dd><dt>\(k,\ l\)</dt><dd>look indices</dd><dt>\(\langle I\rangle\)</dt><dd>mean intensity of each look, as in (26.1)</dd><dt>\(\rho_I\)</dt><dd>intensity correlation between looks, as in (26.13)</dd><dt>\(C\)</dt><dd>speckle contrast of independent looks</dd><dt>\(\equiv\)</dt><dd>defined as</dd></dl>
+      <span class="note">Example: \(N\) = 9 looks with \(\rho_I\) = 0.25 give \(N_{\mathrm{eff}}\) = 3, not 9.</span>
+    </div>
+    <div class="eqn" id="m26-eq12">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &amp;\text{averaging envelopes instead: } \mathrm{SNR}_0 = \frac{1.913\, N}{\sqrt{\sum_{k,l} \rho_{A,kl}}} \\ &amp;\rho_A(r) = \frac{\pi}{4 - \pi}\left[ {}_2F_1\!\left(-\tfrac12, -\tfrac12; 1; \lvert r\rvert^2\right) - 1 \right] \approx 0.915\, \lvert r\rvert^2 \end{aligned} \]</div><span class="eqn-no">(26.12)</span></div>
+      <dl class="where"><dt>\(\rho_{A}\)</dt><dd>envelope correlation of two Rayleigh variables</dd><dt>\({}_2F_1\)</dt><dd>Gauss hypergeometric function</dd><dt>\(\mathrm{SNR}_0\)</dt><dd>speckle SNR of the averaged envelope</dd><dt>\(1.913\)</dt><dd>single-look envelope speckle SNR, as in (26.1)</dd><dt>\(\rho_A,\ r\)</dt><dd>envelope correlation as a function of the field correlation \(r\)</dd><dt>\(N,\ k,\ l\)</dt><dd>number of looks and look indices, as in (26.11)</dd><dt>\(\pi\)</dt><dd>3.14159</dd></dl>
+      <span class="note">Exact, because means and covariances add; the envelope correlation of two Rayleigh variables with field correlation \(r\) is the hypergeometric expression (verified by Monte Carlo: \(r\) = 0.5 gives 0.2326). Independent looks: \(\mathrm{SNR}_0 = 1.91\sqrt{N}\) exactly.</span>
+    </div>
+    <p><strong>Coherent compounding</strong> (summing IQ, as in plane-wave compounding) is different in kind. Any linear combination of jointly circular Gaussian fields is circular Gaussian, so the compounded envelope is Rayleigh again: \(C_I = 1\) and \(\mathrm{SNR}_0\) = 1.91 for every \(N\). What coherent summation buys is a wider k-space support (finer speckle, lower sidelobes and clutter) and \(10\log_{10}N\) of gain over incoherent noise (Module 23).</p>
+    <p><strong>Decorrelation is k-space overlap.</strong> Two looks of the same delta-correlated scatterers through transfer functions \(H_1\) and \(H_2\) have field correlation</p>
+    <div class="eqn" id="m26-eq13">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &amp;r_{12} = \frac{\int H_1 H_2^*}{\sqrt{\int\lvert H_1\rvert^2 \int\lvert H_2\rvert^2}}, \qquad \rho_I = \lvert r_{12}\rvert^2 \\ &amp;\text{sub-aperture } w \text{ translated by } d:\quad r = 1 - 1.5s^2 + 0.75s^3 \ \ \text{for } s = \frac{2d}{w} \le 1 \\ &amp;\phantom{\text{sub-aperture } w \text{ translated by } d:\quad} r = \frac{(2 - s)^3}{4}\ \ \text{for } 1 &lt; s &lt; 2 \\ &amp;\text{plane waves at } \theta_1, \theta_2,\ \text{receive } F_\#:\quad r = \max\!\left(0,\ 1 - \lvert\sin\theta_1 - \sin\theta_2\rvert\, F_\#\right) \end{aligned} \]</div><span class="eqn-no">(26.13)</span></div>
+      <dl class="where"><dt>\(H_1, H_2\)</dt><dd>pulse-echo transfer functions of the two looks</dd><dt>\(w, d\)</dt><dd>sub-aperture width and translation (tx and rx), mm</dd><dt>\(s\)</dt><dd>coarray shift \(2d/w\)</dd><dt>\(\theta_{1,2}\)</dt><dd>plane-wave steering angles</dd><dt>\(r_{12},\ r\)</dt><dd>complex field correlation between two looks</dd><dt>\(\rho_I\)</dt><dd>intensity correlation, as in (26.11)</dd><dt>\(H_2^*\)</dt><dd>complex conjugate of \(H_2\)</dd><dt>\(\int\)</dt><dd>integral over the transfer-function support</dd><dt>\(F_\#\)</dt><dd>receive F-number, dimensionless</dd><dt>\(\max\)</dt><dd>larger of the two arguments</dd></dl>
+      <span class="note">Sub-aperture: the coarray triangle shifts by \(2d\). Plane waves: the lateral support is a rect of width \(1/(\lambda F_\#)\) centred at \(\sin\theta/\lambda\). \(d = w/4\): \(\rho_I\) = 0.52; \(d = w/2\): 0.0625 (Burckhardt 1978 and Trahey, Smith and von Ramm 1986 discuss translation decorrelation). Plane waves, F# 1.5: \(\Delta\theta\) = 5° gives \(\rho_I\) = 0.76, 10° gives 0.55; complete decorrelation needs \(\Delta\theta \approx 1/F_\#\) rad. Frequency compounding: disjoint sub-bands have zero overlap, hence independent, at \(N\)× the axial speckle size.</span>
+    </div>
+  </div>
+  <div class="rf-grid" id="m26-cmp"></div>
+  <div class="rf-grid" id="m26-g5"></div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 26.4</span><h3>Incoherent vs coherent compounding: N looks, inter-look correlation, SNR<sub>0</sub> vs √N</h3><span class="prov sim">Simulation</span><span class="prov-note">256 × 256 IQ images from a k-space filtered scatterer field (2D FFT, JS): equicorrelated looks by mixing, or plane-wave looks through shifted receive rects; theory curves from (26.11)–(26.13).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m26-d4-cv" aria-label="Single look, incoherent and coherent compound images and SNR0 versus number of looks"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>incoherent (envelope average): theory · measured</span><span><i style="background:var(--muted)"></i>independent-look limit 1.91√N</span><span><i style="background:var(--sig2)"></i>coherent (IQ sum)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m26-d4-m">Looks</label><select id="m26-d4-m"><option value="eq">equicorrelated (field correlation r)</option><option value="pw">steered plane waves (k-space shift)</option></select></div>
+        <div class="ctrl"><label for="m26-d4-n">Number of looks N <output id="m26-d4-n-o">5</output></label><input type="range" id="m26-d4-n" min="1" max="15" step="2" value="5"></div>
+        <div class="ctrl"><label for="m26-d4-r">Field correlation r <output id="m26-d4-r-o">0.30</output></label><input type="range" id="m26-d4-r" min="0" max="1" step="0.05" value="0.3"></div>
+        <div class="ctrl"><label for="m26-d4-t">Angle step Δθ (°) <output id="m26-d4-t-o">2</output></label><input type="range" id="m26-d4-t" min="0.5" max="6" step="0.5" value="2"></div>
+        <div class="ctrl"><label for="m26-d4-f">Receive F# <output id="m26-d4-f-o">1.5</output></label><input type="range" id="m26-d4-f" min="1" max="3" step="0.25" value="1.5"></div>
+        <div class="readout" id="m26-d4-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Model:</strong> 256 × 256 IQ images (6.4 mm × 12.8 mm), 5 MHz, 60% bandwidth. Equicorrelated looks are \(z_k = \sqrt{r}\,z_0 + \sqrt{1 - r}\,w_k\). Plane-wave looks image the same scatterers through receive-aperture rects shifted by \(\sin\theta_k/\lambda\) in lateral k-space. Images show \(20\log_{10}(A/\langle A\rangle)\) on a −25…+8 dB scale. <strong>Try:</strong> \(r = 0\): incoherent \(\mathrm{SNR}_0\) follows \(1.91\sqrt{N}\) while the coherent sum stays at 1.91. Plane waves at F# 1.5: 15 looks at \(\Delta\theta\) = 1° (14° span) give only \(N_{\mathrm{eff}} \approx 1.3\), and even \(\Delta\theta\) = 4° (56° span) gives 2.7. The coherent image gets finer, never smoother. The angle and F# sliders recompute 15 images when released.</div>
+  </div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Plane-wave compounding papers sum angles coherently for resolution and clutter, then sometimes add incoherent compounding of sub-groups to reduce speckle. The k-space overlap rule says the small angular steps used for coherent compounding (Module 23) give strongly correlated looks: an incoherent average of ±10° at F# 1.5 reduces speckle contrast by much less than \(\sqrt{N}\).</p></div>
+
+  <!-- ===================== 26.6 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">26.6</span>Image-quality metrics: contrast, CNR and gCNR</h2>
+    <p>Definitions used in this module (state yours in every paper; reviewers check):</p>
+    <div class="eqn key" id="m26-eq14">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} C &amp;= 10\log_{10}\frac{\langle I\rangle_{\mathrm{in}}}{\langle I\rangle_{\mathrm{out}}}\ \ \mathrm{dB} \quad (\text{ratio of mean intensities}) \\ \mathrm{CNR} &amp;= \frac{\lvert\mu_{\mathrm{in}} - \mu_{\mathrm{out}}\rvert}{\sqrt{\sigma_{\mathrm{in}}^2 + \sigma_{\mathrm{out}}^2}} \quad \text{on the linear envelope } A = \lvert z\rvert \\ \mathrm{gCNR} &amp;= 1 - \mathrm{OVL}, \qquad \mathrm{OVL} = \int \min\!\left(p_{\mathrm{in}}(v),\, p_{\mathrm{out}}(v)\right) dv \end{aligned} \]</div><span class="eqn-no">(26.14)</span></div>
+      <dl class="where"><dt>\(\langle I\rangle_{\mathrm{in}}, \langle I\rangle_{\mathrm{out}}\)</dt><dd>mean intensity inside the lesion ROI and in the background ROI</dd><dt>\(\mu, \sigma\)</dt><dd>mean and std of the envelope in each ROI</dd><dt>\(p_{\mathrm{in}}, p_{\mathrm{out}}\)</dt><dd>pdfs (histograms) of the pixel value \(v\) in each ROI</dd><dt>\(\mathrm{OVL}\)</dt><dd>overlap of the two pdfs</dd><dt>\(C\)</dt><dd>lesion contrast, dB</dd><dt>\(\mathrm{CNR}\)</dt><dd>contrast-to-noise ratio, dimensionless</dd><dt>\(\mu_{\mathrm{in}},\ \mu_{\mathrm{out}},\ \sigma_{\mathrm{in}},\ \sigma_{\mathrm{out}}\)</dt><dd>envelope mean and std inside and outside the lesion, linear units</dd><dt>\(A\)</dt><dd>linear envelope \(\lvert z\rvert\), as in (26.1)</dd><dt>\(\mathrm{gCNR}\)</dt><dd>generalized CNR, 0 (identical pdfs) to 1 (disjoint)</dd><dt>\(v\)</dt><dd>pixel value (integration variable)</dd><dt>\(\min\)</dt><dd>smaller of the two pdfs at each \(v\)</dd></dl>
+      <span class="note">Common variants of CNR: the same ratio on intensity, on the dB image, or with \(\sigma_{\mathrm{out}}\) alone in the denominator. Contrast is also often computed as \(20\log_{10}(\mu_{\mathrm{in}}/\mu_{\mathrm{out}})\) of envelope means, which equals \(C\) only when both regions have the same envelope distribution shape.</span>
+    </div>
+    <p>For two regions of fully developed speckle (any intensity ratio \(r = \langle I\rangle_{\mathrm{out}}/\langle I\rangle_{\mathrm{in}}\); noise inside a cyst is circular Gaussian too) every metric is a closed-form function of \(r\). With \(q = 1/\sqrt{r}\):</p>
+    <div class="eqn" id="m26-eq15">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \mathrm{CNR}_{\mathrm{env}} &amp;= \frac{\frac{\sqrt{\pi}}{2}(1 - q)}{\sqrt{\left(1 - \frac{\pi}{4}\right)(1 + q^2)}}, \qquad \mathrm{CNR}_{\mathrm{int}} = \frac{1 - 1/r}{\sqrt{1 + 1/r^2}}, \qquad \mathrm{CNR}_{\mathrm{dB}} = \frac{\lvert C\rvert}{\sqrt{2}\cdot 5.57} \\ \mathrm{gCNR} &amp;= r^{-1/(r-1)}\left(1 - \frac{1}{r}\right) \qquad \left(\text{exponential pdfs cross at } t = \frac{r\ln r}{r - 1}\right) \end{aligned} \]</div><span class="eqn-no">(26.15)</span></div>
+      <dl class="where"><dt>\(r\)</dt><dd>intensity ratio \(\langle I\rangle_{\mathrm{out}}/\langle I\rangle_{\mathrm{in}}\) of two speckle regions, \(\ge 1\)</dd><dt>\(q\)</dt><dd>envelope ratio \(1/\sqrt{r}\)</dd><dt>\(\mathrm{CNR}_{\mathrm{env}},\ \mathrm{CNR}_{\mathrm{int}}\)</dt><dd>CNR on the linear envelope and on the intensity</dd><dt>\(\mathrm{CNR}_{\mathrm{dB}}\)</dt><dd>CNR on the log-compressed (dB) image</dd><dt>\(C\)</dt><dd>contrast in dB, as in (26.14)</dd><dt>\(5.57\)</dt><dd>std of a log-compressed speckle pixel, dB, as in (26.3)</dd><dt>\(\mathrm{gCNR}\)</dt><dd>generalized CNR, as in (26.14)</dd><dt>\(t\)</dt><dd>intensity at which the two exponential pdfs cross</dd><dt>\(\ln\)</dt><dd>natural logarithm</dd><dt>\(\pi\)</dt><dd>3.14159</dd></dl>
+      <span class="note">The dB-image CNR grows without bound as the contrast grows; the envelope CNR saturates at 1.913 and the intensity CNR at 1. gCNR is the total-variation distance between the two distributions; an ideal per-pixel classifier with equal priors succeeds with probability \((1 + \mathrm{gCNR})/2\).</span>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Contrast C</th><th class="num">CNR env</th><th class="num">CNR intensity</th><th class="num">CNR dB (pooled σ)</th><th class="num">CNR dB (\(\sigma_{\mathrm{out}}\))</th><th class="num">gCNR</th></tr></thead>
+      <tbody>
+        <tr><td>−3 dB</td><td class="num">0.456</td><td class="num">0.446</td><td class="num">0.381</td><td class="num">0.539</td><td class="num">0.249</td></tr>
+        <tr><td>−6 dB</td><td class="num">0.853</td><td class="num">0.726</td><td class="num">0.762</td><td class="num">1.077</td><td class="num">0.471</td></tr>
+        <tr><td>−10 dB</td><td class="num">1.247</td><td class="num">0.896</td><td class="num">1.269</td><td class="num">1.795</td><td class="num">0.697</td></tr>
+        <tr><td>−20 dB</td><td class="num">1.713</td><td class="num">0.990</td><td class="num">2.539</td><td class="num">3.591</td><td class="num">0.945</td></tr>
+        <tr><td>anechoic, no noise</td><td class="num">1.913</td><td class="num">1.000</td><td class="num">set by DR: (DR − 2.51)/5.57</td><td class="num">same</td><td class="num">1</td></tr>
+      </tbody>
+    </table></div>
+    <p>Why gCNR is immune to the display map: if \(v = T(A)\) with \(T\) strictly monotone, both densities transform with the same Jacobian, \(p_v(v) = p_A(T^{-1}(v))\, \lvert dT^{-1}/dv\rvert\), so the overlap integral is unchanged. Means and variances are not: CNR on a log image depends on the compression, and on the clipping floor (dynamic range). Clipping maps many values to one, so it can lower gCNR (information is lost) but never raise it.</p>
+  </div>
+  <figure class="afig" id="m26-fig-cyst">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Cyst ROI definitions used in Demo 26.5 and m26_cyst_cnr_gcnr.m</b><span class="prov-note">Inner disk, excluded ring and background annulus drawn to scale relative to the cyst radius; cell counts use the speckle correlation area 0.24 × 0.55 mm (5 MHz, 60 %, F#2).</span></div>
+    <div class="mx-scroll"><svg viewBox="0 0 820 300" role="img" aria-label="A circular cyst of radius R equal to 2.5 millimetres. Inside, an inner ROI disk of radius 0.8 R. Outside, a background annulus from 1.3 R to 1.9 R. The ring between 0.8 R and 1.3 R is excluded as the PSF and sidelobe transition. A side panel lists the cell counts.">
+      <g transform="translate(200 150)">
+        <circle r="133" class="bg"/><circle r="91" class="mask"/>
+        <circle r="70" class="cyst"/><circle r="56" class="inn"/>
+        <path d="M0 0 H70" class="dim"/><text x="18" y="-6" class="s">R = 2.5 mm</text>
+        <path d="M0 0 L-39.6 39.6" class="dim"/><text x="-60" y="62" class="s">0.8 R</text>
+        <path d="M0 0 L0 -91" class="dim2"/><text x="6" y="-80" class="s">1.3 R</text>
+        <path d="M0 0 L-94 -94" class="dim2"/><text x="-136" y="-100" class="s">1.9 R</text>
+        <text x="0" y="22" class="c">inner ROI</text>
+        <text x="0" y="122" class="c">background annulus</text>
+      </g>
+      <text x="390" y="40" class="t">ROI rules</text>
+      <text x="390" y="64" class="m">inner disk r &lt; 0.8 R = 2.0 mm: away from the edge blur</text>
+      <text x="390" y="84" class="m">excluded ring 0.8 R–1.3 R: PSF leakage and sidelobe ring</text>
+      <text x="390" y="104" class="m">background annulus 1.3 R–1.9 R (same depth range)</text>
+      <text x="390" y="136" class="t">Independent speckle cells (7.5 per mm²)</text>
+      <text x="390" y="160" class="m">inner disk: π·2.0² ≈ 12.6 mm² → ≈ 94 cells</text>
+      <text x="390" y="180" class="m">annulus: π(4.75² − 3.25²) ≈ 37.7 mm² → ≈ 280 cells</text>
+      <text x="390" y="212" class="a">count cells, not pixels: ≈ 100 cells → CNR and gCNR scatter</text>
+      <text x="390" y="232" class="s">two same-statistics regions of this size read gCNR ≈ 0.1</text>
+      <text x="390" y="262" class="s">contrast: C = 10 log₁₀(mean Iᵢₙ / mean Iₒᵤₜ) from these two ROIs</text>
+    </svg></div>
+  </figure>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 26.5</span><h3>Cyst phantom: contrast, four CNRs and gCNR as dynamic range and compression change</h3><span class="prov sim">Simulation</span><span class="prov-note">k-space filtered speckle image with an attenuated disk (2D FFT, JS), additive circular Gaussian noise, clipping at −DR and the selected display map; metrics from the ROIs drawn above.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m26-d5-cv" aria-label="Cyst phantom image and inside versus outside histograms"></canvas>
+        <div class="legend"><span><i style="background:var(--sig2)"></i>inside ROI (r &lt; 0.8 R)</span><span><i style="background:var(--accent)"></i>background annulus (1.3–1.9 R)</span><span><i style="background:var(--muted)"></i>overlap = 1 − gCNR</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m26-d5-c">Cyst contrast (dB) <output id="m26-d5-c-o">−20</output></label><input type="range" id="m26-d5-c" min="-50" max="0" step="1" value="-20"></div>
+        <div class="ctrl"><label for="m26-d5-z">Noise power re speckle (dB) <output id="m26-d5-z-o">−50</output></label><input type="range" id="m26-d5-z" min="-60" max="0" step="2" value="-50"></div>
+        <div class="ctrl"><label for="m26-d5-d">Dynamic range DR (dB) <output id="m26-d5-d-o">50</output></label><input type="range" id="m26-d5-d" min="10" max="80" step="2" value="50"></div>
+        <div class="ctrl"><label for="m26-d5-t">Display map</label><select id="m26-d5-t"><option value="log">log: 20 log₁₀ A</option><option value="pow">power law: A^0.3</option><option value="lin">linear envelope A</option></select></div>
+        <div class="btn-row"><button class="btn" id="m26-d5-rs" type="button">New scatterers</button></div>
+        <div class="readout" id="m26-d5-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Model:</strong> 5 MHz, 60% bandwidth, F#2 rect apodization; 10.2 mm × 12.8 mm; cyst radius \(R\) = 2.5 mm; displayed value \(v = T(\max(A/A_{\mathrm{rms,out}},\ 10^{-\mathrm{DR}/20}))\). gCNR uses 100 bins at quantiles of the pooled data, so it is exactly invariant to strictly monotone maps. <strong>Try:</strong> anechoic cyst (slider at −50), log map: drag DR from 80 to 20 dB and the displayed CNR swings between about 7 (near 50 dB) and 3 (at 20 dB) while gCNR barely moves (clipping at 20 dB merges the darkest 1% of background pixels with the cyst). Switch to the linear map: CNR drops to about 1.9. Raise the noise to −10 dB: contrast, CNR and gCNR all fall together, because noise really fills the cyst.</div>
+  </div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>ROI placement and size decide the answer. Keep the inner ROI away from the edge (PSF leakage), the outer annulus out of the cyst's sidelobe ring, and count independent speckle cells, not pixels: a 2.5 mm cyst at 7.5 cells/mm² holds about 95 cells inside the 0.8 \(R\) disk. With that few cells, gCNR between two regions of identical statistics reads about 0.1 (MATLAB lab), and \(\mathrm{CNR}_{\mathrm{env}}\) can exceed the 1.91 ceiling by chance.</p></div>
+
+  <!-- ===================== 26.7 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">26.7</span>Detection in speckle and noise backgrounds</h2>
+    <p>Two detection problems recur: is there a bubble (ULM) or a point target at this pixel, and can an observer see this lesion? Both reduce to the tails and moments derived above.</p>
+    <div class="eqn key" id="m26-eq16">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &amp;\text{complex Gaussian background (noise or speckle):} \\ &amp;P_{fa} = P(I &gt; T) = e^{-T/\langle I\rangle} \;\;\Rightarrow\;\; T = -\ln P_{fa}\cdot\langle I\rangle \\ &amp;P_{fa} = 10^{-3}:\ T = 6.9\langle I\rangle\ (8.4\ \mathrm{dB}), \qquad P_{fa} = 10^{-6}:\ T = 13.8\langle I\rangle\ (11.4\ \mathrm{dB}) \\ &amp;\text{target of power } S \text{ (Rician):}\quad P_d = Q_1\!\left(\sqrt{2S/\langle I\rangle},\ \sqrt{2T/\langle I\rangle}\right) \end{aligned} \]</div><span class="eqn-no">(26.16)</span></div>
+      <dl class="where"><dt>\(T\)</dt><dd>intensity threshold</dd><dt>\(P_{fa}\)</dt><dd>per-pixel false-alarm probability</dd><dt>\(S\)</dt><dd>target (bubble) power</dd><dt>\(P_d\)</dt><dd>detection probability</dd><dt>\(Q_1\)</dt><dd>Marcum Q function of order 1</dd><dt>\(\langle I\rangle\)</dt><dd>mean background intensity, as in (26.1)</dd><dt>\(P(I &gt; T)\)</dt><dd>probability that a background pixel exceeds the threshold</dd><dt>\(\ln\)</dt><dd>natural logarithm</dd><dt>\(Q_1(a, b)\)</dt><dd>Marcum Q function; a = \(\sqrt{2S/\langle I\rangle}\) sets the target strength, b = \(\sqrt{2T/\langle I\rangle}\) the threshold</dd></dl>
+      <span class="note">At \(P_{fa} = 10^{-6}\): \(S/\langle I\rangle\) = 10 dB gives \(P_d\) = 0.25, 13 dB gives 0.87, 15 dB gives 0.997.</span>
+    </div>
+    <div class="eqn" id="m26-eq17">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &amp;\text{K-distributed background } (\langle I\rangle = 1): \\ &amp;P(I &gt; T) = \int \mathrm{Gamma}(x; \alpha)\, e^{-T/x}\, dx = \frac{2}{\Gamma(\alpha)}\, (\alpha T)^{\alpha/2}\, K_\alpha\!\left(2\sqrt{\alpha T}\right) \end{aligned} \]</div><span class="eqn-no">(26.17)</span></div>
+      <dl class="where"><dt>\(\alpha\)</dt><dd>K shape parameter (Gamma-distributed local mean \(x\), unit mean)</dd><dt>\(K_\alpha\)</dt><dd>modified Bessel function of the second kind</dd><dt>\(I,\ T\)</dt><dd>intensity and threshold, in units of \(\langle I\rangle\)</dd><dt>\(\mathrm{Gamma}(x; \alpha)\)</dt><dd>Gamma density of the local mean \(x\), shape \(\alpha\), unit mean</dd><dt>\(x\)</dt><dd>local mean intensity (integration variable)</dd><dt>\(\Gamma(\alpha)\)</dt><dd>gamma function</dd><dt>\(\langle I\rangle\)</dt><dd>global mean intensity, set to 1</dd></dl>
+      <span class="note">At the Rayleigh \(10^{-6}\) threshold, \(\alpha\) = 10, 4 and 1 give false-alarm rates of 3.4×10⁻⁵, 1.9×10⁻⁴ and 2.1×10⁻³: heavy tails from residual clutter or sparse bright scatterers multiply false detections by orders of magnitude.</span>
+    </div>
+    <div class="eqn" id="m26-eq18">
+      <div class="eqn-body"><div class="eqn-math">\[ d' \approx C\sqrt{N_{\mathrm{cells}}}, \qquad C = 1 - \frac{\langle I\rangle_{\mathrm{in}}}{\langle I\rangle_{\mathrm{out}}} \qquad (\text{low contrast, ideal observer}) \]</div><span class="eqn-no">(26.18)</span></div>
+      <dl class="where"><dt>\(d'\)</dt><dd>detectability index</dd><dt>\(C\)</dt><dd>fractional lesion contrast (here a linear ratio, not dB)</dd><dt>\(N_{\mathrm{cells}}\)</dt><dd>independent speckle cells covered by the lesion</dd><dt>\(\langle I\rangle_{\mathrm{in}},\ \langle I\rangle_{\mathrm{out}}\)</dt><dd>mean intensity inside the lesion and in the background, as in (26.14)</dd><dt>\(\approx\)</dt><dd>valid for \(\lvert C\rvert \ll 1\) (low contrast)</dd></dl>
+      <span class="note">The mean intensity over \(N\) cells has relative std \(1/\sqrt{N}\) (\(C_I\) = 1 per cell). 5 MHz, 60%, F#2 (7.5 cells/mm²): a 3 mm lesion holds 53 cells; 1 dB contrast (\(C\) = 0.206) gives \(d' \approx 1.5\), 3 dB gives 3.6. This is the speckle-limited contrast-detail trade-off analysed by Smith, Wagner, Sandrik and Lopez (1983).</span>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 26.6</span><h3>Thresholding a speckle or noise background: P<sub>fa</sub>, P<sub>d</sub> and heavy tails</h3><span class="prov exact">Exact formula</span><span class="prov-note">Exponential, Rician and K pdfs and tail probabilities (26.16)–(26.17), evaluated by numerical quadrature of their closed forms.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m26-d6-cv" aria-label="Background and target intensity distributions and detection curves"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>Rayleigh background</span><span><i style="background:var(--sig2)"></i>K background (selected α)</span><span><i style="background:var(--sig4)"></i>target + Gaussian background (Rician)</span><span><i style="background:var(--sig3)"></i>threshold</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m26-d6-t">Threshold T re ⟨I⟩ (dB) <output id="m26-d6-t-o">11.4</output></label><input type="range" id="m26-d6-t" min="0" max="18" step="0.2" value="11.4"></div>
+        <div class="ctrl"><label for="m26-d6-s">Target SNR S/⟨I⟩ (dB) <output id="m26-d6-s-o">13</output></label><input type="range" id="m26-d6-s" min="0" max="25" step="0.5" value="13"></div>
+        <div class="ctrl"><label for="m26-d6-k">K-background shape α</label><select id="m26-d6-k"><option value="1">α = 1</option><option value="4" selected>α = 4</option><option value="10">α = 10</option></select></div>
+        <div class="readout" id="m26-d6-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> set \(T\) = 11.4 dB (\(P_{fa} = 10^{-6}\) per pixel on a Rayleigh background) and switch \(\alpha\): the same threshold lets through 30 to 2000 times more false detections. A ULM frame of 10⁵ pixels and 10⁴ frames contains 10⁹ pixel tests, so even 10⁻⁶ means about a thousand false bubbles before tracking removes them.</div>
+  </div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>After SVD clutter filtering (Module 06) the ULM background is thermal noise plus residual tissue and blood signal. Noise power varies with depth (TGC) and across the aperture, so a fixed global threshold is not a fixed \(P_{fa}\): normalize by a local noise estimate first (a constant-false-alarm-rate detector), and check the background histogram against the exponential law before trusting a threshold.</p></div>
+
+  <!-- ===================== Visual summary ===================== -->
+  <h2><span class="sec">26.8</span>Visual summary</h2>
+  <div class="prose"><p>Fifteen questions an expert answers in five seconds, each with the picture to keep in mind. Every curve is computed from the formula in the answer. The slider rescales the two transform-pair cards: a longer pulse or a larger \(\lambda F_\#\) gives bigger speckle and a narrower spectrum.</p></div>
+  <div class="demo"><div class="demo-body stack"><div class="controls">
+    <div class="ctrl"><label for="m26-vis-T">Scale T (pulse length or λF#) <output id="m26-vis-T-o">1.00</output></label><input type="range" id="m26-vis-T" min="0.5" max="2" step="0.05" value="1"></div>
+  </div></div></div>
+  <div class="rf-grid" id="m26-vis"></div>
+
+  <!-- ===================== Experts ===================== -->
+  <h2><span class="sec">26.9</span>How experts think about it</h2>
+  <div class="prose"><p>The expert model has three layers. First, fully developed speckle is a circular Gaussian field, so its first-order statistics are fixed numbers (1.91, 1, 5.57 dB, −2.51 dB) and any departure is information: about scatterer density, coherent structure, or your processing. Second, its second-order statistics are the PSF: speckle size, decorrelation and compounding gain all follow from overlaps in k-space. Third, an image-quality metric is a statistic of two distributions, and only metrics invariant to the display map (gCNR) or computed on a stated, linear representation can be compared between papers.</p></div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">The mean of a dB speckle image sits 2.51 dB below the dB of the mean intensity, at any gain.</div>
+      <div class="keynum"><span>\(\mathrm{E}D = -10\gamma/\ln 10\) = −2.51 dB</span><span>\(\mathrm{std}\,D\) = 5.57 dB</span></div>
+      <div class="why"><p>\(u = \ln(I/\langle I\rangle)\) of an exponential variable has mean \(\Gamma'(1) = -\gamma = -0.5772\) and variance \(\pi^2/6\). Multiply by 4.343: −2.507 dB and 5.570 dB <span class="eqref">(26.3)</span>; gain adds a constant to both regions. So a contrast taken as a difference of mean dB values equals 10 log of the intensity ratio only when both regions have the same distribution shape. A Rician target at \(r\) = 10 dB has a log mean of −0.41 dB re its own mean intensity: a mean-dB contrast against Rayleigh background is off by 2.1 dB.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Rayleigh and Rician log-intensity pdfs, moments by numerical quadrature.</span><canvas id="m26-rf-1" aria-label="Figure for rule 1"></canvas></div></div>
+      <div class="limits">Fully developed speckle on both sides, no clipping at the display floor or ceiling, statistics on unfiltered data.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Envelope SNR above 1.91 means a coherent component; below 1.91 means too few scatterers or a fluctuating mean.</div>
+      <div class="keynum"><span>Rayleigh 1.913</span><span>Rician 10 dB: 4.65</span><span>K \(\alpha = 1\): 1.27</span></div>
+      <div class="why"><p>Rayleigh sits between two families. A steady phasor narrows the relative spread: \(\mathrm{SNR}_0\) = 2.15, 3.13, 4.65 at \(r = A^2/P\) = 0, 6, 10 dB. Sparse scatterers or a varying local mean fatten the tail: K with \(\alpha\) = 10, 4, 1 gives 1.81, 1.68, 1.27. Check the pipeline on a phantom first: with \(n\) independent cells the estimate scatters by about \(1.36/\sqrt{n}\) (±0.04 for 1000 cells), so 1.91 ± 0.04 is a pass.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Rician SNR₀ by quadrature of the Rician pdf; K SNR₀ from Gamma-function moments.</span><canvas id="m26-rf-2" aria-label="Figure for rule 2"></canvas></div></div>
+      <div class="limits">Only on the linear envelope before log compression, smoothing or interpolation. Noise is also Rayleigh, and TGC gradients inside the window lower the number. One moment ratio cannot identify the model.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Nakagami m is one over the squared intensity contrast: m = 1 is Rayleigh, m &lt; 1 pre-Rayleigh, m &gt; 1 post-Rayleigh.</div>
+      <div class="keynum"><span>\(\hat m = (\mathrm{E}R^2)^2/\mathrm{var}\,R^2\)</span><span>\(m \ge \tfrac12\)</span><span>\(m = (1+r)^2/(1+2r+\kappa/\bar N)\)</span></div>
+      <div class="why"><p>Nakagami matches the first two intensity moments with a gamma law for \(I\), so \(m = \langle I\rangle^2/\mathrm{var}\,I = 1/C_I^2\). In the Poisson-plus-coherent model one formula covers both sides <span class="eqref">(26.4)</span>: \(\bar N\) = 10 equal scatterers give 0.91; \(r\) = 10 dB with many scatterers gives 5.76. That is why \(m\) maps are popular: one number, monotone in both departures (Shankar, IEEE TUFFC, 2000).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m26-rf-3" aria-label="Figure for rule 3"></canvas></div></div>
+      <div class="limits">It does not identify the mechanism: homodyned K with (\(r = 0\), \(\alpha = 18\)) and (\(r\) = 3 dB, \(\alpha = 0.4\)) both give \(m = 0.90\), but \(\mathrm{SNR}_0\) 1.85 vs 2.45 and log std 5.67 vs 3.50 dB. Use higher moments or a full homodyned-K fit when the mechanism matters.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A coherent component 10 dB above the diffuse power takes m from 1 to 5.8 and the log-speckle spread from 5.57 to 2.0 dB.</div>
+      <div class="keynum"><span>\(m = (1+r)^2/(1+2r)\)</span><span>0 dB: 1.33</span><span>6 dB: 2.77</span></div>
+      <div class="why"><p>\(I = \lvert A + z\rvert^2\) gives \(\langle I\rangle = A^2 + P\) and \(\mathrm{var}\,I = P^2 + 2A^2P\), hence \(C_I^2 = (1 + 2r)/(1 + r)^2\) and \(m \approx r/2\) for large \(r\). Inverting, \(r = m - 1 + \sqrt{m^2 - m}\). Log-image std (MATLAB lab): 5.09, 3.29, 2.00 dB at \(r\) = 0, 6, 10 dB. Specular interfaces and point targets read as post-Rayleigh, and so does an echo from a strong reflector leaking through a sidelobe.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Log-intensity std of the Rician law by numerical quadrature.</span><canvas id="m26-rf-4" aria-label="Figure for rule 4"></canvas></div></div>
+      <div class="limits">Assumes exactly one deterministic phasor plus circular Gaussian diffuse scattering; a handful of strong scatterers is not one coherent phasor.</div>
+    </div>
+    <div class="rule">
+      <div class="say">K-distributed speckle has \(C_I^2 = 1 + 2/\alpha\), and \(\alpha\) is about twice the number of equal scatterers per correlation cell.</div>
+      <div class="keynum"><span>\(m = \alpha/(\alpha+2)\)</span><span>\(\alpha = 2N_c\) (equal)</span><span>\(\alpha = N_c\) (Rayleigh amplitudes)</span></div>
+      <div class="why"><p>Compound model: exponential speckle whose local mean \(x\) fluctuates as Gamma(\(\alpha\), mean 1), \(I = xE\). Then \(\mathrm{E}I^2 = 2\mathrm{E}x^2 = 2(1 + 1/\alpha)\). Poisson counts give \(C_I^2 = 1 + \kappa/N_c\) <span class="eqref">(26.5)</span>, which matches \(\alpha = 2N_c/\kappa\). The tail is what hurts detection: at the Rayleigh \(10^{-6}\) threshold, \(\alpha = 1\) gives a false-alarm rate of 2.1×10⁻³ <span class="eqref">(26.17)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Tail probabilities (26.16) and (26.17), Bessel K by quadrature.</span><canvas id="m26-rf-5" aria-label="Figure for rule 5"></canvas></div></div>
+      <div class="limits">K is exact for a negative-binomial number of scatterers (Jakeman and Pusey); for Poisson counts only the second moment matches. Mean drift from structure or uncorrected TGC also looks K-like.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Ten scatterers per resolution cell is fully developed speckle to within a few percent.</div>
+      <div class="keynum"><span>\(N_c = N_{-6\,\mathrm{dB}}/\ln 2\)</span><span>\(N_{-6\,\mathrm{dB}} = 10\): \(m\) = 0.935</span><span>\(\mathrm{SNR}_0\) ≈ 1.84–1.88</span></div>
+      <div class="why"><p>Campbell's theorem for Poisson scatterers under a PSF gives \(C_I^2 = 1 + \kappa/N_c\), with \(N_c = n(\int\lvert h\rvert^2)^2/\int\lvert h\rvert^4\). For a Gaussian PSF the correlation area \(2\pi\sigma_x\sigma_z\) is \(1/\ln 2\) = 1.44 times the −6 dB ellipse <span class="eqref">(26.6)</span>. Ten per −6 dB cell: \(N_c\) = 14.4, \(m\) = 0.935 (equal amplitudes) or 0.878 (Rayleigh amplitudes), \(\mathrm{SNR}_0\) 1.88 or 1.84, within 2–4% of 1.91 (Demo 26.2).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m26-rf-6" aria-label="Figure for rule 6"></canvas></div></div>
+      <div class="limits">The count depends on the cell definition (a factor \(\ln 2\)) and on the amplitude spread \(\kappa\); in 3D the cell includes the elevation slice; clustered scatterers act as fewer, stronger ones.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A Nakagami estimate from n independent speckle cells has a standard deviation of about 2/√n.</div>
+      <div class="keynum"><span>\(\mathrm{std}\,\hat m \approx 2/\sqrt{n}\)</span><span>±0.1 needs \(n\) ≈ 400</span><span>≈ 53 mm² at 7.5 cells/mm²</span></div>
+      <div class="why"><p>Delta method on \(\hat m = \hat\mu^2/\hat v\) for exponential intensity: gradient (2, −1), \(\mathrm{var}\,\hat\mu = 1/n\), \(\mathrm{var}\,\hat v = 8/n\), cov = \(2/n\), so \(\mathrm{var}\,\hat m = (4 + 8 - 8)/n = 4/n\) <span class="eqref">(26.7)</span>. Monte Carlo: \(\mathrm{std}\cdot\sqrt{n}\) = 2.13, 2.01, 1.98, 1.91 for \(n\) = 25 to 1600, and \(\hat m\) is biased upward at small \(n\) (1.22 at \(n\) = 25). At 5 MHz, F#2 a ±0.1 map needs a 7 mm window: Nakagami images trade resolution for precision.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Line: 2/√n. Dots: Monte Carlo, 400 trials of n exponential samples, JS.</span><canvas id="m26-rf-7" aria-label="Figure for rule 7"></canvas></div></div>
+      <div class="limits">Counts independent cells, not pixels; \(m &lt; 1\) (heavier tails) inflates the variance further; windowed estimates near boundaries mix two populations.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Speckle size is the FWHM of \(\lvert\mu\rvert^2\): about \(0.44\,c/B\) axially and \(0.84\,\lambda F_\#\) laterally, slightly smaller than the −6 dB PSF.</div>
+      <div class="keynum"><span>axial \(0.441\,c/B\)</span><span>lateral \(0.835\,\lambda F_\#\) (rect), 1.40 (Hann)</span><span>5 MHz, 60%, F#2: 0.23 × 0.51 mm</span></div>
+      <div class="why"><p>Siegert: for circular Gaussian fields the intensity autocovariance is \(\langle I\rangle^2\lvert\mu\rvert^2\), \(\mu = \mathcal{F}^{-1}\{\lvert H\rvert^2\}\) normalized <span class="eqref">(26.8)</span>. Gaussian pulse: \(\lvert\mu\rvert^2 = \exp(-2\pi^2 s_f^2\tau^2)\), FWHM \(4\ln 2/(\pi B) = 0.883/B\) in time <span class="eqref">(26.9)</span>. Rect aperture, two-way: \(\lvert H\rvert\) is a triangle and the FWHM of \(\lvert\mu\rvert^2\) is \(0.835\,\lambda F_\#\), against \(0.886\,\lambda F_\#\) for the two-way PSF at −6 dB <span class="eqref">(26.10)</span>. This sharpens Module 07's "speckle is the PSF size" into numbers.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">\(\lvert\mu\rvert^2\) from the transform of the squared coarray triangle; PSF = sinc² (dashed).</span><canvas id="m26-rf-8" aria-label="Figure for rule 8"></canvas></div></div>
+      <div class="limits">Focal plane, narrowband laterally, delta-correlated scatterers. Off focus the lateral size follows the local beam width; log images and scan conversion change the apparent size.</div>
+    </div>
+    <div class="rule">
+      <div class="say">N independent looks cut intensity speckle contrast by √N; correlated looks count as \(N_{\mathrm{eff}} = N^2/\sum\rho_I\).</div>
+      <div class="keynum"><span>\(C = 1/\sqrt{N_{\mathrm{eff}}}\)</span><span>\(N/(1 + (N-1)\rho_I)\)</span><span>\(\rho_I = \lvert r\rvert^2\)</span></div>
+      <div class="why"><p>The variance of a sum is the sum of all covariances: \(\mathrm{var}\,S = \langle I\rangle^2\sum_{kl}\rho_{I,kl}\), mean \(N\langle I\rangle\) <span class="eqref">(26.11)</span>. Siegert makes the intensity correlation the squared field correlation, so a field correlation of 0.5 is only 0.25 in intensity. Nine looks at \(\rho_I\) = 0.25 are worth three. For envelope averaging use \(\rho_A \approx 0.915\lvert r\rvert^2\): \(\mathrm{SNR}_0 = 1.913\,N/\sqrt{\sum\rho_A}\) <span class="eqref">(26.12)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m26-rf-9" aria-label="Figure for rule 9"></canvas></div></div>
+      <div class="limits">Equal mean intensities and registered looks; motion between looks blurs the compound; each look usually has worse resolution than the full aperture or band.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Coherent compounding never reduces speckle contrast: it makes speckle finer, not smoother.</div>
+      <div class="keynum"><span>\(\mathrm{SNR}_0\) = 1.91 for any \(N\)</span><span>\(C_I = 1\)</span><span>noise gain \(10\log_{10}N\)</span></div>
+      <div class="why"><p>A weighted sum of jointly circular Gaussian fields is circular Gaussian, so the envelope is Rayleigh again. What changes is the k-space support: wider support means smaller speckle cells, lower sidelobes and clutter, and incoherent noise down by \(10\log_{10}N\) relative to the signal. In the MATLAB lab the coherent \(\mathrm{SNR}_0\) stays at 1.90–1.94 for every \(N\) while the lateral speckle width shrinks from 25 to 1.4 pixels.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m26-rf-10" aria-label="Figure for rule 10"></canvas></div></div>
+      <div class="limits">Holds for fully developed speckle. If the single-look image was noise- or clutter-dominated, coherent summation changes the measured contrast through those terms. Motion between angles makes the sum partly incoherent.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Two speckle patterns are as correlated as their k-space supports overlap.</div>
+      <div class="keynum"><span>\(r = \int H_1H_2^*/\lVert H_1\rVert\lVert H_2\rVert\)</span><span>shift \(w/2\): \(\rho_I\) = 0.06</span><span>plane waves: \(r = 1 - \lvert\Delta\sin\theta\rvert F_\#\)</span></div>
+      <div class="why"><p>Same delta-correlated scatterers through two linear systems: \(\mathrm{E}[z_1z_2^*] \propto \int H_1H_2^*\) <span class="eqref">(26.13)</span>. Translating a sub-aperture of width \(w\) by \(d\) shifts its triangular coarray by \(2d\): \(d = w/4\) gives \(\rho_I\) = 0.52, \(d = w/2\) gives 0.0625. Steering a plane wave shifts the receive rect by \(\sin\theta/\lambda\): at F# 1.5, 10° gives \(\rho_I\) = 0.55. The same rule is the van Cittert–Zernike theorem of Module 07 seen from the other side.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m26-rf-11" aria-label="Figure for rule 11"></canvas></div></div>
+      <div class="limits">Delta-correlated scatterers, focal-zone narrowband geometry, no motion or aberration. Elevation and bandwidth add dimensions to the overlap.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Speckle reduction is resolution traded away: N disjoint sub-bands give √N lower contrast and N times the axial speckle size.</div>
+      <div class="keynum"><span>\(B \to B/N\) per band</span><span>axial cell × \(N\)</span><span>\(C \to 1/\sqrt{N}\)</span></div>
+      <div class="why"><p>Disjoint bands have zero k-space overlap, so the looks are independent, but each band's axial speckle and resolution scale as \(0.441c/(B/N)\). Spatial compounding with sub-apertures of width \(w &lt; D\) pays laterally in the same way. Static tissue offers only one realization per geometry, so diversity in angle, aperture or frequency is the only way to average, and the lesion-detectability gain (\(C\sqrt{N_{\mathrm{cells}}}\)) partly cancels against the larger cells.</p><div class="rule-fig"><span class="prov schem">Schematic</span><span class="prov-note">Idealized rectangular sub-bands of a 6 MHz band; real filters overlap and give fewer effective looks.</span><canvas id="m26-rf-12" aria-label="Figure for rule 12"></canvas></div></div>
+      <div class="limits">Partially overlapping bands give fewer effective looks; nonlinear despeckling filters change the statistics and invalidate CNR comparisons.</div>
+    </div>
+    <div class="rule">
+      <div class="say">For an anechoic cyst in fully developed speckle, CNR tops out at 1.91 on the envelope and 1 on intensity; on the dB image your dynamic range sets it.</div>
+      <div class="keynum"><span>env 1.913</span><span>intensity 1.000</span><span>dB: ≈ (DR − 2.5)/5.57 = 10.3 at 60 dB</span></div>
+      <div class="why"><p>Inside: zero signal. Envelope: \(\mathrm{CNR} = \mu_{\mathrm{out}}/\sigma_{\mathrm{out}} = \mathrm{SNR}_0\) = 1.913; intensity: 1. On the dB image the inside sits at the display floor −DR with zero variance, while the background has mean −2.51 dB and std 5.57 dB: \(\mathrm{CNR} = (\mathrm{DR} - 2.51)/5.57\), i.e. 4.9 at 30 dB and 10.3 at 60 dB, set by the display, not the beamformer. A measured envelope CNR above 1.91 on a speckle background is sampling noise (1.955 in the MATLAB lab) or a non-Rayleigh background.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">dB-image line uses the unclipped background moments, \((\mathrm{DR} - 2.51)/5.57\); the exact clipped value is in the visual-summary card.</span><canvas id="m26-rf-13" aria-label="Figure for rule 13"></canvas></div></div>
+      <div class="limits">Noise and clutter fill real cysts; partially developed or post-Rayleigh backgrounds can exceed 1.91; small ROIs scatter.</div>
+    </div>
+    <div class="rule">
+      <div class="say">If a display map can change your metric, someone can tune it: gCNR is invariant to every strictly monotone transform, CNR is not.</div>
+      <div class="keynum"><span>gCNR = 1 − OVL</span><span>\(P_{\mathrm{correct}} = (1 + \mathrm{gCNR})/2\)</span><span>−20 dB cyst: CNR 2.60 → 3.03, gCNR 0.944</span></div>
+      <div class="why"><p>The overlap of two densities is unchanged when both are pushed through the same strictly monotone map (same Jacobian); means and variances are not. MATLAB lab, −20 dB cyst: log-display CNR 2.60 at 80 dB DR and 3.03 at 20 dB; power law 0.3: 2.61; linear envelope: 1.76. gCNR is 0.944 in every case (Rodriguez-Molares et al., IEEE TUFFC, 2020). Report gCNR next to any CNR, and the CNR's representation.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">CNR of \(I^p\) for two exponential regions from Gamma-function moments; gCNR from (26.15).</span><canvas id="m26-rf-14" aria-label="Figure for rule 14"></canvas></div></div>
+      <div class="limits">Clipping is not injective and can only lower gCNR. gCNR ignores spatial structure (edge sharpness, resolution) and says nothing about lesions smaller than a few speckle cells.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Between two fully developed speckle regions gCNR depends only on their intensity ratio: 6 dB gives 0.47, 20 dB gives 0.94.</div>
+      <div class="keynum"><span>\(\mathrm{gCNR} = r^{-1/(r-1)}(1 - 1/r)\)</span><span>3 dB: 0.25</span><span>10 dB: 0.70</span></div>
+      <div class="why"><p>Two exponential densities with means 1 and \(r\) cross once at \(t = r\ln r/(r - 1)\); \(\mathrm{gCNR} = F_{\mathrm{in}}(t) - F_{\mathrm{out}}(t)\) gives the formula <span class="eqref">(26.15)</span>. Noise inside a hypoechoic cyst is circular Gaussian too, so the formula applies with the measured ratio. Consequence: if a new beamformer's gCNR equals this curve at its measured contrast, the gain is contrast alone; values above the curve mean the distributions changed shape (for example, non-Rayleigh output of a nonlinear beamformer).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m26-rf-15" aria-label="Figure for rule 15"></canvas></div></div>
+      <div class="limits">Both regions Rayleigh; breaks for point targets, Rician or K statistics and for clipped displays.</div>
+    </div>
+    <div class="rule">
+      <div class="say">gCNR is biased upward: two identical speckle regions of about 100 cells read about 0.1, not 0.</div>
+      <div class="keynum"><span>≈ 85 cells: 0.09–0.12</span><span>grows with bin count</span></div>
+      <div class="why"><p>The histogram overlap of two finite samples falls below 1 even when the parent densities are identical, because the minimum of two noisy bin estimates is biased low. In the MATLAB lab two halves of the same background annulus (9400 pixels, about 85 independent cells each) give gCNR = 0.089 with 10 bins and 0.118 with 100 bins. Fix the bin rule, count cells rather than pixels, and report the null value from two regions of the same statistics.</p></div>
+      <div class="limits">Estimator dependent (bins, kernel density, quantile edges); spatially correlated pixels make the effective sample far smaller than the pixel count.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Lesion detectability grows as contrast times the square root of the number of speckle cells in the lesion.</div>
+      <div class="keynum"><span>\(d' \approx C\sqrt{N_{\mathrm{cells}}}\)</span><span>3 mm, 1 dB: \(d' \approx 1.5\)</span><span>5 mm, 1 dB: 2.5</span></div>
+      <div class="why"><p>Averaging intensity over \(N\) independent cells gives a relative std of \(1/\sqrt{N}\) (\(C_I = 1\) per cell), so a mean-intensity difference \(C\langle I\rangle\) stands out by \(C\sqrt{N}\) <span class="eqref">(26.18)</span>. With \(C = 1 - 10^{-0.1}\) = 0.206 (1 dB) and 7.5 cells/mm², a 3 mm lesion (53 cells) gives \(d' \approx 1.5\). Halving the speckle cell area gains \(\sqrt{2}\) at the same contrast; this is the speckle-limited contrast-detail curve (Smith, Wagner and colleagues, 1983).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Low-contrast ideal-observer approximation (26.18), 7.5 cells/mm².</span><canvas id="m26-rf-17" aria-label="Figure for rule 17"></canvas></div></div>
+      <div class="limits">Low contrast, lesion much larger than a speckle cell, ideal observer who knows the location; human observers do worse; edge blur matters for small lesions.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Threshold a Rayleigh background at \(-\ln P_{fa}\) times its mean power: 11.4 dB for a false-alarm rate of \(10^{-6}\).</div>
+      <div class="keynum"><span>\(P_{fa} = e^{-T/\langle I\rangle}\)</span><span>\(10^{-3}\): 8.4 dB</span><span>\(P_d\) = 0.87 at 13 dB SNR</span></div>
+      <div class="why"><p>A Rayleigh envelope means an exponential intensity: \(P(I &gt; T) = e^{-T/\langle I\rangle}\), so \(10^{-6}\) needs \(T = 13.8\langle I\rangle\) = 11.4 dB <span class="eqref">(26.16)</span>. A bubble of power \(S\) on that background is Rician and \(P_d = Q_1(\sqrt{2S/\langle I\rangle},\ \sqrt{2T/\langle I\rangle})\): 0.25 at 10 dB, 0.87 at 13 dB, 0.997 at 15 dB. Residual clutter is heavier-tailed: a K background with \(\alpha = 1\) gives 2.1×10⁻³ at the same threshold.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Rician tail probability by numerical quadrature.</span><canvas id="m26-rf-18" aria-label="Figure for rule 18"></canvas></div></div>
+      <div class="limits">Independent pixels and a known, stationary background power; local noise normalization is needed when \(\langle I\rangle\) varies with depth; tracking changes the effective false-alarm rate.</div>
+    </div>
+  </div>
+
+  <!-- ===================== Cheat sheet ===================== -->
+  <h2><span class="sec">26.10</span>Cheat sheet</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Concept</th><th>Formula</th><th>Ultrasound use</th></tr></thead>
+    <tbody>
+      <tr><td>Rayleigh envelope</td><td>\(\mathrm{SNR}_0 = \sqrt{\pi/(4-\pi)}\) = 1.913; \(\mathrm{E}R = 0.886\sqrt{\langle I\rangle}\)</td><td>Fully developed speckle check</td></tr>
+      <tr><td>Exponential intensity</td><td>\(C_I = 1\); \(P(I &gt; T) = e^{-T/\langle I\rangle}\)</td><td>Speckle contrast, detection thresholds</td></tr>
+      <tr><td>Log speckle</td><td>mean −2.51 dB, std 5.57 dB re \(10\log\langle I\rangle\)</td><td>Contrast bias, display calibration</td></tr>
+      <tr><td>Nakagami \(m\)</td><td>\(m = (\mathrm{E}R^2)^2/\mathrm{var}\,R^2 = 1/C_I^2\); \(\mathrm{std}\,\hat m \approx 2/\sqrt{n}\)</td><td>Envelope-statistics QUS maps</td></tr>
+      <tr><td>Poisson + coherent</td><td>\(m = (1+r)^2/(1+2r+\kappa/\bar N)\)</td><td>Density vs coherent structure</td></tr>
+      <tr><td>Rician</td><td>\(m = (1+r)^2/(1+2r)\), \(r = A^2/P\)</td><td>Specular/point targets, bubble detection</td></tr>
+      <tr><td>K</td><td>\(C_I^2 = 1 + 2/\alpha\); \(\alpha \approx 2N_c\) (equal scatterers)</td><td>Sparse scatterers, heavy-tailed clutter</td></tr>
+      <tr><td>Scatterers per cell</td><td>\(N_c = n(\int\lvert h\rvert^2)^2/\int\lvert h\rvert^4 = N_{-6\,\mathrm{dB}}/\ln 2\) (Gaussian PSF)</td><td>"≥ 10 per cell" rule, stated precisely</td></tr>
+      <tr><td>Siegert relation</td><td>\(\mathrm{cov}_I(\Delta) = \langle I\rangle^2\lvert\mu(\Delta)\rvert^2\), \(\mu = \mathcal{F}^{-1}\{\lvert H\rvert^2\}\)</td><td>Speckle size, decorrelation in intensity</td></tr>
+      <tr><td>Speckle size</td><td>axial \(0.441\,c/B\); lateral \(0.835\,\lambda F_\#\) (rect), \(1.40\,\lambda F_\#\) (Hann)</td><td>Cells per ROI, kernel sizes</td></tr>
+      <tr><td>Incoherent compounding</td><td>\(N_{\mathrm{eff}} = N^2/\sum\rho_I\); \(C = 1/\sqrt{N_{\mathrm{eff}}}\)</td><td>Spatial, angular, frequency compounding</td></tr>
+      <tr><td>Coherent compounding</td><td>\(C_I = 1\), \(\mathrm{SNR}_0\) = 1.91 for any \(N\)</td><td>Plane-wave compounding</td></tr>
+      <tr><td>k-space overlap</td><td>\(r = \int H_1H_2^*/\lVert H_1\rVert\lVert H_2\rVert\); plane waves \(1 - \lvert\Delta\sin\theta\rvert F_\#\)</td><td>Look decorrelation, tracking decorrelation</td></tr>
+      <tr><td>CNR (this module)</td><td>\(\lvert\mu_{\mathrm{in}} - \mu_{\mathrm{out}}\rvert/\sqrt{\sigma_{\mathrm{in}}^2 + \sigma_{\mathrm{out}}^2}\) on the envelope; anechoic ceiling 1.91</td><td>Lesion contrast reporting</td></tr>
+      <tr><td>gCNR</td><td>\(1 - \int\min(p_{\mathrm{in}}, p_{\mathrm{out}})\); two Rayleigh regions \(r^{-1/(r-1)}(1 - 1/r)\)</td><td>Display-invariant lesion separability</td></tr>
+      <tr><td>Detectability</td><td>\(d' \approx C\sqrt{N_{\mathrm{cells}}}\)</td><td>Contrast-detail analysis</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ===================== Interview ===================== -->
+  <h2><span class="sec">26.11</span>Interview and qualifying-exam questions</h2>
+  <details class="quiz"><summary><span class="q">I1</span><span>Derive the speckle SNR of 1.91. What do you need to assume? <span class="muted">· screen</span></span></summary><div class="a"><p>Many scatterers with independent uniform phases per cell: by the central limit theorem \(z\) is circular complex Gaussian with \(\mathrm{E}\lvert z\rvert^2 = \langle I\rangle\). Then \(R = \lvert z\rvert\) is Rayleigh, \(\mathrm{E}R = (\sqrt{\pi}/2)\sqrt{\langle I\rangle}\), \(\mathrm{E}R^2 = \langle I\rangle\), \(\mathrm{var}\,R = (1 - \pi/4)\langle I\rangle\), so \(\mathrm{SNR}_0 = \sqrt{\pi/4}/\sqrt{1 - \pi/4} = \sqrt{\pi/(4-\pi)}\) = 1.913 <span class="eqref">(26.1)</span>. Intensity is exponential with contrast 1.</p><p><em>Follow-up:</em> what is it on the intensity, and on the log image? Intensity mean/std = 1; log image std 5.57 dB, independent of gain.</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>Why is the standard deviation of log-compressed speckle 5.57 dB whatever the gain, and what is its mean? <span class="muted">· screen</span></span></summary><div class="a"><p>For exponential \(I\), \(u = \ln(I/\langle I\rangle)\) has a fixed (Gumbel) distribution with mean \(-\gamma\) and variance \(\pi^2/6\). Gain multiplies \(I\), which adds a constant to \(u\). Times \(10/\ln 10\): std = \(4.343\cdot\pi/\sqrt{6}\) = 5.57 dB, mean = −2.51 dB re \(10\log_{10}\langle I\rangle\) <span class="eqref">(26.3)</span>.</p><p><em>Follow-up:</em> so how should you compute lesion contrast from a dB image? From mean intensities (linearize first), or accept the −2.51 dB offset cancels only if both regions are Rayleigh.</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>You measure \(\mathrm{SNR}_0\) = 2.4 in a liver ROI. List the explanations in the order you would check them. <span class="muted">· onsite</span></span></summary><div class="a"><p>(1) Processing: was it computed on the linear envelope, before log compression, spatial filtering, persistence or scan conversion? Smoothing raises \(\mathrm{SNR}_0\). (2) Compounding: incoherent compounding raises it by \(\sqrt{N_{\mathrm{eff}}}\). (3) Physics: a coherent component (specular structures, regular spacing), Rician-like; \(\mathrm{SNR}_0\) = 2.4 matches a Rician \(r \approx 1.75\) (2.4 dB), i.e. \(m \approx 1.7\) (invert a measured \(\hat m\) with \(r = m - 1 + \sqrt{m^2 - m}\)). (4) Check the same pipeline on a phantom: it must read \(1.91 \pm 1.36/\sqrt{n}\).</p><p><em>Follow-up:</em> how would you tell coherent structure from smoothing? Smoothing widens the autocovariance beyond \(\lvert\mu\rvert^2\) of the PSF; a coherent component does not.</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>What is the speckle size at 5 MHz, 60% bandwidth, F#2, and how many independent cells are in a 10 mm × 10 mm ROI? <span class="muted">· onsite</span></span></summary><div class="a"><p>Axial FWHM of \(\lvert\mu\rvert^2\) = \(0.441\,c/B\) = 0.441 × 1540/3×10⁶ = 0.226 mm. Lateral (rect, focal zone) \(0.835\,\lambda F_\#\) = 0.835 × 0.308 × 2 = 0.514 mm. Correlation area \(\iint\lvert\mu\rvert^2\) = 0.241 × 0.554 mm², i.e. 7.5 cells/mm², so about 750 cells in 1 cm². \(\mathrm{SNR}_0\) from that ROI scatters by about \(1.36/\sqrt{750}\) = 0.05.</p><p><em>Follow-up:</em> what changes off focus? The lateral size follows the local beam width, so the count falls with distance from focus.</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>Why does coherent plane-wave compounding not reduce speckle, while spatial compounding does? <span class="muted">· screen</span></span></summary><div class="a"><p>Coherent compounding sums IQ: the result is a linear combination of circular Gaussian fields, hence circular Gaussian, so \(C_I = 1\) and \(\mathrm{SNR}_0\) = 1.91. It widens the k-space support, so speckle gets finer and resolution and clutter improve. Spatial compounding averages detected images from looks with low k-space overlap, so contrast falls as \(1/\sqrt{N_{\mathrm{eff}}}\) <span class="eqref">(26.11)</span>.</p><p><em>Follow-up:</em> does coherent compounding change gCNR of a cyst? Yes, through contrast: lower sidelobes and clutter mean less energy in the cyst, so a higher intensity ratio; at a given ratio, gCNR is the same function of \(r\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>Three incoherently compounded plane-wave angles at −10°, 0°, +10°, receive F# 1.5. How many effective looks? <span class="muted">· onsite</span></span></summary><div class="a"><p>Field correlation \(r = 1 - \lvert\Delta\sin\theta\rvert\cdot F_\#\) <span class="eqref">(26.13)</span>: adjacent pairs \(\Delta\sin\theta\) = 0.174, \(r\) = 0.74, \(\rho_I\) = 0.55; outer pair \(\Delta\sin\theta\) = 0.347, \(r\) = 0.48, \(\rho_I\) = 0.23. \(\sum\rho_I\) = 3 + 2(0.55 + 0.55 + 0.23) = 5.65, so \(N_{\mathrm{eff}}\) = 9/5.65 = 1.6 and \(C_I\) = 0.79, not 0.58.</p><p><em>Follow-up:</em> what angle span gives independent looks? \(\Delta\sin\theta \ge 1/F_\#\) = 0.67 between neighbours, about 40°, which is why speckle reduction needs large angles or sub-aperture translation of half the aperture or more.</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>A reviewer notes that your CNR rose 40% between two figures and the only change was the display dynamic range. Respond. <span class="muted">· onsite</span></span></summary><div class="a"><p>The reviewer is right that a dB-image CNR depends on the clipping floor: for an anechoic cyst it is ≈ \((\mathrm{DR} - 2.51)/5.57\). State the CNR definition (we use the linear envelope, pooled variance), recompute on the envelope, which has a ceiling of 1.91 for an anechoic cyst in fully developed speckle, and add gCNR, which is invariant to strictly monotone display maps.</p><p><em>Follow-up:</em> can gCNR also be gamed? Not by the display map; it can be changed by ROI choice, bin rule and sample size (positive bias around 0.1 with about 100 cells), and by beamformers that change the output distribution's shape.</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>Define gCNR, give its operational meaning and its value for a −6 dB lesion in fully developed speckle. <span class="muted">· research</span></span></summary><div class="a"><p>\(\mathrm{gCNR} = 1 - \int\min(p_{\mathrm{in}}, p_{\mathrm{out}})\), the total-variation distance between the pixel-value distributions inside and outside. An ideal pixel classifier with equal priors is correct with probability \((1 + \mathrm{gCNR})/2\). For two exponential intensities with ratio \(r = 10^{0.6}\): \(\mathrm{gCNR} = r^{-1/(r-1)}(1 - 1/r)\) = 0.471 (classifier 74% correct).</p><p><em>Follow-up:</em> how do you estimate it? Histograms with a fixed rule (quantile bins of the pooled data make it exactly display invariant), enough independent cells, and a null measurement on two same-statistics regions.</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>You want a Nakagami-m image of liver with ±0.05 precision. What window size, and what limits it? <span class="muted">· research</span></span></summary><div class="a"><p>\(\mathrm{std}\,\hat m \approx 2/\sqrt{n}\), so \(n\) ≈ 1600 independent cells. At 7.5 cells/mm² (5 MHz, 60%, F#2) that is about 210 mm², roughly a 15 mm window: far coarser than the B-mode. Limits: depth normalization (TGC, attenuation, diffraction) inside the window, mixtures at boundaries, small-\(n\) bias (\(\hat m\) is biased upward), and the lateral cell growing off focus.</p><p><em>Follow-up:</em> how to do better? Compound independent looks or frequency bands, use 3D data, or use estimators with better efficiency (maximum likelihood) and report precision maps.</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>How should a ULM pipeline set the bubble detection threshold after SVD filtering? <span class="muted">· research</span></span></summary><div class="a"><p>Model the background as complex Gaussian: \(P_{fa} = e^{-T/\langle I\rangle}\), so \(T = 13.8\langle I\rangle\) (11.4 dB) for \(10^{-6}\) <span class="eqref">(26.16)</span>. Because \(\langle I\rangle\) varies with depth and region, normalize by a local noise estimate (CFAR) rather than a global threshold. Check the background histogram: residual clutter is heavier-tailed (K with \(\alpha = 1\) gives 2×10⁻³ at that threshold). Detection probability for a bubble at SNR \(S\) is Marcum Q: 0.87 at 13 dB.</p><p><em>Follow-up:</em> why does a \(10^{-6}\) rate still matter? 10⁹ pixel tests per acquisition give about 1000 false detections, which tracking (track length, velocity limits) must remove.</p></div></details>
+  <details class="quiz"><summary><span class="q">I11</span><span>How many scatterers per resolution cell do you need for fully developed speckle, and why is "10" an incomplete answer? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(C_I^2 = 1 + \kappa/N_c\) with \(N_c\) counted in the correlation cell \((\int\lvert h\rvert^2)^2/\int\lvert h\rvert^4\), which for a Gaussian PSF is 1.44 times the −6 dB cell <span class="eqref">(26.6)</span>. Ten per −6 dB cell gives \(m\) = 0.935 (equal amplitudes) or 0.878 (Rayleigh amplitudes), \(\mathrm{SNR}_0\) ≈ 1.88 or 1.84. Incomplete because the answer depends on the cell definition, the amplitude distribution, the dimensionality (elevation) and on how precisely you can measure \(m\) (std \(2/\sqrt{n}\)).</p><p><em>Follow-up:</em> can density alone be estimated from \(m\)? Only if there is no coherent component; otherwise use homodyned K.</p></div></details>
+
+  <!-- ===================== MATLAB ===================== -->
+  <h2><span class="sec">26.12</span>MATLAB lab</h2>
+  <div class="prose"><p class="code-note">Base MATLAB only (no toolboxes); each script runs as-is in MATLAB R2019b+ and GNU Octave 8. Paste into the editor and press Run.</p></div>
+  <details class="code">
+    <summary><span class="fname">m26_rayleigh_rician_k.m</span><button class="copy" type="button">Copy</button><span class="what">Rayleigh, Rician and K envelope statistics vs closed forms (C<sub>I</sub>, m, SNR<sub>0</sub>, log mean and std) with pdf overlays · change r_dB, alphas · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m26_rayleigh_rician_k.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for.</strong> Rayleigh: \(C_I\) 1.001, \(m\) 0.998, \(\mathrm{SNR}_0\) 1.913, log mean −2.50 dB, log std 5.56 dB (theory 1, 1, 1.913, −2.51, 5.57). Rician \(m\) = 1.335, 2.762, 5.744 at \(r\) = 0, 6, 10 dB (theory 1.333, 2.768, 5.762) with log std 5.09, 3.29, 2.00 dB. K: \(m\) = 0.332, 0.667, 0.825 for \(\alpha\) = 1, 4, 10 (theory \(\alpha/(\alpha+2)\)). In the middle panel the Nakagami pdf with the same \(m\) misses the K tail beyond \(R \approx 2.5\): matching two moments does not match the tail.</p></div>
+  <details class="code">
+    <summary><span class="fname">m26_nakagami_density.m</span><button class="copy" type="button">Copy</button><span class="what">Nakagami m and SNR<sub>0</sub> vs scatterers per cell (Poisson vs fixed count) and the 2/√n spread of m̂ · change Nlist, nlist · runtime ≈ 5 s</span></summary>
+    <pre><code data-file="matlab/m26_nakagami_density.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for.</strong> Poisson counts approach Rayleigh from below: \(m\) = 0.504, 0.843, 0.899, 0.962 at \(N\) = 1, 5, 10, 20 (theory \(N/(N+1)\)), \(\mathrm{SNR}_0\) 1.853 at \(N\) = 10. A fixed count approaches from above (\(m = N/(N-1)\): 1.108 at \(N\) = 10), a reminder that "few scatterers" is not automatically K-like. \(\mathrm{std}(\hat m)\cdot\sqrt{n}\) = 2.13, 2.01, 1.98, 1.91 for \(n\) = 25 … 1600, and mean \(\hat m\) = 1.22 at \(n\) = 25 (small-sample bias).</p></div>
+  <details class="code">
+    <summary><span class="fname">m26_speckle_size.m</span><button class="copy" type="button">Copy</button><span class="what">Speckle intensity-autocovariance widths vs f<sub>0</sub>, bandwidth, F#, apodization against |μ|<sup>2</sup> theory · change cases · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m26_speckle_size.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for.</strong> 5 MHz, 60%, F#2, rect: axial 0.227 mm theory and measured, lateral 0.514 mm theory vs 0.496 measured (one-realization scatter), \(0.834\,\lambda F_\#\); 7.49 cells/mm². Halving the bandwidth (30%) doubles the axial width (0.453 mm); F# 1 and 3 give 0.257 and 0.771 mm laterally; Hann gives \(1.401\,\lambda F_\#\). The envelope ACF is 0.95–0.98 and the log-image ACF 0.76–0.80 of the intensity width.</p></div>
+  <details class="code">
+    <summary><span class="fname">m26_compounding_speckle.m</span><button class="copy" type="button">Copy</button><span class="what">Incoherent vs coherent compounding of translated sub-aperture looks: C<sub>I</sub> vs √(Σρ<sub>I</sub>)/N, envelope SNR<sub>0</sub>, coherent speckle size · change Nlist, dwlist · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m26_compounding_speckle.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for.</strong> Incoherent intensity contrast follows the overlap theory: \(N\) = 5 at \(d/w\) = 0.1, 0.25, 0.5, 1.0 gives 0.818, 0.623, 0.463, 0.440 vs 0.848, 0.617, 0.469, 0.447 (\(N_{\mathrm{eff}}\) 1.39 to 5.0). The single look reads 0.960 instead of 1 because one 128 × 512 image holds only a few hundred independent cells. Coherent \(\mathrm{SNR}_0\) stays between 1.90 and 1.94 for every case while the lateral speckle width falls from 25 to 1.4 pixels: finer, not smoother.</p></div>
+  <details class="code">
+    <summary><span class="fname">m26_cyst_cnr_gcnr.m</span><button class="copy" type="button">Copy</button><span class="what">Cyst phantom: contrast, CNR on envelope / intensity / dB image (two denominators) and gCNR vs cyst contrast and display dynamic range; gCNR null test · change cset_dB, DRs · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m26_cyst_cnr_gcnr.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for.</strong> Measured \(\mathrm{CNR}_{\mathrm{env}}\) tracks the Rayleigh theory (−20 dB cyst: 1.764 vs 1.704; anechoic 1.955, above the 1.913 ceiling by sampling noise) and gCNR matches \(r^{-1/(r-1)}(1 - 1/r)\) (0.944 vs 0.941 at −19.6 dB). For the −20 dB cyst the log-display CNR rises from 2.60 to 3.03 as DR falls from 80 to 20 dB, the power-law and linear maps give 2.61 and 1.76, while gCNR = 0.944 in every column. Two halves of the same background read gCNR 0.09–0.12: the estimator's null value with about 85 cells per region.</p></div>
+
+  <!-- ===================== Self-check ===================== -->
+  <h2><span class="sec">26.13</span>Self-check</h2>
+  <details class="quiz"><summary><span class="q">Q1</span><span>A phantom ROI gives envelope mean 41.2 and std 21.6 (linear units). Is the speckle fully developed?</span></summary><div class="a"><p>\(\mathrm{SNR}_0\) = 41.2/21.6 = 1.91: consistent with Rayleigh. Whether 1.91 vs, say, 1.85 can be distinguished depends on the number of independent cells (std ≈ \(1.36/\sqrt{n}\)).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>Intensity-ratio contrast of a lesion is −6 dB. What do you get if you instead subtract mean dB values, (a) both regions Rayleigh, (b) lesion Rician with r = 10 dB?</span></summary><div class="a"><p>(a) −6.0 dB: the −2.51 dB offsets cancel. (b) The lesion's log mean is −0.41 dB re its own mean intensity, so the mean-dB difference is −6 + 2.51 − 0.41 = −3.9 dB: a 2.1 dB bias.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>Nakagami m̂ = 0.80 from 100 independent cells. What can you conclude?</span></summary><div class="a"><p>\(\mathrm{std}\,\hat m \approx 2/\sqrt{100}\) = 0.2, so 0.80 is within about one standard deviation of 1: not significantly pre-Rayleigh. With 1600 cells (std 0.05) the same value would be 4σ below 1.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>At 7.5 MHz, 80% bandwidth, F#1.5, rect apodization, what are the axial and lateral speckle sizes?</span></summary><div class="a"><p>\(B\) = 6 MHz: axial 0.441 × 1540/6×10⁶ = 0.113 mm. \(\lambda\) = 0.205 mm, \(\lambda F_\#\) = 0.308 mm, lateral 0.835 × 0.308 = 0.257 mm.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>Four looks with pairwise field correlation 0.6 are averaged as intensities. What is the speckle contrast?</span></summary><div class="a"><p>\(\rho_I\) = 0.36. \(N_{\mathrm{eff}} = 4/(1 + 3\times 0.36)\) = 1.92, contrast \(1/\sqrt{1.92}\) = 0.72 (independent looks would give 0.50).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>An anechoic cyst displayed with 40 dB dynamic range: what is the dB-image CNR, and what is the envelope CNR?</span></summary><div class="a"><p>dB image: (40 − 2.51)/5.57 = 6.7 (exact clipped computation: 6.74). Envelope: 1.91, independent of the display.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>What threshold (re mean background intensity) gives a per-pixel false-alarm rate of \(10^{-4}\) on complex Gaussian noise?</span></summary><div class="a"><p>\(T = -\ln 10^{-4}\) = 9.21\(\langle I\rangle\) = 9.6 dB.</p></div></details>
+
+  <!-- ===================== Literature ===================== -->
+  <h2><span class="sec">26.14</span>Figures from the literature</h2>
+  <div class="prose"><p>Published figures with real or carefully simulated data behind the statistics and metrics of this module. Citations and figure numbers were checked against the papers; images are not reproduced, follow the links.</p></div>
+  <div class="litfig">
+    <h4>A display curve that inflates CNR without changing what can be seen</h4>
+    <p class="cite">A. Rodriguez-Molares, O. M. H. Rindal, J. D'hooge, S.-E. Måsøy, A. Austeng, M. A. Lediju Bell and H. Torp, "The generalized contrast-to-noise ratio: a formal definition for lesion detectability," IEEE TUFFC 67(4):745–759, 2020, Fig. 1 (open access, CC BY 4.0). <a href="https://doi.org/10.1109/TUFFC.2019.2956855" target="_blank" rel="noopener">doi:10.1109/TUFFC.2019.2956855</a></p>
+    <p>Fig. 1: the same DAS image before and after an S-shaped compression curve ("S-DAS"): the estimated CNR changes although the information is identical. That is the argument of Section 26.6 and rule 14 in one picture: CNR depends on the pixel-value map, the overlap of the two pdfs does not.</p>
+  </div>
+  <div class="litfig">
+    <h4>Inside and outside pdfs, and C, CNR and gCNR across beamformers in silico, in vitro and in vivo</h4>
+    <p class="cite">Same paper, Figs. 4, 5, 7, 8 and 9.</p>
+    <p>Fig. 4: the inside (circle) and outside (square) ROIs used for every case, the counterpart of the drawing above Demo 26.5. Fig. 5: estimated envelope pdfs inside and outside a cyst for DAS at a fixed SNR; their overlap is \(1 - \mathrm{gCNR}\) <span class="eqref">(26.14)</span>. Figs. 7–9: contrast, CNR and gCNR for a set of beamformers on simulated, phantom and in vivo data. Compare how the three metrics rank the beamformers: where a contrast or CNR gain is not matched by gCNR, the output distributions changed shape rather than separating, the situation rule 15 warns about.</p>
+  </div>
+  <div class="litfig">
+    <h4>Coherent compounding on a standard phantom: finer, not smoother</h4>
+    <p class="cite">H. Liebgott, A. Rodriguez-Molares, F. Cervenansky, J. A. Jensen and O. Bernard, "Plane-wave imaging challenge in medical ultrasound," Proc. IEEE International Ultrasonics Symposium, 2016, Figs. 2 and 3. <a href="https://doi.org/10.1109/ULTSYM.2016.7728908" target="_blank" rel="noopener">doi:10.1109/ULTSYM.2016.7728908</a></p>
+    <p>Fig. 2: simulated and experimental (CIRS 040GSE phantom) contrast and resolution images from a single 0° plane wave; Fig. 3: the same with 75 coherently compounded plane waves. Compare the cyst edges and the background texture between the two figures: by rule 10 compounding should sharpen the cysts and lower clutter while the speckle grain gets finer, not smoother. The challenge's CNR is computed from image gray levels and expressed in dB, so its value depends on the display map (rule 14).</p>
+  </div>
+  <div class="litfig">
+    <h4>Envelope-statistics parameters as tissue features</h4>
+    <p class="cite">M. L. Oelze and J. Mamou, "Review of quantitative ultrasound: envelope statistics and backscatter coefficient imaging and contributions to diagnostic ultrasound," IEEE TUFFC 63(2):336–351, 2016, Fig. 3. <a href="https://doi.org/10.1109/TUFFC.2015.2513958" target="_blank" rel="noopener">doi:10.1109/TUFFC.2015.2513958</a></p>
+    <p>Fig. 3: three tumour types (rat fibroadenoma, mouse carcinoma, mouse sarcoma) plotted in a feature space of ESD and the homodyned-K parameters \(\mu\) (scatterers per resolution cell) and \(k\) (coherent-to-diffuse ratio). It shows the two departures of Section 26.2 (density and coherence) estimated separately on real tissue, the thing a single Nakagami \(m\) cannot do.</p>
+  </div>
+
+  <!-- ===================== Go deeper ===================== -->
+  <h2><span class="sec">26.15</span>Go deeper</h2>
+  <ul class="refs">
+    <li>J. W. Goodman, <em>Speckle Phenomena in Optics: Theory and Applications</em>, Roberts &amp; Company, 2007. First- and second-order speckle statistics, Siegert relation, sums of speckle patterns.</li>
+    <li>C. B. Burckhardt, "Speckle in ultrasound B-mode scans," <em>IEEE Trans. Sonics Ultrason.</em>, 1978.</li>
+    <li>R. F. Wagner, S. W. Smith, J. M. Sandrik, H. Lopez, "Statistics of speckle in ultrasound B-scans," <em>IEEE Trans. Sonics Ultrason.</em> 30(3):156–163, 1983.</li>
+    <li>S. W. Smith, R. F. Wagner, J. M. Sandrik, H. Lopez, "Low contrast detectability and contrast/detail analysis in medical ultrasound," <em>IEEE Trans. Sonics Ultrason.</em>, 1983.</li>
+    <li>B. J. Oosterveld, J. M. Thijssen, W. A. Verhoef, "Texture of B-mode echograms: 3-D simulations and experiments of the effects of diffraction and scatterer density," <em>Ultrasonic Imaging</em>, 1985.</li>
+    <li>G. E. Trahey, S. W. Smith, O. T. von Ramm, "Speckle pattern correlation with lateral aperture translation: experimental results and implications for spatial compounding," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em>, 1986.</li>
+    <li>E. Jakeman, P. N. Pusey, "A model for non-Rayleigh sea echo," <em>IEEE Trans. Antennas Propag.</em>, 1976.</li>
+    <li>V. Dutt, J. F. Greenleaf, "Ultrasound echo envelope analysis using a homodyned K distribution signal model," <em>Ultrasonic Imaging</em>, 1994.</li>
+    <li>P. M. Shankar, "A general statistical model for ultrasonic backscattering from tissues," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em>, 2000.</li>
+    <li>F. Destrempes, G. Cloutier, "A critical review and uniformized representation of statistical distributions modeling the ultrasound echo envelope," <em>Ultrasound Med. Biol.</em>, 2010.</li>
+    <li>A. Rodriguez-Molares et al., "The generalized contrast-to-noise ratio: a formal definition for lesion detectability," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em> 67(4):745–759, 2020.</li>
+    <li>G. Montaldo, M. Tanter, J. Bercoff, N. Benech, M. Fink, "Coherent plane-wave compounding for very high frame rate ultrasonography and transient elastography," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em>, 2009.</li>
+  </ul>
+  <div class="next"><a href="#m25">← 25 Adaptive &amp; coherence BF</a><a href="#m27">27 Spectral estimation &amp; QUS →</a></div>
+</section>
+
+<style>
+#m26 .demo-head .prov-note { flex-basis: 100%; margin-top: 0; }
+#m26 .rule-fig .prov { margin: 0 0 4px; }
+#m26 .rule-fig .prov-note { margin: 0 0 4px; }
+#m26 .prov-legend .prov, #m26 .afig .fh .prov { margin-left: 0; }
+#m26 .afig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 12px; margin: 18px 0; }
+#m26 .afig .fh { font-size: 0.9rem; margin-bottom: 6px; }
+#m26 .afig svg { display: block; width: 100%; height: auto; min-width: 640px; }
+#m26 .afig text { font: 11.5px var(--f-mono); fill: var(--ink); }
+#m26 .afig text.s { font-size: 10.5px; fill: var(--muted); }
+#m26 .afig text.t { font-weight: 600; font-size: 12.5px; }
+#m26 .afig text.c { text-anchor: middle; font-size: 11px; }
+#m26 .afig text.a { fill: var(--accent); font-weight: 600; }
+#m26 .afig .bg { fill: var(--accent); fill-opacity: 0.18; stroke: var(--accent); stroke-width: 1.2; }
+#m26 .afig .mask { fill: var(--panel); stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; }
+#m26 .afig .cyst { fill: var(--grid); stroke: var(--ink); stroke-width: 1.4; }
+#m26 .afig .inn { fill: var(--sig2); fill-opacity: 0.22; stroke: var(--sig2); stroke-width: 1.2; }
+#m26 .afig .dim { fill: none; stroke: var(--ink); stroke-width: 1; }
+#m26 .afig .dim2 { fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+</style>
+
+<script>
+/* Module 26: card grids (theory sections and visual summary) */
+(function () {
+  const PI = Math.PI, M = () => Lab.mini, LN10 = Math.log(10), GE = 0.5772156649015329;
+  function gammaln(x) { const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+    if (x < 0.5) return Math.log(PI / Math.abs(Math.sin(PI * x))) - gammaln(1 - x);
+    x -= 1; let a = c[0]; const t = x + 7.5; for (let i = 1; i < 9; i++) a += c[i] / (x + i); return 0.5 * Math.log(2 * PI) + (x + 0.5) * Math.log(t) - t + Math.log(a); }
+  const nak = (r, m) => r <= 0 ? 0 : Math.exp(Math.log(2) + m * Math.log(m) - gammaln(m) + (2 * m - 1) * Math.log(r) - m * r * r);
+  const pD = D => { const e = Math.pow(10, D / 10); return LN10 / 10 * e * Math.exp(-e); };
+  const snrNak = m => { const e = Math.exp(gammaln(m + 0.5) - gammaln(m)) / Math.sqrt(m); return e / Math.sqrt(1 - e * e); };
+  const triOv = s => { s = Math.abs(s); return s <= 1 ? 1 - 1.5 * s * s + 0.75 * s * s * s : s < 2 ? Math.pow(2 - s, 3) / 4 : 0; };
+  const gc = r => Math.pow(r, -1 / (r - 1)) * (1 - 1 / r);
+  /* lateral speckle |mu|^2 for a rect aperture: mu(x) = int tri(u)^2 cos(2 pi u x) du / int tri^2, u in units of 1/(lambda F#) */
+  const muRect = x => { const n = 200; let s = 0; for (let i = 0; i < n; i++) { const u = (i + 0.5) / n; s += (1 - u) * (1 - u) * Math.cos(2 * PI * u * x); } return s / n * 3; };
+  const box = (w, h) => ({ x: 4, y: 16, w: w - 8, h: h - 36 });
+  function clippedLogCNR(DR) { const n = 4000, lo = -DR, hi = 15, d = (hi - lo) / n; let m = 0, m2 = 0, p0 = 1 - Math.exp(-Math.pow(10, -DR / 10));
+    for (let i = 0; i < n; i++) { const D = lo + (i + 0.5) * d, p = pD(D) * d; m += D * p; m2 += D * D * p; } m += lo * p0; m2 += lo * lo * p0; return (m - lo) / Math.sqrt(m2 - m * m); }
+
+  const G1 = [
+    { prov: 'exact', q: 'Envelope of fully developed speckle?', a: 'Rayleigh. <b>mean/std = √(π/(4−π)) = 1.91</b>; mean 0.886, std 0.463 in units of √⟨I⟩.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [0, 3.2], [0, 0.95], { lab: 'p(R), R in units of √⟨I⟩', ticks: [[0.886, 'mean'], [0.886 - 0.463, '−σ'], [0.886 + 0.463, '+σ'], [2, '2'], [3, '3']] });
+        m.curve(x, P, r => 2 * r * Math.exp(-r * r), c.a, { fill: true }); } },
+    { prov: 'exact', q: 'Intensity of fully developed speckle?', a: 'Exponential: <b>std = mean, contrast C<sub>I</sub> = 1</b>. P(I &gt; T) = e<sup>−T/⟨I⟩</sup>: 1 pixel in 10<sup>6</sup> exceeds 13.8⟨I⟩.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [0, 5], [0, 1.05], { lab: 'p(I), I / ⟨I⟩', ticks: [[1, 'mean'], [2, 'mean+σ'], [4, '4']] });
+        m.curve(x, P, I => Math.exp(-I), c.b, { fill: true }); } },
+    { prov: 'exact', q: 'Log-compressed speckle?', a: 'Gumbel-shaped, long dark tail: <b>std 5.57 dB</b>, <b>mean −2.51 dB</b> below 10 log⟨I⟩, mode at 0 dB.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-30, 10], [0, 0.18], { lab: 'p(D), D = 10 log₁₀(I/⟨I⟩) (dB)', yaxis: false, ticks: [[-20, '−20'], [-10, '−10'], [-2.51, '−2.5'], [5, '5']] });
+        m.curve(x, P, pD, c.d, { fill: true }); x.save(); x.strokeStyle = c.fg; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(P.X(-2.507), P.b.y); x.lineTo(P.X(-2.507), P.b.y + P.b.h); x.stroke(); x.restore(); } }
+  ];
+  const G5 = [
+    { prov: 'exact', q: 'Translate a sub-aperture by d: how correlated is the speckle?', a: 'The coarray triangle (half-width w) shifts by 2d. Overlap: <b>r = 1 − 1.5s² + 0.75s³</b>, s = 2d/w. Shown d = w/4: r = 0.72, ρ<sub>I</sub> = 0.52.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-1.4, 1.9], [0, 1.15], { lab: 'lateral k-space, units of w/(λz)', yaxis: false, ticks: [[0, '0'], [0.5, '2d'], [-1, '−w'], [1, 'w']] });
+        const T1 = u => Math.max(0, 1 - Math.abs(u)), T2 = u => Math.max(0, 1 - Math.abs(u - 0.5));
+        m.curve(x, P, u => Math.min(T1(u), T2(u)), c.mu, { fill: true, alpha: 0.35, w: 0.01 }); m.curve(x, P, T1, c.a); m.curve(x, P, T2, c.b);
+        m.text(x, 'r = ' + triOv(0.5).toFixed(2), P.X(1.05), P.Y(0.85), c.fg); } },
+    { prov: 'exact', q: 'Steer a plane wave by Δθ: how correlated is the speckle?', a: 'The receive rect (width 1/(λF#)) slides by Δ sin θ/λ: <b>r = 1 − |Δ sin θ|·F#</b>. Shown F# 1.5, Δθ = 10°: r = 0.74, ρ<sub>I</sub> = 0.55.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const F = 1.5, s = Math.sin(10 * PI / 180), hw = 1 / (2 * F);
+        const P = m.panel(x, box(w, h), [-0.7, 0.9], [0, 1.15], { lab: 'lateral k-space × λ', yaxis: false, ticks: [[0, '0'], [s, 'sin10°'], [-hw, '−1/2F#'], [hw, '1/2F#']] });
+        const R1 = u => Math.abs(u) <= hw ? 1 : 0, R2 = u => Math.abs(u - s) <= hw ? 1 : 0;
+        m.curve(x, P, u => Math.min(R1(u), R2(u)), c.mu, { fill: true, alpha: 0.35, w: 0.01 }); m.curve(x, P, R1, c.a); m.curve(x, P, u => 0.97 * R2(u), c.b);
+        m.text(x, 'r = ' + (1 - s * F).toFixed(2), P.X(0.62), P.Y(0.6), c.fg); } }
+  ];
+  const VIS = [
+    G1[0],
+    { prov: 'exact', q: 'Log speckle: spread and offset?', a: '<b>5.57 dB</b> std at any gain; mean <b>−2.51 dB</b> re 10 log⟨I⟩ (−10γ/ln 10). Differences of mean dB are intensity ratios only for equal shapes.', draw: G1[2].draw },
+    { prov: 'exact', q: 'What does Nakagami m say?', a: '<b>m = 1/C<sub>I</sub>²</b>: 1 Rayleigh (blue), &lt; 1 pre-Rayleigh, sparse or K-like (m = 0.5, pink), &gt; 1 coherent, Rician-like (m = 3, amber).',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [0, 2.6], [0, 1.6], { lab: 'Nakagami pdf, ⟨R²⟩ = 1', ticks: [[1, '1'], [2, '2']] });
+        m.curve(x, P, r => nak(r, 0.5), c.b); m.curve(x, P, r => nak(r, 1), c.a, { fill: true }); m.curve(x, P, r => nak(r, 3), c.c); } },
+    { prov: 'exact', q: 'How many scatterers per cell?', a: 'C<sub>I</sub>² = 1 + κ/N<sub>c</sub>, N<sub>c</sub> = N<sub>−6 dB</sub>/ln 2: <b>10 per −6 dB cell → m = 0.935</b> (equal amplitudes, blue), 0.878 (Rayleigh amplitudes, pink).',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-0.5, 2.12], [0, 1.1], { lab: 'm vs log₁₀ N₋₆dB', base: 0, yaxis: false, ticks: [[0, '1'], [1, '10'], [2, '100']], hlines: [[1, 'Rayleigh']] });
+        m.curve(x, P, L => { const N = Math.pow(10, L) / Math.LN2; return N / (N + 1); }, c.a); m.curve(x, P, L => { const N = Math.pow(10, L) / Math.LN2; return N / (N + 2); }, c.b); } },
+    { prov: 'exact', q: 'What does a coherent component do?', a: 'Rician: <b>m = (1+r)²/(1+2r)</b>, about r/2 at large r: 1.33 at 0 dB, 2.77 at 6 dB, 5.76 at 10 dB.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-11.5, 13], [0, 12], { lab: 'm vs r = A²/P (dB)', base: 0, yaxis: false, ticks: [[-10, '−10'], [0, '0'], [6, '6'], [10, '10']], hlines: [[1, 'm = 1'], [5.76, '5.76']] });
+        m.curve(x, P, d => { const r = Math.pow(10, d / 10); return (1 + r) * (1 + r) / (1 + 2 * r); }, c.c); } },
+    { prov: 'exact', q: 'Why does bandwidth set axial speckle size?', a: 'Siegert: intensity ACF = |μ|², μ = 𝓕⁻¹{|H|²}. Gaussian band B: <b>FWHM = 0.883/B</b> in time, <b>0.441 c/B</b> in depth. Narrower band, bigger speckle.',
+      tr: [-3, 3], ty: [0, 1.15], fr: [-3, 3], fy: [0, 1.15], tl: 'intensity ACF |μ(τ)|²', fl: '|H(f − f₀)|² (normalized)', tt: T => [[0.4413 * T, '½FWHM']], ft: T => [[0.5 / T, 'B/2']],
+      time: (x, m, c, T) => M().curve(x, m, t => Math.exp(-4 * Math.LN2 * Math.pow(t / (0.8825 * T), 2)), c.a, { fill: true }),
+      freq: (x, m, c, T) => M().curve(x, m, f => Math.exp(-4 * Math.LN2 * Math.pow(f * T, 2) * 2), c.b, { fill: true }) },
+    { prov: 'exact', q: 'Lateral speckle vs aperture?', a: 'Coarray triangle ↔ two-way PSF sinc² (dashed). Speckle ACF |μ|² is a bit narrower: <b>0.835 λF#</b> FWHM vs <b>0.886 λF#</b> at −6 dB (rect).',
+      tr: [-2.5, 2.5], ty: [-0.1, 1.15], fr: [-2, 2], fy: [0, 1.15], tl: 'lateral, x in λF# (×T)', fl: 'coarray, u in 1/λF#', tt: T => [[0.4175 * T, '.42'], [-0.443 * T, '−.44']], ft: T => [[1 / T, '1'], [-1 / T, '−1']],
+      time: (x, m, c, T) => { const mm = M(); mm.curve(x, m, u => Math.pow(mm.sinc(u / T), 2), c.mu, { dash: [3, 3], w: 1.2 }); mm.curve(x, m, u => Math.pow(muRect(u / T), 2), c.a, { fill: true }); },
+      freq: (x, m, c, T) => M().curve(x, m, u => Math.max(0, 1 - Math.abs(u * T)), c.b, { fill: true }) },
+    { prov: 'exact', q: 'What does incoherent compounding buy?', a: '<b>C = 1/√N<sub>eff</sub></b>, N<sub>eff</sub> = N/(1 + (N−1)ρ<sub>I</sub>). Independent (blue), ρ<sub>I</sub> = 0.25 (pink), 0.5 (amber): correlation caps the gain at 1/ρ<sub>I</sub> looks.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [0.5, 16.8], [0, 1.05], { lab: 'intensity contrast vs N', base: 0, ticks: [[1, '1'], [4, '4'], [9, '9'], [16, '16']], hlines: [[0.25, '0.25']] });
+        [[0, c.a], [0.25, c.b], [0.5, c.c]].forEach(([rho, col]) => m.curve(x, P, N => Math.sqrt((1 + (N - 1) * rho) / N), col)); } },
+    { prov: 'exact', q: 'Does coherent compounding smooth speckle?', a: '<b>No.</b> A sum of circular Gaussian fields is circular Gaussian: <b>SNR<sub>0</sub> = 1.91</b> for any N (pink). Incoherent averaging of independent looks: 1.91√N (blue).',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [0.5, 16.8], [0, 8], { lab: 'envelope SNR₀ vs N looks', base: 0, ticks: [[1, '1'], [4, '4'], [9, '9'], [16, '16']] });
+        m.curve(x, P, N => 1.913 * Math.sqrt(N), c.a); m.curve(x, P, () => 1.913, c.b); } },
+    G5[0],
+    { prov: 'exact', q: 'CNR vs contrast for speckle regions?', a: 'Envelope CNR (blue) saturates at <b>1.91</b>, intensity CNR (amber) at <b>1</b>; gCNR (pink) → 1. Closed forms for two Rayleigh regions.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-0.8, 31.5], [0, 2.05], { lab: 'metric vs |contrast| (dB)', base: 0, yaxis: false, ticks: [[0, '0'], [6, '6'], [10, '10'], [20, '20'], [30, '30']], hlines: [[1.913, '1.91'], [1, '1']] });
+        m.curve(x, P, d => { const r = Math.pow(10, d / 10), q = 1 / Math.sqrt(r); return Math.sqrt(PI) / 2 * (1 - q) / Math.sqrt((1 - PI / 4) * (1 + q * q)); }, c.a);
+        m.curve(x, P, d => { const r = Math.pow(10, d / 10); return (1 - 1 / r) / Math.sqrt(1 + 1 / (r * r)); }, c.c);
+        m.curve(x, P, d => d < 0.05 ? 0 : gc(Math.pow(10, d / 10)), c.b); } },
+    { prov: 'exact', q: 'Anechoic cyst CNR on a dB image?', a: 'Set by the display floor: <b>≈ (DR − 2.51)/5.57</b>, 10.3 at 60 dB (blue, exact clipped value). Envelope CNR 1.91 and gCNR 1 (pink) do not move.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [18, 83], [0, 15], { lab: 'CNR vs dynamic range DR (dB)', base: 0, yaxis: false, ticks: [[20, '20'], [40, '40'], [60, '60'], [80, '80']], hlines: [[1.913, '1.91']] });
+        m.curve(x, P, clippedLogCNR, c.a); m.curve(x, P, () => 1, c.b); } },
+    { prov: 'exact', q: 'What is gCNR, pictured?', a: '<b>gCNR = 1 − overlap</b> of the two pixel-value pdfs (shaded). Two Rayleigh regions 6 dB apart: <b>0.47</b>; the overlap is the same on any monotone display scale.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-30, 12], [0, 0.18], { lab: 'pdf of 10 log₁₀ I (dB)', yaxis: false, ticks: [[-6, '−6'], [0, '0'], [-20, '−20']] });
+        const a = D => pD(D + 6), b = D => pD(D); m.curve(x, P, D => Math.min(a(D), b(D)), c.mu, { fill: true, alpha: 0.45, w: 0.01 }); m.curve(x, P, a, c.b); m.curve(x, P, b, c.a); } },
+    { prov: 'exact', q: 'Detection threshold on a speckle or noise background?', a: '<b>P<sub>fa</sub> = e<sup>−T/⟨I⟩</sup></b>: 10⁻⁶ at <b>11.4 dB</b> above mean power (blue). A K background with α = 1 (pink) is 2000× worse there.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-0.6, 16.8], [-8, 0], { lab: 'log₁₀ P_fa vs threshold (dB)', base: -8, yaxis: false, ticks: [[0, '0'], [8.39, '8.4'], [11.4, '11.4'], [16, '16']], hlines: [[-6, '10⁻⁶'], [-3, '10⁻³']] });
+        m.curve(x, P, d => Math.max(-8, -Math.pow(10, d / 10) / LN10), c.a);
+        m.curve(x, P, d => { const T = Math.pow(10, d / 10); let s = 0; const n = 600; for (let i = 0; i < n; i++) { const u = (i + 0.5) / n * 14 - 9, xg = Math.exp(u); s += Math.exp(-xg - T / xg) * xg * (14 / n); } return Math.max(-8, Math.log10(s)); }, c.b); } },
+    { prov: 'model', q: 'Lesion detectability in speckle?', a: '<b>d′ ≈ C √N<sub>cells</sub></b>: 7.5 cells/mm² (5 MHz, 60%, F#2). 1 dB contrast (blue) reaches d′ = 2 at 4 mm; 3 dB (pink) at 1.7 mm.',
+      draw: cv => { const m = M(), c = m.col(); const { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [0, 8.5], [0, 8], { lab: 'd′ vs lesion diameter (mm)', base: 0, yaxis: false, ticks: [[2, '2'], [4, '4'], [6, '6'], [8, '8']], hlines: [[2, 'd′ = 2']] });
+        [[1, c.a], [3, c.b]].forEach(([dB, col]) => { const C = 1 - Math.pow(10, -dB / 10); m.curve(x, P, D => C * Math.sqrt(PI * D * D / 4 * 7.49), col); }); } }
+  ];
+  Lab.cardGrid('m26', 'm26-g1', G1);
+  Lab.cardGrid('m26', 'm26-g5', G5);
+  Lab.cardGrid('m26', 'm26-vis', VIS, 'm26-vis-T');
+  const sl = document.getElementById('m26-vis-T'), so = document.getElementById('m26-vis-T-o');
+  const upd = () => { so.textContent = (+sl.value).toFixed(2); }; sl.addEventListener('input', upd); Lab.onShow('m26', upd);
+  void snrNak; void GE;
+})();
+</script>
+
+<script>
+/* Module 26: demos */
+(function () {
+  const $ = id => document.getElementById(id), PI = Math.PI, LN10 = Math.log(10);
+  function gammaln(x) { const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+    if (x < 0.5) return Math.log(PI / Math.abs(Math.sin(PI * x))) - gammaln(1 - x);
+    x -= 1; let a = c[0]; const t = x + 7.5; for (let i = 1; i < 9; i++) a += c[i] / (x + i); return 0.5 * Math.log(2 * PI) + (x + 0.5) * Math.log(t) - t + Math.log(a); }
+  const nakPdf = (r, m) => r <= 0 ? 0 : Math.exp(Math.log(2) + m * Math.log(m) - gammaln(m) + (2 * m - 1) * Math.log(r) - m * r * r);
+  const nakSNR = m => { const e = Math.exp(gammaln(m + 0.5) - gammaln(m)) / Math.sqrt(m); return e / Math.sqrt(Math.max(1e-12, 1 - e * e)); };
+  function i0e(x) { const ax = Math.abs(x); if (ax < 3.75) { const t = (ax / 3.75) * (ax / 3.75); return Math.exp(-ax) * (1 + t * (3.5156229 + t * (3.0899424 + t * (1.2067492 + t * (0.2659732 + t * (0.0360768 + t * 0.0045813)))))); }
+    const t = 3.75 / ax; return (0.39894228 + t * (0.01328592 + t * (0.00225319 + t * (-0.00157565 + t * (0.00916281 + t * (-0.02057706 + t * (0.02635537 + t * (-0.01647633 + t * 0.00392377)))))))) / Math.sqrt(ax); }
+  const f2 = (v, d) => Lab.fmt(v, d === undefined ? 2 : d).replace('-', '−');
+  const fx = (v, d) => (+v).toFixed(d).replace('-', '−');
+  /* 2D FFT, row-major nr x nc */
+  function fft2(re, im, nr, nc, inv) {
+    const ar = new Float64Array(nc), ai = new Float64Array(nc);
+    for (let r = 0; r < nr; r++) { const o = r * nc; for (let c = 0; c < nc; c++) { ar[c] = re[o + c]; ai[c] = im[o + c]; } Lab.fft(ar, ai, inv); for (let c = 0; c < nc; c++) { re[o + c] = ar[c]; im[o + c] = ai[c]; } }
+    const br = new Float64Array(nr), bi = new Float64Array(nr);
+    for (let c = 0; c < nc; c++) { for (let r = 0; r < nr; r++) { br[r] = re[r * nc + c]; bi[r] = im[r * nc + c]; } Lab.fft(br, bi, inv); for (let r = 0; r < nr; r++) { re[r * nc + c] = br[r]; im[r * nc + c] = bi[r]; } }
+  }
+  const fq = (k, n, d) => (k < n / 2 ? k : k - n) / (n * d);
+  function whiteSpec(n, nr, nc, seed) { const g = Lab.rng(seed), re = new Float64Array(n), im = new Float64Array(n); for (let i = 0; i < n; i++) { re[i] = g.g() * Math.SQRT1_2; im[i] = g.g() * Math.SQRT1_2; } fft2(re, im, nr, nc, false); return { re, im }; }
+  function applyH(S, H, nr, nc) { const n = nr * nc, re = new Float64Array(n), im = new Float64Array(n); for (let i = 0; i < n; i++) { re[i] = S.re[i] * H[i]; im[i] = S.im[i] * H[i]; } fft2(re, im, nr, nc, true); return { re, im }; }
+  const coCache = {};
+  function coarray(type) { if (coCache[type]) return coCache[type]; let f;
+    if (type === 'rect') f = v => Math.max(0, 1 - Math.abs(v));
+    else { const n = 401, w = new Float64Array(n); for (let i = 0; i < n; i++) w[i] = 0.5 + 0.5 * Math.cos(2 * PI * (-0.5 + i / (n - 1)));
+      const L = 2 * n - 1, a = new Float64Array(L); for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) a[i + j] += w[i] * w[j]; const mx = a[n - 1]; for (let k = 0; k < L; k++) a[k] /= mx;
+      f = v => { if (v <= -1 || v >= 1) return 0; const u = (v + 1) / 2 * (L - 1), i = Math.min(L - 2, Math.floor(u)), fr = u - i; return a[i] * (1 - fr) + a[i + 1] * fr; }; }
+    coCache[type] = f; return f; }
+  function fwhm(p, n) { const p0 = p[0]; for (let k = 1; k < n; k++) if (p[k] / p0 < 0.5) { const a = p[k - 1] / p0, b = p[k] / p0; return 2 * ((k - 1) + (a - 0.5) / (a - b)); } return NaN; }
+  function acov(I, nr, nc) { const n = nr * nc; let m = 0; for (let i = 0; i < n; i++) m += I[i]; m /= n; const re = new Float64Array(n), im = new Float64Array(n);
+    for (let i = 0; i < n; i++) re[i] = I[i] - m; fft2(re, im, nr, nc, false); for (let i = 0; i < n; i++) { re[i] = re[i] * re[i] + im[i] * im[i]; im[i] = 0; } fft2(re, im, nr, nc, true); return re; }
+  function stats(a) { let s = 0, s2 = 0; const n = a.length; for (let i = 0; i < n; i++) { s += a[i]; s2 += a[i] * a[i]; } const m = s / n; return { m, sd: Math.sqrt(Math.max(0, s2 / n - m * m)) }; }
+  function gcnr(a, b, nb) { nb = nb || 100; const pool = new Float64Array(a.length + b.length); pool.set(a); pool.set(b, a.length); pool.sort(); const N = pool.length;
+    const E = []; for (let k = 0; k <= nb; k++) { const v = pool[Math.min(N - 1, Math.round(k * (N - 1) / nb))]; if (!E.length || v > E[E.length - 1]) E.push(v); } if (E.length < 2) return 0;
+    const cnt = arr => { const h = new Float64Array(E.length - 1); for (let q = 0; q < arr.length; q++) { const v = arr[q]; if (v >= E[E.length - 1]) { h[E.length - 2]++; continue; } let lo = 0, hi = E.length - 1; while (hi - lo > 1) { const md = (lo + hi) >> 1; if (E[md] <= v) lo = md; else hi = md; } h[lo]++; } return h; };
+    const ha = cnt(a), hb = cnt(b); let ov = 0; for (let i = 0; i < ha.length; i++) ov += Math.min(ha[i] / a.length, hb[i] / b.length); return 1 - ov; }
+  function vline(ctx, ax, xv, col, dash) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 1.4; if (dash) ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(ax.X(xv), ax.box.y); ctx.lineTo(ax.X(xv), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
+  function bars(ctx, ax, edges, dens, col, alpha) { ctx.save(); ctx.fillStyle = col; ctx.globalAlpha = alpha || 0.45; for (let i = 0; i < dens.length; i++) { const x0 = ax.X(edges[i]), x1 = ax.X(edges[i + 1]), y = ax.Y(Math.min(dens[i], 1e9)); ctx.fillRect(x0, y, Math.max(0.5, x1 - x0 - 0.5), ax.Y(0) - y); } ctx.restore(); }
+  function fn(xs, f) { return xs.map(f); }
+  const lin = (a, b, n) => Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1));
+
+  /* ================= Demo 26.1: phasor sums ================= */
+  let d1seed = 101; const TN = 4096, COS = new Float64Array(TN), SIN = new Float64Array(TN); for (let i = 0; i < TN; i++) { COS[i] = Math.cos(2 * PI * (i + 0.5) / TN); SIN[i] = Math.sin(2 * PI * (i + 0.5) / TN); }
+  const RIC = (() => { const out = []; for (let d = -20; d <= 22; d += 1) { const r = Math.pow(10, d / 10), A = Math.sqrt(r); let s0 = 0, s1 = 0, s2 = 0; const n = 3000, Rm = A + 6, dr = Rm / n;
+    for (let i = 0; i < n; i++) { const R = (i + 0.5) * dr, p = 2 * R * Math.exp(-(R - A) * (R - A)) * i0e(2 * A * R) * dr; s0 += p; s1 += R * p; s2 += R * R * p; } const mu = s1 / s0, v = s2 / s0 - mu * mu; out.push([(1 + r) * (1 + r) / (1 + 2 * r), mu / Math.sqrt(v)]); } return out; })();
+  const KBR = (() => { const out = []; for (let L = -0.6; L <= 2.5; L += 0.05) { const a = Math.pow(10, L), e = Math.exp(gammaln(a + 0.5) - gammaln(a)) / Math.sqrt(a) * Math.sqrt(PI) / 2; out.push([a / (a + 2), e / Math.sqrt(1 - e * e)]); } return out; })();
+  function d1() {
+    const c = Lab.colors(); const Nb = Math.pow(10, +$('m26-d1-n').value), rdB = +$('m26-d1-r').value, coh = rdB > -30, amp = $('m26-d1-a').value, kap = amp === 'ray' ? 2 : 1;
+    $('m26-d1-n-o').textContent = Nb < 10 ? Nb.toFixed(2) : Nb.toFixed(0); $('m26-d1-r-o').textContent = coh ? rdB + ' dB' : 'off';
+    const g = Lab.rng(d1seed), Mn = 4000, R = new Float64Array(Mn), A = coh ? Math.sqrt(Math.pow(10, rdB / 10) * Nb) : 0, L = Math.exp(-Nb); let walk = [], empty = 0;
+    for (let j = 0; j < Mn; j++) { let k = 0, p = g.u(); while (p > L) { k++; p *= g.u(); } let re = A, im = 0; const rec = j === 0;
+      for (let i = 0; i < k; i++) { const t = (g.u() * TN) | 0, a = kap === 2 ? Math.hypot(g.g(), g.g()) * Math.SQRT1_2 : 1; re += a * COS[t]; im += a * SIN[t]; if (rec) walk.push([re, im]); }
+      if (!k) empty++; R[j] = Math.hypot(re, im); }
+    let s1 = 0, s2 = 0, s4 = 0, lg = 0, lg2 = 0, nl = 0; for (let j = 0; j < Mn; j++) { const r2 = R[j] * R[j]; s1 += R[j]; s2 += r2; s4 += r2 * r2; } s1 /= Mn; s2 /= Mn; s4 /= Mn;
+    for (let j = 0; j < Mn; j++) { const I = R[j] * R[j] / s2; if (I > 0) { const D = 10 * Math.log10(I); lg += D; lg2 += D * D; nl++; } }
+    const snr = s1 / Math.sqrt(Math.max(1e-12, s2 - s1 * s1)), mh = s2 * s2 / Math.max(1e-12, s4 - s2 * s2), r = coh ? Math.pow(10, rdB / 10) : 0, mth = (1 + r) * (1 + r) / (1 + 2 * r + kap / Nb);
+    const lstd = nl > 1 ? Math.sqrt(Math.max(0, lg2 / nl - (lg / nl) * (lg / nl))) : NaN;
+    /* layout */
+    const cv = $('m26-d1-cv'), wide = (cv.clientWidth || 600) >= 600; const H = wide ? 270 : 640; const { ctx, w, h } = Lab.canvas(cv, H);
+    let P1, P2, P3; if (wide) { const cw = (w - 20) / 3; P1 = { x: 10, y: 22, w: cw - 20, h: h - 60 }; P2 = { x: cw + 46, y: 22, w: cw - 40, h: h - 60 }; P3 = { x: 2 * cw + 50, y: 22, w: cw - 46, h: h - 60 }; }
+    else { const ch = (h - 30) / 3; P1 = { x: 50, y: 22, w: w - 66, h: ch - 50 }; P2 = { x: 50, y: ch + 30, w: w - 66, h: ch - 54 }; P3 = { x: 50, y: 2 * ch + 34, w: w - 66, h: ch - 54 }; }
+    /* phasor walk */
+    let ext = Math.max(1.5, A, ...walk.map(p => Math.max(Math.abs(p[0]), Math.abs(p[1])))) * 1.12; const side = Math.min(P1.w, P1.h); const bx = { x: P1.x + (P1.w - side) / 2, y: P1.y, w: side, h: side };
+    const ax1 = Lab.axes(ctx, bx, [-ext, ext], [-ext, ext], { title: 'one cell: ' + walk.length + ' phasors', noXLabels: true, noYLabels: true, grid: false });
+    let px = 0, py = 0; if (A > 0) { Lab.arrow(ctx, ax1.X(0), ax1.Y(0), ax1.X(A), ax1.Y(0), c.sig3, 2); px = A; }
+    walk.forEach(([x2, y2]) => { ctx.save(); ctx.strokeStyle = c.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ax1.X(px), ax1.Y(py)); ctx.lineTo(ax1.X(x2), ax1.Y(y2)); ctx.stroke(); ctx.restore(); px = x2; py = y2; });
+    if (Math.hypot(px, py) > 1e-9) Lab.arrow(ctx, ax1.X(0), ax1.Y(0), ax1.X(px), ax1.Y(py), c.accent, 2.2);
+    /* histogram */
+    const rms = Math.sqrt(s2), nb = 45, edges = lin(0, 3.5, nb + 1), dens = new Float64Array(nb); let peak = 0; for (let j = 0; j < Mn; j++) { const v = R[j] / rms, b = Math.floor(v / 3.5 * nb); if (b >= 0 && b < nb) dens[b]++; }
+    for (let b = 0; b < nb; b++) { dens[b] /= Mn * (3.5 / nb); peak = Math.max(peak, dens[b]); }
+    const ytop = Math.min(4, Math.max(1.0, peak * 1.1)); const ax2 = Lab.axes(ctx, P2, [0, 3.5], [0, ytop], { xlabel: 'R / rms', title: 'envelope histogram', ny: 3 });
+    ax2.clip(); bars(ctx, ax2, edges, dens, c.accent, 0.5); const xs = lin(0.005, 3.5, 200);
+    Lab.line(ctx, ax2, xs, fn(xs, v => 2 * v * Math.exp(-v * v)), c.muted, 1.6, [4, 3]); if (isFinite(mh) && mh > 0.2 && mh < 60) Lab.line(ctx, ax2, xs, fn(xs, v => nakPdf(v, Math.max(0.5, mh))), c.sig2, 1.8); ax2.unclip();
+    /* m - SNR plane */
+    const ax3 = Lab.axes(ctx, P3, [Math.log10(0.3), 1], [0, 6], { xlabel: 'Nakagami m (log)', ylabel: wide ? '' : 'SNR₀', title: 'm vs SNR₀', xticks: [Math.log10(0.5), 0, Math.log10(2), Math.log10(5), 1], xfmt: v => Lab.fmt(Math.pow(10, v), 1), ny: 3 });
+    ax3.clip(); const ms = lin(Math.log10(0.5), 1, 120); Lab.line(ctx, ax3, ms, fn(ms, L => nakSNR(Math.pow(10, L))), c.muted, 1.2, [4, 3]);
+    Lab.line(ctx, ax3, RIC.map(p => Math.log10(p[0])), RIC.map(p => p[1]), c.sig3, 1.8); Lab.line(ctx, ax3, KBR.map(p => Math.log10(p[0])), KBR.map(p => p[1]), c.sig2, 1.8);
+    Lab.dots(ctx, ax3, [0], [1.913], c.muted, 4); if (isFinite(mh) && mh > 0.3 && mh < 10) Lab.dots(ctx, ax3, [Math.log10(mh)], [Math.min(5.9, snr)], c.accent, 5); ax3.unclip();
+    $('m26-d1-read').innerHTML = 'empty cells <b>' + fx(100 * empty / Mn, 1) + '%</b> (e<sup>−N̄</sup> = ' + fx(100 * L, 1) + '%)<br>SNR₀ = <b>' + fx(snr, 3) + '</b> (Rayleigh 1.913)<br>m̂ = <b>' + fx(mh, 3) + '</b>, theory <b>' + fx(mth, 3) + '</b><br>C<sub>I</sub> = ' + fx(1 / Math.sqrt(mh), 3) + ' (theory ' + fx(1 / Math.sqrt(mth), 3) + ')<br>log std = ' + (isFinite(lstd) ? fx(lstd, 2) + ' dB' : '–') + ' (Rayleigh 5.57)';
+  }
+  ['m26-d1-n', 'm26-d1-r'].forEach(id => $(id).addEventListener('input', d1)); $('m26-d1-a').addEventListener('change', d1); $('m26-d1-rs').addEventListener('click', () => { d1seed++; d1(); });
+
+  /* ================= Demo 26.2: density ================= */
+  const D2 = {}; const N6L = [0.5, 1, 2, 5, 10, 20, 50];
+  function d2sim(kap) { if (D2[kap]) return D2[kap]; const g = Lab.rng(kap === 2 ? 223 : 222), sx = 1, sz = 0.6, A6 = 2 * Math.LN2 * PI * sx * sz, bxA = 36 * sx * sz, Mn = 2000;
+    D2[kap] = N6L.map(N6 => { const lam = N6 / A6 * bxA, Lp = Math.exp(-lam); let s1 = 0, s2 = 0, s4 = 0;
+      for (let j = 0; j < Mn; j++) { let k = 0, p = g.u(); while (p > Lp) { k++; p *= g.u(); }
+        let re = 0, im = 0; for (let i = 0; i < k; i++) { const x = (2 * g.u() - 1) * 3 * sx, z = (2 * g.u() - 1) * 3 * sz, wgt = Math.exp(-x * x / (2 * sx * sx) - z * z / (2 * sz * sz)), ph = 2 * PI * g.u(), a = kap === 2 ? Math.hypot(g.g(), g.g()) * Math.SQRT1_2 : 1;
+          re += wgt * a * Math.cos(ph); im += wgt * a * Math.sin(ph); }
+        const r2 = re * re + im * im, R = Math.sqrt(r2); s1 += R; s2 += r2; s4 += r2 * r2; }
+      s1 /= Mn; s2 /= Mn; s4 /= Mn; return { N6, m: s2 * s2 / (s4 - s2 * s2), snr: s1 / Math.sqrt(s2 - s1 * s1) }; }); return D2[kap]; }
+  function d2() { const c = Lab.colors(), kap = +$('m26-d2-a').value, sim = d2sim(kap); const cv = $('m26-d2-cv'), wide = (cv.clientWidth || 600) >= 620; const { ctx, w, h } = Lab.canvas(cv, wide ? 250 : 470);
+    const B1 = wide ? { x: 52, y: 22, w: w / 2 - 70, h: h - 64 } : { x: 52, y: 22, w: w - 68, h: h / 2 - 60 }, B2 = wide ? { x: w / 2 + 44, y: 22, w: w / 2 - 60, h: h - 64 } : { x: 52, y: h / 2 + 22, w: w - 68, h: h / 2 - 60 };
+    const xt = [Math.log10(0.5), 0, Math.log10(2), Math.log10(5), 1, Math.log10(20), Math.log10(50), 2], xf = v => Lab.fmt(Math.pow(10, v), 1), xr = [Math.log10(0.4), 2];
+    const ax1 = Lab.axes(ctx, B1, xr, [0, 1.1], { xlabel: 'scatterers per −6 dB cell (log)', ylabel: 'Nakagami m', xticks: xt, xfmt: xf, title: 'm vs density' });
+    const xs = lin(xr[0], xr[1], 150); Lab.line(ctx, ax1, xs, xs.map(() => 1), c.muted, 1, [4, 3]); Lab.line(ctx, ax1, xs, fn(xs, L => { const Nc = Math.pow(10, L) / Math.LN2; return Nc / (Nc + kap); }), c.accent, 2);
+    Lab.dots(ctx, ax1, sim.map(s => Math.log10(s.N6)), sim.map(s => s.m), c.sig2, 4);
+    const ax2 = Lab.axes(ctx, B2, xr, [0.8, 2.1], { xlabel: 'scatterers per −6 dB cell (log)', ylabel: 'SNR₀', xticks: xt, xfmt: xf, title: 'SNR₀ vs density' });
+    Lab.line(ctx, ax2, xs, xs.map(() => 1.913), c.muted, 1, [4, 3]); const xs2 = xs.filter(L => { const Nc = Math.pow(10, L) / Math.LN2; return Nc / (Nc + kap) >= 0.5; }); Lab.line(ctx, ax2, xs2, fn(xs2, L => { const Nc = Math.pow(10, L) / Math.LN2; return nakSNR(Nc / (Nc + kap)); }), c.muted, 1.4);
+    Lab.dots(ctx, ax2, sim.map(s => Math.log10(s.N6)), sim.map(s => s.snr), c.sig2, 4);
+    const s10 = sim[4], Nc10 = 10 / Math.LN2;
+    $('m26-d2-read').innerHTML = 'at 10 per −6 dB cell (N<sub>c</sub> = ' + fx(Nc10, 1) + '):<br>m theory <b>' + fx(Nc10 / (Nc10 + kap), 3) + '</b>, MC <b>' + fx(s10.m, 3) + '</b><br>SNR₀ MC <b>' + fx(s10.snr, 3) + '</b> (' + fx(100 * s10.snr / 1.913, 0) + '% of 1.913)<br>at 1 per cell: m MC ' + fx(sim[1].m, 2) + ', SNR₀ ' + fx(sim[1].snr, 2);
+  }
+  $('m26-d2-a').addEventListener('change', d2);
+
+  /* ================= Demo 26.3: speckle size ================= */
+  const N3 = 256, dz3 = 20e-6, dx3 = 40e-6, C0 = 1540; let d3seed = 31, d3S = null, d3key = '';
+  const D3T = {};
+  function d3theory(apod) { if (D3T[apod]) return D3T[apod]; const co = coarray(apod), nu = 400, X = 6, ng = 601;
+    const mu = xx => { let s1 = 0, s0 = 0; for (let i = 0; i < nu; i++) { const u = (i + 0.5) / nu, t = co(u); s1 += t * t * Math.cos(2 * PI * u * xx); s0 += t * t; } return s1 / s0; };
+    const ps = xx => { let s1 = 0, s0 = 0; for (let i = 0; i < nu; i++) { const u = (i + 0.5) / nu, t = co(u); s1 += t * Math.cos(2 * PI * u * xx); s0 += t; } return s1 / s0; };
+    const mu2 = new Float64Array(ng), psf = new Float64Array(ng); let Lx = 0; for (let i = 0; i < ng; i++) { const xx = i * X / (ng - 1), v = mu(xx); mu2[i] = v * v; psf[i] = ps(xx); if (i) Lx += (mu2[i] + mu2[i - 1]) * X / (ng - 1); }
+    const at = (arr, xx) => { const u = Math.abs(xx) / X * (ng - 1); if (u >= ng - 1) return arr[ng - 1]; const i = Math.floor(u), f = u - i; return arr[i] * (1 - f) + arr[i + 1] * f; };
+    let lo = 0, hi = 3; for (let it = 0; it < 40; it++) { const md = (lo + hi) / 2, v = mu(md); if (v * v > 0.5) lo = md; else hi = md; } const thxN = 2 * lo;
+    let plo = 0, phi = 3; for (let it = 0; it < 40; it++) { const md = (plo + phi) / 2; if (ps(md) > 0.5) plo = md; else phi = md; }
+    D3T[apod] = { mu2, psf, at, Lx, thxN, psfN: 2 * plo }; return D3T[apod]; }
+  function d3() { const c = Lab.colors(); const f0 = +$('m26-d3-f').value * 1e6, bw = +$('m26-d3-b').value / 100, Fn = +$('m26-d3-n').value, apod = $('m26-d3-a').value;
+    $('m26-d3-f-o').textContent = (f0 / 1e6).toFixed(1); $('m26-d3-b-o').textContent = Math.round(bw * 100); $('m26-d3-n-o').textContent = Fn.toFixed(2);
+    if (!d3S || d3key !== String(d3seed)) { d3S = whiteSpec(N3 * N3, N3, N3, d3seed); d3key = String(d3seed); }
+    const B = bw * f0, sf = B / (2 * Math.sqrt(2 * Math.LN2)), lam = C0 / f0, U = 1 / (lam * Fn), co = coarray(apod), H = new Float64Array(N3 * N3);
+    const Hz = new Float64Array(N3), Hx = new Float64Array(N3); for (let k = 0; k < N3; k++) { const f = C0 * fq(k, N3, dz3) / 2; Hz[k] = Math.exp(-f * f / (2 * sf * sf)); Hx[k] = co(fq(k, N3, dx3) / U); }
+    for (let r = 0; r < N3; r++) for (let q = 0; q < N3; q++) H[r * N3 + q] = Hz[r] * Hx[q];
+    const z = applyH(d3S, H, N3, N3), I = new Float64Array(N3 * N3); let mI = 0; for (let i = 0; i < I.length; i++) { I[i] = z.re[i] * z.re[i] + z.im[i] * z.im[i]; mI += I[i]; } mI /= I.length;
+    const A = acov(I, N3, N3), pz = new Float64Array(N3 / 2), px = new Float64Array(N3 / 2); for (let k = 0; k < N3 / 2; k++) { pz[k] = A[k * N3] / A[0]; px[k] = A[k] / A[0]; }
+    const mz = fwhm(pz, N3 / 2) * dz3, mx = fwhm(px, N3 / 2) * dx3;
+    /* theory */
+    const thz = 4 * Math.LN2 / (PI * B) * C0 / 2, TH = d3theory(apod), thxN = TH.thxN, psfN = TH.psfN, thx = thxN * lam * Fn;
+    const mu2 = xx => TH.at(TH.mu2, xx), psf = xx => TH.at(TH.psf, xx);
+    const Lz = (C0 / 2) / (sf * Math.sqrt(2 * PI)); const cells = 1 / (Lz * TH.Lx * lam * Fn) * 1e-6;
+    /* draw */
+    const cv = $('m26-d3-cv'), cw0 = cv.clientWidth || 600, wide = cw0 >= 560; const { ctx, w, h } = Lab.canvas(cv, wide ? Math.max(300, Math.round(cw0 * 0.5 / 2) + 60) : Math.round((cw0 - 20) / 2) + 420);
+    let IB, A1, A2; if (wide) { const iw = w * 0.5; IB = { x: 10, y: 22, w: iw, h: iw / 2 }; A1 = { x: iw + 64, y: 22, w: w - iw - 80, h: (h - 100) / 2 }; A2 = { x: iw + 64, y: 22 + (h - 100) / 2 + 50, w: w - iw - 80, h: (h - 100) / 2 }; }
+    else { const iw = w - 20; IB = { x: 10, y: 22, w: iw, h: iw / 2 }; const y0 = IB.y + IB.h + 40, rest = h - y0 - 40; A1 = { x: 52, y: y0, w: w - 68, h: rest / 2 - 30 }; A2 = { x: 52, y: y0 + rest / 2 + 20, w: w - 68, h: rest / 2 - 30 }; }
+    const img = new Float64Array(N3 * N3); for (let i = 0; i < img.length; i++) img[i] = 10 * Math.log10(I[i] / mI + 1e-9);
+    Lab.image(ctx, img, N3, N3, IB, -30, 8, 'gray'); ctx.save(); ctx.fillStyle = c.fg; ctx.font = '600 12px ' + c.display; ctx.fillText('speckle intensity (dB), 5.1 × 10.2 mm', IB.x, IB.y - 6); ctx.restore();
+    const lagzMax = Math.min(N3 / 2 - 1, Math.ceil(3 * thz / dz3)), lagxMax = Math.min(N3 / 2 - 1, Math.ceil(2.6 * thx / dx3));
+    const ax1 = Lab.axes(ctx, A1, [0, lagzMax * dz3 * 1e3], [-0.1, 1.05], { xlabel: 'axial lag (mm)', title: 'axial autocovariance', ny: 3 });
+    const lz = lin(0, lagzMax * dz3 * 1e3, 200); ax1.clip(); Lab.line(ctx, ax1, lz, fn(lz, d => { const t = 2 * d * 1e-3 / C0; return Math.exp(-2 * PI * PI * sf * sf * t * t); }), c.sig2, 2);
+    const kz = Array.from({ length: lagzMax + 1 }, (_, k) => k); Lab.dots(ctx, ax1, kz.map(k => k * dz3 * 1e3), kz.map(k => pz[k]), c.accent, 2.6); ax1.unclip();
+    const ax2 = Lab.axes(ctx, A2, [0, lagxMax * dx3 * 1e3], [-0.25, 1.05], { xlabel: 'lateral lag (mm)', title: 'lateral autocovariance', ny: 3 });
+    const lx = lin(0, lagxMax * dx3 * 1e3, 200); ax2.clip(); Lab.line(ctx, ax2, lx, fn(lx, d => psf(d * 1e-3 / (lam * Fn))), c.muted, 1.2, [4, 3]); Lab.line(ctx, ax2, lx, fn(lx, d => mu2(d * 1e-3 / (lam * Fn))), c.sig2, 2);
+    const kx = Array.from({ length: lagxMax + 1 }, (_, k) => k); Lab.dots(ctx, ax2, kx.map(k => k * dx3 * 1e3), kx.map(k => px[k]), c.accent, 2.6); ax2.unclip();
+    $('m26-d3-read').innerHTML = 'λ = ' + fx(lam * 1e3, 3) + ' mm, λF# = ' + fx(lam * Fn * 1e3, 3) + ' mm<br>axial FWHM: meas <b>' + fx(mz * 1e3, 3) + '</b>, theory <b>' + fx(thz * 1e3, 3) + ' mm</b> (0.441 c/B)<br>lateral FWHM: meas <b>' + fx(mx * 1e3, 3) + '</b>, theory <b>' + fx(thx * 1e3, 3) + ' mm</b> (' + fx(thxN, 3) + ' λF#)<br>two-way PSF −6 dB: ' + fx(psfN, 3) + ' λF#<br>independent cells: <b>' + fx(cells, 1) + ' /mm²</b>';
+  }
+  ['m26-d3-f', 'm26-d3-b', 'm26-d3-n'].forEach(id => $(id).addEventListener('input', d3)); $('m26-d3-a').addEventListener('change', d3); $('m26-d3-rs').addEventListener('click', () => { d3seed++; d3(); });
+
+  /* ================= Demo 26.4: compounding ================= */
+  const N4 = 256, dz4 = 25e-6, dx4 = 50e-6, f04 = 5e6, lam4 = C0 / f04, NL = 15; let EQ = null, EQkey = '', PW = null, PWkey = '', SW = { key: '' };
+  function H4(Fn, sth) { const B = 0.6 * f04, sf = B / (2 * Math.sqrt(2 * Math.LN2)), H = new Float64Array(N4 * N4), hw = 1 / (2 * lam4 * Fn), c0 = sth / lam4; const Hz = new Float64Array(N4);
+    for (let k = 0; k < N4; k++) { const f = C0 * fq(k, N4, dz4) / 2; Hz[k] = Math.exp(-f * f / (2 * sf * sf)); }
+    for (let q = 0; q < N4; q++) { const on = Math.abs(fq(q, N4, dx4) - c0) <= hw ? 1 : 0; if (!on) continue; for (let r = 0; r < N4; r++) H[r * N4 + q] = Hz[r]; } return H; }
+  function getEQ(Fn) { const key = String(Fn); if (EQ && EQkey === key) return EQ; const H = H4(Fn, 0); EQ = []; for (let k = 0; k <= NL; k++) EQ.push(applyH(whiteSpec(N4 * N4, N4, N4, 400 + k), H, N4, N4)); EQkey = key; return EQ; }
+  function getPW(Fn, dth) { const key = Fn + '|' + dth; if (PW && PWkey === key) return PW; const S0 = whiteSpec(N4 * N4, N4, N4, 400); PW = []; for (let i = 0; i < NL; i++) { const th = (i - (NL - 1) / 2) * dth * PI / 180; PW.push(applyH(S0, H4(Fn, Math.sin(th)), N4, N4)); } PWkey = key; return PW; }
+  function hyp(x) { let s = 1, t = 1; for (let n = 0; n < 400; n++) { t *= ((n - 0.5) * (n - 0.5)) / ((n + 1) * (n + 1)) * x; s += t; if (Math.abs(t) < 1e-12) break; } return s; }
+  const rhoA = r => PI / (4 - PI) * (hyp(r * r) - 1);
+  function d4() { const c = Lab.colors(); const mode = $('m26-d4-m').value, N = +$('m26-d4-n').value, rr = +$('m26-d4-r').value, dth = +$('m26-d4-t').value, Fn = +$('m26-d4-f').value;
+    $('m26-d4-n-o').textContent = N; $('m26-d4-r-o').textContent = rr.toFixed(2); $('m26-d4-t-o').textContent = dth.toFixed(1); $('m26-d4-f-o').textContent = Fn.toFixed(2);
+    $('m26-d4-r').disabled = mode !== 'eq'; $('m26-d4-t').disabled = mode !== 'pw';
+    const n = N4 * N4; let looks;
+    if (mode === 'eq') { const E = getEQ(Fn), a = Math.sqrt(rr), b = Math.sqrt(1 - rr); looks = k => { const re = new Float64Array(n), im = new Float64Array(n), L = E[k + 1]; for (let i = 0; i < n; i++) { re[i] = a * E[0].re[i] + b * L.re[i]; im[i] = a * E[0].im[i] + b * L.im[i]; } return { re, im }; }; }
+    else { const P = getPW(Fn, dth); looks = k => P[k]; }
+    /* look index sets for odd N, centred; equicorrelated uses first N */
+    const idx = NN => mode === 'eq' ? Array.from({ length: NN }, (_, k) => k) : Array.from({ length: NN }, (_, k) => (NL - NN) / 2 + k);
+    const rTh = (i, j) => i === j ? 1 : mode === 'eq' ? rr : Math.max(0, 1 - Math.abs(Math.sin((i - (NL - 1) / 2) * dth * PI / 180) - Math.sin((j - (NL - 1) / 2) * dth * PI / 180)) * Fn);
+    const sk = mode + '|' + (mode === 'eq' ? rr : dth) + '|' + Fn;
+    if (SW.key !== sk) { const cache = new Array(NL).fill(null), getL = k => cache[k] || (cache[k] = looks(k)); SW = { key: sk, getL, meas: [], th: [], Nset: [], inc: {}, coh: {}, info: {} };
+      for (let NN = 1; NN <= 15; NN += 2) { const ids = idx(NN), Ai = new Float32Array(n), Zr = new Float64Array(n), Zi = new Float64Array(n);
+        ids.forEach(k => { const L = getL(k); for (let i = 0; i < n; i++) { Ai[i] += Math.hypot(L.re[i], L.im[i]); Zr[i] += L.re[i]; Zi[i] += L.im[i]; } });
+        const Ac = new Float32Array(n); for (let i = 0; i < n; i++) Ac[i] = Math.hypot(Zr[i], Zi[i]);
+        const si = stats(Ai), sc = stats(Ac); let sA = 0, sI = 0; ids.forEach(i => ids.forEach(j => { const r = rTh(i, j); sA += rhoA(r); sI += r * r; }));
+        SW.meas.push([si.m / si.sd, sc.m / sc.sd]); SW.th.push(1.913 * NN / Math.sqrt(sA)); SW.Nset.push(NN); SW.inc[NN] = Ai; SW.coh[NN] = Ac;
+        SW.info[NN] = { inc: si.m / si.sd, coh: sc.m / sc.sd, th: 1.913 * NN / Math.sqrt(sA), Neff: NN * NN / sI, NeffA: NN * NN / sA }; }
+      const i0 = mode === 'eq' ? 0 : (NL - 1) / 2, L0 = getL(i0), L1 = getL(i0 + 1), I0 = new Float64Array(n), I1 = new Float64Array(n); for (let i = 0; i < n; i++) { I0[i] = L0.re[i] * L0.re[i] + L0.im[i] * L0.im[i]; I1[i] = L1.re[i] * L1.re[i] + L1.im[i] * L1.im[i]; }
+      const a0 = stats(I0), a1 = stats(I1); let cc = 0; for (let i = 0; i < n; i++) cc += (I0[i] - a0.m) * (I1[i] - a1.m); SW.rho = cc / n / (a0.sd * a1.sd);
+      const L1c = getL(idx(1)[0]); SW.single = new Float32Array(n); for (let i = 0; i < n; i++) SW.single[i] = Math.hypot(L1c.re[i], L1c.im[i]); }
+    const meas = SW.meas, thInc = SW.th, Nset = SW.Nset, curInc = SW.inc[N], curCoh = SW.coh[N], cur = SW.info[N], rhoMeas = SW.rho;
+    const rAdj = mode === 'eq' ? rr : Math.max(0, 1 - Math.abs(Math.sin(dth * PI / 180)) * Fn);
+    /* draw */
+    const cv = $('m26-d4-cv'); const { ctx, w, h } = Lab.canvas(cv, (cv.clientWidth || 600) >= 640 ? 430 : 520);
+    const gap = 10, iw = Math.min((w - 2 * gap - 8) / 3, 220), ih = iw / 2, x0 = (w - 3 * iw - 2 * gap) / 2;
+    [[SW.single, 'single look'], [curInc, 'incoherent, N = ' + N], [curCoh, 'coherent, N = ' + N]].forEach(([Aim, lab], k) => { const s = stats(Aim), im2 = new Float64Array(n); for (let i = 0; i < n; i++) im2[i] = 20 * Math.log10(Aim[i] / s.m + 1e-9);
+      const rect = { x: x0 + k * (iw + gap), y: 22, w: iw, h: ih }; Lab.image(ctx, im2, N4, N4, rect, -25, 8, 'gray'); ctx.save(); ctx.fillStyle = c.fg; ctx.font = '600 11.5px ' + c.display; ctx.fillText(lab, rect.x, rect.y - 6); ctx.restore(); });
+    const PB = { x: 52, y: 22 + ih + 40, w: w - 68, h: h - (22 + ih + 40) - 44 };
+    const ymax = Math.max(8, ...meas.map(m => m[0]), ...thInc) * 1.05; const ax = Lab.axes(ctx, PB, [1, 15], [0, ymax], { xlabel: 'number of looks N', ylabel: 'envelope SNR₀', xticks: Nset, title: 'SNR₀ vs N', ny: 4 });
+    const xs = lin(1, 15, 120); Lab.line(ctx, ax, xs, fn(xs, x => 1.913 * Math.sqrt(x)), c.muted, 1.2, [4, 3]); Lab.line(ctx, ax, Nset, thInc, c.accent, 2); Lab.line(ctx, ax, [1, 15], [1.913, 1.913], c.sig2, 1.2, [2, 3]);
+    Lab.dots(ctx, ax, Nset, meas.map(m => m[0]), c.accent, 3.5); Lab.dots(ctx, ax, Nset, meas.map(m => m[1]), c.sig2, 3.5); vline(ctx, ax, N, c.rule, [2, 3]);
+    $('m26-d4-read').innerHTML = (mode === 'eq' ? 'field corr r = ' + fx(rr, 2) + ', ρ<sub>I</sub> = ' + fx(rr * rr, 3) : 'span ±' + fx((N - 1) / 2 * dth, 1) + '°, adjacent r = ' + fx(rAdj, 3)) +
+      '<br>adjacent ρ<sub>I</sub>: meas <b>' + fx(rhoMeas, 3) + '</b>, theory <b>' + fx(rAdj * rAdj, 3) + '</b><br>N<sub>eff</sub> (intensity) = <b>' + fx(cur.Neff, 2) + '</b>, (envelope) ' + fx(cur.NeffA, 2) +
+      '<br>incoherent SNR₀: meas <b>' + fx(cur.inc, 2) + '</b>, theory <b>' + fx(cur.th, 2) + '</b><br>coherent SNR₀: <b>' + fx(cur.coh, 2) + '</b> (1.913)';
+  }
+  $('m26-d4-m').addEventListener('change', d4); ['m26-d4-n', 'm26-d4-r'].forEach(id => $(id).addEventListener('input', d4));
+  ['m26-d4-t', 'm26-d4-f'].forEach(id => { $(id).addEventListener('input', () => { $('m26-d4-t-o').textContent = (+$('m26-d4-t').value).toFixed(1); $('m26-d4-f-o').textContent = (+$('m26-d4-f').value).toFixed(2); }); $(id).addEventListener('change', d4); });
+
+  /* ================= Demo 26.5: cyst phantom ================= */
+  const NZ5 = 256, NX5 = 256, dz5 = 40e-6, dx5 = 50e-6, Rc = 2.5e-3; let d5seed = 51, d5base = null, d5key = '', d5img = null, d5ikey = '', d5m = null;
+  function d5prep() { if (d5base && d5key === String(d5seed)) return d5base; const f0 = 5e6, lam = C0 / f0, B = 0.6 * f0, sf = B / (2 * Math.sqrt(2 * Math.LN2)), U = 1 / (lam * 2), n = NZ5 * NX5;
+    const H = new Float64Array(n); for (let r = 0; r < NZ5; r++) { const f = C0 * fq(r, NZ5, dz5) / 2, hz = Math.exp(-f * f / (2 * sf * sf)); for (let q = 0; q < NX5; q++) H[r * NX5 + q] = hz * Math.max(0, 1 - Math.abs(fq(q, NX5, dx5)) / U); }
+    let Ps = 0; for (let i = 0; i < n; i++) Ps += H[i] * H[i]; Ps /= n;
+    const g = Lab.rng(d5seed), Wr = new Float64Array(n), Wi = new Float64Array(n), Nr = new Float64Array(n), Ni = new Float64Array(n); for (let i = 0; i < n; i++) { Wr[i] = g.g() * Math.SQRT1_2; Wi[i] = g.g() * Math.SQRT1_2; Nr[i] = g.g() * Math.SQRT1_2; Ni[i] = g.g() * Math.SQRT1_2; }
+    const inR = [], outR = [], inside = new Uint8Array(n); for (let r = 0; r < NZ5; r++) for (let q = 0; q < NX5; q++) { const zz = (r - NZ5 / 2) * dz5, xx = (q - NX5 / 2) * dx5, rr = Math.hypot(xx, zz), i = r * NX5 + q; if (rr < Rc) inside[i] = 1; if (rr < 0.8 * Rc) inR.push(i); else if (rr > 1.3 * Rc && rr < 1.9 * Rc) outR.push(i); }
+    d5base = { H, Ps, Wr, Wi, Nr, Ni, inR, outR, inside }; d5key = String(d5seed); d5ikey = ''; return d5base; }
+  function d5() { const c = Lab.colors(); const cdB = +$('m26-d5-c').value, ndB = +$('m26-d5-z').value, DR = +$('m26-d5-d').value, map = $('m26-d5-t').value;
+    $('m26-d5-c-o').textContent = cdB <= -50 ? 'anechoic' : String(cdB).replace('-', '−'); $('m26-d5-z-o').textContent = String(ndB).replace('-', '−'); $('m26-d5-d-o').textContent = DR;
+    const b = d5prep(), n = NZ5 * NX5, key = cdB + '|' + ndB + '|' + d5seed;
+    if (d5ikey !== key) { const a = cdB <= -50 ? 0 : Math.pow(10, cdB / 20), re = new Float64Array(n), im = new Float64Array(n); for (let i = 0; i < n; i++) { const s = b.inside[i] ? a : 1; re[i] = b.Wr[i] * s; im[i] = b.Wi[i] * s; }
+      fft2(re, im, NZ5, NX5, false); for (let i = 0; i < n; i++) { re[i] *= b.H[i]; im[i] *= b.H[i]; } fft2(re, im, NZ5, NX5, true);
+      const sn = Math.sqrt(b.Ps * Math.pow(10, ndB / 10)), A = new Float64Array(n); for (let i = 0; i < n; i++) A[i] = Math.hypot(re[i] + sn * b.Nr[i], im[i] + sn * b.Ni[i]);
+      let po = 0; b.outR.forEach(i => { po += A[i] * A[i]; }); po = Math.sqrt(po / b.outR.length); for (let i = 0; i < n; i++) A[i] /= po; d5img = A; d5ikey = key; }
+    const A = d5img, floor = Math.pow(10, -DR / 20), T = map === 'log' ? v => 20 * Math.log10(v) : map === 'pow' ? v => Math.pow(v, 0.3) : v => v;
+    const vmin = T(floor), vmax = T(Math.pow(10, 10 / 20)), V = new Float64Array(n); for (let i = 0; i < n; i++) V[i] = T(Math.max(A[i], floor));
+    const pick = (arr, idx) => Float64Array.from(idx, i => arr[i]);
+    const cnr = (p, q) => { const s1 = stats(p), s2 = stats(q); return Math.abs(s1.m - s2.m) / Math.sqrt(s1.sd * s1.sd + s2.sd * s2.sd); };
+    if (!d5m || d5m.key !== key) { const Ain = pick(A, b.inR), Aout = pick(A, b.outR), Iin = Ain.map(v => v * v), Iout = Aout.map(v => v * v), Lin = Ain.map(v => 20 * Math.log10(v + 1e-12)), Lout = Aout.map(v => 20 * Math.log10(v + 1e-12));
+      const sI1 = stats(Iin), sI2 = stats(Iout), sLo = stats(Lout); d5m = { key, C: 10 * Math.log10(sI1.m / sI2.m), r: sI2.m / sI1.m, cEnv: cnr(Ain, Aout), cInt: cnr(Iin, Iout), cDB: cnr(Lin, Lout), cDBo: Math.abs(stats(Lin).m - sLo.m) / sLo.sd, gEnv: gcnr(Ain, Aout) }; }
+    const Vin = pick(V, b.inR), Vout = pick(V, b.outR), C = d5m.C, r = d5m.r, q = 1 / Math.sqrt(r), cEnv = d5m.cEnv, cInt = d5m.cInt, cDB = d5m.cDB, cDBo = d5m.cDBo, gEnv = d5m.gEnv, cDisp = cnr(Vin, Vout), gDisp = gcnr(Vin, Vout);
+    const thEnv = Math.sqrt(PI) / 2 * (1 - q) / Math.sqrt((1 - PI / 4) * (1 + q * q)), thG = r > 1.0001 ? Math.pow(r, -1 / (r - 1)) * (1 - 1 / r) : 0;
+    /* draw */
+    const cv = $('m26-d5-cv'), cw0 = cv.clientWidth || 600, wide = cw0 >= 560, asp = (NZ5 * dz5) / (NX5 * dx5); const { ctx, w, h } = Lab.canvas(cv, wide ? Math.round(cw0 * 0.5 * asp) + 50 : Math.round((cw0 - 20) * asp) + 260);
+    let IB, HB; if (wide) { const iw = w * 0.5; IB = { x: 10, y: 22, w: iw, h: iw * (NZ5 * dz5) / (NX5 * dx5) }; HB = { x: iw + 64, y: 22, w: w - iw - 80, h: h - 66 }; }
+    else { const iw = w - 20; IB = { x: 10, y: 22, w: iw, h: iw * (NZ5 * dz5) / (NX5 * dx5) }; HB = { x: 52, y: IB.y + IB.h + 40, w: w - 68, h: h - IB.y - IB.h - 84 }; }
+    Lab.image(ctx, V, NZ5, NX5, IB, vmin, vmax, 'gray'); ctx.save(); ctx.fillStyle = c.fg; ctx.font = '600 12px ' + c.display; ctx.fillText('displayed image, 10.2 × 12.8 mm', IB.x, IB.y - 6);
+    const cx = IB.x + IB.w / 2, cy = IB.y + IB.h / 2, sx = IB.w / (NX5 * dx5), szz = IB.h / (NZ5 * dz5); ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.strokeStyle = c.sig2; ctx.beginPath(); ctx.ellipse(cx, cy, 0.8 * Rc * sx, 0.8 * Rc * szz, 0, 0, 2 * PI); ctx.stroke(); ctx.strokeStyle = c.accent; [1.3, 1.9].forEach(f => { ctx.beginPath(); ctx.ellipse(cx, cy, f * Rc * sx, f * Rc * szz, 0, 0, 2 * PI); ctx.stroke(); }); ctx.restore();
+    const nb = 50, ed = lin(vmin, vmax, nb + 1), hi = new Float64Array(nb), ho = new Float64Array(nb), bw = (vmax - vmin) / nb; const put = (arr, hh) => arr.forEach(v => { const k = Math.min(nb - 1, Math.max(0, Math.floor((v - vmin) / bw))); hh[k]++; });
+    put(Vin, hi); put(Vout, ho); for (let k = 0; k < nb; k++) { hi[k] /= Vin.length * bw; ho[k] /= Vout.length * bw; } const ov = Array.from(hi, (v, k) => Math.min(v, ho[k])); const ym = Math.max(...Array.from(ho), ...Array.from(hi).slice(1)) * 1.1 || 1;
+    const ax = Lab.axes(ctx, HB, [vmin, vmax], [0, ym], { xlabel: map === 'log' ? 'displayed value (dB)' : 'displayed value', title: 'inside vs outside', ny: 3, yfmt: v => Lab.fmt(v, 2) });
+    ax.clip(); bars(ctx, ax, ed, hi, c.sig2, 0.45); bars(ctx, ax, ed, ho, c.accent, 0.45); bars(ctx, ax, ed, ov, c.muted, 0.8); ax.unclip();
+    $('m26-d5-read').innerHTML = 'contrast C = <b>' + fx(C, 1) + ' dB</b><br>CNR env <b>' + fx(cEnv, 2) + '</b> (Rayleigh ' + fx(thEnv, 2) + ')<br>CNR intensity ' + fx(cInt, 2) + '<br>CNR dB (unclipped) ' + fx(cDB, 2) + ', σ<sub>out</sub> only ' + fx(cDBo, 2) +
+      '<br>CNR of displayed values <b>' + fx(cDisp, 2) + '</b><br>gCNR displayed <b>' + fx(gDisp, 3) + '</b>, envelope ' + fx(gEnv, 3) + '<br>gCNR Rayleigh theory at C: ' + fx(thG, 3);
+  }
+  ['m26-d5-c', 'm26-d5-z', 'm26-d5-d'].forEach(id => $(id).addEventListener('input', d5)); $('m26-d5-t').addEventListener('change', d5); $('m26-d5-rs').addEventListener('click', () => { d5seed++; d5(); });
+
+  /* ================= Demo 26.6: detection ================= */
+  function kTail(T, a) { let s = 0; const n = 500, lo = -9, hi = 5; const lg = gammaln(a); for (let i = 0; i < n; i++) { const u = lo + (i + 0.5) * (hi - lo) / n, x = Math.exp(u); s += Math.exp(a * Math.log(a) + a * u - a * x - lg - T / x) * (hi - lo) / n; } return s; }
+  function kPdf(I, a) { let s = 0; const n = 500, lo = -9, hi = 5; const lg = gammaln(a); for (let i = 0; i < n; i++) { const u = lo + (i + 0.5) * (hi - lo) / n, x = Math.exp(u); s += Math.exp(a * Math.log(a) + a * u - a * x - lg - I / x - u) * (hi - lo) / n; } return s; }
+  const ricPdfI = (I, S) => Math.exp(-(Math.sqrt(I) - Math.sqrt(S)) * (Math.sqrt(I) - Math.sqrt(S))) * i0e(2 * Math.sqrt(I * S));
+  function pdTail(T, S) { const n = 600, A = Math.sqrt(S), Rlo = Math.sqrt(T), Rhi = Math.max(Rlo, A) + 8; let s = 0; const d = (Rhi - Rlo) / n; for (let i = 0; i < n; i++) { const R = Rlo + (i + 0.5) * d; s += 2 * R * Math.exp(-(R - A) * (R - A)) * i0e(2 * A * R) * d; } return Math.min(1, s); }
+  function d6() { const c = Lab.colors(); const TdB = +$('m26-d6-t').value, SdB = +$('m26-d6-s').value, a = +$('m26-d6-k').value; $('m26-d6-t-o').textContent = TdB.toFixed(1); $('m26-d6-s-o').textContent = SdB.toFixed(1);
+    const T = Math.pow(10, TdB / 10), S = Math.pow(10, SdB / 10), pfa = Math.exp(-T), pfk = kTail(T, a), pd = pdTail(T, S);
+    const cv = $('m26-d6-cv'), wide = (cv.clientWidth || 600) >= 640; const { ctx, w, h } = Lab.canvas(cv, wide ? 260 : 500);
+    const B1 = wide ? { x: 52, y: 22, w: w / 2 - 70, h: h - 64 } : { x: 52, y: 22, w: w - 68, h: h / 2 - 60 }, B2 = wide ? { x: w / 2 + 44, y: 22, w: w / 2 - 60, h: h - 64 } : { x: 52, y: h / 2 + 22, w: w - 68, h: h / 2 - 60 };
+    const xs = lin(-20, 28, 300), toD = (p, D) => { const I = Math.pow(10, D / 10); return p(I) * I * LN10 / 10; }; const yR = fn(xs, D => toD(I => ricPdfI(I, S), D)); const ymx = Math.max(0.1, ...yR) * 1.08;
+    const ax1 = Lab.axes(ctx, B1, [-20, 28], [0, ymx], { xlabel: '10 log₁₀(I/⟨I⟩) (dB)', title: 'pdfs on the dB scale', ny: 3 });
+    ax1.clip(); Lab.line(ctx, ax1, xs, fn(xs, D => toD(I => Math.exp(-I), D)), c.accent, 2); Lab.line(ctx, ax1, xs, fn(xs, D => toD(I => kPdf(I, a), D)), c.sig2, 1.8, [5, 3]); Lab.line(ctx, ax1, xs, yR, c.sig4, 2); vline(ctx, ax1, TdB, c.sig3); ax1.unclip();
+    const ax2 = Lab.axes(ctx, B2, [0, 18], [-8, 0], { xlabel: 'threshold T (dB re ⟨I⟩)', title: 'log₁₀ probability vs threshold', ny: 4, yfmt: v => '10^' + Lab.fmt(v) });
+    const ts = lin(0, 18, 200); ax2.clip(); Lab.line(ctx, ax2, ts, fn(ts, d => Math.max(-8.5, -Math.pow(10, d / 10) / LN10)), c.accent, 2); Lab.line(ctx, ax2, ts, fn(ts, d => Math.max(-8.5, Math.log10(kTail(Math.pow(10, d / 10), a) + 1e-300))), c.sig2, 1.8, [5, 3]);
+    const ts2 = lin(0, 18, 90); Lab.line(ctx, ax2, ts2, fn(ts2, d => Math.max(-8.5, Math.log10(pdTail(Math.pow(10, d / 10), S) + 1e-300))), c.sig4, 2); vline(ctx, ax2, TdB, c.sig3); ax2.unclip();
+    $('m26-d6-read').innerHTML = 'T = <b>' + fx(T, 2) + '⟨I⟩</b><br>P<sub>fa</sub> Rayleigh <b>' + pfa.toExponential(2) + '</b><br>P<sub>fa</sub> K (α = ' + a + ') <b>' + pfk.toExponential(2) + '</b> (×' + Lab.fmt(pfk / pfa, 0) + ')<br>P<sub>d</sub> (Rician, S = ' + fx(SdB, 1) + ' dB) <b>' + fx(pd, 3) + '</b>';
+  }
+  ['m26-d6-t', 'm26-d6-s'].forEach(id => $(id).addEventListener('input', d6)); $('m26-d6-k').addEventListener('change', d6);
+
+  function drawAll() { [d1, d2, d3, d4, d5, d6].forEach(f => { try { f(); } catch (e) { console.error(e); } }); }
+  Lab.onShow('m26', drawAll);
+})();
+</script>
+<script>
+/* Module 26: rule-card figures (26.9) */
+(function () {
+  const PI = Math.PI, LN10 = Math.log(10), Mi = Lab.mini, $ = id => document.getElementById(id);
+  const RH = 150, nw = w => w < 380, bx = (w, h) => ({ x: 8, y: 18, w: w - 16, h: h - 38 });
+  function gammaln(x) { const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+    if (x < 0.5) return Math.log(PI / Math.abs(Math.sin(PI * x))) - gammaln(1 - x);
+    x -= 1; let a = c[0]; const t = x + 7.5; for (let i = 1; i < 9; i++) a += c[i] / (x + i); return 0.5 * Math.log(2 * PI) + (x + 0.5) * Math.log(t) - t + Math.log(a); }
+  /* exponentially scaled I0 (Abramowitz and Stegun 9.8.1-2) */
+  function i0e(x) { const ax = Math.abs(x); if (ax < 3.75) { const y = (x / 3.75) ** 2; return Math.exp(-ax) * (1 + y * (3.5156229 + y * (3.0899424 + y * (1.2067492 + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))))); }
+    const y = 3.75 / ax; return (0.39894228 + y * (0.01328592 + y * (0.00225319 + y * (-0.00157565 + y * (0.00916281 + y * (-0.02057706 + y * (0.02635537 + y * (-0.01647633 + y * 0.00392377)))))))) / Math.sqrt(ax); }
+  /* Rician intensity pdf, unit mean, coherent-to-diffuse ratio r (linear) */
+  const pIric = (I, r) => { const A = Math.sqrt(r / (1 + r)), P = 1 / (1 + r), s = Math.sqrt(I); return Math.exp(-((s - A) ** 2) / P) * i0e(2 * A * s / P) / P; };
+  function logStats(r) { let n = 0, m = 0, m2 = 0; const du = 0.004; for (let u = -30; u < 4; u += du) { const I = Math.exp(u + du / 2), p = pIric(I, r) * I * du, d = 10 / LN10 * (u + du / 2); n += p; m += p * d; m2 += p * d * d; } m /= n; return [m, Math.sqrt(m2 / n - m * m)]; }
+  const pDric = (D, r) => { const I = Math.pow(10, D / 10); return pIric(I, r) * I * LN10 / 10; };
+  const snrRic = r => { let a = 0, b = 0; const dR = 0.0015; for (let R = dR / 2; R < 4; R += dR) { const p = 2 * R * pIric(R * R, r) * dR; a += p * R; b += p; } const m = a / b; return m / Math.sqrt(1 - m * m); };
+  const snrK = al => { const e = Math.exp(gammaln(al + 0.5) - gammaln(al)) / Math.sqrt(al) * Math.sqrt(PI) / 2; return e / Math.sqrt(1 - e * e); };
+  const besK = (nu, z) => { let s = 0; const dt = 0.01; for (let t = dt / 2; t < 12; t += dt) { const v = Math.exp(-z * Math.cosh(t)) * Math.cosh(nu * t); s += v * dt; if (v < 1e-300 && t > 1) break; } return s; };
+  const pfaK = (T, al) => 2 / Math.exp(gammaln(al)) * Math.pow(al * T, al / 2) * besK(al, 2 * Math.sqrt(al * T));
+  const muRect = x => { const n = 200; let s = 0; for (let i = 0; i < n; i++) { const u = (i + 0.5) / n; s += (1 - u) * (1 - u) * Math.cos(2 * PI * u * x); } return s / n * 3; };
+  const sinc = Mi.sinc, triOv = s => { s = Math.abs(s); return s <= 1 ? 1 - 1.5 * s * s + 0.75 * s * s * s : s < 2 ? Math.pow(2 - s, 3) / 4 : 0; };
+  const dots = (x, m, pts, colr, r) => { x.save(); x.fillStyle = colr; pts.forEach(([u, v]) => { x.beginPath(); x.arc(m.X(u), m.Y(v), r || 3.2, 0, 7); x.fill(); }); x.restore(); };
+  const vl = (x, m, u, colr) => { x.save(); x.strokeStyle = colr; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(m.X(u), m.b.y); x.lineTo(m.X(u), m.b.y + m.b.h); x.stroke(); x.restore(); };
+  const mn = v => v.replace('-', '−');
+  let mcNak = null; const pdC = {};
+  function nakMC() { if (mcNak) return mcNak; const R = Lab.rng(1207); mcNak = [25, 100, 400, 1600].map(n => { const NT = 400, est = [];
+      for (let t = 0; t < NT; t++) { let s = 0, s2 = 0; for (let i = 0; i < n; i++) { const I = -Math.log(1 - R.u()); s += I; s2 += I * I; } const mu = s / n, v = s2 / n - mu * mu; est.push(mu * mu / v); }
+      let a = 0; est.forEach(v => a += v); a /= NT; let q = 0; est.forEach(v => q += (v - a) ** 2); return [n, Math.sqrt(q / (NT - 1)), a]; }); return mcNak; }
+  const lbl = (x, s, ...r) => Lab.mini.text(x, String(s).replace(/-(?=\d)/g, '−'), ...r);
+  const RF = {
+    /* 1 dB speckle mean offset, Rayleigh vs Rician */
+    1: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [-25, 8], [0, 0.23], { lab: nw(w) ? 'pdf of 10 log₁₀(I/⟨I⟩) (dB)' : 'pdf of D = 10 log₁₀(I/⟨I⟩) (dB), each re its own ⟨I⟩', yaxis: false, ticks: [[-20, '−20'], [-10, '−10'], [0, '0'], [5, '5']] });
+      const sR = logStats(1e-8), s10 = logStats(10);
+      Mi.curve(x, m, D => pDric(D, 1e-8), c.a, { fill: true, alpha: 0.14 }); Mi.curve(x, m, D => pDric(D, 10), c.c, { fill: true, alpha: 0.14 });
+      vl(x, m, sR[0], c.a); vl(x, m, s10[0], c.c); vl(x, m, 0, c.mu);
+      lbl(x, (nw(w) ? 'Rayleigh: ' : 'Rayleigh: mean ') + mn(sR[0].toFixed(2)) + ', std ' + sR[1].toFixed(2) + (nw(w) ? '' : ' dB'), m.X(-24.5), m.Y(0.2), c.a);
+      lbl(x, (nw(w) ? 'Rician 10 dB: ' : 'Rician 10 dB: mean ') + mn(s10[0].toFixed(2)) + (nw(w) ? '' : ' dB'), m.X(-24.5), m.Y(0.165), c.c); },
+    /* 2 SNR0 on both sides of Rayleigh */
+    2: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [-1.05, 1.05], [1, 5.2], { lab: nw(w) ? 'SNR₀: K (1/α) | Rician (r/10)' : 'envelope SNR₀: K (left, 1/α) | Rician (right, r/10)', base: 1, ticks: [[-1, 'α=1'], [-0.25, '4'], [0, '∞|0'], [0.398, '6 dB'], [1, '10 dB']] });
+      Mi.curve(x, m, u => u < 0 ? snrK(-1 / u) : snrRic(Math.max(1e-9, 10 * u)), c.a, { w: 2 });
+      x.save(); x.fillStyle = c.mu; x.globalAlpha = 0.2; x.fillRect(m.b.x, m.Y(1.913 + 0.043), m.b.w, m.Y(1.913 - 0.043) - m.Y(1.913 + 0.043)); x.restore();
+      const pts = [[-1, snrK(1)], [-0.25, snrK(4)], [-0.1, snrK(10)], [0.1, snrRic(1)], [0.398, snrRic(3.981)], [1, snrRic(10)]]; dots(x, m, pts, c.b);
+      pts.forEach(([u, v], i) => (nw(w) && (i === 1 || i === 3)) || lbl(x, v.toFixed(2), m.X(u) + (i === 5 ? -6 : i < 3 ? 2 : -4), m.Y(v) - 10, c.b, i === 5 || i >= 3 ? 'right' : 'left'));
+      lbl(x, nw(w) ? '1.913 ± 0.043' : 'Rayleigh 1.913 ± 1.36/√1000', m.X(0.05), m.Y(1.913) + 13, c.mu); },
+    /* 3 gamma intensity laws for several m */
+    3: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [0, 3], [0, 1.6], { lab: nw(w) ? 'gamma pdf of I, m = 1/C_I²' : 'Nakagami intensity pdf (gamma, ⟨I⟩ = 1), m = 1/C_I²', ticks: [[1, '1'], [2, '2'], [3, 'I/⟨I⟩']] });
+      [[0.5, c.b], [1, c.a], [2, c.c], [5.76, c.d]].forEach(([q, col], i) => { Mi.curve(x, m, I => I <= 0 ? (q < 1 ? 9 : q === 1 ? 1 : 0) : Math.exp(q * Math.log(q) - gammaln(q) + (q - 1) * Math.log(I) - q * I), col, { w: q === 1 ? 2.2 : 1.6 });
+        lbl(x, 'm = ' + q + (nw(w) ? (q === 1 ? ' Rayleigh' : '') : q === 0.5 ? ' (pre)' : q === 1 ? ' (Rayleigh)' : q === 5.76 ? ' (r = 10 dB)' : ''), m.X(nw(w) ? 1.55 : 1.8), m.Y(1.45 - 0.2 * i), col); }); },
+    /* 4 coherent component: log std and m vs r */
+    4: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [-15, 15], [0, 6.4], { lab: nw(w) ? 'log-speckle std (dB) vs r (dB)' : 'std of 10 log₁₀ I (dB) vs coherent/diffuse r (dB)', ticks: [[-10, '−10'], [0, '0'], [6, '6'], [10, '10']] });
+      Mi.curve(x, m, rd => logStats(Math.pow(10, rd / 10))[1], c.a, { w: 2 }); vl(x, m, -15, c.mu);
+      [0, 6, 10].forEach((rd, i) => { const r = Math.pow(10, rd / 10), s = logStats(r)[1], mm = (1 + r) ** 2 / (1 + 2 * r); dots(x, m, [[rd, s]], c.c); lbl(x, s.toFixed(2) + ' dB, m ' + mm.toFixed(2), m.X(rd) - 6, m.Y(s) + 11, c.c, 'right'); });
+      lbl(x, 'Rayleigh limit 5.57', m.X(-14.5), m.Y(5.57) - 9, c.mu); },
+    /* 5 K tail: false-alarm rate at the Rayleigh threshold */
+    5: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [0, 14], [-7, 0], { lab: 'log₁₀ P(I > T) vs T (dB re ⟨I⟩)', base: -7, ticks: [[0, '0'], [5, '5'], [10, '10'], [11.4, '11.4']] });
+      const T = d => Math.pow(10, d / 10); Mi.curve(x, m, d => Math.max(-7, -T(d) / LN10), c.a, { w: 2 });
+      [[4, c.c], [1, c.b]].forEach(([al, col]) => Mi.curve(x, m, d => Math.max(-7, Math.log10(pfaK(T(d), al))), col, { w: 1.8 }));
+      vl(x, m, 11.40, c.mu); const p1 = pfaK(-Math.log(1e-6), 1); dots(x, m, [[11.40, Math.log10(p1)], [11.40, -6]], c.b);
+      lbl(x, '' + p1.toExponential(1).replace(/e-(\d+)/, (_, d) => '×10⁻' + d.replace(/\d/g, k => '⁰¹²³⁴⁵⁶⁷⁸⁹'[k])), m.X(11.2), m.Y(Math.log10(p1)) + 12, c.b, 'right');
+      lbl(x, '10⁻⁶', m.X(11.2), m.Y(-6) + 1, c.a, 'right'); [['Rayleigh', c.a], ['K α = 4', c.c], ['K α = 1', c.b]].forEach(([t, col], i) => lbl(x, t, m.X(0.3), m.Y(-4.4 - 0.85 * i), col)); },
+    /* 6 scatterers per cell */
+    6: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [0, 2], [0.4, 1.05], { lab: 'Nakagami m vs scatterers per −6 dB cell', base: 0.4, ticks: [[0, '1'], [0.5, '3'], [1, '10'], [1.5, '30'], [2, '100']], hlines: [[1, 'm = 1']] });
+      [[1, c.a, 'equal amplitudes'], [2, c.c, 'Rayleigh amplitudes']].forEach(([ka, col, t], i) => { const f = u => 1 / (1 + ka * Math.LN2 / Math.pow(10, u)); Mi.curve(x, m, f, col, { w: 2 }); dots(x, m, [[1, f(1)]], col);
+        lbl(x, (nw(w) ? t.split(' ')[0] : t) + ': ' + f(1).toFixed(3), m.X(i ? 1.05 : 0.95), m.Y(f(1)) + (i ? 10 : -10), col, i ? 'left' : 'right'); }); },
+    /* 7 Nakagami precision */
+    7: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [Math.log10(20), Math.log10(2000)], [0, 0.6], { lab: 'std of m̂ vs independent cells n', ticks: [[Math.log10(25), '25'], [2, '100'], [Math.log10(400), '400'], [Math.log10(1600), '1600']], hlines: [[0.1, '±0.1']] });
+      Mi.curve(x, m, u => 2 / Math.sqrt(Math.pow(10, u)), c.a, { w: 2 }); const mc = nakMC(); dots(x, m, mc.map(([n, s]) => [Math.log10(n), s]), c.c);
+      lbl(x, '2/√n', m.X(Math.log10(60)), m.Y(2 / Math.sqrt(60)) - 4, c.a); lbl(x, nw(w) ? 'dots: Monte Carlo' : 'dots: Monte Carlo, 400 trials', m.X(Math.log10(130)), m.Y(0.45), c.c); },
+    /* 8 speckle size vs PSF, lateral */
+    8: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [-1.6, 1.6], [0, 1.08], { lab: nw(w) ? 'lateral, x / λF# (rect, focus)' : 'lateral, x in units of λF# (rect aperture, focus)', ticks: [[-0.4175, '−0.42'], [0.4175, '0.42'], [1, '1']] });
+      Mi.curve(x, m, u => sinc(u) ** 2, c.mu, { dash: [4, 3] }); Mi.curve(x, m, u => muRect(u) ** 2, c.a, { w: 2, fill: true, alpha: 0.12 });
+      const hl = (y, a, b, col) => { x.save(); x.strokeStyle = col; x.lineWidth = 1.4; x.beginPath(); x.moveTo(m.X(-a), m.Y(y)); x.lineTo(m.X(a), m.Y(y)); x.stroke(); x.restore(); };
+      hl(0.5, 0.4175, 0, c.a); hl(0.5, 0.443, 0, c.mu);
+      if (nw(w)) { lbl(x, 'FWHM 0.835', m.X(-1.55), m.Y(0.75), c.a); lbl(x, 'PSF 0.886', m.X(1.55), m.Y(0.75), c.mu, 'right'); } else { lbl(x, 'speckle |μ|²: FWHM 0.835', m.X(0.5), m.Y(0.75), c.a); lbl(x, 'PSF sinc², −6 dB: 0.886', m.X(0.55), m.Y(0.3), c.mu); } },
+    /* 9 effective looks */
+    9: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [1, 16], [0, 16], { lab: nw(w) ? 'N_eff vs looks N' : 'N_eff = N/(1 + (N−1)ρ_I) vs looks N', ticks: [[1, '1'], [4, '4'], [9, '9'], [16, '16']] });
+      [[0, c.mu], [0.1, c.c], [0.25, c.a], [0.5, c.b]].forEach(([r, col]) => { const f = N => N / (1 + (N - 1) * r); Mi.curve(x, m, f, col, { w: r === 0.25 ? 2.2 : 1.5 }); lbl(x, 'ρ_I = ' + r, m.X(15.8), m.Y(f(15.8)) + (r === 0.5 ? 9 : -8), col, 'right'); });
+      dots(x, m, [[9, 3]], c.a); lbl(x, nw(w) ? 'N = 9 → 3' : '9 looks at ρ_I = 0.25 → N_eff = 3', m.X(1.5), m.Y(10.5), c.a); },
+    /* 10 coherent vs incoherent compounding */
+    10: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [1, 16], [0, 8.2], { lab: 'envelope SNR₀ vs number of looks N', ticks: [[1, '1'], [4, '4'], [9, '9'], [16, '16']] });
+      Mi.curve(x, m, N => 1.913 * Math.sqrt(N), c.c, { w: 1.8 }); Mi.curve(x, m, () => 1.913, c.a, { w: 2.2 });
+      lbl(x, nw(w) ? 'incoherent ≈ 1.91√N' : 'incoherent, independent: ≈ 1.91√N', m.X(1.5), m.Y(7.4), c.c); lbl(x, nw(w) ? 'coherent: 1.91 for any N' : 'coherent: 1.91 for any N (finer, not smoother)', m.X(1.3), m.Y(1.913) + 11, c.a); },
+    /* 11 correlation vs k-space overlap */
+    11: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [0, 1.05], [0, 1.08], { lab: nw(w) ? 'r and ρ_I vs sub-aperture shift d/w' : 'field r and intensity ρ_I = r² vs sub-aperture shift d/w', ticks: [[0.25, 'w/4'], [0.5, 'w/2'], [1, 'w']] });
+      Mi.curve(x, m, d => triOv(2 * d), c.mu, { dash: [4, 3] }); Mi.curve(x, m, d => triOv(2 * d) ** 2, c.a, { w: 2 });
+      dots(x, m, [[0.25, triOv(0.5) ** 2], [0.5, triOv(1) ** 2]], c.a);
+      lbl(x, 'ρ_I = ' + (triOv(0.5) ** 2).toFixed(2), m.X(0.23), m.Y(triOv(0.5) ** 2) + 11, c.a, 'right'); lbl(x, 'w/2: ρ_I = ' + (triOv(1) ** 2).toFixed(4), m.X(0.6), m.Y(0.3), c.a);
+      lbl(x, nw(w) ? 'r (overlap)' : 'r (triangle overlap)', m.X(0.4), m.Y(0.62), c.mu); },
+    /* 12 sub-band compounding */
+    12: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [1.5, 8.5], [0, 1.38], { lab: nw(w) ? 'N = 3 disjoint bands (MHz)' : 'spectrum split into N = 3 disjoint bands (MHz)', ticks: [[2, '2'], [3.5, '3.5'], [5, '5'], [6.5, '6.5'], [8, '8']] });
+      const B = 6, f0 = 5; Mi.curve(x, m, f => Math.abs(f - f0) < B / 2 ? 1.06 : 0, c.mu, { dash: [4, 3], w: 1.2 });
+      [[2, c.a], [4, c.c], [6, c.b]].forEach(([fl, col], i) => { Mi.curve(x, m, f => f >= fl && f < fl + 2 ? 1 : 0, col, { fill: true, alpha: 0.2 }); lbl(x, 'B/3', m.X(fl + 1), m.Y(0.5), col, 'center'); });
+      lbl(x, (nw(w) ? 'cell ×3, C = 1/√3 = ' : 'axial cell 0.441c/(B/3): ×3 · C = 1/√3 = ') + (1 / Math.sqrt(3)).toFixed(3), m.X(1.6), m.Y(1.24), c.fg); },
+    /* 13 CNR of an anechoic cyst vs dynamic range */
+    13: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [20, 80], [0, 14.5], { lab: nw(w) ? 'cyst CNR vs dynamic range (dB)' : 'anechoic-cyst CNR vs display dynamic range (dB)', ticks: [[30, '30'], [40, '40'], [60, '60'], [80, '80']] });
+      const f = DR => (DR - 2.51) / 5.57; Mi.curve(x, m, f, c.a, { w: 2 }); Mi.curve(x, m, () => 1.913, c.c); Mi.curve(x, m, () => 1, c.b);
+      dots(x, m, [[30, f(30)], [60, f(60)]], c.a); lbl(x, f(30).toFixed(1), m.X(30) - 5, m.Y(f(30)) - 6, c.a, 'right'); lbl(x, f(60).toFixed(1), m.X(60) - 5, m.Y(f(60)) - 6, c.a, 'right');
+      lbl(x, 'dB image: (DR − 2.51)/5.57', m.X(nw(w) ? 21 : 44), m.Y(nw(w) ? 13.4 : 4.6), c.a); lbl(x, 'envelope 1.913', m.X(79), m.Y(1.913) - 8, c.c, 'right'); lbl(x, 'intensity 1', m.X(79), m.Y(1) + 8, c.b, 'right'); },
+    /* 14 CNR depends on the display map, gCNR does not */
+    14: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), r = 100, m = Mi.panel(x, bx(w, h), [0, 1], [0, 3], { lab: nw(w) ? '−20 dB cyst: CNR of Iᵖ vs p' : '−20 dB cyst: CNR of the display map Iᵖ vs exponent p', ticks: [[0, 'log'], [0.5, '0.5 env'], [1, '1 int']] });
+      const cnr = p => { p = Math.max(p, 1e-4); const g1 = Math.exp(gammaln(1 + p)), g2 = Math.exp(gammaln(1 + 2 * p)); return (1 - Math.pow(r, -p)) * g1 / Math.sqrt((g2 - g1 * g1) * (1 + Math.pow(r, -2 * p))); };
+      const gc = Math.pow(r, -1 / (r - 1)) * (1 - 1 / r); Mi.curve(x, m, cnr, c.a, { w: 2 }); Mi.curve(x, m, () => gc, c.c, { w: 2 });
+      dots(x, m, [[0, cnr(0)], [0.5, cnr(0.5)], [1, cnr(1)]], c.a);
+      lbl(x, 'CNR ' + cnr(0).toFixed(2) + ' (log)', m.X(0.03), m.Y(cnr(0)) + 12, c.a); lbl(x, cnr(0.5).toFixed(2), m.X(0.52), m.Y(cnr(0.5)) - 9, c.a); lbl(x, cnr(1).toFixed(2), m.X(0.98), m.Y(cnr(1)) - 9, c.a, 'right');
+      lbl(x, 'gCNR ' + gc.toFixed(3) + ' for every p', m.X(0.3), m.Y(gc) + 10, c.c); },
+    /* 15 gCNR vs intensity ratio */
+    15: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [0, 25], [0, 1.05], { lab: nw(w) ? 'gCNR vs contrast (dB)' : 'gCNR of two Rayleigh regions vs contrast (dB)', ticks: [[3, '3'], [6, '6'], [10, '10'], [20, '20']] });
+      const g = d => { const r = Math.pow(10, d / 10); return d < 1e-3 ? 0 : Math.pow(r, -1 / (r - 1)) * (1 - 1 / r); }; Mi.curve(x, m, g, c.a, { w: 2 });
+      [3, 6, 10, 20].forEach(d => { dots(x, m, [[d, g(d)]], c.a); lbl(x, g(d).toFixed(d === 20 ? 3 : 2), m.X(d) + 5, m.Y(g(d)) + 9, c.fg); });
+      lbl(x, 'r^(−1/(r−1)) (1 − 1/r)', m.X(24.5), m.Y(0.2), c.a, 'right'); },
+    /* 17 contrast-detail: d' = C sqrt(N) */
+    17: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [0, 8], [0, 6], { lab: nw(w) ? 'd′ vs lesion diameter (mm)' : 'd′ vs lesion diameter (mm), 7.5 cells/mm²', ticks: [[1, '1'], [3, '3'], [5, '5'], [8, '8']] });
+      const dp = (C, D) => C * Math.sqrt(7.5 * PI * D * D / 4); [[1, c.a], [2, c.c]].forEach(([db, col]) => { const C = 1 - Math.pow(10, -db / 10); Mi.curve(x, m, D => dp(C, D), col, { w: 2 }); lbl(x, db + ' dB: C = ' + C.toFixed(3), m.X(7.9), m.Y(db === 1 ? 0.6 : 1.4), col, 'right'); });
+      const C1 = 1 - Math.pow(10, -0.1); dots(x, m, [[3, dp(C1, 3)], [5, dp(C1, 5)]], c.a); lbl(x, dp(C1, 3).toFixed(2), m.X(3) - 5, m.Y(dp(C1, 3)) - 8, c.a, 'right'); lbl(x, dp(C1, 5).toFixed(2), m.X(5) - 5, m.Y(dp(C1, 5)) - 8, c.a, 'right'); },
+    /* 18 detection probability at fixed false-alarm rate */
+    18: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [0, 20], [0, 1.05], { lab: nw(w) ? 'P_d vs target SNR (dB)' : 'P_d vs target-to-background power S/⟨I⟩ (dB)', ticks: [[5, '5'], [10, '10'], [13, '13'], [15, '15'], [20, '20']] });
+      const Pd = (sdb, pfa) => { const key = sdb.toFixed(2) + '_' + pfa; if (pdC[key] !== undefined) return pdC[key]; const T = -Math.log(pfa), r = Math.pow(10, sdb / 10), d = 0.02; let a = 0; for (let I = T + d / 2; I < T + 2 * r + 30 + 12 * Math.sqrt(r); I += d) a += pIric(I / (1 + r), r) / (1 + r) * d; return pdC[key] = Math.min(1, a); };
+      const PdI = (s, pf) => { const u = s * 4, i = Math.floor(u), t = u - i; return Pd(i / 4, pf) * (1 - t) + Pd((i + 1) / 4, pf) * t; };
+      [[1e-6, c.a, '10⁻⁶ (T = 11.4 dB)'], [1e-3, c.c, '10⁻³ (8.4 dB)']].forEach(([pf, col, t], i) => { Mi.curve(x, m, s => PdI(s, pf), col, { w: i ? 1.5 : 2.2 }); lbl(x, 'P_fa ' + t, m.X(0.4), m.Y(0.9 - 0.13 * i), col); });
+      [10, 13, 15].forEach(s => { const v = Pd(s, 1e-6); dots(x, m, [[s, v]], c.a); lbl(x, v.toFixed(s === 15 ? 3 : 2), m.X(s) + 5, m.Y(v) + 9, c.a); }); }
+  };
+  /* 26.5 inline: envelope correlation and envelope compounding */
+  const F21 = x => { let cn = 1, s = 1; for (let n = 0; n < 4000; n++) { cn *= ((n - 0.5) ** 2) / ((n + 1) ** 2); s += cn * Math.pow(x, n + 1); if (Math.abs(cn) < 1e-12) break; } return s; };
+  const rhoA = r2 => PI / (4 - PI) * (F21(r2) - 1);
+  const CMP = [
+    { prov: 'exact', q: 'Envelope correlation from field correlation?', a: '<b>ρ<sub>A</sub> = (π/(4−π))[₂F₁(−½, −½; 1; |r|²) − 1]</b> (blue) hugs 0.915|r|² (dashed); it reaches 1 at |r| = 1. Dot: r = 0.5 gives ρ<sub>A</sub> = 0.2326.',
+      draw: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, 150), m = Mi.panel(x, bx(w, h), [0, 1], [0, 1.05], { lab: 'ρ_A vs |r|² = ρ_I', ticks: [[0.25, '0.25'], [0.5, '0.5'], [0.75, '0.75'], [1, '1']] });
+        Mi.curve(x, m, q => 0.915 * q, c.mu, { dash: [4, 3], w: 1.2 }); Mi.curve(x, m, rhoA, c.a, { w: 2 }); dots(x, m, [[0.25, rhoA(0.25)]], c.a);
+        lbl(x, 'ρ_A(0.25) = ' + rhoA(0.25).toFixed(4), m.X(0.28), m.Y(rhoA(0.25)) + 10, c.a); } },
+    { prov: 'exact', q: 'What does envelope compounding of correlated looks give?', a: '<b>SNR<sub>0</sub> = 1.913 N / √(Σρ<sub>A</sub>)</b>: equicorrelated looks saturate at 1.913/√ρ<sub>A</sub>. Field correlation |r|² = 0, 0.25, 0.5.',
+      draw: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, 150), m = Mi.panel(x, bx(w, h), [1, 16], [0, 8.2], { lab: 'envelope SNR₀ vs looks N', ticks: [[1, '1'], [4, '4'], [9, '9'], [16, '16']] });
+        [[0, c.a], [0.25, c.c], [0.5, c.b]].forEach(([q, col]) => { const ra = q ? rhoA(q) : 0, f = N => 1.913 * N / Math.sqrt(N + N * (N - 1) * ra); Mi.curve(x, m, f, col, { w: 2 }); lbl(x, '|r|² = ' + q + ': ' + f(16).toFixed(2), m.X(15.8), m.Y(f(16)) + (q === 0.5 ? 10 : -8), col, 'right'); }); } }
+  ];
+  Lab.cardGrid('m26', 'm26-cmp', CMP);
+  Lab.onShow('m26', () => Object.keys(RF).forEach(k => { const cv = $('m26-rf-' + k); if (cv) try { RF[k](cv); } catch (e) { console.error(e); } }));
+})();
+</script>

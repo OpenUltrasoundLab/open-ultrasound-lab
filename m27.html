@@ -1,0 +1,1218 @@
+<section class="view" id="m27" data-title="Spectral estimation &amp; QUS" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part IV · Module 27</div>
+    <h1>Spectral estimation &amp; quantitative ultrasound</h1>
+    <p class="lede">Every QUS number (attenuation coefficient, backscatter coefficient, effective scatterer diameter, spectral slope) is a function of an estimated power spectrum of a short, speckled RF gate. This module rebuilds the estimators, states their bias and variance in closed form, and carries the units (Np vs dB, amplitude vs power, one-way vs two-way) through every step to the attenuation and size estimates.</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>Predict the bias (window convolution) and variance (\(\chi^2_2\), 5.57 dB per bin) of a periodogram, and what Welch averaging, multitapers and AR models change</li>
+        <li>Attach a degrees-of-freedom count and a \(\chi^2\) confidence interval to any averaged spectrum</li>
+        <li>Derive the \(-4\alpha(f)\Delta z\) log spectral ratio (power, two-way, \(\alpha\) in Np) and convert it to dB/cm/MHz without a factor-2 or 8.686 error</li>
+        <li>Choose between the spectral log difference, the reference phantom regression and the centroid downshift, and predict each one's bias sources and standard deviation from \(K\), \(B\), \(T\) and the ROI length</li>
+        <li>Fit a Gaussian form factor for the effective scatterer diameter, know the \(ka\) range where it is identifiable, and see how an attenuation error leaks into it</li>
+      </ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 04</a> · Sampling, Fourier &amp; LTI systems: DFT, windows, zero padding, leakage</li>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 07</a> · Random vectors, covariance &amp; correlation: Wiener–Khinchin (the speckle power spectrum is the system spectrum)</li>
+        <li><a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 08</a> · Analytic signal &amp; IQ demodulation: attenuation downshift of a Gaussian spectrum, Np vs dB</li>
+        <li><a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 12</a> · Estimation theory &amp; the Cramér–Rao bound: bias, variance, CRLB vocabulary</li>
+      </ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>numerical solution run in this page (JS) or in the Octave scripts</span><span><span class="prov model">Approx. model</span>simplified physics; assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not computed, not to scale</span><span>Spectra here come from three codes: FFT periodograms of simulated Gaussian RF (white noise through the stated transfer function), the multiplicative speckle model (an expected spectrum times the periodogram of a white-noise gate, averaged over K lines), and a toy focal-gain model for diffraction. No Field II or k-Wave output is shown.</span></div>
+
+  <!-- ======================= 27.1 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">27.1</span>The periodogram: biased by the window, never consistent</h2>
+    <p>Take \(N\) samples \(x[n]\) of a zero-mean stationary process at sampling rate \(f_s\). Its power spectral density is the DTFT of the autocorrelation (Module 07). Use per-sample units so that unit-variance white noise has \(S(f) = 1\); divide by \(f_s\) for per-hertz units.</p>
+    <div class="eqn" id="m27-eq1">
+      <div class="eqn-body"><div class="eqn-math">\[ S(f) = \sum_{l} r[l]\, e^{-j 2\pi f l / f_s}, \qquad r[l] = \mathrm{E}\{ x[n]\, x[n+l] \} \]</div><span class="eqn-no">(27.1)</span></div>
+      <dl class="where"><dt>\(x[n]\)</dt><dd>zero-mean stationary samples, \(n = 0 \dots N-1\)</dd><dt>\(f_s\)</dt><dd>sampling rate, MHz (40 MHz in the demos)</dd><dt>\(r[l]\)</dt><dd>autocorrelation at lag \(l\) samples</dd><dt>\(S(f)\)</dt><dd>power spectral density, per-sample units</dd><dt>\(l\)</dt><dd>lag, samples</dd><dt>\(\mathrm{E}\{\cdot\}\)</dt><dd>expected value</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(\sum_l\)</dt><dd>sum over all lags</dd><dt>\(n\)</dt><dd>sample index</dd></dl>
+    </div>
+    <div class="eqn" id="m27-eq2">
+      <div class="eqn-body"><div class="eqn-math">\[ P_w(f) = \frac{\left\lvert \sum_{n=0}^{N-1} w[n]\, x[n]\, e^{-j2\pi f n/f_s} \right\rvert^2}{\sum_n w[n]^2} \]</div><span class="eqn-no">(27.2)</span></div>
+      <dl class="where"><dt>\(w[n]\)</dt><dd>data window (taper), dimensionless</dd><dt>\(P_w(f)\)</dt><dd>windowed periodogram, per-sample units</dd><dt>\(x[n],\ f_s,\ N\)</dt><dd>as in (27.1); N is the number of samples in the window</dd><dt>\(\lvert\cdot\rvert^2\)</dt><dd>squared magnitude</dd><dt>\(\sum_n w[n]^2\)</dt><dd>window energy (normalization)</dd></dl>
+      <span class="note">The windowed periodogram. Rectangular \(w = 1\) gives the classical \((1/N)\lvert X(f)\rvert^2\). Normalizing by \(\sum w^2\) makes \(\mathrm{E}\{P_w\} = S\) for white noise for any window.</span>
+    </div>
+    <p><strong>Bias.</strong> Multiplying by \(w\) in time convolves in frequency, so the expected periodogram is the true spectrum smeared by the window's power response (unit area):</p>
+    <div class="eqn" id="m27-eq3">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathrm{E}\{ P_w(f) \} = \int S(\nu)\, H_w(f - \nu)\, d\nu, \qquad H_w(f) = \frac{\lvert W(f)\rvert^2}{f_s \sum w^2} \]</div><span class="eqn-no">(27.3)</span></div>
+      <dl class="where"><dt>\(W(f)\)</dt><dd>DTFT of the window</dd><dt>\(H_w(f)\)</dt><dd>spectral window (power response, unit area), 1/MHz</dd><dt>\(S(\nu)\)</dt><dd>true spectrum, integration variable \(\nu\) (MHz), as in (27.1)</dd><dt>\(P_w,\ w\)</dt><dd>as in (27.2)</dd><dt>\(\mathrm{E}\{\cdot\}\)</dt><dd>expected value</dd><dt>\(f,\ \nu\)</dt><dd>analysis frequency and integration frequency, MHz</dd><dt>\(f_s\)</dt><dd>sampling rate, MHz</dd></dl>
+      <span class="note">Rectangular window: \(H\) is the Fejér kernel, mainlobe \(\pm f_s/N\), first sidelobe −13.3 dB, sidelobes decaying 6 dB/octave. Two consequences: resolution about \(f_s/N\), and leakage that fills in the low-power parts of a steep spectrum. Hann: sidelobes −31.5 dB, decaying 18 dB/octave, mainlobe twice as wide (ENBW \(1.5 f_s/N\)).</span>
+    </div>
+    <p><strong>Variance.</strong> For a Gaussian process, away from 0 and \(f_s/2\) and where \(S\) is smooth over the mainlobe, \(X(f)\) is circular complex Gaussian, so \(\lvert X\rvert^2\) is exponential:</p>
+    <div class="eqn key" id="m27-eq4">
+      <div class="eqn-body"><div class="eqn-math">\[ P(f) \approx S(f)\, \frac{\chi^2_2}{2}, \qquad \mathrm{E}\{P\} = S, \qquad \mathrm{var}\{P\} = S^2, \qquad \frac{\mathrm{std}}{\mathrm{mean}} = 1 \]</div><span class="eqn-no">(27.4)</span></div>
+      <dl class="where"><dt>\(P(f)\)</dt><dd>one periodogram bin</dd><dt>\(S(f)\)</dt><dd>true spectrum at that frequency</dd><dt>\(\chi^2_2\)</dt><dd>chi-squared variable with 2 degrees of freedom (real and imaginary parts); \(\chi^2_2/2\) is a unit-mean exponential</dd><dt>\(\mathrm{E},\ \mathrm{var},\ \mathrm{std}\)</dt><dd>mean, variance and standard deviation over realizations</dd><dt>\(\approx\)</dt><dd>valid away from the band edges and for a smooth \(S\)</dd></dl>
+      <span class="note">Bins spaced \(f_s/N\) are approximately independent (rectangular window). A longer record gives more bins, not less noise per bin: the periodogram is not a consistent estimator.</span>
+    </div>
+    <div class="eqn" id="m27-eq5">
+      <div class="eqn-body"><div class="eqn-math">\[ 10 \log_{10}(P/S):\quad \text{mean} = -\frac{10\,\gamma_E}{\ln 10} = -2.51\ \mathrm{dB}, \qquad \text{std} = \frac{10}{\ln 10}\cdot\frac{\pi}{\sqrt{6}} = 5.57\ \mathrm{dB} \]</div><span class="eqn-no">(27.5)</span></div>
+      <dl class="where"><dt>\(10\log_{10}(P/S)\)</dt><dd>periodogram bin relative to the true spectrum, dB</dd><dt>\(P,\ S\)</dt><dd>as in (27.4)</dd><dt>\(\gamma_E\)</dt><dd>Euler constant, 0.5772</dd><dt>\(\ln\)</dt><dd>natural logarithm</dd><dt>\(\pi\)</dt><dd>3.14159</dd></dl>
+      <span class="note">\(\gamma_E = 0.5772\) (Euler). The same 5.57 dB as log-compressed speckle (Module 08, Module 26): a periodogram bin and a speckle intensity pixel are both exponential random variables.</span>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 27.1</span><h3>Periodogram of speckle RF: more samples, same scatter</h3><span class="prov sim">Simulation</span><span class="prov-note">White Gaussian noise through a Gaussian transfer function (FFT filtering), periodograms of 30–120 records, JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m27-pg-cv" aria-label="Periodogram of band-limited noise versus true spectrum"></canvas>
+        <canvas id="m27-pg-h" aria-label="Histogram of periodogram over true spectrum"></canvas>
+        <div class="legend"><span><i style="background:var(--muted)"></i>one periodogram</span><span><i style="background:var(--accent)"></i>mean over records</span><span><i style="background:var(--sig2)"></i>true S(f)</span><span><i style="background:var(--sig4)"></i>e<sup>−x</sup> (χ²<sub>2</sub>/2)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m27-pg-n">Record length N <output id="m27-pg-n-o">256</output></label><input type="range" id="m27-pg-n" min="5" max="12" step="1" value="8"></div>
+        <div class="ctrl"><label for="m27-pg-w">Window</label><select id="m27-pg-w"><option value="rect">Rectangular</option><option value="hann">Hann</option></select></div>
+        <div class="btn-row"><button class="btn" id="m27-pg-seed" type="button">Reseed</button></div>
+        <div class="readout" id="m27-pg-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> step \(N\) from 32 to 4096. The bin width shrinks from 1.25 MHz to 0.01 MHz, but \(\mathrm{std}(P/S)\) stays at 1 and the dB scatter at 5.6 dB. Switch to rectangular and look below −40 dB: the leakage floor is the window sidelobes convolved with the steep Gaussian band edge (bias); Hann pushes it down. Process: white Gaussian noise filtered by a 5 MHz, 60 % (−6 dB, amplitude) Gaussian transfer function, \(f_s = 40\) MHz.</div>
+  </div>
+
+  <div class="callout us"><span class="label">Ultrasound link</span><p>The spectrum of one RF gate is itself speckle, in frequency. A 4 mm gate at 5 MHz gives a spectrum whose every bin has 100 % standard deviation. QUS gets its averaging from \(K\) laterally independent A-lines (separated by at least a beam width) and from the bandwidth, never from the gate alone. When a paper reports a spectrum, ask how many independent looks went into it.</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Zero padding (Module 04) interpolates the same noisy spectrum onto a finer grid; smoothing adjacent padded bins averages correlated values and reduces variance far less than the number of bins suggests. Count independent bins at spacing ≈ ENBW, not FFT bins.</p></div>
+
+  <!-- ======================= 27.2 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">27.2</span>Averaging: Bartlett, Welch and honest error bars</h2>
+    <p><strong>Bartlett.</strong> Split \(N\) samples into \(K\) non-overlapping segments of length \(M = N/K\) and average their periodograms. Variance falls to \(S^2/K\); resolution worsens to \(f_s/M = K f_s/N\). For fixed \(N\) the product is fixed:</p>
+    <div class="eqn" id="m27-eq6">
+      <div class="eqn-body"><div class="eqn-math">\[ \frac{\mathrm{var}\{\hat S\}}{S^2} \times \Delta f_{\mathrm{res}} \approx \frac{1}{K} \times \frac{K f_s}{N} = \frac{f_s}{N} = \frac{1}{T} \]</div><span class="eqn-no">(27.6)</span></div>
+      <dl class="where"><dt>\(K\)</dt><dd>number of averaged segments (looks)</dd><dt>\(\Delta f_{\mathrm{res}}\)</dt><dd>resolution cell, MHz</dd><dt>\(T\)</dt><dd>record duration \(N/f_s\), µs</dd><dt>\(\hat S\)</dt><dd>averaged spectrum estimate, as in (27.8)</dd><dt>\(S\)</dt><dd>true spectrum</dd><dt>\(\mathrm{var}\)</dt><dd>variance</dd><dt>\(N,\ f_s\)</dt><dd>record length (samples) and sampling rate (MHz), as in (27.1)</dd><dt>\(\times\)</dt><dd>multiplication (variance-resolution product)</dd></dl>
+      <span class="note">Variance × resolution × record duration ≈ constant (up to a window-dependent factor of order 1). Only more data, or a smoother true spectrum, beats it.</span>
+    </div>
+    <p><strong>Welch.</strong> Use windowed segments that overlap by \(M - D\) samples (step \(D\)). Tapering discards data at the segment edges; overlap recovers it. For a Gaussian process with \(S\) smooth over the window mainlobe, Welch (1967) gives</p>
+    <div class="eqn" id="m27-eq7">
+      <div class="eqn-body"><div class="eqn-math">\[ \frac{\mathrm{var}\{\hat S\}}{S^2} = \frac{1}{N_b}\left[ 1 + 2 \sum_{m=1}^{N_b-1} \left(1 - \frac{m}{N_b}\right) \rho(mD)^2 \right] \equiv \frac{1}{K_{\mathrm{eff}}}, \qquad \rho(s) = \frac{\sum_n w[n]\, w[n+s]}{\sum_n w[n]^2} \]</div><span class="eqn-no">(27.7)</span></div>
+      <dl class="where"><dt>\(N_b\)</dt><dd>number of segments</dd><dt>\(M, D\)</dt><dd>segment length and step, samples</dd><dt>\(\rho(s)\)</dt><dd>window overlap correlation at shift \(s\)</dd><dt>\(K_{\mathrm{eff}}\)</dt><dd>effective number of independent looks</dd><dt>\(\hat S,\ S\)</dt><dd>as in (27.6)</dd><dt>\(m\)</dt><dd>segment shift index</dd><dt>\(w[n],\ n\)</dt><dd>window and sample index, as in (27.2)</dd><dt>\(\sum_n\)</dt><dd>sum over window samples</dd><dt>\(\equiv\)</dt><dd>defined as</dd></dl>
+      <span class="note">Hann at 50 % overlap: \(\rho(M/2) = 1/6\), so \(\rho^2 = 0.028\) and the segments are almost independent. \(N = 1024\), \(M = 128\): \(N_b = 15\), \(K_{\mathrm{eff}} = 14.3\) (m27_periodogram_welch.m measures var = 0.074 vs 0.070 predicted).</span>
+    </div>
+    <p><strong>Confidence intervals.</strong> \(\hat S/S\) is approximately \(\chi^2_\nu/\nu\) with \(\nu = 2K_{\mathrm{eff}}\) equivalent degrees of freedom, so a 95 % interval for \(S\) is</p>
+    <div class="eqn" id="m27-eq8">
+      <div class="eqn-body"><div class="eqn-math">\[ \left[\, \frac{\nu \hat S}{\chi^2_{\nu,\,0.975}}\,,\ \ \frac{\nu \hat S}{\chi^2_{\nu,\,0.025}} \,\right] \]</div><span class="eqn-no">(27.8)</span></div>
+      <dl class="where"><dt>\(\nu\)</dt><dd>equivalent degrees of freedom, \(2K_{\mathrm{eff}}\)</dd><dt>\(\chi^2_{\nu,p}\)</dt><dd>\(p\)-quantile of the \(\chi^2_\nu\) distribution</dd><dt>\(\hat S\)</dt><dd>averaged spectrum estimate</dd><dt>\(0.975,\ 0.025\)</dt><dd>quantile levels for a 95 % confidence interval</dd><dt>\([\cdot,\ \cdot]\)</dt><dd>lower and upper 95 % limits of the true \(S\)</dd></dl>
+      <span class="note">\(\nu = 2\) (one raw periodogram): \(S\) lies between \(\hat S\) − 5.67 dB and \(\hat S\) + 15.97 dB, a 21.6 dB span. \(\nu = 28.5\) (the Welch case above): −1.99 to +2.60 dB, a 4.6 dB span. The interval is constant in dB, which is why spectra with error bars are plotted on a log scale. Empirical coverage in the MATLAB script: 0.947 and 0.941.</span>
+    </div>
+  </div>
+
+  <div class="rf-grid" id="m27-welch"></div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 27.2</span><h3>Welch: variance against resolution on a rippled spectrum</h3><span class="prov sim">Simulation</span><span class="prov-note">Gaussian RF with a two-echo transfer function (FFT filtering), Welch averages of 30 records, JS; the 95 % band uses the Wilson–Hilferty χ² quantile approximation.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m27-we-cv" aria-label="Welch spectrum estimate with confidence band"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>one Welch estimate</span><span><i style="background:var(--sig4)"></i>95 % χ² band</span><span><i style="background:var(--sig3)"></i>mean of 30 (bias)</span><span><i style="background:var(--sig2)"></i>true S(f)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m27-we-m">Segment M <output id="m27-we-m-o">128</output></label><input type="range" id="m27-we-m" min="5" max="10" step="1" value="7"></div>
+        <div class="ctrl"><label for="m27-we-ov">Overlap</label><select id="m27-we-ov"><option value="0">0 %</option><option value="0.5" selected>50 %</option><option value="0.75">75 %</option></select></div>
+        <div class="ctrl"><label for="m27-we-w">Window</label><select id="m27-we-w"><option value="hann">Hann</option><option value="rect">Rectangular</option></select></div>
+        <label class="check"><input type="checkbox" id="m27-we-ci" checked> Show 95 % band</label>
+        <div class="readout" id="m27-we-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> \(N = 1024\) samples (25.6 µs). The process has two echoes \(\tau = 2\) µs apart (amplitude ratio 0.5), which writes a ripple of period \(1/\tau = 0.5\) MHz and 9.5 dB depth onto the spectrum. Shrink \(M\): the band narrows (variance \(\propto 1/K_{\mathrm{eff}}\)) and the mean estimate flattens. The ripple survives only for \(M\) well above \(f_s\tau = 80\) samples: at \(M = 128\) the Hann ENBW (0.47 MHz) already matches the ripple period and the mean is nearly flat; at \(M = 64\) a segment cannot even contain both echoes. That is bias, not noise. Compare 0 % and 50 % overlap with Hann: almost twice the segments for nearly the same independence. The measured variance exceeds the Welch formula here because the echo pair correlates the data across segments; the formula assumes \(S\) flat over the window.</div>
+  </div>
+
+  <div class="callout intuit"><span class="label">Intuition</span><p>Two echoes separated by \(\tau\) multiply the spectrum by \(\lvert 1 + a\, e^{-j2\pi f\tau}\rvert^2\), a cosine ripple with period \(1/\tau\). This is the spectral signature of quasi-periodic scatterer spacing (mean scatterer spacing estimation looks for exactly this ripple). The estimator can only see it if its segment, or gate, is longer than \(\tau\), which ties spectral resolution directly to the axial extent of the gate.</p></div>
+
+  <!-- ======================= 27.3 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">27.3</span>Multitaper spectra: Slepian sequences</h2>
+    <p>Welch throws away the gate edges and uses only part of the record per segment. Thomson's multitaper method uses the whole record \(K\) times, each time with a different orthogonal taper chosen to leak as little as possible outside a band \(\pm W\). The best taper solves a concentration problem (Slepian, 1978):</p>
+    <div class="eqn" id="m27-eq9">
+      <div class="eqn-body"><div class="eqn-math">\[ \lambda = \frac{\int_{-W}^{W} \lvert V(f)\rvert^2\, df}{\int_{-1/2}^{1/2} \lvert V(f)\rvert^2\, df} \to \max \quad\Longleftrightarrow\quad \mathbf{A}\mathbf{v} = \lambda \mathbf{v}, \qquad A_{mn} = \frac{\sin\!\left(2\pi W(m-n)\right)}{\pi(m-n)} \]</div><span class="eqn-no">(27.9)</span></div>
+      <dl class="where"><dt>\(\mathbf{v}\)</dt><dd>taper of length \(N\); \(V(f)\) its DTFT</dd><dt>\(W\)</dt><dd>half-bandwidth, cycles per sample</dd><dt>\(\lambda\)</dt><dd>fraction of taper energy inside \(\pm W\) (concentration)</dd><dt>\(\mathbf{A}\)</dt><dd>\(N \times N\) sinc kernel matrix</dd><dt>\(V(f)\)</dt><dd>DTFT of the taper, as above</dd><dt>\(f\)</dt><dd>frequency in cycles per sample</dd><dt>\(\int_{-W}^{W}\)</dt><dd>energy inside the band \(\pm W\)</dd><dt>\(\int_{-1/2}^{1/2}\)</dt><dd>total energy (Nyquist band)</dd><dt>\(A_{mn}\)</dt><dd>element (m, n) of \(\mathbf{A}\); \(m, n = 0 \dots N-1\)</dd><dt>\(\Longleftrightarrow\)</dt><dd>equivalent to</dd><dt>\(\sin\)</dt><dd>sine; the kernel is the sinc function sampled at integer lags</dd></dl>
+      <span class="note">\(f\) and \(W\) in cycles per sample. The eigenvectors \(\mathbf{v}_k\) are the discrete prolate spheroidal sequences (DPSS), orthonormal, ordered by concentration \(\lambda_0 &gt; \lambda_1 &gt; \dots\). About \(2NW\) eigenvalues are close to 1 (the Shannon number), then they fall off a cliff.</span>
+    </div>
+    <div class="eqn" id="m27-eq10">
+      <div class="eqn-body"><div class="eqn-math">\[ T_{nn} = \left(\frac{N-1}{2} - n\right)^2 \cos 2\pi W, \qquad T_{n,n+1} = \frac{(n+1)(N-n-1)}{2} \]</div><span class="eqn-no">(27.10)</span></div>
+      <dl class="where"><dt>\(T_{nn}\)</dt><dd>diagonal entries of the tridiagonal matrix \(\mathbf{T}\)</dd><dt>\(T_{n,n+1}\)</dt><dd>off-diagonal entries of \(\mathbf{T}\)</dd><dt>\(n\)</dt><dd>row index, \(n = 0 \dots N-1\)</dd><dt>\(N,\ W\)</dt><dd>taper length (samples) and half-bandwidth (cycles/sample), as in (27.9)</dd><dt>\(\mathbf{T}\)</dt><dd>matrix that commutes with \(\mathbf{A}\) of (27.9), so it has the same eigenvectors (the DPSS tapers)</dd></dl>
+      <span class="note">This tridiagonal matrix commutes with \(\mathbf{A}\), so it has the same eigenvectors and is far better conditioned numerically (\(\mathbf{A}\)'s eigenvalues crowd near 1). Its eigenvectors with the largest eigenvalues are the DPSS. m27_multitaper_dpss.m builds them with eig and checks them against \(\mathbf{A}\).</span>
+    </div>
+    <div class="eqn" id="m27-eq11">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat S_{\mathrm{MT}}(f) = \frac{1}{K} \sum_{k=0}^{K-1} \left\lvert \sum_n v_k[n]\, x[n]\, e^{-j2\pi f n} \right\rvert^2, \qquad K \approx 2NW - 1, \qquad \mathrm{var} \approx \frac{S^2}{K}, \qquad \text{resolution } 2W \]</div><span class="eqn-no">(27.11)</span></div>
+      <dl class="where"><dt>\(v_k[n]\)</dt><dd>\(k\)-th DPSS taper</dd><dt>\(K\)</dt><dd>number of tapers (eigenspectra averaged)</dd><dt>\(NW\)</dt><dd>time-bandwidth product, dimensionless</dd><dt>\(\hat S_{\mathrm{MT}}(f)\)</dt><dd>multitaper spectrum estimate</dd><dt>\(x[n],\ f\)</dt><dd>as in (27.1); here f in cycles per sample</dd><dt>\(N,\ W\)</dt><dd>as in (27.9)</dd><dt>\(\mathrm{var}\)</dt><dd>variance of the estimate</dd><dt>\(S\)</dt><dd>true spectrum</dd><dt>\(2W\)</dt><dd>resolution (full bandwidth of the spectral window), cycles per sample</dd></dl>
+      <span class="note">Each eigenspectrum is approximately \(\chi^2_2\) and they are nearly uncorrelated for a locally flat spectrum, so \(\nu \approx 2K\). \(N = 128\) (2.5 mm gate at 40 MHz), \(NW = 4\): \(2W = 2NW f_s/N = 2.5\) MHz, \(K = 7\), \(\lambda_6 = 0.937\), \(\lambda_7 = 0.699\). Thomson's adaptive weighting downweights the leaky high-order eigenspectra where the spectrum is steep.</span>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 27.3</span><h3>DPSS tapers, their spectral windows, and the multitaper estimate of a short gate</h3><span class="prov sim">Simulation</span><span class="prov-note">DPSS from the tridiagonal eigenproblem (27.10) by implicit QL, multitaper spectra of 60 simulated Gaussian gates, JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m27-mt-cv" aria-label="DPSS tapers, spectral windows and multitaper estimate"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>v<sub>0</sub> / multitaper</span><span><i style="background:var(--sig2)"></i>v<sub>K−1</sub> / true S</span><span><i style="background:var(--muted)"></i>rectangular periodogram</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m27-mt-n">Gate N</label><select id="m27-mt-n"><option value="64">64 (1.2 mm)</option><option value="128" selected>128 (2.5 mm)</option><option value="256">256 (4.9 mm)</option></select></div>
+        <div class="ctrl"><label for="m27-mt-nw">Time-bandwidth NW <output id="m27-mt-nw-o">4</output></label><input type="range" id="m27-mt-nw" min="1.5" max="8" step="0.5" value="4"></div>
+        <div class="ctrl"><label for="m27-mt-k">Tapers K <output id="m27-mt-k-o">7</output></label><input type="range" id="m27-mt-k" min="1" max="9" step="1" value="7"></div>
+        <div class="readout" id="m27-mt-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> at \(NW = 4\) raise \(K\) from 7 to 8: \(\lambda_{K-1}\) drops from 0.94 to 0.70 and the out-of-band leakage of the last taper rises to −5 dB (at \(K = 9\) the ninth taper has \(\lambda_8 = 0.30\)). Raise \(NW\): variance falls as \(1/K\) but the \(2W\) smoothing biases the peak of this short-gate spectrum low (mean \(\hat S/S\) below 1). Look above 10 MHz: the rectangular periodogram flattens near −40 dB while the true spectrum keeps falling. With \(K = 2NW - 1\) the unweighted multitaper average leaks too, because its last tapers (\(k\) = 4–6, \(\lambda\) = 0.999–0.94) put \(1 - \lambda\) = −32 to −12 dB of their energy outside \(\pm W\); drop \(K\) to 3 and the floor falls by tens of dB. Thomson's adaptive weights make this choice per frequency. Variance is measured over 60 independent gates.</div>
+  </div>
+
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Multitaper is not a free lunch for a smooth speckle spectrum: for the same spectral-window bandwidth, Hann–Welch and multitaper give nearly the same variance (m27_multitaper_dpss.m: variance × bandwidth × \(T\) = 1.36 vs 1.39). Its real advantages are leakage control over a large dynamic range (with low-order tapers or adaptive weighting), use of the full gate, and a principled bandwidth knob. Every extra high-order taper buys variance with leakage, and beyond \(K = 2NW - 1\) the price is steep.</p></div>
+
+  <!-- ======================= 27.4 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">27.4</span>Parametric (AR) spectra for short gates</h2>
+    <p>A Fourier estimator cannot resolve finer than about \(1/T\). An autoregressive model assumes the data are white noise through an all-pole filter and estimates the few pole parameters instead of the spectrum bin by bin:</p>
+    <div class="eqn" id="m27-eq12">
+      <div class="eqn-body"><div class="eqn-math">\[ x[n] = -\sum_{k=1}^{p} a_k\, x[n-k] + e[n], \qquad S_{\mathrm{AR}}(f) = \frac{\sigma_e^2}{\left\lvert 1 + \sum_{k=1}^{p} a_k\, e^{-j2\pi f k/f_s} \right\rvert^2} \]</div><span class="eqn-no">(27.12)</span></div>
+      <dl class="where"><dt>\(p\)</dt><dd>model order</dd><dt>\(a_k\)</dt><dd>AR (prediction) coefficients</dd><dt>\(e[n]\)</dt><dd>white driving noise of variance \(\sigma_e^2\)</dd><dt>\(S_{\mathrm{AR}}(f)\)</dt><dd>AR power spectrum</dd><dt>\(\sigma_e^2\)</dt><dd>variance of \(e[n]\)</dd><dt>\(f,\ f_s\)</dt><dd>frequency and sampling rate, MHz</dd><dt>\(x[n],\ n\)</dt><dd>signal and sample index, as in (27.1)</dd><dt>\(k\)</dt><dd>coefficient index, 1 … p</dd><dt>\(j\)</dt><dd>imaginary unit</dd></dl>
+    </div>
+    <div class="eqn" id="m27-eq13">
+      <div class="eqn-body"><div class="eqn-math">\[ \text{Yule–Walker:}\quad \mathbf{R}\,\mathbf{a} = -\mathbf{r}, \qquad R_{ij} = \hat r\!\left[\lvert i-j\rvert\right], \qquad \text{solved by Levinson–Durbin in } O(p^2) \]</div><span class="eqn-no">(27.13)</span></div>
+      <dl class="where"><dt>\(\mathbf{R}\)</dt><dd>\(p \times p\) Toeplitz matrix of estimated autocorrelations</dd><dt>\(\mathbf{a}\)</dt><dd>vector of AR coefficients \((a_1 \dots a_p)\), as in (27.12)</dd><dt>\(\mathbf{r}\)</dt><dd>vector \((\hat r[1] \dots \hat r[p])\)</dd><dt>\(\hat r[l]\)</dt><dd>estimated autocorrelation at lag \(l\), as in (27.1)</dd><dt>\(i,\ j\)</dt><dd>row and column indices</dd><dt>\(O(p^2)\)</dt><dd>operation count of the Levinson–Durbin recursion</dd></dl>
+      <span class="note">With the biased estimate \(\hat r[l] = (1/N)\sum x[n]\,x[n+l]\), which implicitly windows the data with a triangle and smears close peaks. The model is always stable.</span>
+    </div>
+    <div class="eqn" id="m27-eq14">
+      <div class="eqn-body"><div class="eqn-math">\[ \text{Burg:}\quad k_m = \frac{-2 \sum_n f_{m-1}[n]\, b_{m-1}[n-1]}{\sum_n \left( f_{m-1}[n]^2 + b_{m-1}[n-1]^2 \right)}, \qquad \sigma_m^2 = \sigma_{m-1}^2 \left(1 - k_m^2\right) \]</div><span class="eqn-no">(27.14)</span></div>
+      <dl class="where"><dt>\(f_m, b_m\)</dt><dd>forward and backward prediction errors at order \(m\)</dd><dt>\(k_m\)</dt><dd>reflection coefficient, \(\lvert k_m\rvert \le 1\)</dd><dt>\(\sigma_m^2\)</dt><dd>prediction-error power at order \(m\)</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(m\)</dt><dd>recursion order</dd></dl>
+      <span class="note">The coefficients follow the Levinson update \(\mathbf{a}^{(m)} = [\mathbf{a}^{(m-1)}; 0] + k_m\, \mathrm{flip}([\mathbf{a}^{(m-1)}; 0])\). \(\lvert k_m\rvert \le 1\) guarantees stability, and no window is assumed outside the data.</span>
+    </div>
+    <div class="eqn" id="m27-eq15">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathrm{AIC}(p) = N \ln \hat\sigma_p^2 + 2p \]</div><span class="eqn-no">(27.15)</span></div>
+      <dl class="where"><dt>\(\mathrm{AIC}(p)\)</dt><dd>Akaike information criterion for order p; the minimum selects the order</dd><dt>\(N\)</dt><dd>number of data samples</dd><dt>\(\hat\sigma_p^2\)</dt><dd>estimated prediction-error power of the order-p fit, as in (27.14)</dd><dt>\(p\)</dt><dd>model order, as in (27.12)</dd><dt>\(\ln\)</dt><dd>natural logarithm</dd></dl>
+      <span class="note">Akaike (1974). Picks a reasonable order for the two-tone case (median \(p = 16\) for \(N = 64\) at 20 dB SNR); it tends to over-fit for long records, where MDL (penalty \(p \ln N\)) is more conservative.</span>
+    </div>
+    <p>Numbers from m27_ar_burg.m, two tones 0.4 MHz apart in a 64-sample gate (Fourier resolution \(f_s/N = 0.625\) MHz, 20 dB SNR per tone): probability of two correctly placed peaks 0.37 / 0.66 / 0.75 for Burg at \(p\) = 12 / 16 / 24, 0.00 / 0.09 / 0.29 for Yule–Walker, 0.02 for the Hann periodogram.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 27.4</span><h3>Burg vs Yule–Walker vs periodogram on a short gate</h3><span class="prov sim">Simulation</span><span class="prov-note">Two tones in white Gaussian noise; Burg, Levinson–Durbin and Hann-DTFT spectra of each gate; 100 gates per readout, JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m27-ar-cv" aria-label="AR and periodogram spectra of a short gate with two tones, and AIC curve"></canvas>
+        <div class="legend"><span><i style="background:var(--muted)"></i>Hann periodogram</span><span><i style="background:var(--accent)"></i>Burg AR(p)</span><span><i style="background:var(--sig3)"></i>Yule–Walker AR(p)</span><span><i style="background:var(--sig2)"></i>true tones / AIC</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m27-ar-n">Gate N <output id="m27-ar-n-o">64</output></label><input type="range" id="m27-ar-n" min="32" max="256" step="8" value="64"></div>
+        <div class="ctrl"><label for="m27-ar-p">Order p <output id="m27-ar-p-o">16</output></label><input type="range" id="m27-ar-p" min="2" max="48" step="1" value="16"></div>
+        <div class="ctrl"><label for="m27-ar-d">Tone separation <output id="m27-ar-d-o">0.40 MHz</output></label><input type="range" id="m27-ar-d" min="0.1" max="1" step="0.05" value="0.4"></div>
+        <div class="ctrl"><label for="m27-ar-snr">SNR per tone <output id="m27-ar-snr-o">20 dB</output></label><input type="range" id="m27-ar-snr" min="0" max="40" step="1" value="20"></div>
+        <div class="btn-row"><button class="btn" id="m27-ar-seed" type="button">Reseed</button></div>
+        <div class="readout" id="m27-ar-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> at \(N = 64\) the tones are inside one Fourier resolution cell. Raise \(p\): Burg splits them first, Yule–Walker much later. Push \(p\) near \(N/2\): spurious peaks appear (P(&gt;2 peaks) rises). Drop SNR to 5 dB: AR resolution collapses faster than the periodogram's, because the poles retreat from the unit circle. The probabilities come from 100 independent gates; peaks count if they rise within 20 dB of the maximum.</div>
+  </div>
+
+  <div class="callout intuit"><span class="label">Intuition</span><p>For a smooth speckle spectrum, what matters is low-order structure, so AR helps the spectral moments more than the resolution. In m27_ar_burg.m the centroid of a 64-sample speckle gate has std 0.36 MHz from a Hann periodogram and 0.29 MHz from Burg at any order from 4 to 16. The reason: the one-sided centroid equals \(f_s/4 - (2f_s/\pi^2) \sum_{\text{odd } l} \rho[l]/l^2\), dominated by lag 1, and every Burg model of order \(\ge l\) reproduces the same \(\rho[0..l]\).</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>AR peak heights are not powers (the area under the peak is), Burg peaks shift and split with initial phase at high SNR, and an AR spectrum has no \(\chi^2\) error bar. Use AR for locating features and for moments on very short gates; use averaged Fourier spectra when you need calibrated power, as in BSC estimation.</p></div>
+
+  <!-- ======================= 27.5 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">27.5</span>From spectrum to tissue: the QUS signal model and the reference phantom</h2>
+    <p>For incoherent scattering from many sub-resolution scatterers, the expected power spectrum of a gate centered at depth \(z\) factorizes into system, beam, propagation and tissue terms:</p>
+    <div class="eqn key" id="m27-eq16">
+      <div class="eqn-body"><div class="eqn-math">\[ S(f, z) = G(f)\cdot D(f, z)\cdot \exp\!\left( -4 \int_{0}^{z} \alpha(f, z')\, dz' \right) \cdot \mathrm{BSC}(f)\cdot C_{\mathrm{gate}} \]</div><span class="eqn-no">(27.16)</span></div>
+      <dl class="where"><dt>\(G(f)\)</dt><dd>transmit–receive electromechanical response (power)</dd><dt>\(D(f,z)\)</dt><dd>diffraction and focusing, including the frequency-dependent beam cross-section</dd><dt>\(\alpha(f,z)\)</dt><dd>amplitude attenuation coefficient, Np/cm</dd><dt>\(\mathrm{BSC}(f)\)</dt><dd>backscatter coefficient, sr⁻¹ cm⁻¹</dd><dt>\(C_{\mathrm{gate}}\)</dt><dd>gate length, window energy, gain and TGC</dd><dt>\(S(f,z)\)</dt><dd>measured power spectrum of the gate centred at depth z</dd><dt>\(f,\ z\)</dt><dd>frequency (MHz) and depth (cm)</dd><dt>\(z^{\prime}\)</dt><dd>integration variable (depth), cm</dd><dt>\(\exp(\cdot)\)</dt><dd>exponential function; the factor 4 is two-way travel (2) times power (2)</dd></dl>
+      <span class="note">The exponential is the two-way power loss: the 4 = 2 for the round trip × 2 for power.</span>
+    </div>
+    <p><strong>Reference phantom method</strong> (Yao, Zagzebski &amp; Madsen, 1990). Scan a phantom with known \(\alpha_r(f)\) and \(\mathrm{BSC}_r(f)\) with the same transducer, focus, gain, TGC and gate. \(G\), \(D\) and \(C_{\mathrm{gate}}\) divide out:</p>
+    <div class="eqn" id="m27-eq17">
+      <div class="eqn-body"><div class="eqn-math">\[ \frac{S_s(f, z)}{S_r(f, z)} = \frac{\mathrm{BSC}_s(f)}{\mathrm{BSC}_r(f)}\, \exp\!\left( -4\, [\alpha_s(f) - \alpha_r(f)]\, z \right) \qquad (\text{homogeneous media}) \]</div><span class="eqn-no">(27.17)</span></div>
+      <dl class="where"><dt>\(S_s, S_r\)</dt><dd>sample and reference gate spectra at the same depth and settings</dd><dt>\(\alpha_s, \alpha_r\)</dt><dd>sample and reference attenuation, Np/cm</dd><dt>\(\mathrm{BSC}_s,\ \mathrm{BSC}_r\)</dt><dd>sample and reference backscatter coefficients, sr⁻¹ cm⁻¹</dd><dt>\(f,\ z\)</dt><dd>frequency (MHz) and depth (cm)</dd></dl>
+      <span class="note">This one equation gives both QUS families: its depth dependence gives \(\alpha_s\); its frequency shape after attenuation compensation gives \(\mathrm{BSC}_s\). It assumes the same sound speed in sample and reference (otherwise the focus and \(D\) differ), the same overlying attenuation for BSC (or an explicit correction), and incoherent scattering (no specular interfaces in the gate).</span>
+    </div>
+  </div>
+  <figure class="afig" id="m27-fig-ref">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Reference phantom method: what must match, what divides out</b><span class="prov-note">Same probe, focus, gain, TGC and gate in both scans; the ratio at equal depth keeps only the BSC ratio and the attenuation difference. Typical numbers; not to scale.</span></div>
+    <div class="mx-scroll"><svg viewBox="0 0 820 316" role="img" aria-label="Two side-by-side scans with the same linear probe: tissue sample on the left, reference phantom on the right. The same 4 mm gate at depth z appears in both. Below, the spectral ratio cancels system response, diffraction and gate factors and leaves the BSC ratio times the attenuation difference term.">
+      <text x="20" y="20" class="t">Sample (tissue)</text><text x="430" y="20" class="t">Reference phantom (known αᵣ, BSCᵣ)</text>
+      <rect x="110" y="30" width="200" height="16" class="probe"/><text x="210" y="42" class="c">linear probe, 5 MHz, F/2</text>
+      <rect x="520" y="30" width="200" height="16" class="probe"/><text x="620" y="42" class="c">same probe, focus, gain, TGC</text>
+      <rect x="60" y="50" width="300" height="190" class="tis"/><rect x="470" y="50" width="300" height="190" class="phan"/>
+      <path d="M150 50 L205 130 L150 210 M270 50 L215 130 L270 210" class="beam"/>
+      <path d="M560 50 L615 130 L560 210 M680 50 L625 130 L680 210" class="beam"/>
+      <text x="365" y="134" class="s">focus 2 cm</text>
+      <rect x="196" y="150" width="28" height="22" class="gate"/><rect x="606" y="150" width="28" height="22" class="gate"/>
+      <path d="M40 50 V161" class="dim"/><path d="M34 50 H46 M34 161 H46" class="dim"/><text x="28" y="110" class="s" transform="rotate(-90 28 110)">depth z</text>
+      <text x="232" y="166" class="a">gate 4 mm (Hann)</text><text x="642" y="166" class="a">same gate, same z</text>
+      <text x="75" y="232" class="s">αₛ(f), BSCₛ(f), c ≈ 1540 m/s</text><text x="485" y="232" class="s">αᵣ(f) = 0.5 dB/cm/MHz, BSCᵣ(f) ∝ f⁴, same c</text>
+      <text x="20" y="268" class="m">Sₛ/Sᵣ = [G·D·C·BSCₛ·e^(−4αₛz)] / [G·D·C·BSCᵣ·e^(−4αᵣz)] = (BSCₛ/BSCᵣ)·e^(−4(αₛ−αᵣ)z)</text>
+      <text x="20" y="288" class="s">Breaks if c differs (focus moves, D no longer cancels), if overlying layers differ (BSC),</text><text x="20" y="304" class="s">or if αᵣ, BSCᵣ are wrong (they pass straight into the result).</text>
+    </svg></div>
+  </figure>
+  <div class="prose">
+    <p><strong>Spectral moments.</strong> Centroid \(f_c = \int f S\, df / \int S\, df\) and spectral variance \(\sigma^2 = \int (f - f_c)^2 S\, df / \int S\, df\). For linear attenuation \(\alpha(f) = \alpha_0 f\), differentiate \(f_c\) with respect to depth:</p>
+    <div class="eqn key" id="m27-eq18">
+      <div class="eqn-body"><div class="eqn-math">\[ \frac{\partial f_c}{\partial z} = -4\, \alpha_0\, \sigma^2(z) \qquad (\text{exact, any spectral shape}) \]</div><span class="eqn-no">(27.18)</span></div>
+      <dl class="where"><dt>\(f_c\)</dt><dd>power-spectrum centroid, MHz</dd><dt>\(\sigma^2(z)\)</dt><dd>power-spectrum variance at depth \(z\), MHz²</dd><dt>\(\alpha_0\)</dt><dd>attenuation slope, Np/cm/MHz</dd><dt>\(z\)</dt><dd>depth, cm</dd><dt>\(\partial f_c/\partial z\)</dt><dd>rate of change of the centroid with depth, MHz/cm</dd></dl>
+      <span class="note">Because \(\partial S/\partial z = -4\alpha_0 f S\). For a Gaussian power spectrum \(\sigma^2 = \sigma_p^2\) is constant, so the downshift is linear: \(f_c = f_0 - 4\alpha_0\sigma_p^2 z\), the same as Module 08's \(-2\alpha_0\sigma_f^2 z\) with \(\sigma_f = \sqrt{2}\,\sigma_p\) the amplitude-spectrum std. For other shapes \(\sigma^2\) changes with depth and the downshift curves (card 4 below).</span>
+    </div>
+  </div>
+  <div class="rf-grid" id="m27-qus"></div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Commercial attenuation-imaging and controlled-attenuation-parameter style tools report \(\alpha\) in dB/cm/MHz (or dB/m at a fixed frequency) and must solve the same normalization problem; some use a built-in reference (a stored phantom or system model) rather than a phantom scan per exam. When comparing values across systems, check the frequency band, the depth range of the ROI and whether diffraction was compensated: in the toy model of m27_attenuation_sld.m an uncompensated focus moves \(\alpha\) from 0.70 to 0.96 dB/cm/MHz.</p></div>
+
+  <!-- ======================= 27.6 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">27.6</span>Attenuation from spectra: log difference, regression and centroid</h2>
+    <p>Write the log spectral ratio of sample to reference, in nepers of power:</p>
+    <div class="eqn" id="m27-eq19">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} y(f; z) &amp;= \ln S_s(f, z) - \ln S_r(f, z) \\ &amp;= \ln\frac{\mathrm{BSC}_s}{\mathrm{BSC}_r}(f) - 4\, \Delta\alpha(f)\, z + \varepsilon(f, z), \qquad \Delta\alpha = \alpha_s - \alpha_r \ \ (\mathrm{Np/cm}) \end{aligned} \]</div><span class="eqn-no">(27.19)</span></div>
+      <dl class="where"><dt>\(y(f;z)\)</dt><dd>log spectral ratio, Np of power</dd><dt>\(\Delta\alpha(f)\)</dt><dd>attenuation difference, Np/cm</dd><dt>\(\varepsilon(f,z)\)</dt><dd>log-spectral noise (mean \(\psi(K) - \ln K\), variance \(\psi_1(K)\))</dd><dt>\(S_s,\ S_r\)</dt><dd>as in (27.17)</dd><dt>\(\mathrm{BSC}_s,\ \mathrm{BSC}_r\)</dt><dd>as in (27.17)</dd><dt>\(\ln\)</dt><dd>natural logarithm</dd><dt>\(\alpha_s,\ \alpha_r\)</dt><dd>as in (27.17)</dd><dt>\(f,\ z\)</dt><dd>frequency (MHz) and depth (cm)</dd></dl>
+    </div>
+    <p><strong>Spectral log difference (SLD), two gates</strong> at \(z_1 &lt; z_2\), \(\Delta z = z_2 - z_1\). The BSC term cancels if the medium is homogeneous between them:</p>
+    <div class="eqn key" id="m27-eq20">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} y(f; z_1) - y(f; z_2) &amp;= 4\, \Delta\alpha(f)\, \Delta z \\ \Rightarrow\ \ \text{with } \Delta\alpha = \Delta\alpha_0 f:\quad \hat\alpha_0 &amp;= \alpha_{r,0} + \frac{\text{slope vs } f}{4\, \Delta z}\ \ [\mathrm{Np/cm/MHz}], \qquad \times 8.686 \to \mathrm{dB/cm/MHz} \end{aligned} \]</div><span class="eqn-no">(27.20)</span></div>
+      <dl class="where"><dt>\(z_1, z_2\)</dt><dd>proximal and distal gate centers, cm; \(\Delta z = z_2 - z_1\)</dd><dt>\(\alpha_{r,0}\)</dt><dd>reference attenuation slope, Np/cm/MHz</dd><dt>\(\hat\alpha_0\)</dt><dd>estimated sample attenuation slope, Np/cm/MHz</dd><dt>8.686</dt><dd>dB per Np (\(20/\ln 10\))</dd><dt>\(y(f;z_1),\ y(f;z_2)\)</dt><dd>log spectral ratio at the two gates, as in (27.19)</dd><dt>\(\Delta z\)</dt><dd>gate separation \(z_2 - z_1\), cm</dd><dt>\(\Delta\alpha_0\)</dt><dd>attenuation-slope difference, Np/cm/MHz (so \(\Delta\alpha = \Delta\alpha_0 f\))</dd><dt>\(\text{slope vs } f\)</dt><dd>slope of the fitted line of the log-ratio difference versus frequency, Np/MHz</dd><dt>\(\times 8.686\)</dt><dd>conversion from Np to dB</dd></dl>
+    </div>
+    <p><strong>Reference phantom regression</strong> (spectral difference): at each frequency, regress \(y(f; z)\) on \(z\) over all gates in the ROI to get \(-4\Delta\alpha(f)\), then fit \(\Delta\alpha(f) = \Delta\alpha_0 f\). <strong>Centroid downshift</strong>: regress \(f_c(z)\) on \(z\) and divide by \(-4\sigma_p^2\); subtract the reference phantom's centroid slope to remove the system and diffraction terms to first order.</p>
+    <div class="eqn" id="m27-eq21">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \ln(\text{power ratio}) &amp;= -4\, \alpha_{\mathrm{Np}}\, f\, \Delta z \\ \Longleftrightarrow\quad 10 \log_{10}(\text{power ratio}) &amp;= -2\, \alpha_{\mathrm{dB}}\, f\, \Delta z\ \ \mathrm{dB} \\ \Longleftrightarrow\quad \ln(\text{amplitude ratio}) &amp;= -2\, \alpha_{\mathrm{Np}}\, f\, \Delta z \end{aligned} \]</div><span class="eqn-no">(27.21)</span></div>
+      <dl class="where"><dt>\(\alpha_{\mathrm{Np}}\)</dt><dd>attenuation slope, Np/cm/MHz</dd><dt>\(\alpha_{\mathrm{dB}}\)</dt><dd>the same slope in dB/cm/MHz, \(8.686\,\alpha_{\mathrm{Np}}\)</dd><dt>\(f\)</dt><dd>frequency, MHz</dd><dt>\(\Delta z\)</dt><dd>path length in the medium, cm</dd><dt>\(\log_{10},\ \ln\)</dt><dd>base-10 and natural logarithms</dd></dl>
+      <span class="note">1 Np = 8.686 dB (\(20/\ln 10\)). 0.5 dB/cm/MHz = 0.0576 Np/cm/MHz. At 5 MHz over \(\Delta z = 2\) cm: ln power ratio −2.30, which is −10.0 dB of power (2 × 0.5 × 5 × 2). Use amplitude spectra and the factor is 2, not 4; use dB and the 8.686 is already inside \(\alpha_{\mathrm{dB}}\). Most published factor-of-2 errors come from mixing these.</span>
+    </div>
+    <p><strong>Variance.</strong> Averaging \(K\) independent lines makes \(\ln\hat S - \ln S\) a log of a mean of \(K\) exponentials: mean \(\psi(K) - \ln K\) (cancels in a difference when both gates use the same \(K\)), variance \(\psi_1(K) \approx 1/K + 1/(2K^2)\) (trigamma). The band \(B\) holds about \(BT/\gamma_w\) independent frequency samples (\(T\) = gate duration). A least-squares slope over \(B\) then gives, for the two-gate SLD,</p>
+    <div class="eqn" id="m27-eq22">
+      <div class="eqn-body"><div class="eqn-math">\[ \sigma(\hat\alpha_0) \approx \frac{1}{\Delta z} \sqrt{ \frac{1.5\, \gamma_w\, \psi_1(K)}{B^3\, T} } \qquad [\mathrm{Np/cm/MHz};\ B \text{ in MHz},\ T \text{ in } \mu\mathrm{s},\ \Delta z \text{ in cm}] \]</div><span class="eqn-no">(27.22)</span></div>
+      <dl class="where"><dt>\(\gamma_w\)</dt><dd>window bin-correlation factor: 0.93 (rectangular gate), 1.75 (Hann)</dd><dt>\(\psi_1(K)\)</dt><dd>trigamma function, variance of the log of a \(K\)-look average</dd><dt>\(B\)</dt><dd>analysis bandwidth, MHz</dd><dt>\(T\)</dt><dd>gate duration, µs</dd><dt>\(\sigma(\hat\alpha_0)\)</dt><dd>standard deviation of the slope estimate, Np/cm/MHz</dd><dt>\(\hat\alpha_0\)</dt><dd>estimated slope, as in (27.20)</dd><dt>\(\Delta z\)</dt><dd>gate separation, cm</dd><dt>\(K\)</dt><dd>number of independent spectral looks per gate</dd></dl>
+      <span class="note">\(\gamma_w\) comes from Monte Carlo on white noise; it measures the bin correlation of the windowed spectrum. \(K = 32\), Hann 4 mm gates (\(T = 5.2\) µs), \(B = 4\) MHz, \(\Delta z = 2\) cm: 0.069 dB/cm/MHz predicted, 0.067 measured over 128 ROIs in m27_attenuation_sld.m.</span>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 27.5</span><h3>Attenuation by the spectral log difference: bias, spread and the factor 4</h3><span class="prov model">Approx. model</span><span class="prov-note">Multiplicative speckle model: gate spectrum = S(f, z) × periodogram of a Hann-windowed white Gaussian gate averaged over K lines (exact when S is smooth over the 2/T window); noise-free reference; no electronic noise or diffraction; 300 ROIs, JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m27-sld-cv" aria-label="Log spectral difference versus frequency and histogram of attenuation estimates"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>y(f; z₁) − y(f; z₂), one ROI, and its fit</span><span><i style="background:var(--sig2)"></i>truth</span><span><i style="background:var(--sig4)"></i>α̂ over 300 ROIs</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m27-sld-a">True α<sub>s</sub> <output id="m27-sld-a-o">0.70 dB/cm/MHz</output></label><input type="range" id="m27-sld-a" min="0.2" max="1.5" step="0.05" value="0.7"></div>
+        <div class="ctrl"><label for="m27-sld-g">Gate length <output id="m27-sld-g-o">4 mm</output></label><input type="range" id="m27-sld-g" min="2" max="10" step="1" value="4"></div>
+        <div class="ctrl"><label for="m27-sld-k">Lines per ROI K <output id="m27-sld-k-o">32</output></label><input type="range" id="m27-sld-k" min="1" max="7" step="1" value="5"></div>
+        <div class="ctrl"><label for="m27-sld-dz">Gate separation Δz <output id="m27-sld-dz-o">2.0 cm</output></label><input type="range" id="m27-sld-dz" min="0.5" max="4" step="0.25" value="2"></div>
+        <div class="ctrl"><label for="m27-sld-b">Analysis band</label><select id="m27-sld-b"><option value="4,6">4–6 MHz</option><option value="3,7" selected>3–7 MHz</option><option value="2,8">2–8 MHz</option></select></div>
+        <div class="ctrl"><label for="m27-sld-cv2">Spectra and conversion</label><select id="m27-sld-cv2"><option value="p4">power, slope/(4Δz)</option><option value="a2">amplitude, slope/(2Δz)</option><option value="p2">power, slope/(2Δz) (error)</option></select></div>
+        <div class="readout" id="m27-sld-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> halve \(\Delta z\) or the band: \(\sigma\) doubles and grows 2.8× respectively (\(1/\Delta z\), \(B^{-3/2}\)). Quadruple \(K\): \(\sigma\) halves. Pick the "error" conversion: the estimate of \(\alpha_s - \alpha_r\) doubles (\(\alpha_r\) = 0.5 dB/cm/MHz). Model: gate spectra are \(S(f, z)\) times the periodogram of a Hann-windowed white Gaussian gate averaged over \(K\) lines (the multiplicative speckle model, exact when \(S\) is smooth over the \(2/T\) window); the reference is averaged over many lines and treated as noise-free; \(z_1\) = 2 cm.</div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 27.6</span><h3>Centroid downshift vs log-ratio regression on the same data</h3><span class="prov model">Approx. model</span><span class="prov-note">Toy focal gain D = 1/(1 + ((z − z_F)/z_R)²), z_R = 3.5λF#², times the multiplicative speckle model; Gaussian or two-lobe transducer spectrum; BSC ∝ fⁿ; 150 ROIs, JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m27-cen-cv" aria-label="Centroid versus depth and the distribution of three attenuation estimators"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>sample centroid (one ROI, expected)</span><span><i style="background:var(--muted)"></i>reference centroid</span><span><i style="background:var(--sig3)"></i>nominal −4α₀σ<sub>p</sub>²z</span><span><i style="background:var(--sig2)"></i>true α</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m27-cen-a">True α<sub>s</sub> <output id="m27-cen-a-o">0.70 dB/cm/MHz</output></label><input type="range" id="m27-cen-a" min="0.2" max="1.5" step="0.05" value="0.7"></div>
+        <div class="ctrl"><label for="m27-cen-n">Sample BSC ∝ f<sup>n</sup> <output id="m27-cen-n-o">n = 4</output></label><input type="range" id="m27-cen-n" min="0" max="4" step="0.5" value="4"></div>
+        <div class="ctrl"><label for="m27-cen-sp">Transducer spectrum</label><select id="m27-cen-sp"><option value="g">Gaussian, 5 MHz, 60 %</option><option value="a">Asymmetric (two-lobe)</option></select></div>
+        <div class="ctrl"><label for="m27-cen-k">Lines per ROI K <output id="m27-cen-k-o">32</output></label><input type="range" id="m27-cen-k" min="3" max="7" step="1" value="5"></div>
+        <label class="check"><input type="checkbox" id="m27-cen-d" checked> Focused beam (toy diffraction)</label>
+        <div class="readout" id="m27-cen-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> with focusing on, the raw centroid reads about 0.87 for a true 0.70 (the focal gain is frequency dependent, so it shifts the centroid with depth); subtracting the reference centroid slope brings it to about 0.67. Turn focusing off: with \(n = 4\) the raw centroid reads about 0.60, because \(f^4\) narrows the spectral variance from the nominal 0.81 to about 0.71 MHz², exactly the ratio \(\partial f_c/\partial z = -4\alpha_0\sigma^2\) predicts. Set \(n = 0\): the raw centroid is right, and subtracting a reference whose BSC goes as \(f^4\) now makes it worse (about 0.75), because the subtraction is exact only when both spectra have the same variance. Switch to the asymmetric spectrum: both centroid estimators fail (0.4 to 0.6), while the log-ratio regression, which assumes nothing about spectral shape, stays at 0.70. ROI: 8 contiguous 4 mm Hann gates, 1.7–4.5 cm; focus 2 cm, F/2; reference \(\alpha_r\) = 0.5 dB/cm/MHz, \(\mathrm{BSC}_r \propto f^4\); 150 ROIs.</div>
+  </div>
+
+  <div class="callout pitfall"><span class="label">Bias sources, ranked roughly by size in practice</span><p>(1) Diffraction and sound-speed mismatch between sample and reference. (2) Electronic noise: it flattens deep, high-frequency spectra and biases \(\alpha\) low; restrict the band to where SNR exceeds ~10 dB or subtract the noise power spectrum. (3) BSC that changes with depth inside the ROI (layered or heterogeneous tissue): the log-ratio method reads it as attenuation. (4) Specular reflectors and coherent components in the gate. (5) Unequal effective number of looks at the two depths, which breaks the cancellation of \(\psi(K) - \ln K\). Window smoothing and intra-gate attenuation are second order for gates of a few millimetres.</p></div>
+
+  <!-- ======================= 27.7 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">27.7</span>Backscatter coefficient, form factors, ESD and Lizzi parameters</h2>
+    <p>The BSC is the differential scattering cross-section per unit volume at 180°, in sr⁻¹ cm⁻¹ (or m⁻¹ sr⁻¹). From the reference ratio, after compensating the attenuation difference over the full path to depth \(z\):</p>
+    <div class="eqn" id="m27-eq23">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathrm{BSC}_s(f) = \mathrm{BSC}_r(f)\, \frac{S_s(f, z)}{S_r(f, z)}\, \exp\!\left( 4\, [\alpha_s(f) - \alpha_r(f)]\, z \right) \]</div><span class="eqn-no">(27.23)</span></div>
+      <dl class="where"><dt>\(\mathrm{BSC}_s,\ \mathrm{BSC}_r\)</dt><dd>sample and reference backscatter coefficients, sr⁻¹ cm⁻¹</dd><dt>\(S_s,\ S_r\)</dt><dd>sample and reference gate spectra, as in (27.17)</dd><dt>\(\alpha_s,\ \alpha_r\)</dt><dd>sample and reference attenuation coefficients, Np/cm</dd><dt>\(f,\ z\)</dt><dd>frequency (MHz) and depth (cm)</dd><dt>\(\exp(\cdot)\)</dt><dd>exponential function; compensates the differential two-way power attenuation</dd></dl>
+    </div>
+    <p>For weak scatterers small compared with \(\lambda\) the BSC rises as \(f^4\) (Rayleigh). Finite size multiplies it by a form factor \(F\), the normalized spatial autocorrelation of the impedance fluctuations in the wavenumber domain. The Gaussian form factor (Insana, Wagner, Brown &amp; Hall, 1990) is the workhorse:</p>
+    <div class="eqn key" id="m27-eq24">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathrm{BSC}(f) \propto k^4 \exp\!\left(-0.827\, k^2 a^2\right), \qquad k = \frac{2\pi f}{c}, \qquad \mathrm{ESD} = 2a \]</div><span class="eqn-no">(27.24)</span></div>
+      <dl class="where"><dt>\(k\)</dt><dd>wavenumber, rad/µm (with \(c\) = 1540 µm/µs and \(f\) in MHz)</dd><dt>\(a\)</dt><dd>effective scatterer radius, µm</dd><dt>\(\mathrm{ESD}\)</dt><dd>effective scatterer diameter, µm</dd><dt>0.827</dt><dd>constant of the Gaussian form factor \(F = \exp(-0.827\,k^2a^2)\)</dd><dt>\(\mathrm{BSC}(f)\)</dt><dd>backscatter coefficient, as in (27.16)</dd><dt>\(f\)</dt><dd>frequency, MHz</dd><dt>\(c\)</dt><dd>sound speed, µm/µs</dd><dt>\(\propto\)</dt><dd>proportional to</dd></dl>
+      <span class="note">Taking logs, \(\ln[\mathrm{BSC}_s/\mathrm{BSC}_r]\) (with a Rayleigh reference, \(\mathrm{BSC}_r \propto f^4\)) is linear in \(k^2\) with slope \(-0.827a^2\): an ordinary least-squares problem. The intercept is proportional to the effective acoustic concentration (number density × squared impedance contrast).</span>
+    </div>
+    <div class="eqn" id="m27-eq25">
+      <div class="eqn-body"><div class="eqn-math">\[ n_{\mathrm{local}}(ka) = \frac{d \ln \mathrm{BSC}}{d \ln f} = 4 - 1.654\, (ka)^2, \qquad k^4F \text{ peaks at } ka = \sqrt{2/0.827} = 1.555 \]</div><span class="eqn-no">(27.25)</span></div>
+      <dl class="where"><dt>\(n_{\mathrm{local}}\)</dt><dd>local power-law exponent of the BSC versus frequency</dd><dt>\(ka\)</dt><dd>wavenumber times effective radius, dimensionless</dd><dt>\(\mathrm{BSC}\)</dt><dd>as in (27.24)</dd><dt>\(f\)</dt><dd>frequency, MHz</dd><dt>\(k^4F\)</dt><dd>Rayleigh \(k^4\) law times the form factor \(F = \exp(-0.827\,k^2a^2)\)</dd><dt>\(d\ln\mathrm{BSC}/d\ln f\)</dt><dd>logarithmic slope of the BSC with frequency</dd></dl>
+      <span class="note">The spectral slope carries the size information only where \(n\) departs from 4. With a 3–7 MHz band, ESD = 20 µm spans \(ka\) = 0.12–0.29 (\(n \approx 3.9\) at 5 MHz): indistinguishable from Rayleigh. ESD = 100 µm spans \(ka\) = 0.61–1.43 (\(n = 2.3\) at 5 MHz): well identified.</span>
+    </div>
+    <p><strong>Lizzi parameters</strong> (Lizzi et al., 1983). Fit a straight line to the calibrated, attenuation-compensated spectrum in dB over the band: the slope (dB/MHz) falls as scatterers grow; the intercept (dB at 0 MHz) depends on size, concentration and impedance contrast; the midband fit (the line's value at band center) combines them and is the most precise of the three because a least-squares line is best determined at the mean abscissa.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 27.7</span><h3>ESD from a Gaussian form factor: identifiability and attenuation leakage</h3><span class="prov model">Approx. model</span><span class="prov-note">Gaussian form factor (27.24) times the multiplicative speckle model of Demo 27.5; 4 mm Hann gate at 3 cm; Rayleigh reference with equal attenuation; band assumed above the noise floor; 300 ROIs, JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m27-esd-cv" aria-label="ESD fit in k squared, form factor with the band, and histogram of ESD estimates"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>ln(BSC<sub>s</sub>/BSC<sub>r</sub>), one ROI, and fit</span><span><i style="background:var(--sig2)"></i>truth</span><span><i style="background:var(--sig3)"></i>analysis band in ka</span><span><i style="background:var(--sig4)"></i>ESD over 300 ROIs</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m27-esd-e">True ESD <output id="m27-esd-e-o">100 µm</output></label><input type="range" id="m27-esd-e" min="10" max="300" step="10" value="100"></div>
+        <div class="ctrl"><label for="m27-esd-b">Analysis band</label><select id="m27-esd-b"><option value="2,6">2–6 MHz</option><option value="3,7" selected>3–7 MHz</option><option value="5,10">5–10 MHz</option><option value="8,15">8–15 MHz</option></select></div>
+        <div class="ctrl"><label for="m27-esd-k">Lines per ROI K <output id="m27-esd-k-o">32</output></label><input type="range" id="m27-esd-k" min="2" max="7" step="1" value="5"></div>
+        <div class="ctrl"><label for="m27-esd-er">Attenuation compensation error <output id="m27-esd-er-o">0.00 dB/cm/MHz</output></label><input type="range" id="m27-esd-er" min="-0.2" max="0.2" step="0.01" value="0"></div>
+        <div class="readout" id="m27-esd-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> slide the ESD down to 20 µm at 3–7 MHz: the \(k^2\) slope is buried in noise, many fits return a negative \(a^2\) (no solution) and the survivors are biased high. Move to 8–15 MHz and the same scatterers become measurable. Add +0.10 dB/cm/MHz of compensation error at 3 cm: ESD 100 µm reads about 78 µm, because \(\exp(4\delta\alpha f z)\) is a linear-in-\(f\) tilt that the \(k^2\) fit partly absorbs. 4 mm Hann gate at \(z\) = 3 cm, Rayleigh reference with equal attenuation, same multiplicative speckle model as Demo 27.5 (the band is assumed to be above the noise floor).</div>
+  </div>
+
+  <!-- ======================= 27.8 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">27.8</span>Gate, ROI and band: the precision budget</h2>
+    <p>Attenuation imaging trades spatial resolution for precision more steeply than any other QUS parameter. Regress the log ratio over an ROI of axial length \(L\) tiled with \(n\) contiguous gates of length \(cT/2\). Each gate contributes a frequency slope with variance \(12\gamma_w\psi_1(K)/(B^3T)\); the depth regression over \(n = L/(cT/2)\) gates divides by \(\sum(z - \bar z)^2 \approx n^3(cT/2)^2/12\):</p>
+    <div class="eqn key" id="m27-eq26">
+      <div class="eqn-body"><div class="eqn-math">\[ \sigma(\hat\alpha_0) \approx \sqrt{ \frac{4.5\, \gamma_w\, \psi_1(K)\, c}{B^3\, L^3} } \qquad [\mathrm{Np/cm/MHz};\ c \text{ in cm}/\mu\mathrm{s}] \]</div><span class="eqn-no">(27.26)</span></div>
+      <dl class="where"><dt>\(L\)</dt><dd>axial ROI length, cm</dd><dt>\(K\)</dt><dd>independent lines (lateral looks) in the ROI</dd><dt>\(B\)</dt><dd>analysis bandwidth, MHz</dd><dt>\(c\)</dt><dd>sound speed, 0.154 cm/µs</dd><dt>\(\gamma_w\)</dt><dd>1.75 for Hann gates, 0.93 for rectangular</dd><dt>\(\sigma(\hat\alpha_0)\)</dt><dd>standard deviation of the slope estimate, Np/cm/MHz</dd><dt>\(\hat\alpha_0\)</dt><dd>estimated slope, as in (27.20)</dd><dt>\(\psi_1(K)\)</dt><dd>trigamma function, as in (27.22)</dd><dt>\(\approx\)</dt><dd>valid when the ROI length \(L\) replaces the gate separation \(\Delta z\) of (27.22)</dd></dl>
+      <span class="note">The gate duration \(T\) cancels: shorter gates give noisier spectra but more of them. Monte Carlo (2, 4, 8 mm gates, rectangular and Hann) agrees within 5 %. Hann, \(K = 32\), \(B = 4\) MHz, \(L = 3\) cm: 0.041 dB/cm/MHz. Overlapping Hann gates (75 %) recover the tapered edges and do somewhat better (0.030 dB/cm/MHz in m27_attenuation_sld.m for 1.5–4.5 cm). Two gates of length \(L/2\) at the ends give the constant 6 instead of 4.5, and two short gates far apart are worse still.</span>
+    </div>
+    <p>So precision scales as \(K^{-1/2} B^{-3/2} L^{-3/2}\): doubling the ROI length buys 2.8×, doubling the number of lines (the lateral ROI width) only 1.4×. The gate length is chosen for other reasons: long enough that the window bandwidth (≈ \(2/T\)) is small against spectral structure and that the log-average bias is the same at all depths; short enough that the medium is homogeneous inside it.</p>
+  </div>
+  <figure class="afig" id="m27-fig-roi">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Gate and ROI layout: two-gate SLD versus regression over contiguous gates</b><span class="prov-note">One attenuation ROI seen from the probe. Lines are spaced by about one beam width so that they count as independent looks. Typical numbers for 5 MHz, F/2; gates drawn wider than scale.</span></div>
+    <div class="mx-scroll"><svg viewBox="0 0 820 330" role="img" aria-label="An ROI 3 cm deep from 1.5 to 4.5 cm and about 2 cm wide, crossed by K vertical A-lines spaced 0.6 mm. Left panel: two 4 mm gates at z1 and z2, separated by delta z. Right panel: the same ROI tiled by contiguous 4 mm gates whose spectra are regressed on depth.">
+      <text x="20" y="20" class="t">Two-gate SLD (27.20), (27.22)</text><text x="410" y="20" class="t">Regression over contiguous gates (27.26)</text>
+      <rect x="90" y="40" width="250" height="250" class="roi"/><rect x="460" y="40" width="250" height="250" class="roi"/>
+      <g class="lines"><path d="M100 40V290M118 40V290M136 40V290M154 40V290M172 40V290M190 40V290M208 40V290M226 40V290M244 40V290M262 40V290M280 40V290M298 40V290M316 40V290M334 40V290"/><path d="M470 40V290M488 40V290M506 40V290M524 40V290M542 40V290M560 40V290M578 40V290M596 40V290M614 40V290M632 40V290M650 40V290M668 40V290M686 40V290M704 40V290"/></g>
+      <rect x="90" y="56" width="250" height="34" class="gate"/><rect x="90" y="222" width="250" height="34" class="gate"/>
+      <text x="345" y="77" class="a">gate at z₁</text><text x="345" y="243" class="a">gate at z₂</text>
+      <path d="M70 73 V239" class="dim"/><path d="M64 73 H76 M64 239 H76" class="dim"/><text x="62" y="156" class="s" transform="rotate(-90 62 156)" text-anchor="middle">Δz = 2 cm</text>
+      <g class="tile"><rect x="460" y="40.0" width="250" height="35.7"/><rect x="460" y="75.7" width="250" height="35.7"/><rect x="460" y="111.4" width="250" height="35.7"/><rect x="460" y="147.1" width="250" height="35.7"/><rect x="460" y="182.9" width="250" height="35.7"/><rect x="460" y="218.6" width="250" height="35.7"/><rect x="460" y="254.3" width="250" height="35.7"/></g>
+      <text x="716" y="61" class="s">cT/2 = 4 mm</text><text x="716" y="168" class="s">n = L/(cT/2)</text><text x="716" y="184" class="s">gates</text>
+      <path d="M440 40 V290" class="dim"/><path d="M434 40 H446 M434 290 H446" class="dim"/><text x="432" y="165" class="s" transform="rotate(-90 432 165)" text-anchor="middle">L = 3 cm (1.5–4.5 cm)</text>
+      <path d="M90 304 H340" class="dim"/><path d="M90 298 V310 M340 298 V310" class="dim"/><text x="215" y="322" class="c">K = 32 lines × ≈ 0.6 mm (λF# at 5 MHz, F/2) ≈ 2 cm</text>
+      <path d="M460 304 H710" class="dim"/><path d="M460 298 V310 M710 298 V310" class="dim"/><text x="585" y="322" class="c">same K lines; every gate's spectrum enters the depth fit</text>
+    </svg></div>
+  </figure>
+  <div class="rf-grid" id="m27-design"></div>
+
+  <!-- ======================= Visual summary ======================= -->
+  <div class="prose">
+    <h2><span class="sec">27.9</span>Visual summary</h2>
+    <p>Each card is a question you should answer in five seconds, the answer, and the picture to keep in mind. The slider rescales the gate in the first three cards: a longer gate always means a narrower spectral window and a finer ripple.</p>
+  </div>
+  <div class="demo"><div class="demo-body stack"><div class="controls">
+    <div class="ctrl"><label for="m27-vis-T">Gate length T (relative) <output id="m27-vis-T-o">1.00</output></label><input type="range" id="m27-vis-T" min="0.5" max="2" step="0.05" value="1"></div>
+    <div class="readout" id="m27-vis-read">gate T = <b>1.00</b> → spectral window ∝ <b>1/T = 1.00</b></div>
+  </div></div></div>
+  <div class="rf-grid" id="m27-vis"></div>
+
+  <!-- ======================= Experts ======================= -->
+  <div class="prose">
+    <h2><span class="sec">27.10</span>How experts think about it</h2>
+    <p>An expert sees a QUS estimate as a chain: a spectrum that is exponentially distributed per bin, averaged over a known number of independent looks, divided by a reference that removes everything except attenuation and backscatter, then fitted with a model whose parameters trade off against each other. Every number gets a degrees-of-freedom count, a unit check (Np or dB, amplitude or power, one-way or two-way) and a list of what was assumed to cancel.</p>
+  </div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">A periodogram bin has 100 % standard deviation, however long the record.</div>
+      <div class="keynum"><span>std/mean = 1</span><span>\(\chi^2_2/2\)</span><span>5.57 dB in dB units</span></div>
+      <div class="why"><p>\(X(f)\) of a Gaussian process is circular complex Gaussian, so \(\lvert X\rvert^2\) is exponential with mean \(S\) and std \(S\) <span class="eqref">(27.4)</span>. A longer record makes more bins (spacing \(f_s/N\)), each just as noisy. m27_periodogram_welch.m: \(\mathrm{std}(P/S)\) = 1.00, 0.99, 1.00 for \(N\) = 64, 256, 1024.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Dots: FFT periodograms of one white Gaussian record per N, JS. Lines: 1 and \(1/\sqrt{K}\) (closed form).</span><canvas id="m27-rf-1" aria-label="Figure for rule 1"></canvas></div></div>
+      <div class="limits">Near 0 and \(f_s/2\) the bin is \(\chi^2_1\) (variance \(2S^2\)); non-Gaussian data (few scatterers, specular echoes) and strong leakage change the distribution.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Averaging K looks buys variance 1/K and costs resolution K/N: variance × resolution × duration is fixed.</div>
+      <div class="keynum"><span>var \(\propto 1/K\)</span><span>\(\Delta f \propto K/N\)</span><span>Hann 50 %: \(\rho^2 = 0.028\)</span></div>
+      <div class="why"><p>Bartlett: \(K\) segments of \(N/K\) samples, var \(S^2/K\), resolution \(K f_s/N\) <span class="eqref">(27.6)</span>. Welch with Hann at 50 % overlap has segment correlation \(\rho = 1/6\), so it nearly doubles the segment count at almost no loss: \(N = 1024\), \(M = 128\) gives \(N_b = 15\) and \(K_{\mathrm{eff}} = 14.3\) <span class="eqref">(27.7)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m27-rf-2" aria-label="Figure for rule 2"></canvas></div></div>
+      <div class="limits">Assumes \(S\) is smooth over the window mainlobe; with structure finer than \(f_s/M\) the "variance reduction" is really bias (the ripple in Demo 27.2 disappears).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Quote a spectrum with its degrees of freedom: the 95 % interval spans 21.6 dB at ν = 2 and 4.6 dB at ν ≈ 28.</div>
+      <div class="keynum"><span>\(\nu = 2K_{\mathrm{eff}}\)</span><span>−5.7 / +16.0 dB at \(\nu = 2\)</span></div>
+      <div class="why"><p>\(\hat S/S \approx \chi^2_\nu/\nu\), so \(S \in [\nu\hat S/\chi^2_{\nu,0.975},\ \nu\hat S/\chi^2_{\nu,0.025}]\) <span class="eqref">(27.8)</span>. For \(\nu = 2\) the quantiles are 0.0506 and 7.378, giving −5.67 and +15.97 dB. The width depends only on \(\nu\), hence constant on a dB axis. Coverage measured 0.947 (\(\nu = 2\)) and 0.941 (\(\nu = 28.5\)).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">χ² quantiles from the Wilson–Hilferty approximation (exact at ν = 2; error 0.3 dB at ν = 4, about 0.01 dB at ν = 16 and smaller beyond).</span><canvas id="m27-rf-3" aria-label="Figure for rule 3"></canvas></div></div>
+      <div class="limits">\(\nu\) is an equivalent count; correlated looks (overlapping lines, adjacent beams) make the nominal \(\nu\) optimistic.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A log of an average is biased low by ψ(K) − ln K; it cancels in a ratio only if both spectra had the same number of independent looks.</div>
+      <div class="keynum"><span>−2.51 dB at \(K = 1\)</span><span>−0.07 dB at \(K = 32\)</span><span>var = \(\psi_1(K) \approx 1/K\)</span></div>
+      <div class="why"><p>\(\ln\) of the mean of \(K\) unit exponentials has mean \(\psi(K) - \ln K\) and variance \(\psi_1(K)\). In an SLD both gates carry the same offset and it drops out. If the distal gate is partly noise, or its lines are more correlated (wider beam out of focus), the offsets differ and appear as a depth-dependent bias.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m27-rf-4" aria-label="Figure for rule 4"></canvas></div></div>
+      <div class="limits">Exact for independent exponential bins; for heavily averaged spectra (\(K \gtrsim 30\)) the bias is below 0.1 dB and is dominated by other errors.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Multitaper: about 2NW − 1 orthogonal Slepian tapers, each concentrated in ±W; variance 1/K, resolution 2W.</div>
+      <div class="keynum"><span>\(N = 128,\ NW = 4\): \(K = 7\)</span><span>\(2W\) = 2.5 MHz</span><span>\(\lambda_6 = 0.937,\ \lambda_7 = 0.699\)</span></div>
+      <div class="why"><p>The DPSS are the eigenvectors of the sinc concentration kernel <span class="eqref">(27.9)</span>, computed stably from a commuting tridiagonal matrix <span class="eqref">(27.10)</span>. The first \(2NW - 1\) have \(\lambda \approx 1\) (little leakage); beyond that \(\lambda\) collapses. Averaging \(K\) eigenspectra gives \(\nu \approx 2K\) while using every sample of the gate.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Eigenvalues of the 128 × 128 tridiagonal matrix (implicit QL), concentrations checked against the sinc kernel, JS.</span><canvas id="m27-rf-5" aria-label="Figure for rule 5"></canvas></div></div>
+      <div class="limits">For a smooth speckle spectrum, variance per unit bandwidth equals Hann–Welch's; the gain is leakage control and full use of short gates. \(2W\) smoothing biases peaked spectra.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Use Burg AR when the gate is shorter than the structure you need to resolve, and never read power from AR peak heights.</div>
+      <div class="keynum"><span>0.4 MHz in 64 samples</span><span>Burg P = 0.66 at \(p = 16\)</span><span>Yule–Walker 0.09</span></div>
+      <div class="why"><p>Fourier resolution is \(f_s/N = 0.625\) MHz for \(N = 64\) at 40 MHz. Burg fits reflection coefficients to forward and backward errors without windowing <span class="eqref">(27.14)</span>, so it resolves below \(1/T\) at good SNR; Yule–Walker's biased autocorrelation is an implicit triangular window and smears. AIC picked \(p = 16\) (median).</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">One simulated 64-sample gate (two tones, 20 dB SNR): Burg AR(16) and Hann periodogram, JS.</span><canvas id="m27-rf-6" aria-label="Figure for rule 6"></canvas></div></div>
+      <div class="limits">Resolution degrades fast with SNR; high orders give spurious peaks; Burg shows line splitting and phase-dependent bias at high SNR.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The log spectral ratio between depths is −4α(f)Δz: two for the round trip, two for power, α in nepers.</div>
+      <div class="keynum"><span>1 Np = 8.686 dB</span><span>0.5 dB/cm/MHz = 0.0576 Np/cm/MHz</span><span>−10 dB at 5 MHz, 2 cm</span></div>
+      <div class="why"><p>Amplitude decays as \(e^{-\alpha f z}\) one way, so power over the round trip decays as \(e^{-4\alpha f z}\) <span class="eqref">(27.21)</span>. 0.0576 × 4 × 5 × 2 = 2.30 Np of ln power = 10.0 dB. In dB directly: \(2\alpha_{\mathrm{dB}} f\Delta z\) = 2 × 0.5 × 5 × 2 = 10 dB. m27_attenuation_sld.m recovers the factor 4 by simulation (ratio 1.008).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Lines: exact ln ratios. Dots: Gaussian scatter with the ln-spectrum std \(\sqrt{2\psi_1(32)}\) of a 32-look difference.</span><canvas id="m27-rf-7" aria-label="Figure for rule 7"></canvas></div></div>
+      <div class="limits">Assumes \(\alpha\) linear in \(f\) inside the band (\(\alpha \propto f^y\) with \(y\) ≈ 1–1.2 in tissue); with amplitude spectra the factor is 2.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Divide by a reference phantom: system response, focusing, gain and TGC cancel; attenuation and BSC differences remain.</div>
+      <div class="keynum"><span>same probe, focus, gain, TGC</span><span>same \(c\)</span></div>
+      <div class="why"><p>\(S(f,z) = G\cdot D\cdot e^{-4\int\alpha}\cdot\mathrm{BSC}\cdot C\) <span class="eqref">(27.16)</span>. Every factor that depends only on the system and geometry divides out <span class="eqref">(27.17)</span> (Yao, Zagzebski &amp; Madsen, 1990). In the toy focused simulation, the regression gives 0.70 dB/cm/MHz with the reference and 0.96 without it.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Toy focal gain D = 1/(1 + ((z − z_F)/z_R)²), Gaussian 5 MHz 60 % spectrum, BSC ∝ f⁴; expected spectra, no noise.</span><canvas id="m27-rf-8" aria-label="Figure for rule 8"></canvas></div></div>
+      <div class="limits">Breaks when sample and reference sound speeds differ (different focus), when the reference \(\alpha\) or BSC is mis-specified, or when overlying layers differ (for BSC; the depth slope within a homogeneous ROI is immune to overlying attenuation).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Two-gate SLD error scales as 1/(Δz √(K T B³)).</div>
+      <div class="keynum"><span>\(\sigma \approx \sqrt{1.5\gamma\psi_1(K)/(B^3T)}/\Delta z\)</span><span>0.069 dB/cm/MHz</span></div>
+      <div class="why"><p>Each ln spectrum has variance \(\psi_1(K)\) per independent frequency sample, \(BT/\gamma_w\) such samples in the band, and a least-squares slope over \(B\) has variance \(12\sigma^2/(nB^2)\). Divide by \(4\Delta z\) <span class="eqref">(27.22)</span>. \(K = 32\), \(T = 5.2\) µs, \(B = 4\) MHz, \(\Delta z = 2\) cm, Hann (\(\gamma = 1.75\)): 0.069 predicted, 0.067 measured.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Variance formula (27.22) with γ_w = 1.75 from Monte Carlo; independent looks, no electronic noise.</span><canvas id="m27-rf-9" aria-label="Figure for rule 9"></canvas></div></div>
+      <div class="limits">\(\gamma_w\) is a Monte Carlo constant for the window; additive noise, line correlation and a non-flat ln-spectrum variance across the band all raise \(\sigma\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">For a fixed ROI, precision is set by ROI length, band and lines: \(\sigma \propto (K B^3 L^3)^{-1/2}\), and the gate length drops out.</div>
+      <div class="keynum"><span>\(\sigma = \sqrt{4.5\gamma\psi_1(K)c/(B^3L^3)}\)</span><span>\(L\) = 3 cm → 0.041 dB/cm/MHz</span></div>
+      <div class="why"><p>\(n = L/(cT/2)\) contiguous gates, each with frequency-slope variance \(\propto 1/T\), regressed over depth with \(\sum(z - \bar z)^2 \propto n^3(cT/2)^2\): \(T\) cancels <span class="eqref">(27.26)</span>. Doubling \(L\) gives 2.8×, doubling \(K\) 1.4×. Verified within 5 % by Monte Carlo for 2, 4 and 8 mm gates.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Precision formula (27.26), Hann gates, K = 32, B = 4 MHz.</span><canvas id="m27-rf-10" aria-label="Figure for rule 10"></canvas></div></div>
+      <div class="limits">Needs a homogeneous ROI; overlapping tapered gates do somewhat better; very short gates violate the smooth-spectrum assumption and raise log-bias differences.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The centroid slope is −4α times the spectral variance at that depth, Gaussian or not.</div>
+      <div class="keynum"><span>\(\partial f_c/\partial z = -4\alpha_0\sigma^2(z)\)</span><span>\(\sigma_p^2\) = 0.811 MHz² (5 MHz, 60 %)</span></div>
+      <div class="why"><p>\(\partial S/\partial z = -4\alpha_0 f S\), so \(\partial f_c/\partial z = -4\alpha_0(\langle f^2\rangle - \langle f\rangle^2)\) <span class="eqref">(27.18)</span>. Only a Gaussian keeps \(\sigma^2\) constant and the downshift linear. Using the transmit \(\sigma_p^2\) when the BSC (\(f^n\)), diffraction or the transducer reshape the spectrum biases \(\alpha\) in proportion to the variance error.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Numerical moments of the closed-form spectra.</span><canvas id="m27-rf-11" aria-label="Figure for rule 11"></canvas></div></div>
+      <div class="limits">Requires \(\alpha \propto f\); noise floors and band truncation of the centroid integral distort \(\sigma^2\) further.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Centroid and log-ratio methods see the same physics: the centroid trades the reference for a spectral-shape model.</div>
+      <div class="keynum"><span>both std 0.030 dB/cm/MHz</span><span>centroid bias +6 %</span></div>
+      <div class="why"><p>In m27_attenuation_sld.m, over the same 31 gates and 32 lines, the log-ratio regression gave 0.702 ± 0.030 and the reference-subtracted centroid 0.746 ± 0.030 dB/cm/MHz (true 0.70): equal precision, but the centroid kept a residual bias from focusing interacting with spectral shape. Raw centroid without a reference: 1.13.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Means ± std reported by m27_attenuation_sld.m (Octave, toy focusing), drawn as Gaussians.</span><canvas id="m27-rf-12" aria-label="Figure for rule 12"></canvas></div></div>
+      <div class="limits">Numbers are for a toy focusing model; the centroid is attractive when no reference exists, if the spectral shape is known and stable.</div>
+    </div>
+    <div class="rule">
+      <div class="say">BSC is in sr⁻¹cm⁻¹ and rises as f⁴ for small scatterers; the form factor bends it near ka ≈ 1.</div>
+      <div class="keynum"><span>\(k^4F\) peaks at \(ka = 1.555\)</span><span>\(n = 4 - 1.654(ka)^2\)</span></div>
+      <div class="why"><p>Gaussian form factor \(F = \exp(-0.827k^2a^2)\): \(d\ln(k^4F)/d\ln f = 4 - 2\cdot 0.827(ka)^2\) <span class="eqref">(27.25)</span>. ESD 100 µm at 5 MHz: \(ka = 1.02\), \(n = 2.3\); ESD 200 µm: \(n = -2.9\) (the BSC already falls with frequency).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m27-rf-13" aria-label="Figure for rule 13"></canvas></div></div>
+      <div class="limits">Other microstructures need other form factors (fluid sphere, exponential, spherical shell); the Gaussian is a convenient fit, not a law.</div>
+    </div>
+    <div class="rule">
+      <div class="say">ESD is identifiable only when the band reaches ka of roughly 0.5 to 1; below that the fit returns noise.</div>
+      <div class="keynum"><span>ESD 20 µm, 3–7 MHz: \(ka \le 0.29\)</span><span>36 % fits fail</span></div>
+      <div class="why"><p>For \(ka \ll 1\) the form factor is flat to within the spectral noise, so the \(k^2\) slope is poorly determined and its sign is random. m27_bsc_esd_fit.m (\(K = 32\), 4 mm gate): ESD 20 µm gives 36 % failures and a biased 33 ± 13 µm; ESD ≥ 60 µm (\(ka_{\max} \ge 0.85\)) is unbiased with std 11 µm down to 2 µm as \(ka\) grows.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Gaussian form factor in dB; grey band = ln-spectrum std at K = 32 from the trigamma function.</span><canvas id="m27-rf-14" aria-label="Figure for rule 14"></canvas></div></div>
+      <div class="limits">Higher frequency extends \(ka\) but costs penetration and SNR; the usable band ends where the noise floor starts.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Attenuation and size trade off: an attenuation-compensation error tilts the spectrum and moves the ESD.</div>
+      <div class="keynum"><span>+0.1 dB/cm/MHz at 3 cm</span><span>ESD 100 → 78 µm</span></div>
+      <div class="why"><p>A compensation error \(\delta\alpha\) multiplies the BSC ratio by \(\exp(4\delta\alpha f z)\), a linear-in-\(f\) term that the \(k^2\) regression partly absorbs. With \(\delta\alpha\) = +0.1 dB/cm/MHz at \(z\) = 3 cm (≈ 0.14 Np per MHz of band) a true 100 µm reads 77.6 µm and 200 µm reads 190 µm (noise-free).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Noise-free least-squares fit of (27.24) with the tilt \(\exp(4\delta\alpha f z)\).</span><canvas id="m27-rf-15" aria-label="Figure for rule 15"></canvas></div></div>
+      <div class="limits">Smaller at shallow depth and for large \(ka\); joint estimation of \(\alpha\) and ESD from the same data reduces but correlates the errors.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Midband fit is the most precise Lizzi parameter because a least-squares line is best determined at the mean abscissa.</div>
+      <div class="keynum"><span>var at \(\bar f\): \(\sigma^2/n\)</span><span>slope and midband uncorrelated</span></div>
+      <div class="why"><p>For a line fitted to \(n\) points, \(\mathrm{var}(\hat y(f)) = \sigma^2[1/n + (f - \bar f)^2/S_{ff}]\). At band center the second term vanishes and the estimate is uncorrelated with the slope; the intercept at 0 MHz is an extrapolation with large variance, which is why intercept images look noisier than midband images.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m27-rf-16" aria-label="Figure for rule 16"></canvas></div></div>
+      <div class="limits">Lizzi parameters need the same attenuation compensation as the BSC; their interpretation in terms of size and concentration assumes a scattering model.</div>
+    </div>
+  </div>
+
+  <!-- ======================= Cheat sheet ======================= -->
+  <div class="prose"><h2><span class="sec">27.11</span>Cheat sheet</h2></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Concept</th><th>Formula</th><th>Ultrasound use</th></tr></thead>
+    <tbody>
+      <tr><td>Windowed periodogram</td><td>\(P = \lvert\sum w x e^{-j2\pi fn}\rvert^2/\sum w^2\); \(\mathrm{E}\{P\} = S * H_w\)</td><td>Gate spectrum; leakage sets the usable dynamic range</td></tr>
+      <tr><td>Periodogram statistics</td><td>\(P \approx S\chi^2_2/2\); std/mean = 1; dB: −2.51 ± 5.57</td><td>Why one A-line's spectrum is useless alone</td></tr>
+      <tr><td>Welch variance</td><td>\(1/K_{\mathrm{eff}} = (1/N_b)[1 + 2\sum(1 - m/N_b)\rho^2(mD)]\); Hann 50 %: \(\rho = 1/6\)</td><td>Depth sub-gates or lateral lines as looks</td></tr>
+      <tr><td>\(\chi^2\) interval</td><td>\([\nu\hat S/\chi^2_{\nu,.975},\ \nu\hat S/\chi^2_{\nu,.025}]\), \(\nu = 2K_{\mathrm{eff}}\)</td><td>Error bars on spectra and BSC curves</td></tr>
+      <tr><td>Log of a K-look average</td><td>mean \(\psi(K) - \ln K\); var \(\psi_1(K) \approx 1/K\)</td><td>Noise of every log-spectral QUS method</td></tr>
+      <tr><td>Multitaper</td><td>DPSS of length \(N\), half-bandwidth \(W\); \(K \approx 2NW - 1\); var ≈ \(1/K\); resolution \(2W\)</td><td>Short gates, high dynamic range spectra</td></tr>
+      <tr><td>AR / Burg</td><td>\(S = \sigma^2/\lvert 1 + \sum a_k e^{-j2\pi fk}\rvert^2\); \(\mathrm{AIC} = N\ln\sigma_p^2 + 2p\)</td><td>Features and moments from 1–2 mm gates</td></tr>
+      <tr><td>QUS signal model</td><td>\(S = G\cdot D\cdot e^{-4\int\alpha\, dz}\cdot\mathrm{BSC}\cdot C\)</td><td>What a reference must cancel</td></tr>
+      <tr><td>Log spectral ratio</td><td>\(\ln(S_s/S_r) = \ln(\mathrm{BSC}_s/\mathrm{BSC}_r) - 4\Delta\alpha(f)z\) (Np, power)</td><td>SLD and reference phantom attenuation</td></tr>
+      <tr><td>Units</td><td>1 Np = 8.686 dB; ln P-ratio \(-4\alpha_{\mathrm{Np}}f\Delta z\) = \(-2\alpha_{\mathrm{dB}}f\Delta z\) dB</td><td>Converting slopes to dB/cm/MHz</td></tr>
+      <tr><td>Two-gate SLD precision</td><td>\(\sigma \approx \sqrt{1.5\gamma_w\psi_1(K)/(B^3T)}/\Delta z\); \(\gamma\) = 0.93 rect, 1.75 Hann</td><td>Sizing \(K\), gate and \(\Delta z\)</td></tr>
+      <tr><td>ROI regression precision</td><td>\(\sigma \approx \sqrt{4.5\gamma_w\psi_1(K)c/(B^3L^3)}\), independent of \(T\)</td><td>Attenuation-map resolution vs precision</td></tr>
+      <tr><td>Centroid identity</td><td>\(\partial f_c/\partial z = -4\alpha_0\sigma^2(z)\); Gaussian: \(f_c = f_0 - 4\alpha_0\sigma_p^2 z\)</td><td>Spectral-shift attenuation</td></tr>
+      <tr><td>BSC from reference</td><td>\(\mathrm{BSC}_s = \mathrm{BSC}_r(S_s/S_r)e^{4(\alpha_s - \alpha_r)z}\)</td><td>Absolute backscatter, sr⁻¹cm⁻¹</td></tr>
+      <tr><td>Gaussian form factor</td><td>\(F = \exp(-0.827k^2a^2)\); ESD = \(2a\); \(n = 4 - 1.654(ka)^2\)</td><td>Effective scatterer size</td></tr>
+      <tr><td>Lizzi line</td><td>dB spectrum ≈ slope·\(f\) + intercept; midband = value at band center</td><td>Spectral parameter imaging</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ======================= Interview ======================= -->
+  <div class="prose"><h2><span class="sec">27.12</span>Interview and qualifying-exam questions</h2></div>
+  <details class="quiz"><summary><span class="q">I1</span><span>Why doesn't a longer gate make the periodogram less noisy, and what does? <span class="muted">· screen</span></span></summary><div class="a"><p>Each DFT bin of Gaussian data is circular complex Gaussian, so \(\lvert X\rvert^2\) is exponential with std equal to its mean. A longer record adds bins at spacing \(1/T\); it does not average within a bin. Variance falls only by averaging independent looks: segments (Bartlett/Welch), tapers (multitaper), adjacent bins (smoothing), or in QUS independent A-lines. Each costs resolution or spatial extent. Follow-up: "how many independent looks does a Welch estimate with Hann 50 % overlap have?" \(K_{\mathrm{eff}}\) from the overlap formula <span class="eqref">(27.7)</span>, e.g. 14.3 for 15 segments.</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>Derive the factor in the log spectral ratio and convert a measured slope to dB/cm/MHz. <span class="muted">· screen</span></span></summary><div class="a"><p>Amplitude decays as \(e^{-\alpha_0 f z}\) one way (\(\alpha_0\) in Np/cm/MHz); the echo travels \(2z\), and power squares it: \(e^{-4\alpha_0 f z}\). Between gates \(\Delta z\) apart, \(\ln S(z_2) - \ln S(z_1) = -4\alpha_0 f\Delta z\). If that difference has slope −0.46 per MHz for \(\Delta z\) = 2 cm: \(\alpha_0\) = 0.46/8 = 0.0575 Np/cm/MHz = 0.50 dB/cm/MHz. Follow-up: "and with amplitude spectra?" The slope is −0.23 per MHz and you divide by \(2\Delta z\): same answer.</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>What does a reference phantom cancel, and what does it not? <span class="muted">· onsite</span></span></summary><div class="a"><p>It cancels the transducer response, focusing/diffraction, gain, TGC and gate/window factors, because they multiply both spectra identically at the same depth <span class="eqref">(27.17)</span>. It does not cancel a sound-speed mismatch (the focus and beam shape move), differences in overlying attenuation (critical for BSC, irrelevant to the depth slope inside a homogeneous ROI), errors in the phantom's own \(\alpha_r\) and \(\mathrm{BSC}_r\) (they pass straight into the result), nonlinear propagation differences at high pressure, or electronic noise. Follow-up: "how would you check?" Scan a second phantom of known properties as a sample, and check the ln ratio for curvature in depth.</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>You need σ(α) ≤ 0.05 dB/cm/MHz with a 3–7 MHz band. Size the ROI. <span class="muted">· onsite</span></span></summary><div class="a"><p>Use \(\sigma \approx \sqrt{4.5\gamma\psi_1(K)c/(B^3L^3)}\) in Np <span class="eqref">(27.26)</span>, Hann \(\gamma = 1.75\), \(c\) = 0.154 cm/µs, \(B\) = 4 MHz. Target 0.05/8.686 = 0.00576 Np. With \(K = 32\) (\(\psi_1\) = 0.0317): \(L^3\) = 4.5·1.75·0.0317·0.154/(64·0.00576²) ≈ 18.2 → \(L\) ≈ 2.6 cm. With \(K = 16\), \(L\) ≈ 3.3 cm. Lines must be independent, i.e. spaced by about a beam width (\(\lambda F_\#\) ≈ 0.6 mm at 5 MHz, F/2): 32 independent lines span about 2 cm laterally; denser lines are correlated and count for less than their number. Follow-up: "what if the band shrinks to 2 MHz at depth?" \(\sigma\) grows by \(2^{1.5}\) = 2.8×, so \(L\) must grow by 2.</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>A 2 mm gate: Welch, multitaper or AR? <span class="muted">· onsite</span></span></summary><div class="a"><p>A 2 mm gate is about 104 samples at 40 MHz, so Fourier resolution is ≈ 0.4 MHz. For calibrated power (BSC, SLD) use multitaper (\(NW\) ≈ 3–4, \(K\) = 5–7): full use of the gate, \(\nu \approx 2K\), controlled leakage; Welch would split an already short gate. For locating features below \(1/T\) or for moments, Burg AR with AIC-chosen order; never use AR peak heights as power. In all cases the dominant averaging still comes from lateral lines. Follow-up: "what does \(NW\) cost?" Spectral smoothing over \(2W = 2NW f_s/N\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>Centroid downshift or spectral log difference? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(\partial f_c/\partial z = -4\alpha_0\sigma^2(z)\) holds exactly <span class="eqref">(27.18)</span>, so the centroid needs the spectral variance at every depth; using the transmit \(\sigma_p^2\) assumes a Gaussian, unchanged by BSC, diffraction and noise. The log-ratio needs a reference but no shape model. On the same data both reached 0.030 dB/cm/MHz std; the centroid kept a 6 % bias. Choose the centroid when no reference exists and the shape is stable (or estimate \(\sigma^2\) per depth), the log ratio otherwise. Follow-up: "how does the BSC frequency dependence affect each?" It cancels in the SLD depth slope, but changes \(\sigma^2\) and biases the centroid with a fixed \(\sigma_p^2\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>Why does electronic noise bias attenuation estimates low, and how do you guard against it? <span class="muted">· research</span></span></summary><div class="a"><p>Noise adds a roughly flat power floor. Deep gates and high frequencies, where the signal is weakest, are lifted the most, so the distal spectrum looks less attenuated and the ln-ratio slope shrinks. Guards: measure the noise spectrum (no transmit) and subtract it in power before taking logs; restrict the band per depth to SNR above ~10 dB; weight the regression by the estimated variance; report the usable depth. Follow-up: "does noise subtraction bias anything?" It can produce negative powers at low SNR; clip or drop those bins, which reintroduces a small bias.</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>When can you estimate an effective scatterer diameter, and what correlates with it? <span class="muted">· research</span></span></summary><div class="a"><p>When the band covers \(ka\) of roughly 0.5 to 1.5, where the Gaussian form factor bends the \(f^4\) trend (local exponent \(4 - 1.654(ka)^2\), <span class="eqref">(27.25)</span>). Below \(ka\) ≈ 0.3 the fit is noise (36 % failures for 20 µm at 3–7 MHz). The estimate correlates with the attenuation compensation (an error of 0.1 dB/cm/MHz at 3 cm takes 100 µm to 78 µm) and with the assumed form factor. Follow-up: "how would you pick the transducer?" Put the band so \(ka\) spans the size range of interest, then check SNR at the needed depth.</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>How would you turn SLD into an attenuation image with better resolution? <span class="muted">· research</span></span></summary><div class="a"><p>Write the log-spectral data from many small gates as a linear model \(y = A\alpha + b + \varepsilon\), with \(\alpha\) a spatial map (and optionally BSC-ratio terms as nuisance parameters), and solve it with regularization: Tikhonov or total variation in space, the same machinery as Module 13. Regularized SLD (Coila &amp; Lavarello, IEEE TUFFC, 2018) is one published example. Report bias and resolution of the regularized map (model-resolution matrix), not just its smoothness. Follow-up: "what is the price?" Bias toward the prior: TV shrinks contrast of small inclusions, Tikhonov blurs edges.</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>Why might a log-averaged spectrum differ systematically between two depths even with no attenuation difference? <span class="muted">· onsite</span></span></summary><div class="a"><p>The expected log of an average of \(K\) exponentials, \(\psi(K) - \ln K\), depends on the effective number of independent looks. If the distal lines are more correlated (beam widens past focus) or contain noise, \(K_{\mathrm{eff}}\) differs between depths and the offsets no longer cancel: −2.51 dB at \(K = 1\) vs −0.07 dB at \(K = 32\). Fix by averaging power before the log, matching \(K_{\mathrm{eff}}\), or correcting with \(\psi(K_{\mathrm{eff}})\). Follow-up: "average log or log average?" Log of the average: lower variance and a bias that vanishes as \(1/(2K)\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I11</span><span>How would you validate a new attenuation estimator before a 510(k) or a paper? <span class="muted">· research</span></span></summary><div class="a"><p>Phantoms with \(\alpha\) measured independently by insertion loss (narrowband substitution) over the same band; several \(\alpha\) values and depths; bias and standard deviation versus ROI size, not only means; a layered phantom to test overlying-layer immunity; a sound-speed mismatch case; and in vivo repeatability (same subject, repeated scans, different operators). Report units, band, ROI dimensions and the number of independent lines. Public benchmarks that pair attenuation with sound-speed ground truth help comparison across methods. Follow-up: "what accuracy is enough?" Set it from the clinical decision threshold and the population spread, then size the ROI with the precision formula.</p></div></details>
+
+  <!-- ======================= MATLAB ======================= -->
+  <div class="prose"><h2><span class="sec">27.13</span>MATLAB lab</h2>
+    <p class="code-note">Base MATLAB only (no toolboxes); each script runs as-is in MATLAB R2019b+ and GNU Octave 8. Paste into the editor and press Run.</p></div>
+  <details class="code">
+    <summary><span class="fname">m27_periodogram_welch.m</span><button class="copy" type="button">Copy</button><span class="what">Periodogram χ²₂ statistics, Welch variance formula, χ² confidence intervals and their coverage · change N, M · runtime ≈ 3 s</span></summary>
+    <pre><code data-file="matlab/m27_periodogram_welch.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> \(\mathrm{std}(P/S)\) ≈ 1.00 for \(N\) = 64, 256, 1024; dB mean −2.6 (theory −2.51) and std 5.6 (5.57); Welch \(N_b\) = 15, variance 0.074 vs 0.070 predicted; interval spans 21.6 dB (\(\nu = 2\)) and 4.6 dB (\(\nu = 28.5\)) with coverage 0.947 and 0.941.</p></div>
+  <details class="code">
+    <summary><span class="fname">m27_multitaper_dpss.m</span><button class="copy" type="button">Copy</button><span class="what">DPSS from the tridiagonal matrix via eig, concentrations against the sinc kernel, multitaper vs Hann vs Welch on a speckle gate · change N, NW · runtime ≈ 3 s</span></summary>
+    <pre><code data-file="matlab/m27_multitaper_dpss.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> orthonormality error 1e−15; \(\lambda_{0..7}\) from both eigenproblems agree (… 0.9926, 0.9369, then 0.699); 8 eigenvalues above 0.5 (\(2NW = 8\)); \(\mathrm{var}(\hat S/S)\) = 1.08 (Hann periodogram), 0.17 (multitaper, \(1/K\) = 0.143), 0.17 (Welch); variance × bandwidth × \(T\) ≈ 1.4 for both.</p></div>
+  <details class="code">
+    <summary><span class="fname">m27_ar_burg.m</span><button class="copy" type="button">Copy</button><span class="what">Burg vs Yule–Walker vs periodogram resolution on a 64-sample gate, AIC order, AR centroid of speckle · change N, separation, SNR, p · runtime ≈ 8 s</span></summary>
+    <pre><code data-file="matlab/m27_ar_burg.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> P(resolved) Burg 0.37 / 0.66 / 0.75 at \(p\) = 12 / 16 / 24, Yule–Walker 0.00 / 0.09 / 0.29, Hann periodogram 0.02; AIC median \(p = 16\); speckle centroid std 0.36 MHz (periodogram) vs 0.29 MHz (Burg, orders 4–16).</p></div>
+  <details class="code">
+    <summary><span class="fname">m27_attenuation_sld.m</span><button class="copy" type="button">Copy</button><span class="what">Speckle A-lines with per-scatterer two-way attenuation and toy focusing; factor 4, reference method, two-gate SLD, centroid, and their spread · change α<sub>s</sub>, K, gate, band, focus · runtime ≈ 14 s</span></summary>
+    <pre><code data-file="matlab/m27_attenuation_sld.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> slope ratio to \(-4\Delta\alpha\) = 1.008; reference method 0.702 dB/cm/MHz (true 0.70) and 0.962 without the reference; two-gate SLD std 0.067 vs 0.069 predicted; regression std 0.030; raw centroid 1.13, reference-subtracted centroid 0.746 ± 0.030.</p></div>
+  <details class="code">
+    <summary><span class="fname">m27_bsc_esd_fit.m</span><button class="copy" type="button">Copy</button><span class="what">Gaussian form factor fit in k², ESD sweep 20–300 µm showing the identifiable ka range, attenuation-compensation leakage · change band, K, z · runtime ≈ 6 s</span></summary>
+    <pre><code data-file="matlab/m27_bsc_esd_fit.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> ESD 20 µm: 36 % failed fits, survivors 33 ± 13 µm; 100 µm: 99 ± 7 µm; 300 µm: 296 ± 2 µm; compensation error +0.10 dB/cm/MHz at 3 cm turns 100 µm into 77.6 µm and 200 µm into 189.8 µm.</p></div>
+
+  <!-- ======================= Self-check ======================= -->
+  <div class="prose"><h2><span class="sec">27.14</span>Self-check</h2></div>
+  <details class="quiz"><summary><span class="q">Q1</span><span>A single Hann-windowed periodogram of a 256-sample speckle gate: what are the mean and standard deviation of \(10\log_{10}(P/S)\) in band?</span></summary><div class="a"><p>−2.51 dB and 5.57 dB <span class="eqref">(27.5)</span>, independent of \(N\) and of the window (the window changes the bias, not the \(\chi^2_2\) distribution).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>Welch with N = 1024, M = 128, Hann, 50 % overlap: how many segments, how many effective looks, and how wide is the 95 % interval?</span></summary><div class="a"><p>\(N_b = 15\); \(K_{\mathrm{eff}} = 15/(1 + 2\cdot(14/15)\cdot(1/6)^2) = 14.3\); \(\nu = 28.5\); interval −1.99 to +2.60 dB around \(\hat S\), a 4.6 dB span.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>\(\ln S(z_2) - \ln S(z_1)\) has slope −0.46 per MHz for gates 2 cm apart (power spectra). What is \(\alpha_0\)? What if these were amplitude spectra?</span></summary><div class="a"><p>Power: \(\alpha_0 = 0.46/(4\cdot 2)\) = 0.0575 Np/cm/MHz = 0.50 dB/cm/MHz. Amplitude: \(\alpha_0 = 0.46/(2\cdot 2)\) = 0.115 Np/cm/MHz = 1.0 dB/cm/MHz (the same data would have shown slope −0.23 in amplitude).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>N = 128 at 40 MHz with NW = 4: how many tapers, what resolution, what variance reduction?</span></summary><div class="a"><p>\(K = 2NW - 1 = 7\) tapers, resolution \(2W = 2NW f_s/N\) = 2.5 MHz, variance about 1/7 of a single periodogram (0.17 measured on speckle because the spectrum is not flat over 2.5 MHz).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>A 5 MHz, 60 % Gaussian pulse shows a centroid slope of −0.187 MHz/cm. What attenuation does it imply, and what must you assume?</span></summary><div class="a"><p>\(\sigma_p^2 = \sigma_f^2/2 = 1.274^2/2\) = 0.811 MHz²; \(\alpha_0 = 0.187/(4\cdot 0.811)\) = 0.0576 Np/cm/MHz = 0.50 dB/cm/MHz. Assumes a Gaussian power spectrum unchanged in shape by BSC, diffraction and noise, and \(\alpha \propto f\).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>Can you estimate an ESD of 20 µm with a 3–7 MHz probe? Of 150 µm?</span></summary><div class="a"><p>20 µm: \(ka\) = 0.12–0.29, local exponent ≈ 3.9: no, the form factor is flat within the noise. 150 µm: \(ka\) = 0.92–2.14, exponent at 5 MHz ≈ 0.1: yes, well identified (149 ± 4 µm in the script).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>You double the ROI length of an attenuation estimate from 1.5 to 3 cm and halve the number of lines. Does precision improve?</span></summary><div class="a"><p>\(\sigma \propto K^{-1/2}L^{-3/2}\): factor \(\sqrt{2}\) worse from \(K\), \(2^{1.5}\) = 2.83 better from \(L\), net 2.0× better.</p></div></details>
+
+  <!-- ======================= Literature ======================= -->
+  <div class="prose"><h2><span class="sec">27.15</span>Figures from the literature</h2>
+    <p>Published figures that put measured data behind the estimators and numbers in this module. Citations and figure numbers were checked against the papers; images are not reproduced, follow the links.</p></div>
+  <div class="litfig">
+    <h4>The two calibration routes for removing the system and the beam</h4>
+    <p class="cite">M. L. Oelze and J. Mamou, "Review of quantitative ultrasound: envelope statistics and backscatter coefficient imaging and contributions to diagnostic ultrasound," IEEE TUFFC 63(2):336–351, 2016, Fig. 1. <a href="https://doi.org/10.1109/TUFFC.2015.2513958" target="_blank" rel="noopener">doi:10.1109/TUFFC.2015.2513958</a></p>
+    <p>Fig. 1 contrasts the planar-reflector calibration (a reference echo from a flat reflector, then an analytic diffraction correction) with the reference-phantom calibration (a phantom of known \(\alpha_r\) and \(\mathrm{BSC}_r\) scanned with identical settings). Both exist to remove \(G\) and \(D\) from <span class="eqref">(27.16)</span>; the reference phantom of Section 27.5 also removes depth-dependent focusing and TGC without modelling them, which is why it dominates array-based QUS.</p>
+  </div>
+  <div class="litfig">
+    <h4>ESD images of real tumours, and a calibrated BSC that tracks liver fat</h4>
+    <p class="cite">Same review, Figs. 2 and 8.</p>
+    <p>Fig. 2 overlays ESD estimates on B-mode images of rat fibroadenomas, mouse carcinomas and mouse sarcomas: the Gaussian-form-factor fit of <span class="eqref">(27.24)</span> applied per ROI. Fig. 8 shows measured BSC versus frequency for liver samples after 0, 3 and 6 weeks of a fatty diet. This is the absolute, calibrated quantity <span class="eqref">(27.23)</span> delivers once \(G\), \(D\) and the attenuation path are removed; ask of any such plot how many independent lines and which attenuation compensation went into each curve.</p>
+  </div>
+  <div class="litfig">
+    <h4>Two laboratories, the same phantoms: how well do BSC and attenuation agree?</h4>
+    <p class="cite">J. J. Anderson, M.-T. Herd, M. R. King, A. Haak, Z. T. Hafez, J. Song, M. L. Oelze, E. L. Madsen, J. A. Zagzebski, W. D. O'Brien Jr. and T. J. Hall, "Interlaboratory comparison of backscatter coefficient estimates for tissue-mimicking phantoms," Ultrasonic Imaging 32(1):48–64, 2010, Figs. 6 and 12. <a href="https://doi.org/10.1177/016173461003200104" target="_blank" rel="noopener">doi:10.1177/016173461003200104</a></p>
+    <p>Fig. 6: insertion-loss attenuation of the same phantoms measured independently in two laboratories (agreement within about 0.01 dB/cm/MHz mean-square difference). Fig. 12: BSC versus frequency for a phantom of 41 µm glass spheres from both laboratories against the Faran-theory prediction; the paper reports average fractional errors of a few percent there, about 8–14 % averaged over all phantoms, and an estimate uncertainty near 30 %. That 30 % is about 1.1 dB: compare it with the \(\chi^2\) interval of <span class="eqref">(27.8)</span> for the number of looks you average.</p>
+  </div>
+  <div class="litfig">
+    <h4>Four clinical array systems, one phantom: reference-phantom attenuation and ESD in practice</h4>
+    <p class="cite">K. Nam, I. M. Rosado-Mendez, L. A. Wirtzfeld, A. D. Pawlicki, V. Kumar, E. L. Madsen, G. Ghoshal, R. J. Lavarello, M. L. Oelze, T. A. Bigelow, J. A. Zagzebski, W. D. O'Brien Jr. and T. J. Hall, "Ultrasonic attenuation and backscatter coefficient estimates of rodent-tumor-mimicking structures: comparison of results among clinical scanners," Ultrasonic Imaging 33(4):233–250, 2011, Figs. 4–6 and Tables 5 and 7. <a href="https://doi.org/10.1177/016173461103300403" target="_blank" rel="noopener">doi:10.1177/016173461103300403</a></p>
+    <p>Figs. 4 and 5: BSC versus frequency of two glass-bead inclusions measured with laboratory single-element transducers and with Siemens, Ultrasonix, VisualSonics and Zonare array systems, against Faran predictions. Fig. 6: per-system percentage differences. Table 5: attenuation from the sample-to-reference spectral ratio versus depth (the method of <span class="eqref">(27.19)</span>) agreed with the laboratory values to 11 % on average and 29 % at worst. Table 7: ESD scatter between systems is larger in the low band than in the high band (e.g. ±12 µm vs ±1 µm for the 35 µm beads), the identifiability rule of Section 27.7 seen in measured data.</p>
+  </div>
+
+  <!-- ======================= Go deeper ======================= -->
+  <div class="prose"><h2><span class="sec">27.16</span>Go deeper</h2></div>
+  <ul class="refs">
+    <li>D. B. Percival &amp; A. T. Walden, <em>Spectral Analysis for Physical Applications: Multitaper and Conventional Univariate Techniques</em>, Cambridge University Press, 1993. Periodogram statistics, Welch, DPSS and the tridiagonal method.</li>
+    <li>D. J. Thomson, "Spectrum estimation and harmonic analysis," <em>Proceedings of the IEEE</em>, 1982.</li>
+    <li>D. Slepian, "Prolate spheroidal wave functions, Fourier analysis, and uncertainty V: the discrete case," <em>Bell System Technical Journal</em>, 1978.</li>
+    <li>P. D. Welch, "The use of fast Fourier transform for the estimation of power spectra: a method based on time averaging over short, modified periodograms," <em>IEEE Trans. Audio and Electroacoustics</em>, 1967.</li>
+    <li>S. M. Kay, <em>Modern Spectral Estimation: Theory and Application</em>, Prentice Hall, 1988. AR, Burg, Yule–Walker, order selection.</li>
+    <li>H. Akaike, "A new look at the statistical model identification," <em>IEEE Trans. Automatic Control</em>, 1974.</li>
+    <li>L. X. Yao, J. A. Zagzebski &amp; E. L. Madsen, "Backscatter coefficient measurements using a reference phantom to extract depth-dependent instrumentation factors," <em>Ultrasonic Imaging</em> 12(1):58–70, 1990.</li>
+    <li>M. F. Insana, R. F. Wagner, D. G. Brown &amp; T. J. Hall, "Describing small-scale structure in random media using pulse-echo ultrasound," <em>J. Acoust. Soc. Am.</em> 87(1):179–192, 1990.</li>
+    <li>F. L. Lizzi, M. Greenebaum, E. J. Feleppa, M. Elbaum &amp; D. J. Coleman, "Theoretical framework for spectrum analysis in ultrasonic tissue characterization," <em>J. Acoust. Soc. Am.</em>, 1983.</li>
+    <li>M. L. Oelze &amp; J. Mamou, "Review of quantitative ultrasound: envelope statistics and backscatter coefficient imaging and contributions to diagnostic ultrasound," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em> 63(2):336–351, 2016.</li>
+    <li>Y. Labyed &amp; T. A. Bigelow, "A theoretical comparison of attenuation measurement techniques from backscattered ultrasound echoes," <em>J. Acoust. Soc. Am.</em>, 2011.</li>
+    <li>A. L. Coila &amp; R. Lavarello, "Regularized spectral log difference technique for ultrasonic attenuation imaging," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em> 65(3), 2018.</li>
+  </ul>
+  <div class="next"><a href="#m26">← 26 Speckle statistics</a><a href="{{PART5_URL}}" target="_blank" rel="noopener">Part V · 28 Microbubbles &amp; contrast →</a></div>
+</section>
+
+<style>
+#m27 .demo-head .prov-note { flex-basis: 100%; margin-top: 0; }
+#m27 .rule-fig .prov { margin: 0 0 4px; }
+#m27 .rule-fig .prov-note { margin: 0 0 4px; }
+#m27 .prov-legend .prov, #m27 .afig .fh .prov { margin-left: 0; }
+#m27 .afig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 12px; margin: 18px 0; }
+#m27 .afig .fh { font-size: 0.9rem; margin-bottom: 6px; }
+#m27 .afig svg { display: block; width: 100%; height: auto; min-width: 640px; }
+#m27 .afig text { font: 11.5px var(--f-mono); fill: var(--ink); }
+#m27 .afig text.s { font-size: 10.5px; fill: var(--muted); }
+#m27 .afig text.t { font-weight: 600; font-size: 12.5px; }
+#m27 .afig text.c { text-anchor: middle; font-size: 11px; }
+#m27 .afig text.a { fill: var(--accent); font-weight: 600; }
+#m27 .afig .probe { fill: var(--muted); fill-opacity: 0.35; stroke: var(--ink); stroke-width: 1; }
+#m27 .afig .tis { fill: var(--sig2); fill-opacity: 0.08; stroke: var(--sig2); stroke-width: 1; }
+#m27 .afig .phan { fill: var(--sig4); fill-opacity: 0.08; stroke: var(--sig4); stroke-width: 1; }
+#m27 .afig .beam { fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; }
+#m27 .afig .gate { fill: var(--accent); fill-opacity: 0.28; stroke: var(--accent); stroke-width: 1.2; }
+#m27 .afig .dim { fill: none; stroke: var(--muted); stroke-width: 1; }
+#m27 .afig .roi { fill: var(--grid); fill-opacity: 0.5; stroke: var(--ink); stroke-width: 1; }
+#m27 .afig .lines path { fill: none; stroke: var(--muted); stroke-width: 0.8; stroke-opacity: 0.7; }
+#m27 .afig .tile rect { fill: var(--accent); fill-opacity: 0.16; stroke: var(--accent); stroke-width: 1; }
+</style>
+
+<script>
+/* ===== Module 27: spectral estimation and QUS ===== */
+(function () {
+  const $ = id => document.getElementById(id);
+  const PI = Math.PI, NP = 20 / Math.LN10, FS = 40, F0 = 5, CC = 0.154;      /* NP = 8.686 dB/Np; CC: c in cm/us */
+  const SIGF = 0.6 * F0 / (2 * Math.sqrt(2 * Math.LN2));                        /* amplitude-spectrum std, 1.274 MHz */
+  const SIGP2 = SIGF * SIGF / 2;                                                /* power-spectrum variance, 0.811 MHz^2 */
+  const Gamp = f => Math.exp(-((Math.abs(f) - F0) ** 2) / (2 * SIGF * SIGF));
+  const Spk = f => Gamp(f) ** 2;
+  const num = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
+  const hann = n => { const w = new Float64Array(n); for (let i = 0; i < n; i++) w[i] = 0.5 - 0.5 * Math.cos(2 * PI * (i + 0.5) / n); return w; };
+  const rectw = n => new Float64Array(n).fill(1);
+  const sumsq = w => { let s = 0; for (let i = 0; i < w.length; i++) s += w[i] * w[i]; return s; };
+  const db10 = v => 10 * Math.log10(Math.max(v, 1e-30));
+  function meanStd(a) { let m = 0; for (const v of a) m += v; m /= a.length; let s = 0; for (const v of a) s += (v - m) ** 2; return [m, Math.sqrt(s / Math.max(1, a.length - 1))]; }
+  function linfit(xs, ys) { const n = xs.length; let sx = 0, sy = 0; for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; } const mx = sx / n, my = sy / n; let sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { sxx += (xs[i] - mx) ** 2; sxy += (xs[i] - mx) * (ys[i] - my); } const b1 = sxy / sxx; return [my - b1 * mx, b1]; }
+  function trigamma(x) { let s = 0; while (x < 8) { s += 1 / (x * x); x += 1; } const x2 = 1 / (x * x); return s + 1 / x + x2 / 2 + x2 / x * (1 / 6 - x2 * (1 / 30 - x2 / 42)); }
+  function digamma(x) { let s = 0; while (x < 8) { s -= 1 / x; x += 1; } const x2 = 1 / (x * x); return s + Math.log(x) - 0.5 / x - x2 * (1 / 12 - x2 * (1 / 120 - x2 / 252)); }
+  function chi2q(nu, p) { if (Math.abs(nu - 2) < 1e-9) return -2 * Math.log(1 - p); const z = p > 0.5 ? 1.959964 : -1.959964; return nu * (1 - 2 / (9 * nu) + z * Math.sqrt(2 / (9 * nu))) ** 3; }
+  /* stationary Gaussian sequence of length L (power of 2) with transfer H(f): number or [re, im] (Hermitian) */
+  function gen(R, L, H) {
+    const re = new Float64Array(L), im = new Float64Array(L);
+    for (let i = 0; i < L; i++) re[i] = R.g();
+    Lab.fft(re, im);
+    for (let k = 0; k < L; k++) { const f = (k <= L / 2 ? k : k - L) * FS / L, h = H(f);
+      if (typeof h === 'number') { re[k] *= h; im[k] *= h; } else { const a = re[k], b = im[k]; re[k] = a * h[0] - b * h[1]; im[k] = a * h[1] + b * h[0]; } }
+    Lab.fft(re, im, true); return re;
+  }
+  function pgram(x, off, M, w, U, nfft) {
+    const re = new Float64Array(nfft), im = new Float64Array(nfft);
+    for (let i = 0; i < M; i++) re[i] = x[off + i] * w[i];
+    Lab.fft(re, im); const P = new Float64Array(nfft / 2 + 1);
+    for (let k = 0; k <= nfft / 2; k++) P[k] = (re[k] * re[k] + im[k] * im[k]) / U;
+    return P;
+  }
+  function bars(ctx, ax, edges, dens, color) { ctx.save(); ctx.fillStyle = color; ctx.globalAlpha = 0.35; for (let i = 0; i < dens.length; i++) { const x0 = ax.X(edges[i]), x1 = ax.X(edges[i + 1]), y = ax.Y(dens[i]), y0 = ax.Y(0); ctx.fillRect(x0 + 0.5, Math.min(y, y0), Math.max(1, x1 - x0 - 1), Math.abs(y0 - y)); } ctx.restore(); }
+  function histo(vals, lo, hi, nb) { const e = [], d = new Float64Array(nb), bw = (hi - lo) / nb; for (let i = 0; i <= nb; i++) e.push(lo + i * bw); let n = 0; for (const v of vals) { const k = Math.floor((v - lo) / bw); if (k >= 0 && k < nb) { d[k]++; } n++; } for (let i = 0; i < nb; i++) d[i] /= (n * bw); return [e, d]; }
+  function vline(ctx, ax, x, color, dash) { ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 1.5; if (dash) ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(ax.X(x), ax.box.y); ctx.lineTo(ax.X(x), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
+  function label(ctx, s, x, y, color, al) { const c = Lab.colors(); ctx.save(); ctx.font = '11px ' + c.mono; ctx.fillStyle = color; ctx.textAlign = al || 'left'; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y); ctx.restore(); }
+
+  /* ---------- AR helpers ---------- */
+  function burg(x, pmax) {
+    const N = x.length, ef = Float64Array.from(x), eb = Float64Array.from(x); let a = [1], E = sumsq(x) / N;
+    const As = [a.slice()], Es = [E];
+    for (let m = 0; m < pmax; m++) {
+      let nu = 0, de = 0; for (let n = m + 1; n < N; n++) { const f = ef[n], b = eb[n - 1]; nu += b * f; de += f * f + b * b; }
+      const k = -2 * nu / de, an = new Array(m + 2);
+      for (let i = 0; i <= m + 1; i++) an[i] = (i <= m ? a[i] : 0) + k * (i >= 1 ? a[m + 1 - i] : 0);
+      for (let n = N - 1; n >= m + 1; n--) { const f = ef[n], b = eb[n - 1]; ef[n] = f + k * b; eb[n] = b + k * f; }
+      a = an; E *= (1 - k * k); As.push(a.slice()); Es.push(E);
+    }
+    return { As, Es };
+  }
+  function levinson(r, p) { let a = [1], E = r[0]; for (let m = 0; m < p; m++) { let acc = r[m + 1]; for (let i = 1; i <= m; i++) acc += a[i] * r[m + 1 - i]; const k = -acc / E, an = new Array(m + 2); for (let i = 0; i <= m + 1; i++) an[i] = (i <= m ? a[i] : 0) + k * (i >= 1 ? a[m + 1 - i] : 0); a = an; E *= (1 - k * k); } return { a, E }; }
+
+  /* ---------- DPSS: tridiagonal eigenproblem (implicit QL) ---------- */
+  function tqli(d, e, n, z) {
+    for (let l = 0; l < n; l++) { let iter = 0, m;
+      do {
+        for (m = l; m < n - 1; m++) { const dd = Math.abs(d[m]) + Math.abs(d[m + 1]); if (Math.abs(e[m]) <= 1e-15 * dd) break; }
+        if (m !== l) {
+          if (iter++ === 100) break;
+          let g = (d[l + 1] - d[l]) / (2 * e[l]), r = Math.hypot(g, 1);
+          g = d[m] - d[l] + e[l] / (g + (g >= 0 ? r : -r));
+          let s = 1, c = 1, p = 0, i, under = false;
+          for (i = m - 1; i >= l; i--) {
+            let f = s * e[i]; const b = c * e[i];
+            r = Math.hypot(f, g); e[i + 1] = r;
+            if (r === 0) { d[i + 1] -= p; e[m] = 0; under = true; break; }
+            s = f / r; c = g / r; g = d[i + 1] - p; r = (d[i] - g) * s + 2 * c * b; p = s * r; d[i + 1] = g + p; g = c * r - b;
+            for (let k = 0; k < n; k++) { f = z[k][i + 1]; z[k][i + 1] = s * z[k][i] + c * f; z[k][i] = c * z[k][i] - s * f; }
+          }
+          if (under) continue;
+          d[l] -= p; e[l] = g; e[m] = 0;
+        }
+      } while (m !== l);
+    }
+  }
+  const dpssCache = {};
+  function dpss(N, NW) {
+    const key = N + '_' + NW; if (dpssCache[key]) return dpssCache[key];
+    const W = NW / N, d = new Float64Array(N), e = new Float64Array(N);
+    for (let n = 0; n < N; n++) { d[n] = ((N - 1) / 2 - n) ** 2 * Math.cos(2 * PI * W); if (n < N - 1) e[n] = (n + 1) * (N - n - 1) / 2; }
+    const z = []; for (let i = 0; i < N; i++) { const r = new Float64Array(N); r[i] = 1; z.push(r); }
+    tqli(d, e, N, z);
+    const idx = [...Array(N).keys()].sort((i, j) => d[j] - d[i]); const Kmax = Math.min(N, Math.floor(2 * NW) + 3);
+    const V = [], lam = [];
+    for (let k = 0; k < Kmax; k++) { const v = new Float64Array(N); for (let i = 0; i < N; i++) v[i] = z[i][idx[k]];
+      let s = 0; for (let i = 0; i < N; i++) s += v[i]; if (k % 2 === 0 && s < 0) v.forEach((_, i) => v[i] = -v[i]);
+      if (k % 2 === 1) { let t = 0; for (let i = 0; i < N; i++) t += (i - (N - 1) / 2) * v[i]; if (t < 0) v.forEach((_, i) => v[i] = -v[i]); }
+      let q = 0; for (let m = 0; m < N; m++) { let acc = 0; for (let n = 0; n < N; n++) { const dm = m - n; acc += (dm === 0 ? 2 * W : Math.sin(2 * PI * W * dm) / (PI * dm)) * v[n]; } q += v[m] * acc; }
+      V.push(v); lam.push(q); }
+    return dpssCache[key] = { V, lam, W };
+  }
+
+  /* ---------- white-noise gate periodogram bank (multiplicative speckle model) ---------- */
+  const banks = {}; let bankKeys = [];
+  function getBank(ng) {
+    if (banks[ng]) return banks[ng];
+    const nfft = Math.max(512, Lab.nextPow2(ng)), df = FS / nfft, nb = Math.floor(16 / df) + 1, NL = 2048;
+    const P = new Float32Array(NL * nb), A = new Float32Array(NL * nb), w = hann(ng), U = sumsq(w), R = Lab.rng(4242 + ng);
+    const re = new Float64Array(nfft), im = new Float64Array(nfft);
+    for (let l = 0; l < NL; l++) { re.fill(0); im.fill(0); for (let i = 0; i < ng; i++) re[i] = R.g() * w[i]; Lab.fft(re, im);
+      for (let k = 0; k < nb; k++) { const p = (re[k] * re[k] + im[k] * im[k]) / U; P[l * nb + k] = p; A[l * nb + k] = Math.sqrt(p); } }
+    const f = new Float64Array(nb); for (let k = 0; k < nb; k++) f[k] = k * df;
+    bankKeys.push(ng); if (bankKeys.length > 6) { delete banks[bankKeys.shift()]; }
+    return banks[ng] = { P, A, nb, NL, f, ng, T: ng / FS };
+  }
+  function looks(B, K, R, amp) { const out = new Float64Array(B.nb), src = amp ? B.A : B.P;
+    for (let j = 0; j < K; j++) { const o = Math.floor(R.u() * B.NL) * B.nb; for (let k = 0; k < B.nb; k++) out[k] += src[o + k]; }
+    for (let k = 0; k < B.nb; k++) out[k] /= K; return out; }
+  /* toy focusing: power gain 1/(1 + ((z - zF)/zR)^2), zR = 3.5 lambda F#^2 (cm), F# = 2, zF = 2 cm */
+  const Dfoc = (f, z) => { const zR = 3.5 * (CC / Math.max(f, 0.05)) * 4; return 1 / (1 + ((z - 2) / zR) ** 2); };
+  const Sasym0 = f => (0.75 * Math.exp(-((f - 4.3) ** 2) / (2 * 0.85 * 0.85)) + 0.5 * Math.exp(-((f - 6.2) ** 2) / (2 * 0.75 * 0.75))) ** 2;
+
+  /* =================== Demo 27.1 periodogram =================== */
+  let seedA = 11;
+  function drawPG() {
+    const c = Lab.colors(), N = 1 << +$('m27-pg-n').value, win = $('m27-pg-w').value;
+    $('m27-pg-n-o').textContent = N + ' (' + (N / FS).toFixed(1) + ' µs)';
+    const L = Math.max(2 * N, 1024), R = Lab.rng(seedA), NR = N <= 512 ? 120 : N <= 1024 ? 60 : 30, w = win === 'hann' ? hann(N) : rectw(N), U = sumsq(w), nb = N / 2 + 1;
+    const mean = new Float64Array(nb), rat = []; let first = null;
+    for (let r = 0; r < NR; r++) { const x = gen(R, L, Gamp), P = pgram(x, 0, N, w, U, N); if (!r) first = P;
+      for (let k = 0; k < nb; k++) { mean[k] += P[k] / NR; const f = k * FS / N; if (Math.abs(f - F0) <= 1.5) rat.push(P[k] / Spk(f)); } }
+    const [m, s] = meanStd(rat), [md, sd] = meanStd(rat.map(v => 10 * Math.log10(v)));
+    let { ctx, w: W, h: H } = Lab.canvas($('m27-pg-cv'), 250);
+    let ax = Lab.axes(ctx, { x: 52, y: 14, w: W - 66, h: H - 50 }, [0, 12], [-70, 12], { xlabel: 'frequency (MHz)', ylabel: 'PSD (dB re peak)' });
+    const kmax = Math.min(nb - 1, Math.floor(12 * N / FS)); const fx = [], fy = [], my = [];
+    for (let k = 0; k <= kmax; k++) { fx.push(k * FS / N); fy.push(db10(first[k])); my.push(db10(mean[k])); }
+    ax.clip(); Lab.line(ctx, ax, fx, fy, c.muted, 1); Lab.line(ctx, ax, fx, my, c.accent, 2);
+    const tx = [], ty = []; for (let i = 0; i <= 600; i++) { const f = i * 0.02; tx.push(f); ty.push(db10(Spk(f))); } Lab.line(ctx, ax, tx, ty, c.sig2, 1.6, [5, 4]); ax.unclip();
+    ({ ctx, w: W, h: H } = Lab.canvas($('m27-pg-h'), 170));
+    ax = Lab.axes(ctx, { x: 52, y: 12, w: W - 66, h: H - 48 }, [0, 6], [0, 1.05], { xlabel: 'P(f) / S(f), bins within 5 ± 1.5 MHz', ylabel: 'density' });
+    const [e, d] = histo(rat, 0, 6, 24); bars(ctx, ax, e, d, c.accent);
+    const ex = [], ey = []; for (let i = 0; i <= 200; i++) { ex.push(i * 0.03); ey.push(Math.exp(-i * 0.03)); } Lab.line(ctx, ax, ex, ey, c.sig4, 2);
+    $('m27-pg-read').innerHTML = 'bin width f<sub>s</sub>/N = <b>' + (FS / N).toFixed(3) + '</b> MHz<br>in-band values: ' + rat.length + '<br>mean P/S = <b>' + m.toFixed(2) + '</b> (1)<br>std P/S = <b>' + s.toFixed(2) + '</b> (1)<br>dB mean = <b>' + num(md, 2) + '</b> (−2.51)<br>dB std = <b>' + sd.toFixed(2) + '</b> (5.57)';
+  }
+  $('m27-pg-n').addEventListener('input', drawPG); $('m27-pg-w').addEventListener('change', drawPG);
+  $('m27-pg-seed').addEventListener('click', () => { seedA += 7; drawPG(); });
+
+  /* =================== Demo 27.2 Welch =================== */
+  const ARIP = 0.5, TAU = 2.0;
+  const Hrip = f => { const g = Gamp(f), th = 2 * PI * f * TAU; return [g * (1 + ARIP * Math.cos(th)), -g * ARIP * Math.sin(th)]; };
+  const Srip = f => Spk(f) * (1 + ARIP * ARIP + 2 * ARIP * Math.cos(2 * PI * f * TAU));
+  function welchVar(w, M, D, Nb) { const U = sumsq(w); let s = 1; for (let m = 1; m < Nb; m++) { const sh = m * D; if (sh >= M) break; let a = 0; for (let n = 0; n < M - sh; n++) a += w[n] * w[n + sh]; const r = a / U; s += 2 * (1 - m / Nb) * r * r; } return s / Nb; }
+  function drawWE() {
+    const c = Lab.colors(), N = 1024, M = 1 << +$('m27-we-m').value, ov = +$('m27-we-ov').value, win = $('m27-we-w').value, showCI = $('m27-we-ci').checked;
+    $('m27-we-m-o').textContent = M + ' (' + (M / FS).toFixed(1) + ' µs)';
+    const D = Math.max(1, Math.round(M * (1 - ov))), w = win === 'hann' ? hann(M) : rectw(M), U = sumsq(w), nfft = Math.max(2 * M, 512), nb = nfft / 2 + 1;
+    const starts = []; for (let s = 0; s + M <= N; s += D) starts.push(s); const Nb = starts.length;
+    const R = Lab.rng(29), NR = 30, all = [];
+    for (let r = 0; r < NR; r++) { const x = gen(R, 2048, Hrip), P = new Float64Array(nb);
+      for (const s of starts) { const Q = pgram(x, s, M, w, U, nfft); for (let k = 0; k < nb; k++) P[k] += Q[k] / Nb; } all.push(P); }
+    const mean = new Float64Array(nb), vr = []; for (let k = 0; k < nb; k++) { let a = 0; for (const P of all) a += P[k]; mean[k] = a / NR; }
+    for (let k = 0; k < nb; k++) { const f = k * FS / nfft; if (Math.abs(f - F0) > 1.5) continue; let v = 0; for (const P of all) v += (P[k] - mean[k]) ** 2; vr.push(v / (NR - 1) / (mean[k] * mean[k])); }
+    const vm = vr.reduce((a, b) => a + b, 0) / vr.length, vp = welchVar(w, M, D, Nb), nu = 2 / vp, qlo = chi2q(nu, 0.025), qhi = chi2q(nu, 0.975);
+    let rmax = -1e9, rmin = 1e9; for (let k = 0; k < nb; k++) { const f = k * FS / nfft; if (f < 4 || f > 6) continue; const r = db10(mean[k] / Spk(f)); rmax = Math.max(rmax, r); rmin = Math.min(rmin, r); }
+    const enbw = M * U / (w.reduce((a, b) => a + b, 0) ** 2);
+    const { ctx, w: W, h: H } = Lab.canvas($('m27-we-cv'), 300);
+    const ax = Lab.axes(ctx, { x: 52, y: 14, w: W - 66, h: H - 50 }, [2, 8], [-25, 10], { xlabel: 'frequency (MHz)', ylabel: 'PSD (dB)' });
+    const fx = [], y1 = [], ym = [], lo = [], hi = []; for (let k = 0; k < nb; k++) { const f = k * FS / nfft; if (f < 2 || f > 8) continue; fx.push(f); y1.push(db10(all[0][k])); ym.push(db10(mean[k])); lo.push(db10(nu * all[0][k] / qhi)); hi.push(db10(nu * all[0][k] / qlo)); }
+    ax.clip();
+    if (showCI) { ctx.save(); ctx.fillStyle = c.sig4; ctx.globalAlpha = 0.18; ctx.beginPath(); fx.forEach((f, i) => i ? ctx.lineTo(ax.X(f), ax.Y(hi[i])) : ctx.moveTo(ax.X(f), ax.Y(hi[i]))); for (let i = fx.length - 1; i >= 0; i--) ctx.lineTo(ax.X(fx[i]), ax.Y(lo[i])); ctx.closePath(); ctx.fill(); ctx.restore(); }
+    const tx = [], ty = []; for (let i = 0; i <= 900; i++) { const f = 2 + i * 6 / 900; tx.push(f); ty.push(db10(Srip(f))); }
+    Lab.line(ctx, ax, tx, ty, c.sig2, 1.4, [5, 4]); Lab.line(ctx, ax, fx, ym, c.sig3, 1.6); Lab.line(ctx, ax, fx, y1, c.accent, 1.8); ax.unclip();
+    $('m27-we-read').innerHTML = 'segments N<sub>b</sub> = <b>' + Nb + '</b>, step ' + D + '<br>K<sub>eff</sub> = <b>' + (1 / vp).toFixed(1) + '</b>, ν = ' + nu.toFixed(1) + '<br>rel. var: theory <b>' + vp.toFixed(3) + '</b>, measured <b>' + vm.toFixed(3) + '</b><br>95 % band span <b>' + db10(qhi / qlo).toFixed(1) + '</b> dB<br>ENBW = ' + enbw.toFixed(2) + '·f<sub>s</sub>/M = <b>' + (enbw * FS / M).toFixed(3) + '</b> MHz<br>ripple (mean, 4–6 MHz) <b>' + (rmax - rmin).toFixed(1) + '</b> dB (true 9.5)';
+  }
+  ['m27-we-m'].forEach(id => $(id).addEventListener('input', drawWE)); ['m27-we-ov', 'm27-we-w', 'm27-we-ci'].forEach(id => $(id).addEventListener('change', drawWE));
+
+  /* =================== Demo 27.3 multitaper =================== */
+  function drawMT() {
+    const c = Lab.colors(), N = +$('m27-mt-n').value, NW = +$('m27-mt-nw').value, ks = $('m27-mt-k');
+    const kmax = Math.floor(2 * NW) + 1; ks.max = kmax; if (+ks.value > kmax) ks.value = kmax;
+    const K = +ks.value; $('m27-mt-nw-o').textContent = NW; $('m27-mt-k-o').textContent = K + ' (2NW − 1 = ' + (2 * NW - 1) + ')';
+    const T = dpss(N, NW), V = T.V.slice(0, K), nfft = 512, nb = nfft / 2 + 1, R = Lab.rng(77), NR = 60, wr = rectw(N);
+    const ratM = [], mts = []; let first = null, firstP = null;
+    for (let r = 0; r < NR; r++) { const x = gen(R, 1024, Gamp), S = new Float64Array(nb);
+      for (const v of V) { const Q = pgram(x, 0, N, v, 1, nfft); for (let k = 0; k < nb; k++) S[k] += Q[k] / K; }
+      if (!r) { first = S; firstP = pgram(x, 0, N, wr, N, nfft); }
+      for (let k = 0; k < nb; k++) { const f = k * FS / nfft; if (Math.abs(f - F0) <= 1.2) ratM.push(S[k] / Spk(f)); } }
+    const [mm, sm] = meanStd(ratM);
+    const { ctx, w: W, h: H } = Lab.canvas($('m27-mt-cv'), 470);
+    /* tapers */
+    let ax = Lab.axes(ctx, { x: 52, y: 18, w: W - 66, h: 110 }, [0, N - 1], [-0.25, 0.25], { title: 'DPSS tapers v₀ … v' + subs(K - 1), ylabel: 'value', ny: 2 });
+    const cols = [c.accent, c.sig2, c.sig3, c.sig4]; const nx = [...Array(N).keys()];
+    for (let k = K - 1; k >= 0; k--) Lab.line(ctx, ax, nx, Array.from(V[k]), k < 4 ? cols[k] : c.muted, k < 4 ? 1.7 : 1);
+    /* spectral windows */
+    const L = 4096, Wf = (v) => { const re = new Float64Array(L), im = new Float64Array(L); for (let i = 0; i < N; i++) re[i] = v[i]; Lab.fft(re, im); const o = []; for (let k = 0; k < L; k++) o.push(re[k] * re[k] + im[k] * im[k]); return o; };
+    const span = Math.min(20, 4 * T.W * FS + 2);
+    ax = Lab.axes(ctx, { x: 52, y: 162, w: W - 66, h: 120 }, [-span, span], [-110, 5], { title: 'spectral windows |V(f)|² (dB re peak)', ylabel: 'dB', ny: 4 });
+    const drawW = (v, col, wd) => { const p = Wf(v), mx = Math.max(...p), xs = [], ys = []; for (let k = -L / 2; k < L / 2; k++) { const f = k * FS / L; if (Math.abs(f) > span) continue; xs.push(f); ys.push(db10(p[(k + L) % L] / mx)); } ax.clip(); Lab.line(ctx, ax, xs, ys, col, wd); ax.unclip(); };
+    drawW(V[0], c.accent, 1.6); if (K > 1) drawW(V[K - 1], c.sig2, 1.3);
+    vline(ctx, ax, T.W * FS, c.muted, [4, 3]); vline(ctx, ax, -T.W * FS, c.muted, [4, 3]);
+    /* spectrum */
+    ax = Lab.axes(ctx, { x: 52, y: 318, w: W - 66, h: 118 }, [0, 15], [-100, 10], { title: 'one gate: multitaper vs rectangular periodogram', xlabel: 'frequency (MHz)', ylabel: 'dB', ny: 4 });
+    const fx = [], ym = [], yp = []; for (let k = 0; k < nb; k++) { const f = k * FS / nfft; if (f > 15) break; fx.push(f); ym.push(db10(first[k])); yp.push(db10(firstP[k])); }
+    const tx = [], ty = []; for (let i = 0; i <= 600; i++) { const f = i * 0.025; tx.push(f); ty.push(db10(Spk(f))); }
+    ax.clip(); Lab.line(ctx, ax, fx, yp, c.muted, 1); Lab.line(ctx, ax, fx, ym, c.accent, 1.8); Lab.line(ctx, ax, tx, ty, c.sig2, 1.4, [5, 4]); ax.unclip();
+    const lamK = T.lam[K - 1];
+    $('m27-mt-read').innerHTML = 'gate ' + N + ' samples = <b>' + (N / FS * CC / 2 * 10).toFixed(2) + '</b> mm<br>2W = 2NW·f<sub>s</sub>/N = <b>' + (2 * NW * FS / N).toFixed(2) + '</b> MHz<br>λ<sub>' + (K - 1) + '</sub> = <b>' + lamK.toFixed(4) + '</b>, leakage ' + db10(Math.max(1 - lamK, 1e-16)).toFixed(1) + ' dB<br>λ<sub>0..' + Math.min(K, 9) + '</sub>: ' + T.lam.slice(0, Math.min(K + 1, 10)).map(v => v.toFixed(3)).join(' ') + '<br>var(Ŝ/S): 1/K = <b>' + (1 / K).toFixed(3) + '</b>, measured <b>' + (sm * sm).toFixed(3) + '</b><br>mean Ŝ/S in band = <b>' + mm.toFixed(3) + '</b>';
+  }
+  const SUBD = '₀₁₂₃₄₅₆₇₈₉'; function subs(n) { return String(n).split('').map(ch => SUBD[+ch]).join(''); }
+  $('m27-mt-n').addEventListener('change', drawMT); $('m27-mt-nw').addEventListener('input', drawMT); $('m27-mt-k').addEventListener('input', drawMT);
+
+  /* =================== Demo 27.4 AR =================== */
+  let seedAR = 5;
+  const NG = 401, FG = Float64Array.from({ length: NG }, (_, i) => 3 + 4 * i / (NG - 1));
+  const COS = [], SIN = []; for (let i = 0; i < NG; i++) { const c1 = new Float64Array(257), s1 = new Float64Array(257); for (let n = 0; n <= 256; n++) { c1[n] = Math.cos(2 * PI * FG[i] * n / FS); s1[n] = Math.sin(2 * PI * FG[i] * n / FS); } COS.push(c1); SIN.push(s1); }
+  const arSpec = (a, E) => { const out = new Float64Array(NG); for (let i = 0; i < NG; i++) { let re = 0, im = 0; for (let k = 0; k < a.length; k++) { re += a[k] * COS[i][k]; im -= a[k] * SIN[i][k]; } out[i] = E / (re * re + im * im); } return out; };
+  const dtftP = (x, w) => { const out = new Float64Array(NG); for (let i = 0; i < NG; i++) { let re = 0, im = 0; for (let n = 0; n < x.length; n++) { const v = x[n] * w[n]; re += v * COS[i][n]; im -= v * SIN[i][n]; } out[i] = re * re + im * im; } return out; };
+  function findPeaks(P) { let mx = 0; for (const v of P) mx = Math.max(mx, v); const pk = []; for (let i = 1; i < NG - 1; i++) if (P[i] > P[i - 1] && P[i] >= P[i + 1] && P[i] > 0.01 * mx) pk.push(FG[i]); return pk; }
+  function arTrial(R, N, p, pAic, sep, snr) {
+    const f1 = F0 - sep / 2, f2 = F0 + sep / 2, sg = Math.sqrt(0.5 * Math.pow(10, -snr / 10)), p1 = 2 * PI * R.u(), p2 = 2 * PI * R.u(), x = new Float64Array(N);
+    for (let n = 0; n < N; n++) x[n] = Math.cos(2 * PI * f1 * n / FS + p1) + Math.cos(2 * PI * f2 * n / FS + p2) + sg * R.g();
+    const B = burg(x, Math.max(p, pAic)); const r = new Float64Array(p + 1); for (let l = 0; l <= p; l++) { let a = 0; for (let n = 0; n + l < N; n++) a += x[n] * x[n + l]; r[l] = a / N; }
+    const Y = levinson(r, p); return { x, B, Y, f1, f2 };
+  }
+  function resolved(pk, f1, f2, sep) { const tol = Math.min(0.15, 0.4 * sep); return pk.length === 2 && Math.abs(pk[0] - f1) < tol && Math.abs(pk[1] - f2) < tol; }
+  function drawAR() {
+    const c = Lab.colors(), N = +$('m27-ar-n').value, ps = $('m27-ar-p'), pcap = Math.min(48, Math.floor(N / 2) - 1); ps.max = pcap; if (+ps.value > pcap) ps.value = pcap;
+    const p = +ps.value, sep = +$('m27-ar-d').value, snr = +$('m27-ar-snr').value, pAic = pcap;
+    $('m27-ar-n-o').textContent = N + ' (' + (N / FS).toFixed(2) + ' µs)'; $('m27-ar-p-o').textContent = p; $('m27-ar-d-o').textContent = sep.toFixed(2) + ' MHz'; $('m27-ar-snr-o').textContent = snr + ' dB';
+    const R = Lab.rng(seedAR), wN = hann(N);
+    const t = arTrial(R, N, p, pAic, sep, snr), Pb = arSpec(t.B.As[p], t.B.Es[p]), Py = arSpec(t.Y.a, t.Y.E), Pp = dtftP(t.x, wN);
+    const aic = t.B.Es.map((E, k) => N * Math.log(E) + 2 * k); let pSel = 0; aic.forEach((v, k) => { if (v < aic[pSel]) pSel = k; });
+    /* Monte Carlo */
+    const R2 = Lab.rng(seedAR + 1000), NT = 100; let rb = 0, ry = 0, rp = 0, sp = 0;
+    for (let i = 0; i < NT; i++) { const u = arTrial(R2, N, p, p, sep, snr); const pb = findPeaks(arSpec(u.B.As[p], u.B.Es[p])); rb += resolved(pb, u.f1, u.f2, sep); sp += pb.length > 2; ry += resolved(findPeaks(arSpec(u.Y.a, u.Y.E)), u.f1, u.f2, sep); rp += resolved(findPeaks(dtftP(u.x, wN)), u.f1, u.f2, sep); }
+    const { ctx, w: W, h: H } = Lab.canvas($('m27-ar-cv'), 400);
+    let ax = Lab.axes(ctx, { x: 52, y: 14, w: W - 66, h: 230 }, [3, 7], [-40, 3], { xlabel: 'frequency (MHz)', ylabel: 'dB re peak' });
+    const norm = P => { let m = 0; for (const v of P) m = Math.max(m, v); return Array.from(P, v => db10(v / m)); };
+    ax.clip(); vline(ctx, ax, t.f1, c.sig2, [3, 3]); vline(ctx, ax, t.f2, c.sig2, [3, 3]);
+    Lab.line(ctx, ax, Array.from(FG), norm(Pp), c.muted, 1.6); Lab.line(ctx, ax, Array.from(FG), norm(Py), c.sig3, 1.5); Lab.line(ctx, ax, Array.from(FG), norm(Pb), c.accent, 1.9); ax.unclip();
+    const ks = aic.map((_, k) => k); let lo = Infinity, hi = -Infinity; aic.forEach(v => { lo = Math.min(lo, v); hi = Math.max(hi, v); });
+    ax = Lab.axes(ctx, { x: 52, y: 290, w: W - 66, h: 76 }, [0, pAic], [lo - 0.05 * (hi - lo), hi + 0.05 * (hi - lo)], { xlabel: 'Burg order', ylabel: 'AIC', ny: 2, yfmt: v => Lab.fmt(v, 0) });
+    Lab.line(ctx, ax, ks, aic, c.sig2, 1.6); Lab.dots(ctx, ax, [pSel], [aic[pSel]], c.sig2, 4); Lab.dots(ctx, ax, [p], [aic[p]], c.accent, 4);
+    const pkb = findPeaks(Pb);
+    $('m27-ar-read').innerHTML = 'Fourier resolution f<sub>s</sub>/N = <b>' + (FS / N).toFixed(3) + '</b> MHz<br>Burg peaks: ' + (pkb.length ? pkb.map(v => v.toFixed(2)).join(', ') : 'none') + ' MHz<br>AIC choice p = <b>' + pSel + '</b><br>P(resolved), 100 gates:<br>  Burg <b>' + (rb / NT).toFixed(2) + '</b> (&gt;2 peaks ' + (sp / NT).toFixed(2) + ')<br>  Yule–Walker <b>' + (ry / NT).toFixed(2) + '</b><br>  Hann periodogram <b>' + (rp / NT).toFixed(2) + '</b>';
+  }
+  ['m27-ar-n', 'm27-ar-p', 'm27-ar-d', 'm27-ar-snr'].forEach(id => $(id).addEventListener('input', drawAR));
+  $('m27-ar-seed').addEventListener('click', () => { seedAR += 13; drawAR(); });
+
+  /* =================== Demo 27.5 SLD =================== */
+  function drawSLD() {
+    const c = Lab.colors(), aS = +$('m27-sld-a').value, Lg = +$('m27-sld-g').value, K = 1 << +$('m27-sld-k').value, dz = +$('m27-sld-dz').value;
+    const [b1, b2] = $('m27-sld-b').value.split(',').map(Number), mode = $('m27-sld-cv2').value, aR = 0.5;
+    $('m27-sld-a-o').textContent = aS.toFixed(2) + ' dB/cm/MHz'; $('m27-sld-g-o').textContent = Lg + ' mm'; $('m27-sld-k-o').textContent = K; $('m27-sld-dz-o').textContent = dz.toFixed(2) + ' cm';
+    const ng = Math.round(2 * Lg / 10 / CC * FS), Bk = getBank(ng), T = Bk.T, amp = mode === 'a2';
+    const ib = []; for (let k = 0; k < Bk.nb; k++) if (Bk.f[k] >= b1 && Bk.f[k] <= b2) ib.push(k);
+    const fb = ib.map(k => Bk.f[k]), dA = (aS - aR) / NP, kf = amp ? 2 : 4, div = mode === 'p4' ? 4 : 2;
+    const R = Lab.rng(321), NR = 300, est = []; let y0 = null, fit0 = null;
+    for (let r = 0; r < NR; r++) { const E1 = looks(Bk, K, R, amp), E2 = looks(Bk, K, R, amp); const y = ib.map((k, i) => kf * dA * fb[i] * dz + Math.log(E1[k]) - Math.log(E2[k]));
+      const ft = linfit(fb, y); est.push(aR + NP * ft[1] / (div * dz)); if (!r) { y0 = y; fit0 = ft; } }
+    const [m, s] = meanStd(est), B = b2 - b1, sTh = NP * Math.sqrt(1.5 * 1.75 * trigamma(K) / (B ** 3 * T)) / dz;
+    const { ctx, w: W, h: H } = Lab.canvas($('m27-sld-cv'), 420);
+    const yt = fb.map(f => kf * dA * f * dz); let lo = Math.min(...y0, ...yt, 0), hi = Math.max(...y0, ...yt, 0.1); const pad = 0.1 * (hi - lo);
+    let ax = Lab.axes(ctx, { x: 52, y: 14, w: W - 66, h: 190 }, [b1, b2], [lo - pad, hi + pad], { xlabel: 'frequency (MHz)', ylabel: (amp ? 'ln amplitude' : 'ln power') + ' (Np)' });
+    Lab.dots(ctx, ax, fb, y0, c.accent, 2.2); Lab.line(ctx, ax, [b1, b2], [fit0[0] + fit0[1] * b1, fit0[0] + fit0[1] * b2], c.accent, 1.6); Lab.line(ctx, ax, [b1, b2], [kf * dA * b1 * dz, kf * dA * b2 * dz], c.sig2, 1.6, [5, 4]);
+    const xlo = Math.min(aS, m) - Math.max(4 * s, 0.15), xhi = Math.max(aS, m) + Math.max(4 * s, 0.15), [e, d] = histo(est, xlo, xhi, 30), dmax = Math.max(...d);
+    ax = Lab.axes(ctx, { x: 52, y: 250, w: W - 66, h: 132 }, [xlo, xhi], [0, dmax * 1.1], { xlabel: 'α̂ₛ (dB/cm/MHz), 300 ROIs', ylabel: 'density', ny: 2 });
+    bars(ctx, ax, e, d, c.sig4); vline(ctx, ax, aS, c.sig2, [5, 4]); vline(ctx, ax, m, c.accent);
+    $('m27-sld-read').innerHTML = 'gate ' + ng + ' samples, T = <b>' + T.toFixed(2) + '</b> µs<br>this ROI α̂ = <b>' + est[0].toFixed(3) + '</b><br>300 ROIs: mean <b>' + m.toFixed(3) + '</b>, std <b>' + s.toFixed(3) + '</b><br>bias <b>' + num(m - aS, 3) + '</b> dB/cm/MHz<br>' + (mode === 'p4' ? 'formula σ = √(1.5γψ₁(K)/(B³T))/Δz = <b>' + sTh.toFixed(3) + '</b>' : mode === 'a2' ? 'amplitude spectra: factor 2, unbiased' : '<span style="color:var(--bad)">factor-2 error: Δα doubled</span>');
+  }
+  ['m27-sld-a', 'm27-sld-g', 'm27-sld-k', 'm27-sld-dz'].forEach(id => $(id).addEventListener('input', drawSLD)); ['m27-sld-b', 'm27-sld-cv2'].forEach(id => $(id).addEventListener('change', drawSLD));
+
+  /* =================== Demo 27.6 centroid vs log ratio =================== */
+  function drawCEN() {
+    const c = Lab.colors(), aS = +$('m27-cen-a').value, nB = +$('m27-cen-n').value, sp = $('m27-cen-sp').value, K = 1 << +$('m27-cen-k').value, foc = $('m27-cen-d').checked, aR = 0.5;
+    $('m27-cen-a-o').textContent = aS.toFixed(2) + ' dB/cm/MHz'; $('m27-cen-n-o').textContent = 'n = ' + nB; $('m27-cen-k-o').textContent = K;
+    const Bk = getBank(208), nb = Bk.nb, f = Bk.f, Z = [1.7, 2.1, 2.5, 2.9, 3.3, 3.7, 4.1, 4.5];
+    const Ssys = sp === 'g' ? Spk : Sasym0; let s0 = 0, s1 = 0, s2 = 0; for (let k = 0; k < nb; k++) { if (f[k] < 0.5 || f[k] > 12) continue; const v = Ssys(f[k]); s0 += v; s1 += v * f[k]; s2 += v * f[k] * f[k]; }
+    const sig2 = s2 / s0 - (s1 / s0) ** 2;   /* nominal spectral variance of the transducer (power) */
+    const expS = (z, a, n) => { const o = new Float64Array(nb); for (let k = 0; k < nb; k++) { const fk = Math.max(f[k], 1e-3); o[k] = Ssys(fk) * (foc ? Dfoc(fk, z) : 1) * Math.pow(fk, n) * Math.exp(-4 * a / NP * fk * z); } return o; };
+    const cent = S => { let a = 0, b = 0; for (let k = 0; k < nb; k++) { if (f[k] < 0.5 || f[k] > 12) continue; a += S[k] * f[k]; b += S[k]; } return a / b; };
+    const varAt = S => { const m = cent(S); let a = 0, b = 0; for (let k = 0; k < nb; k++) { if (f[k] < 0.5 || f[k] > 12) continue; a += S[k] * (f[k] - m) ** 2; b += S[k]; } return a / b; };
+    const Ss = Z.map(z => expS(z, aS, nB)), Sr = Z.map(z => expS(z, aR, 4));
+    const ib = []; for (let k = 0; k < nb; k++) if (f[k] >= 3 && f[k] <= 7) ib.push(k); const fb = ib.map(k => f[k]);
+    const crefSlope = linfit(Z, Sr.map(cent))[1];
+    const R = Lab.rng(99), NR = 150, eS = [], eC = [], eR = []; let ex = null;
+    const zm = Z.reduce((a, b) => a + b, 0) / Z.length, Szz = Z.reduce((a, z) => a + (z - zm) ** 2, 0);
+    for (let r = 0; r < NR; r++) {
+      const Sm = Z.map((z, i) => { const E = looks(Bk, K, R, false), o = new Float64Array(nb); for (let k = 0; k < nb; k++) o[k] = Ss[i][k] * E[k]; return o; });
+      const sl = ib.map(k => { let a = 0; Z.forEach((z, i) => { a += (z - zm) * Math.log(Sm[i][k] / Sr[i][k]); }); return a / Szz; });
+      eS.push(aR - NP * linfit(fb, sl)[1] / 4);
+      const fc = Sm.map(cent), cs = linfit(Z, fc)[1]; eC.push(-NP * cs / (4 * sig2)); eR.push(aR - NP * (cs - crefSlope) / (4 * sig2));
+      if (!r) ex = fc;
+    }
+    const st = [meanStd(eS), meanStd(eC), meanStd(eR)];
+    const { ctx, w: W, h: H } = Lab.canvas($('m27-cen-cv'), 330);
+    const half = Math.max(160, (W - 40) / 2);
+    const wide = W > 620, b1 = wide ? { x: 52, y: 14, w: half - 70, h: H - 50 } : { x: 52, y: 14, w: W - 66, h: 120 };
+    const zz = [], cs1 = [], cr1 = []; for (let i = 0; i <= 40; i++) { const z = 1.5 + 3.2 * i / 40; zz.push(z); cs1.push(cent(expS(z, aS, nB))); cr1.push(cent(expS(z, aR, 4))); }
+    const all = cs1.concat(cr1, ex); let lo = Math.min(...all), hi = Math.max(...all); const pd = 0.1 * (hi - lo) + 0.02;
+    let ax = Lab.axes(ctx, b1, [1.5, 4.7], [lo - pd, hi + pd], { xlabel: 'gate depth (cm)', ylabel: 'centroid (MHz)', ny: 4 });
+    Lab.line(ctx, ax, zz, cr1, c.muted, 1.4, [4, 3]); Lab.line(ctx, ax, zz, cs1, c.accent, 1.8);
+    Lab.line(ctx, ax, zz, zz.map(z => cs1[0] - 4 * aS / NP * sig2 * (z - 1.5)), c.sig3, 1.4, [5, 4]); Lab.dots(ctx, ax, Z, ex, c.accent, 3);
+    const b2 = wide ? { x: half + 40, y: 14, w: W - half - 54, h: H - 50 } : { x: 52, y: 190, w: W - 66, h: H - 226 };
+    const vals = eS.concat(eC, eR, [aS]); let vlo = Math.min(...vals), vhi = Math.max(...vals); const vp = 0.08 * (vhi - vlo) + 0.02;
+    ax = Lab.axes(ctx, b2, [0, 3], [vlo - vp, vhi + vp], { xticks: [], ylabel: 'α̂ (dB/cm/MHz)', ny: 4 });
+    ctx.save(); ctx.strokeStyle = c.sig2; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ax.X(0), ax.Y(aS)); ctx.lineTo(ax.X(3), ax.Y(aS)); ctx.stroke(); ctx.restore();
+    const Rj = Lab.rng(5), names = ['log ratio', 'centroid', 'centroid − ref'], colsE = [c.sig4, c.sig3, c.accent];
+    [eS, eC, eR].forEach((arr, j) => { const xs = arr.map(() => j + 0.5 + (Rj.u() - 0.5) * 0.45); Lab.dots(ctx, ax, xs, arr, colsE[j], 1.6);
+      const [mu, sd] = st[j]; ctx.save(); ctx.strokeStyle = c.fg; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax.X(j + 0.25), ax.Y(mu)); ctx.lineTo(ax.X(j + 0.75), ax.Y(mu)); ctx.moveTo(ax.X(j + 0.5), ax.Y(mu - sd)); ctx.lineTo(ax.X(j + 0.5), ax.Y(mu + sd)); ctx.stroke(); ctx.restore();
+      label(ctx, names[j], ax.X(j + 0.5), b2.y + b2.h + 12, c.muted, 'center'); });
+    const vS3 = varAt(expS(3.1, aS, nB));
+    $('m27-cen-read').innerHTML = 'true α = <b>' + aS.toFixed(2) + '</b> dB/cm/MHz<br>log-ratio regression: <b>' + st[0][0].toFixed(3) + '</b> ± ' + st[0][1].toFixed(3) + '<br>centroid (nominal σ²): <b>' + st[1][0].toFixed(3) + '</b> ± ' + st[1][1].toFixed(3) + '<br>centroid − reference: <b>' + st[2][0].toFixed(3) + '</b> ± ' + st[2][1].toFixed(3) + '<br>nominal σ² = <b>' + sig2.toFixed(3) + '</b> MHz²; σ² of sample echo at 3.1 cm = <b>' + vS3.toFixed(3) + '</b>';
+  }
+  ['m27-cen-a', 'm27-cen-n', 'm27-cen-k'].forEach(id => $(id).addEventListener('input', drawCEN)); ['m27-cen-sp', 'm27-cen-d'].forEach(id => $(id).addEventListener('change', drawCEN));
+
+  /* =================== Demo 27.7 BSC / ESD =================== */
+  const CUM = 1540;   /* um/us, so k = 2 pi f / c in rad/um with f in MHz */
+  function drawESD() {
+    const c = Lab.colors(), esd = +$('m27-esd-e').value, [b1, b2] = $('m27-esd-b').value.split(',').map(Number), K = 1 << +$('m27-esd-k').value, er = +$('m27-esd-er').value, z = 3, a = esd / 2;
+    $('m27-esd-e-o').textContent = esd + ' µm'; $('m27-esd-k-o').textContent = K; $('m27-esd-er-o').textContent = num(er, 2) + ' dB/cm/MHz';
+    const Bk = getBank(208), ib = []; for (let k = 0; k < Bk.nb; k++) if (Bk.f[k] >= b1 && Bk.f[k] <= b2) ib.push(k);
+    const fb = ib.map(k => Bk.f[k]), k2 = fb.map(f => (2 * PI * f / CUM) ** 2), lnF = k2.map(q => -0.827 * q * a * a), tilt = fb.map(f => 4 * er / NP * f * z);
+    const R = Lab.rng(555), NR = 300, est = []; let fails = 0, y0 = null, ft0 = null, liz = null;
+    for (let r = 0; r < NR; r++) { const E = looks(Bk, K, R, false); const y = ib.map((k, i) => lnF[i] + tilt[i] + Math.log(E[k])); const ft = linfit(k2, y); const a2 = -ft[1] / 0.827;
+      if (a2 > 0) est.push(2 * Math.sqrt(a2)); else fails++;
+      if (!r) { y0 = y; ft0 = ft; const ydb = y.map((v, i) => 10 / Math.LN10 * v + 40 * Math.log10(fb[i])); const lf = linfit(fb, ydb); liz = [lf[1], lf[0], lf[0] + lf[1] * (b1 + b2) / 2]; } }
+    const yn = lnF.map((v, i) => v + tilt[i]), fn = linfit(k2, yn), a2n = -fn[1] / 0.827, esdN = a2n > 0 ? 2 * Math.sqrt(a2n) : NaN;
+    const [m, s] = est.length > 1 ? meanStd(est) : [NaN, NaN];
+    const { ctx, w: W, h: H } = Lab.canvas($('m27-esd-cv'), 470);
+    /* panel 1: ln ratio vs k^2 */
+    const yc = y0.map(v => v - ft0[0]); const tr = k2.map(q => -0.827 * a * a * q); let lo = Math.min(...yc, ...tr), hi = Math.max(...yc, ...tr); const pd = 0.12 * (hi - lo) + 0.1;
+    let ax = Lab.axes(ctx, { x: 52, y: 16, w: W - 66, h: 130 }, [k2[0] * 1e3, k2[k2.length - 1] * 1e3], [lo - pd, hi + pd], { xlabel: 'k² (10⁻³ rad²/µm²)', ylabel: 'ln ratio − b₀', ny: 3 });
+    Lab.dots(ctx, ax, k2.map(q => q * 1e3), yc, c.accent, 2.2); Lab.line(ctx, ax, [k2[0] * 1e3, k2[k2.length - 1] * 1e3], [ft0[1] * k2[0], ft0[1] * k2[k2.length - 1]], c.accent, 1.6);
+    Lab.line(ctx, ax, k2.map(q => q * 1e3), tr, c.sig2, 1.6, [5, 4]);
+    /* panel 2: form factor in ka with the band */
+    ax = Lab.axes(ctx, { x: 52, y: 192, w: W - 66, h: 110 }, [0, 4], [-30, 2], { xlabel: 'ka', ylabel: 'dB', ny: 3 });
+    const kl = 2 * PI * b1 / CUM * a, kh = 2 * PI * b2 / CUM * a;
+    ctx.save(); ctx.fillStyle = c.sig3; ctx.globalAlpha = 0.2; ctx.fillRect(ax.X(Math.min(kl, 4)), ax.box.y, Math.max(1, ax.X(Math.min(kh, 4)) - ax.X(Math.min(kl, 4))), ax.box.h); ctx.restore();
+    const kx = [], f1 = [], f2 = []; const pk = 4 * Math.log(1.555) - 0.827 * 1.555 ** 2; for (let i = 1; i <= 400; i++) { const q = i * 0.01; kx.push(q); f1.push(10 / Math.LN10 * (-0.827 * q * q)); f2.push(10 / Math.LN10 * (4 * Math.log(q) - 0.827 * q * q - pk)); }
+    ax.clip(); Lab.line(ctx, ax, kx, f1, c.sig4, 1.6, [5, 4]); Lab.line(ctx, ax, kx, f2, c.fg, 1.6); ax.unclip();
+    label(ctx, 'F', ax.X(3.2), ax.Y(-25), c.sig4); label(ctx, '(ka)⁴F', ax.X(0.4), ax.Y(-25), c.fg);
+    /* panel 3: histogram */
+    const xhi = Math.max(2 * esd, 80), [e, d] = histo(est, 0, xhi, 30), dmax = Math.max(1e-9, ...d);
+    ax = Lab.axes(ctx, { x: 52, y: 346, w: W - 66, h: 86 }, [0, xhi], [0, dmax * 1.1], { xlabel: 'ESD estimate (µm)', ylabel: 'density', ny: 2 });
+    bars(ctx, ax, e, d, c.sig4); vline(ctx, ax, esd, c.sig2, [5, 4]); if (isFinite(m)) vline(ctx, ax, m, c.accent);
+    $('m27-esd-read').innerHTML = 'ka over band: <b>' + kl.toFixed(2) + '–' + kh.toFixed(2) + '</b><br>local exponent at band center n = <b>' + (4 - 1.654 * (2 * PI * (b1 + b2) / 2 / CUM * a) ** 2).toFixed(2) + '</b><br>300 ROIs: ESD <b>' + (isFinite(m) ? m.toFixed(1) + '</b> ± ' + s.toFixed(1) : '—</b>') + ' µm<br>failed fits (a² ≤ 0): <b>' + (100 * fails / NR).toFixed(0) + ' %</b><br>noise-free ESD with this α error: <b>' + (isFinite(esdN) ? esdN.toFixed(1) + ' µm' : 'no solution') + '</b><br>Lizzi (this ROI, relative dB): slope <b>' + liz[0].toFixed(2) + '</b> dB/MHz, intercept ' + liz[1].toFixed(1) + ' dB, midband ' + liz[2].toFixed(1) + ' dB';
+  }
+  ['m27-esd-e', 'm27-esd-k', 'm27-esd-er'].forEach(id => $(id).addEventListener('input', drawESD)); $('m27-esd-b').addEventListener('change', drawESD);
+
+  Lab.onShow('m27', () => { drawPG(); drawWE(); drawMT(); drawAR(); drawSLD(); drawCEN(); drawESD(); });
+
+  /* =================== card grids =================== */
+  const Mi = Lab.mini, sinc = Mi.sinc;
+  const bx = (w, h) => ({ x: 6, y: 16, w: w - 12, h: h - 36 });
+  /* 27.5 QUS model */
+  const fAx = [[2, '2'], [4, '4'], [6, '6'], [8, '8'], [10, '10 MHz']];
+  const QUS = [
+    { prov: 'model', q: 'What multiplies the echo spectrum at depth z?', a: 'System × diffraction × <b>e<sup>−4α₀fz</sup></b> × BSC. At z = 3 cm, 0.5 dB/cm/MHz: −15 dB at 5 MHz, −30 dB at 10 MHz; f<sup>4</sup> (pink) partly offsets it. Product (blue) normalized.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 150); const m = Mi.panel(x, bx(w, h), [1, 10], [-40, 15], { lab: 'dB vs frequency (MHz)', base: -40, ticks: fAx });
+        const z = 3, aN = 0.5 / NP; const P = f => Spk(f) * Dfoc(f, z) * (f / 5) ** 4 * Math.exp(-4 * aN * f * z); let mx = 0; for (let f = 1; f <= 10; f += 0.01) mx = Math.max(mx, P(f));
+        Mi.curve(x, m, f => db10(Spk(f)), c.mu, { dash: [4, 3], w: 1.2 }); Mi.curve(x, m, f => -2 * 0.5 * f * z, c.c, { w: 1.3 }); Mi.curve(x, m, f => 40 * Math.log10(f / 5), c.b, { w: 1.3 }); Mi.curve(x, m, f => db10(Dfoc(f, z)), c.d, { w: 1.3 }); Mi.curve(x, m, f => db10(P(f) / mx), c.a, { w: 2.2 });
+        Mi.text(x, 'attenuation', m.X(7.2), m.Y(-24), c.c); Mi.text(x, 'system', m.X(7.4), m.Y(-36), c.mu); Mi.text(x, 'D(f,z)', m.X(8.4), m.Y(-4), c.d); } },
+    { prov: 'exact', q: 'What does the reference ratio leave?', a: 'With equal BSC shapes: straight lines <b>−4Δα₀ f z</b> through the origin, fanning out with depth. Δα = 0.2 dB/cm/MHz, z = 1, 2, 3, 4 cm. The fan rate is the attenuation.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 150); const m = Mi.panel(x, bx(w, h), [0, 8], [-3.2, 0.2], { lab: 'ln(Sₛ/Sᵣ) (Np) vs frequency (MHz)', base: -3.2, ticks: [[2, '2'], [4, '4'], [6, '6'], [8, '8']] });
+        const cols = [c.a, c.b, c.c, c.d]; [1, 2, 3, 4].forEach((z, i) => { Mi.curve(x, m, f => -4 * (0.2 / NP) * f * z, cols[i]); Mi.text(x, z + ' cm', m.X(7.9), m.Y(-4 * (0.2 / NP) * 7.9 * z) - 7, cols[i], 'right'); }); } },
+    { prov: 'model', q: 'Why does focusing bias attenuation?', a: 'The focal gain is frequency dependent: past the focus high frequencies lose gain faster. Toy model (not a beam simulation): D = 1/(1 + ((z − z<sub>F</sub>)/z<sub>R</sub>)²), <b>z<sub>R</sub> = 3.5λF#²</b>, F/2 at 2 cm; 3, 5, 7 MHz.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 150); const m = Mi.panel(x, bx(w, h), [0.5, 5], [-25, 2], { lab: 'D (dB) vs depth (cm)', base: -25, ticks: [[1, '1'], [2, 'z_F'], [3, '3'], [4, '4'], [5, '5']] });
+        [[3, c.a], [5, c.c], [7, c.b]].forEach(([f, col]) => { Mi.curve(x, m, z => db10(Dfoc(f, z)), col); Mi.text(x, f + ' MHz', m.X(4.95), m.Y(db10(Dfoc(f, 4.9))) - 8, col, 'right'); }); } },
+    { prov: 'exact', q: 'Is the downshift always linear in depth?', a: 'Only for a Gaussian spectrum. <b>∂f<sub>c</sub>/∂z = −4α₀σ²(z)</b>: a two-lobe transducer spectrum (pink) narrows as it shifts, so its centroid curve flattens. 0.5 dB/cm/MHz.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 150); const m = Mi.panel(x, bx(w, h), [0, 8], [2.6, 5.4], { lab: 'centroid (MHz) vs depth (cm)', base: 2.6, ticks: [[2, '2'], [4, '4'], [6, '6'], [8, '8']] });
+        const cen = (S, z) => { let a = 0, b = 0; for (let f = 0.5; f <= 12; f += 0.02) { const v = S(f) * Math.exp(-4 * 0.5 / NP * f * z); a += v * f; b += v; } return a / b; };
+        Mi.curve(x, m, z => cen(Spk, z), c.a); Mi.curve(x, m, z => cen(Sasym0, z), c.b); } }
+  ];
+  /* 27.8 design */
+  const sigReg = (K, B, L) => NP * Math.sqrt(4.5 * 1.75 * trigamma(K) * CC / (B ** 3 * L ** 3));
+  const sig2g = (K, B, T, dz) => NP * Math.sqrt(1.5 * 1.75 * trigamma(K) / (B ** 3 * T)) / dz;
+  const DES = [
+    { prov: 'model', q: 'How long must the ROI be?', a: 'Regression over L: <b>σ ∝ L<sup>−3/2</sup></b>. Hann gates, B = 4 MHz; K = 8, 32, 128 lines. Dashed: 0.05 dB/cm/MHz. K = 32 crosses it at L ≈ 2.6 cm.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 150); const m = Mi.panel(x, bx(w, h), [0.5, 5], [0, 0.3], { lab: 'σ(α̂) (dB/cm/MHz) vs ROI length (cm)', ticks: [[1, '1'], [2, '2'], [3, '3'], [4, '4'], [5, '5']], hlines: [[0.05, '0.05']] });
+        [[8, c.b], [32, c.a], [128, c.d]].forEach(([K, col]) => Mi.curve(x, m, L => sigReg(K, 4, L), col)); Mi.text(x, 'K = 8', m.X(1.5), m.Y(Math.min(0.28, sigReg(8, 4, 1.5))), c.b); } },
+    { prov: 'model', q: 'How much does bandwidth buy?', a: '<b>σ ∝ B<sup>−3/2</sup></b>: the band sets both the lever arm and the number of independent frequency samples. K = 32; L = 1, 2, 4 cm.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 150); const m = Mi.panel(x, bx(w, h), [1, 6], [0, 0.4], { lab: 'σ(α̂) (dB/cm/MHz) vs band B (MHz)', ticks: [[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']] });
+        [[1, c.b], [2, c.a], [4, c.d]].forEach(([L, col]) => { Mi.curve(x, m, B => sigReg(32, B, L), col); }); Mi.text(x, 'L = 1 cm', m.X(2.2), m.Y(0.33), c.b); Mi.text(x, '4 cm', m.X(1.3), m.Y(0.06), c.d); } },
+    { prov: 'model', q: 'Two gates or a regression?', a: 'At equal span L: regression over contiguous gates (blue, constant 4.5) beats two half-span gates (amber, 6) and two 4 mm gates (pink). <b>The ends of the ROI carry the slope</b>, but every gate helps. K = 32, B = 4 MHz.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 150); const m = Mi.panel(x, bx(w, h), [0.8, 4], [0, 0.25], { lab: 'σ(α̂) (dB/cm/MHz) vs span L (cm)', ticks: [[1, '1'], [2, '2'], [3, '3'], [4, '4']] });
+        Mi.curve(x, m, L => sigReg(32, 4, L), c.a); Mi.curve(x, m, L => sig2g(32, 4, L / CC, L / 2), c.c); Mi.curve(x, m, L => sig2g(32, 4, 0.4 / CC, L - 0.4), c.b);
+        Mi.text(x, 'two 4 mm gates', m.X(2.2), m.Y(sig2g(32, 4, 0.4 / CC, 1.8)) - 9, c.b); Mi.text(x, 'regression', m.X(1.25), m.Y(sigReg(32, 4, 1.25)) + 10, c.a, 'left'); } }
+  ];
+  /* 27.9 visual summary */
+  const hannPow = (f, T) => { const W = T / 2 * sinc(f * T) + T / 4 * (sinc(f * T - 1) + sinc(f * T + 1)); return W * W / (3 * T / 8); };
+  let arCard = null;
+  function arCardData() { if (arCard) return arCard; for (let sd = 1; sd < 200; sd++) { const R = Lab.rng(sd), t = arTrial(R, 64, 16, 16, 0.4, 20), Pb = arSpec(t.B.As[16], t.B.Es[16]); if (resolved(findPeaks(Pb), t.f1, t.f2, 0.4)) { arCard = { Pb, Pp: dtftP(t.x, hann(64)) }; break; } } return arCard; }
+  const VIS = [
+    { prov: 'exact', q: 'Spectral window of a rectangular gate?', a: '<b>|W|² = T sinc²(fT)</b> (the Fejér kernel): nulls every 1/T, first sidelobe −13.3 dB. E{P} = S ∗ |W|²: the gate blurs the spectrum by about 1/T.',
+      tr: [-1.6, 1.6], ty: [0, 1.25], fr: [-3, 3], fy: [0, 2.2], tl: 'gate w(t)', fl: '|W(f)|² (unit area)', tt: T => [[T / 2, 'T/2']], ft: T => [[1 / T, '1/T']],
+      time: (x, m, c, T) => Mi.curve(x, m, t => Mi.rect(t / T), c.a, { fill: true }), freq: (x, m, c, T) => Mi.curve(x, m, f => T * sinc(f * T) ** 2, c.b, { fill: true }) },
+    { prov: 'exact', q: 'And for a Hann gate?', a: 'Mainlobe twice as wide (<b>null at 2/T, ENBW 1.5/T</b>), sidelobes −31.5 dB falling 18 dB/octave: less leakage, coarser resolution.',
+      tr: [-1.6, 1.6], ty: [0, 1.25], fr: [-3, 3], fy: [0, 1.5], tl: 'Hann w(t)', fl: '|W(f)|² (unit area)', tt: T => [[T / 2, 'T/2']], ft: T => [[2 / T, '2/T']],
+      time: (x, m, c, T) => Mi.curve(x, m, t => Math.abs(t) < T / 2 ? 0.5 + 0.5 * Math.cos(2 * PI * t / T) : 0, c.a, { fill: true }), freq: (x, m, c, T) => Mi.curve(x, m, f => hannPow(f, T), c.b, { fill: true }) },
+    { prov: 'exact', q: 'Two echoes τ apart?', a: 'The spectrum gets a ripple <b>|1 + e<sup>−j2πfτ</sup>|² = 4cos²(πfτ)</b> with period 1/τ. A gate shorter than τ cannot see it; scatterer-spacing estimators look for it.',
+      tr: [-2.2, 2.2], ty: [-1.2, 1.2], fr: [0, 8], fy: [0, 1.15], tl: 'RF: two echoes', fl: 'power spectrum', tt: T => [[T / 2, 'τ/2'], [-T / 2, '−τ/2']], ft: T => [[4, 'f₀'], [4 + 1 / T, '+1/τ']],
+      time: (x, m, c, T) => Mi.curve(x, m, t => [-T / 2, T / 2].reduce((s, t0) => s + Math.exp(-PI * ((t - t0) / 0.35) ** 2) * Math.cos(2 * PI * 4 * (t - t0)), 0), c.a),
+      freq: (x, m, c, T) => { Mi.curve(x, m, f => Math.exp(-2 * PI * ((f - 4) * 0.35) ** 2), c.mu, { dash: [3, 3], w: 1 }); Mi.curve(x, m, f => Math.exp(-2 * PI * ((f - 4) * 0.35) ** 2) * Math.cos(PI * f * T) ** 2, c.b, { fill: true }); } },
+    { prov: 'sim', q: 'What is a Slepian taper?', a: 'The sequence with the most energy inside ±W: <b>eigenvector of the sinc kernel</b>. N = 64, NW = 3: λ₀ = 1 − 1.3×10⁻⁷; its window (right, dB) is below −60 dB just outside ±W.', fixed: true,
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 132); const T = dpss(64, 3), half = (w - 30) / 2;
+        const m1 = Mi.panel(x, { x: 4, y: 18, w: half - 4, h: h - 38 }, [0, 63], [-0.25, 0.3], { lab: 'v₀, v₁ vs n' });
+        const itp = (v, t) => { const i = Math.min(62, Math.max(0, Math.floor(t))), u = t - i; return v[i] * (1 - u) + v[i + 1] * u; };
+        Mi.curve(x, m1, t => itp(T.V[0], t), c.a); Mi.curve(x, m1, t => itp(T.V[1], t), c.b, { dash: [4, 3] });
+        const L = 2048, re = new Float64Array(L), im = new Float64Array(L); for (let i = 0; i < 64; i++) re[i] = T.V[0][i]; Lab.fft(re, im); const p = k => re[(k + L) % L] ** 2 + im[(k + L) % L] ** 2, p0 = p(0);
+        const m2 = Mi.panel(x, { x: half + 26, y: 18, w: half - 4, h: h - 38 }, [-12, 12], [-100, 5], { lab: '|V₀|² (dB) vs f·N', base: -100, ticks: [[-3, '−NW'], [3, 'NW']] });
+        Mi.curve(x, m2, u => { const q = u * L / 64, i = Math.floor(q), t = q - i; return db10((p(i) * (1 - t) + p(i + 1) * t) / p0); }, c.a, { w: 1.3 });
+        x.save(); x.strokeStyle = c.mu; x.setLineDash([3, 3]); [-3, 3].forEach(u => { x.beginPath(); x.moveTo(m2.X(u), m2.b.y); x.lineTo(m2.X(u), m2.b.y + m2.b.h); x.stroke(); }); x.restore(); } },
+    { prov: 'exact', q: 'Distribution of one periodogram bin?', a: '<b>Exponential</b> (χ²₂/2): mean = std = S. 95 % of values lie below 3.0 S; 5 % below 0.05 S.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, bx(w, h), [0, 5], [0, 1.1], { lab: 'pdf of P/S', ticks: [[1, '1'], [2.996, '3.0 (95 %)']] }); Mi.curve(x, m, v => Math.exp(-v), c.a, { fill: true }); } },
+    { prov: 'exact', q: 'The same bin in dB?', a: 'A skewed (log-exponential) density with <b>mean −2.51 dB and std 5.57 dB</b>, the same numbers as log-compressed speckle.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, bx(w, h), [-30, 12], [0, 0.095], { lab: 'pdf of 10 log₁₀(P/S)', ticks: [[-2.51, 'mean'], [-8.08, '−σ'], [3.06, '+σ'], [-20, '−20']] });
+        Mi.curve(x, m, y => { const u = y * Math.LN10 / 10; return Math.LN10 / 10 * Math.exp(u - Math.exp(u)); }, c.a, { fill: true }); } },
+    { prov: 'model', q: 'How wide is the 95 % interval after K looks?', a: 'ν = 2K: <b>21.6 dB at K = 1</b>, 6.2 dB at K = 8, about 2.1 dB at K = 64. Error bars shrink as 1/√K.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, bx(w, h), [0, 8], [0, 24], { lab: '95 % span (dB) vs K', ticks: [[0, '1'], [2, '4'], [4, '16'], [6, '64'], [8, '256']] });
+        Mi.curve(x, m, u => { const nu = 2 * Math.pow(2, u); return db10(chi2q(nu, 0.975) / chi2q(nu, 0.025)); }, c.a, { fill: true }); } },
+    { prov: 'model', q: 'Welch at fixed N: what is the trade?', a: 'Relative std falls as resolution coarsens: <b>std ≈ 0.9/√(ENBW·T)</b>. N = 1024 at 40 MHz, Hann 50 %; ENBW = 1.5 f<sub>s</sub>/M.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, bx(w, h), [0, 4], [0, 1.05], { lab: 'relative std vs ENBW (MHz)', ticks: [[0.5, '0.5'], [1, '1'], [2, '2'], [3, '3'], [4, '4']] });
+        Mi.curve(x, m, e => { const M = 1.5 * FS / Math.max(e, 0.06), Nb = Math.max(1, 2 * 1024 / M - 1); return Math.min(1, Math.sqrt((1 + 2 * (1 - 1 / Nb) / 36) / Nb)); }, c.a); } },
+    { prov: 'sim', q: 'Burg vs FFT on a 64-sample gate?', a: 'Tones 0.4 MHz apart, Fourier resolution 0.625 MHz: the Hann periodogram (grey) shows one lump, <b>Burg AR(16)</b> two peaks. At 20 dB SNR this happens in 66 % of gates.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const d = arCardData(); const m = Mi.panel(x, bx(w, h), [3.5, 6.5], [-30, 1], { lab: 'dB re peak vs frequency (MHz)', base: -30, ticks: [[4.8, '4.8'], [5.2, '5.2']] }); if (!d) return;
+        const mk = P => { let mx = 0; for (const v of P) mx = Math.max(mx, v); return f => { const i = Math.max(0, Math.min(NG - 1, Math.round((f - 3) / 4 * (NG - 1)))); return db10(P[i] / mx); }; };
+        Mi.curve(x, m, mk(d.Pp), c.mu, { w: 1.5 }); Mi.curve(x, m, mk(d.Pb), c.a, { w: 1.8 }); } },
+    { prov: 'exact', q: 'Where does the factor 4 come from?', a: 'ln power ratio vs Δz at 5 MHz, 0.5 dB/cm/MHz: amplitude one-way −α (grey), power one-way or amplitude two-way −2α (amber), <b>power two-way −4α</b> (blue).',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, bx(w, h), [0, 4], [-4.8, 0.2], { lab: 'ln ratio (Np) vs Δz (cm)', base: -4.8, ticks: [[1, '1'], [2, '2'], [3, '3'], [4, '4']] }); const a = 0.5 / NP * 5;
+        Mi.curve(x, m, z => -a * z, c.mu); Mi.curve(x, m, z => -2 * a * z, c.c); Mi.curve(x, m, z => -4 * a * z, c.a, { w: 2.2 }); Mi.text(x, '−4αfΔz', m.X(2.55), m.Y(-4 * a * 2.55) - 8, c.a, 'left'); } },
+    { prov: 'exact', q: 'What does attenuation do to a Gaussian spectrum?', a: 'Shifts it down without reshaping: <b>f<sub>c</sub> = f<sub>0</sub> − 4α₀σ<sub>p</sub>²z</b>. 5 MHz, 60 %, 0.5 dB/cm/MHz at z = 0, 2, 4 cm: −0.75 MHz at 4 cm.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, bx(w, h), [1, 9], [0, 1.1], { lab: 'normalized power spectrum vs f (MHz)', ticks: [[5, 'f₀'], [4.25, '−0.75']] });
+        [[0, c.a], [2, c.c], [4, c.b]].forEach(([z, col]) => { const sh = 4 * 0.5 / NP * SIGP2 * z; Mi.curve(x, m, f => Math.exp(-((f - 5 + sh) ** 2) / (2 * SIGP2)), col); }); } },
+    { prov: 'exact', q: 'When is the scatterer size identifiable?', a: 'k⁴F (black) bends away from f⁴ near <b>ka ≈ 1</b>; F alone (green). Bars: 3–7 MHz in ka for ESD 20, 100, 300 µm. The 20 µm band sits where F is flat.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, bx(w, h), [0, 4.4], [-30, 2], { lab: 'dB vs ka', base: -30, ticks: [[1, '1'], [1.555, '1.56'], [3, '3'], [4, '4']] }); const pk = 4 * Math.log(1.555) - 0.827 * 1.555 ** 2;
+        Mi.curve(x, m, q => 10 / Math.LN10 * (-0.827 * q * q), c.d, { dash: [4, 3] }); Mi.curve(x, m, q => q > 0.01 ? 10 / Math.LN10 * (4 * Math.log(q) - 0.827 * q * q - pk) : -99, c.fg);
+        [[10, c.b, -27, '20 µm'], [50, c.a, -23, '100 µm'], [150, c.c, -19, '300 µm']].forEach(([a, col, yy, t]) => { x.save(); x.strokeStyle = col; x.lineWidth = 4; x.beginPath(); x.moveTo(m.X(2 * PI * 3 / CUM * a), m.Y(yy)); x.lineTo(m.X(Math.min(4.4, 2 * PI * 7 / CUM * a)), m.Y(yy)); x.stroke(); x.restore(); Mi.text(x, t, m.X(Math.min(4.4, 2 * PI * 7 / CUM * a)) + 4 > m.X(4.0) ? m.X(2 * PI * 3 / CUM * a) - 4 : m.X(Math.min(4.4, 2 * PI * 7 / CUM * a)) + 4, m.Y(yy), col, m.X(Math.min(4.4, 2 * PI * 7 / CUM * a)) + 4 > m.X(4.0) ? 'right' : 'left'); }); } },
+    { prov: 'exact', q: 'Log of an average: how biased?', a: '<b>ψ(K) − ln K</b> in ln units: −2.51 dB at K = 1, −0.28 dB at K = 8, −0.07 dB at K = 32. It cancels in a ratio only with equal looks.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, bx(w, h), [0, 8], [-2.8, 0.2], { lab: 'bias (dB) vs K', base: -2.8, ticks: [[0, '1'], [3, '8'], [5, '32'], [8, '256']], hlines: [[0, '0 dB']] });
+        Mi.curve(x, m, u => { const K = Math.pow(2, u); return 10 / Math.LN10 * (digamma(K) - Math.log(K)); }, c.a, { w: 2 }); } },
+    { prov: 'exact', q: 'Why is the midband fit the best Lizzi parameter?', a: 'A fitted line is best known at its mean abscissa: <b>var = σ²[1/n + (f − f̄)²/S<sub>ff</sub>]</b>. Band shows ±2σ of the fit (n = 40, σ = 1 dB over 3–7 MHz; dots: one random draw); the intercept at 0 MHz is an extrapolation.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, bx(w, h), [0, 7.5], [-9, 4], { lab: 'calibrated spectrum (dB) vs f (MHz)', base: -9, ticks: [[0, '0'], [3, '3'], [5, 'mid'], [7, '7']] });
+        const n = 40, Sff = n * 16 / 12 * (1 + 2 / (n - 1)), band = f => 2 * Math.sqrt(1 / n + (f - 5) ** 2 / Sff), L0 = f => -1 + 1.0 * (f - 5);
+        Mi.curve(x, m, f => L0(f) + band(f), c.a, { w: 1, dash: [3, 3] }); Mi.curve(x, m, f => L0(f) - band(f), c.a, { w: 1, dash: [3, 3] }); Mi.curve(x, m, L0, c.a, { w: 1.8 });
+        const R = Lab.rng(3); x.save(); x.fillStyle = c.b; for (let i = 0; i < n; i++) { const f = 3 + 4 * i / (n - 1); x.beginPath(); x.arc(m.X(f), m.Y(L0(f) + R.g()), 1.8, 0, 7); x.fill(); } x.restore(); } }
+  ];
+  /* 27.2 inline: Bartlett trade and Welch segment correlation */
+  const WEL = [
+    { prov: 'exact', q: 'Bartlett at fixed N: what does K buy?', a: 'Variance falls as <b>1/K</b> (blue) while the resolution cell grows as <b>K f<sub>s</sub>/N</b> (amber, MHz); their product stays f<sub>s</sub>/N = 1/T. N = 1024 at 40 MHz.',
+      draw: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, 150), m = Mi.panel(x, bx(w, h), [0, 5], [0, 1.15], { lab: 'var/S² and Δf (MHz) vs K segments', ticks: [[0, '1'], [1, '2'], [2, '4'], [3, '8'], [4, '16'], [5, '32']] });
+        Mi.curve(x, m, u => 1 / Math.pow(2, u), c.a, { w: 2 }); Mi.curve(x, m, u => Math.pow(2, u) * FS / 1024, c.c, { w: 2 }); Mi.curve(x, m, () => FS / 1024, c.mu, { dash: [3, 3], w: 1 });
+        Mi.text(x, 'var × Δf = f_s/N = ' + (FS / 1024 * 1000).toFixed(0) + ' kHz (dashed)', m.X(2.5), m.Y(0.75), c.mu, 'center'); Mi.text(x, '1/K', m.X(0.35), m.Y(0.85), c.a); Mi.text(x, 'Δf', m.X(4.55), m.Y(0.95), c.c, 'right'); } },
+    { prov: 'exact', q: 'Why does 50 % Hann overlap cost almost nothing?', a: 'Adjacent segments share data but their windows barely overlap in energy: <b>ρ(M/2)² = 0.028</b> for Hann, so K<sub>eff</sub> stays close to N<sub>b</sub>. Rectangular windows at 50 % give ρ² = 0.25.',
+      draw: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, 150), M = 128, m = Mi.panel(x, bx(w, h), [0, 1], [0, 1.08], { lab: 'segment correlation ρ(s)² vs step s/M', ticks: [[0.25, '0.25'], [0.5, '0.5'], [0.75, '0.75'], [1, '1']] });
+        const r2 = (wf, s) => { const wv = wf(M); let a = 0; for (let i = 0; i + s < M; i++) a += wv[i] * wv[i + s]; return (a / sumsq(wv)) ** 2; };
+        Mi.curve(x, m, u => r2(rectw, Math.round(u * M)), c.mu, { w: 1.5 }); Mi.curve(x, m, u => r2(hann, Math.round(u * M)), c.a, { w: 2 });
+        const v = r2(hann, 64); x.save(); x.fillStyle = c.a; x.beginPath(); x.arc(m.X(0.5), m.Y(v), 3.2, 0, 7); x.fill(); x.restore();
+        Mi.text(x, 'Hann at M/2: ' + v.toFixed(3), m.X(0.02), m.Y(0.12), c.a); Mi.text(x, 'rect: ' + r2(rectw, 64).toFixed(2), m.X(0.53), m.Y(0.25) - 9, c.mu); } }
+  ];
+  Lab.cardGrid('m27', 'm27-welch', WEL);
+  Lab.cardGrid('m27', 'm27-qus', QUS);
+  Lab.cardGrid('m27', 'm27-design', DES);
+  Lab.cardGrid('m27', 'm27-vis', VIS, 'm27-vis-T');
+  $('m27-vis-T').addEventListener('input', () => { const T = +$('m27-vis-T').value; $('m27-vis-T-o').textContent = T.toFixed(2); $('m27-vis-read').innerHTML = 'gate T = <b>' + T.toFixed(2) + '</b> → spectral window ∝ <b>1/T = ' + (1 / T).toFixed(2) + '</b>; ripple period 1/τ shrinks as τ grows'; });
+  /* =================== rule-card figures (27.10) =================== */
+  const rbx = (w, h) => ({ x: 8, y: 18, w: w - 16, h: h - 38 });
+  const RH = 150, nw = w => w < 380;
+  const lgam = K => { let s = 0; for (let i = 2; i < K; i++) s += Math.log(i); return s; };
+  let pgStd = null;
+  function pgStdSim() { if (pgStd) return pgStd; const R = Lab.rng(1101); pgStd = [];
+    for (let e = 6; e <= 12; e++) { const N = 1 << e, re = new Float64Array(N), im = new Float64Array(N); for (let i = 0; i < N; i++) re[i] = R.g(); Lab.fft(re, im);
+      const P = []; for (let k = 1; k < N / 2; k++) P.push((re[k] * re[k] + im[k] * im[k]) / N); const [m, s] = meanStd(P); pgStd.push([e, s / m]); }
+    return pgStd; }
+  const hannRho2 = (M, s) => { const w = hann(M); let a = 0; for (let i = 0; i + s < M; i++) a += w[i] * w[i + s]; return (a / sumsq(w)) ** 2; };
+  function keff(N, M, D) { const Nb = Math.floor((N - M) / D) + 1; let v = 1; for (let m = 1; m < Nb; m++) { if (m * D >= M) break; v += 2 * (1 - m / Nb) * hannRho2(M, m * D); } return Nb / v; }
+  const dots = (x, m, pts, colr, r) => { x.save(); x.fillStyle = colr; pts.forEach(([u, v]) => { x.beginPath(); x.arc(m.X(u), m.Y(v), r || 2.6, 0, 7); x.fill(); }); x.restore(); };
+  const vl = (x, m, u, colr) => { x.save(); x.strokeStyle = colr; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(m.X(u), m.b.y); x.lineTo(m.X(u), m.b.y + m.b.h); x.stroke(); x.restore(); };
+  const lbl = (x, s, ...r) => Lab.mini.text(x, String(s).replace(/-(?=\d)/g, '−'), ...r);
+  const RF = [
+    /* 1 periodogram std does not fall with N */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, rbx(w, h), [5.6, 12.4], [0, 1.3], { lab: 'std/mean of P vs record length N', ticks: [[6, '64'], [8, '256'], [10, '1024'], [12, '4096']] });
+      Mi.curve(x, m, () => 1, c.a, { w: 1.4 }); Mi.curve(x, m, e => 1 / Math.sqrt(Math.pow(2, e) / 64), c.c, { dash: [4, 3] });
+      dots(x, m, pgStdSim(), c.a); lbl(x, (nw(w) ? 'periodogram: 1 (dots: simulated)' : 'periodogram: 1 (dots: one white-noise record)'), m.X(5.7), m.Y(1.17), c.a);
+      lbl(x, nw(w) ? '1/√K, Bartlett M = 64' : 'Bartlett, 64-sample segments: 1/√K', m.X(7.9), m.Y(0.8), c.c); },
+    /* 2 Welch K_eff vs overlap */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, rbx(w, h), [0, 0.875], [0, 18], { lab: nw(w) ? 'K_eff vs overlap (Hann, M = 128)' : 'K_eff vs overlap (Hann, N = 1024, M = 128)', ticks: [[0, '0'], [0.25, '25 %'], [0.5, '50 %'], [0.75, '75 %']] });
+      Mi.curve(x, m, o => keff(1024, 128, Math.max(1, Math.round(128 * (1 - o)))), c.a, { w: 2 });
+      const k50 = keff(1024, 128, 64), k0 = keff(1024, 128, 128); dots(x, m, [[0.5, k50], [0, k0]], c.a, 3);
+      lbl(x, 'K_eff = ' + k50.toFixed(1) + (nw(w) ? ' at 50 %' : ' (N_b = 15, ρ² = ' + hannRho2(128, 64).toFixed(3) + ')'), m.X(0.5), m.Y(4), c.a, 'center');
+      lbl(x, 'K = ' + k0.toFixed(0) + ' at 0 %', m.X(0.02), m.Y(k0) + 11, c.mu); },
+    /* 3 confidence interval vs nu */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, rbx(w, h), [1, 7], [-8, 18], { lab: '95 % limits of S re Ŝ (dB) vs ν', ticks: [[1, '2'], [Math.log2(28), '28'], [7, '128']] });
+      const up = nu => db10(nu / chi2q(nu, 0.025)), lo = nu => db10(nu / chi2q(nu, 0.975));
+      Mi.curve(x, m, u => up(Math.pow(2, u)), c.c, { w: 2 }); Mi.curve(x, m, u => lo(Math.pow(2, u)), c.a, { w: 2 });
+      lbl(x, '+' + up(2).toFixed(2) + ' dB', m.X(1.35), m.Y(up(2)) + 2, c.c); lbl(x, lo(2).toFixed(2).replace('-', '−') + ' dB', m.X(1.1), m.Y(lo(2)) - 9, c.a);
+      vl(x, m, Math.log2(28), c.mu); lbl(x, 'ν = 28: span ' + (up(28) - lo(28)).toFixed(1) + ' dB', m.X(Math.log2(28)) - 5, m.Y(9), c.fg, 'right'); },
+    /* 4 log of an average */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, rbx(w, h), [-18, 7], [0, 0.56], { lab: nw(w) ? 'pdf of 10 log₁₀(mean of K / S)' : 'pdf of 10 log₁₀(mean of K looks / S)', ticks: [[-15, '−15'], [-10, '−10'], [-5, '−5'], [0, '0 dB'], [5, '5']] });
+      [[1, c.b], [4, c.c], [32, c.a]].forEach(([K, col], i) => { const lg = lgam(K), s = Math.LN10 / 10;
+        Mi.curve(x, m, d => { const y = d * s; return s * Math.exp(K * Math.log(K) + K * y - K * Math.exp(y) - lg); }, col, { fill: true, alpha: 0.12 });
+        const mu = 10 / Math.LN10 * (digamma(K) - Math.log(K)); lbl(x, 'K = ' + K + ': mean ' + mu.toFixed(2).replace('-', '−') + ' dB', m.X(-17.5), m.Y(0.5 - i * 0.09), col); }); },
+    /* 5 DPSS eigenvalues */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), T = dpss(128, 4), m = Mi.panel(x, rbx(w, h), [-0.6, 10.6], [0, 1.3], { lab: nw(w) ? 'λₖ vs k (N = 128, NW = 4)' : 'concentration λₖ vs k (N = 128, NW = 4)', ticks: [0, 2, 4, 6, 8, 10].map(k => [k, String(k)]) });
+      Mi.stems(x, m, T.lam.slice(0, 7).map((l, k) => [k, l]), c.a); Mi.stems(x, m, T.lam.slice(7, 11).map((l, k) => [k + 7, l]), c.mu);
+      vl(x, m, 6.5, c.mu); lbl(x, 'K = 2NW − 1 = 7', m.X(6.3), m.Y(1.2), c.a, 'right');
+      lbl(x, 'λ₆ = ' + T.lam[6].toFixed(3), m.X(6.7), m.Y(0.93), c.fg); lbl(x, 'λ₇ = ' + T.lam[7].toFixed(3), m.X(7.3), m.Y(0.66), c.mu); },
+    /* 6 Burg below Fourier resolution */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), d = arCardData(), m = Mi.panel(x, rbx(w, h), [3.5, 6.5], [-30, 2], { lab: nw(w) ? 'dB vs f (MHz), N = 64' : 'dB re peak vs f (MHz), N = 64 at 40 MHz', base: -30, ticks: [[4.8, '4.8'], [5.2, '5.2'], [4, '4'], [6, '6']] }); if (!d) return;
+      const mk = P => { let mx = 0; for (const v of P) mx = Math.max(mx, v); return f => { const i = Math.max(0, Math.min(NG - 1, Math.round((f - 3) / 4 * (NG - 1)))); return db10(P[i] / mx); }; };
+      Mi.curve(x, m, mk(d.Pp), c.mu, { w: 1.5 }); Mi.curve(x, m, mk(d.Pb), c.a, { w: 1.8 });
+      const yb = m.Y(-25); x.save(); x.strokeStyle = c.c; x.lineWidth = 3; x.beginPath(); x.moveTo(m.X(5 - 0.3125), yb); x.lineTo(m.X(5 + 0.3125), yb); x.stroke(); x.restore();
+      lbl(x, 'f_s/N = 0.625', m.X(5), yb - 11, c.c, 'center'); lbl(x, 'Burg p = 16', m.X(5.45), m.Y(-6), c.a); lbl(x, 'Hann FFT', m.X(3.6), m.Y(-12), c.mu); },
+    /* 7 log spectral ratio slope */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), a = 0.5 / NP, dz = 2, m = Mi.panel(x, rbx(w, h), [0, 8], [-3.5, 0.3], { lab: nw(w) ? 'ln ratio (Np) vs f (MHz), Δz = 2 cm' : 'ln[S(z+Δz)/S(z)] (Np) vs f (MHz), Δz = 2 cm', base: -3.5, ticks: [[2, '2'], [4, '4'], [5, '5'], [6, '6'], [8, '8']] });
+      Mi.curve(x, m, f => -2 * a * f * dz, c.mu, { dash: [4, 3] }); Mi.curve(x, m, f => -4 * a * f * dz, c.a, { w: 2 });
+      const R = Lab.rng(1107), sd = Math.sqrt(2 * trigamma(32)), pts = []; for (let i = 0; i < 25; i++) { const f = 3 + 4 * i / 24; pts.push([f, -4 * a * f * dz + sd * R.g()]); } dots(x, m, pts, c.b, 1.8);
+      const v5 = -4 * a * 5 * dz; dots(x, m, [[5, v5]], c.a, 3.5); lbl(x, v5.toFixed(2).replace('-', '−') + ' Np = ' + (10 * v5 / Math.LN10).toFixed(1).replace('-', '−') + ' dB', m.X(4.85), m.Y(v5) + 13, c.a, 'right');
+      lbl(x, 'slope −4αΔz', m.X(0.3), m.Y(-1.3), c.a); lbl(x, 'amplitude: −2αΔz', m.X(3.4), m.Y(-0.38), c.mu); },
+    /* 8 reference phantom */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), z = 3, m = Mi.panel(x, rbx(w, h), [1, 9], [-30, 6], { lab: nw(w) ? 'dB vs f (MHz), z = 3 cm' : 'dB vs f (MHz) at z = 3 cm, focus 2 cm', base: -30, ticks: [[2, '2'], [4, '4'], [6, '6'], [8, '8']] });
+      const S = al => f => Spk(f) * Dfoc(f, z) * f ** 4 * Math.exp(-4 * al / NP * f * z), nrm = g => { let mx = 0; for (let f = 1; f <= 9; f += 0.01) mx = Math.max(mx, g(f)); return f => db10(g(f) / mx); };
+      Mi.curve(x, m, nrm(S(0.5)), c.mu, { dash: [4, 3] }); Mi.curve(x, m, nrm(S(0.7)), c.b); Mi.curve(x, m, f => db10(S(0.7)(f) / S(0.5)(f)), c.a, { w: 2.2 });
+      lbl(x, 'sample', m.X(2.0), m.Y(-4), c.b, 'right'); lbl(x, 'reference: dashed', m.X(5), m.Y(-27), c.mu, 'center');
+      lbl(x, 'ratio: −2Δα_dB f z, straight', m.X(1.1), m.Y(4), c.a); },
+    /* 9 two-gate SLD error vs gate separation */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, rbx(w, h), [0.5, 4], [0, 0.32], { lab: nw(w) ? 'σ(α̂₀) (dB/cm/MHz) vs Δz (cm)' : 'σ(α̂₀) (dB/cm/MHz) vs Δz (cm); T = 5.2 µs, B = 4 MHz', ticks: [[1, '1'], [2, '2'], [3, '3'], [4, '4']] });
+      [[8, c.b], [32, c.a], [128, c.d]].forEach(([K, col]) => { Mi.curve(x, m, dz => sig2g(K, 4, 5.2, dz), col, { w: K === 32 ? 2 : 1.4 }); lbl(x, 'K = ' + K, m.X(K === 8 ? 1.6 : 3.95), m.Y(sig2g(K, 4, 5.2, K === 8 ? 1.6 : 3.95)) + (K === 128 ? 9 : -8), col, K === 8 ? 'left' : 'right'); });
+      const v = sig2g(32, 4, 5.2, 2); dots(x, m, [[2, v]], c.a, 3.5); lbl(x, v.toFixed(3) + ' at Δz = 2 cm', m.X(2.1), m.Y(v) - 10, c.a); },
+    /* 10 ROI regression: gate length drops out */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, rbx(w, h), [2, 8], [0, 0.1], { lab: nw(w) ? 'σ(α̂₀) vs gate length (mm)' : 'σ(α̂₀) (dB/cm/MHz) vs gate length (mm); K = 32, B = 4', ticks: [[2, '2'], [4, '4'], [6, '6'], [8, '8']] });
+      [[2, c.b], [3, c.a], [4, c.d]].forEach(([L, col]) => { const v = sigReg(32, 4, L); Mi.curve(x, m, () => v, col, { w: L === 3 ? 2.2 : 1.4 }); lbl(x, 'L = ' + L + ' cm: ' + v.toFixed(3), m.X(7.9), m.Y(v) - 8, col, 'right'); });
+      lbl(x, 'flat: T cancels', m.X(2.2), m.Y(0.09), c.fg); },
+    /* 11 centroid slope = -4 alpha sigma^2(z) */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), a = 0.5 / NP;
+      const mom = (S, z) => { let s0 = 0, s1 = 0, s2 = 0; for (let f = 0.2; f <= 14; f += 0.01) { const v = S(f) * Math.exp(-4 * a * f * z); s0 += v; s1 += v * f; s2 += v * f * f; } const mu = s1 / s0; return [mu, s2 / s0 - mu * mu]; };
+      const Sg = Spk, Sb = f => Spk(f) * f ** 4, cb0 = mom(Sb, 0)[0];
+      const m = Mi.panel(x, rbx(w, h), [0, 6], [3.4, 6.4], { lab: nw(w) ? 'centroid (MHz) vs depth (cm)' : 'centroid (MHz) vs depth (cm), 0.5 dB/cm/MHz', base: 3.4, ticks: [[1, '1'], [2, '2'], [3, '3'], [4, '4'], [5, '5']] });
+      Mi.curve(x, m, z => mom(Sg, z)[0], c.a, { w: 2 }); Mi.curve(x, m, z => mom(Sb, z)[0], c.b, { w: 2 }); Mi.curve(x, m, z => cb0 - 4 * a * SIGP2 * z, c.b, { dash: [4, 3], w: 1.2 });
+      lbl(x, (nw(w) ? 'Gaussian: ' : 'Gaussian: slope −4α₀σ²ₚ = ') + (-4 * a * SIGP2).toFixed(3).replace('-', '−') + ' MHz/cm', m.X(0.1), m.Y(3.6), c.a);
+      lbl(x, '× f⁴ (BSC): σ² = ' + mom(Sb, 0)[1].toFixed(2) + ' MHz²', m.X(nw(w) ? 0.1 : 1.6), m.Y(6.15), c.b); lbl(x, 'dashed: σ²ₚ assumed', m.X(nw(w) ? 2.8 : 3.2), m.Y(5.55), c.b); },
+    /* 12 centroid vs log ratio */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, rbx(w, h), [0.56, 0.86], [0, 15], { lab: nw(w) ? 'α̂₀ (dB/cm/MHz), reported mean ± std' : 'α̂₀ (dB/cm/MHz): reported mean ± std as Gaussians', ticks: [[0.65, '0.65'], [0.7, '0.70'], [0.75, '0.75'], [0.8, '0.80']] });
+      const g = (mu, s) => v => Math.exp(-((v - mu) ** 2) / (2 * s * s)) / (s * Math.sqrt(2 * PI));
+      Mi.curve(x, m, g(0.702, 0.030), c.a, { fill: true }); Mi.curve(x, m, g(0.746, 0.030), c.c, { fill: true }); vl(x, m, 0.70, c.fg);
+      lbl(x, nw(w) ? 'ratio 0.702' : 'log ratio 0.702', m.X(0.565), m.Y(12), c.a); lbl(x, 'centroid − ref 0.746', m.X(0.858), m.Y(14.2), c.c, 'right');
+      lbl(x, 'true 0.70', m.X(0.697), m.Y(14.2), c.fg, 'right'); lbl(x, nw(w) ? 'raw 1.13 →' : 'raw centroid 1.13 →', m.X(0.858), m.Y(10.5), c.mu, 'right'); },
+    /* 13 local BSC slope vs ka */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, rbx(w, h), [0, 2.4], [-6, 4.6], { lab: nw(w) ? 'n = d ln BSC / d ln f vs ka' : 'n = d ln BSC / d ln f vs ka (Gaussian F)', ticks: [[0.5, '0.5'], [1, '1'], [1.555, '1.555'], [2, '2']] });
+      Mi.curve(x, m, q => 4 - 1.654 * q * q, c.a, { w: 2 }); Mi.curve(x, m, () => 4, c.mu, { dash: [4, 3], w: 1 });
+      const k5 = 2 * PI * 5 / CUM; [[50, 'ESD 100 µm'], [100, 'ESD 200 µm']].forEach(([a, t], i) => { const q = k5 * a, n = 4 - 1.654 * q * q; dots(x, m, [[q, n]], c.b, 3.5); lbl(x, (nw(w) && !i ? t.slice(4) + ': n ' + n.toFixed(1) : t + ': ka ' + q.toFixed(2) + ', n ' + n.toFixed(1).replace('-', '−')), m.X(q) + (i ? -6 : 6), m.Y(n) + (i ? 10 : -2), c.b, i ? 'right' : 'left'); });
+      lbl(x, 'f⁴ (Rayleigh)', m.X(0.05), m.Y(4) + 9, c.mu); },
+    /* 14 ESD identifiability */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, rbx(w, h), [3, 7], [-7, 1.6], { lab: nw(w) ? 'F (dB re 3 MHz) vs f (MHz)' : 'form factor F (dB re 3 MHz) vs f (MHz)', base: -7, ticks: [[3, '3'], [4, '4'], [5, '5'], [6, '6'], [7, '7']] });
+      const sd = 10 / Math.LN10 * Math.sqrt(trigamma(32)); x.save(); x.fillStyle = c.mu; x.globalAlpha = 0.15; x.fillRect(m.X(3), m.Y(sd), m.X(7) - m.X(3), m.Y(-sd) - m.Y(sd)); x.restore();
+      const FdB = (a, f) => -0.827 * 10 / Math.LN10 * ((2 * PI * f / CUM * a) ** 2 - (2 * PI * 3 / CUM * a) ** 2);
+      [[10, c.b, 'ESD 20 µm'], [30, c.c, 'ESD 60 µm'], [50, c.a, 'ESD 100 µm']].forEach(([a, col, t], i) => { Mi.curve(x, m, f => FdB(a, f), col, { w: 2 }); lbl(x, t + ': ' + FdB(a, 7).toFixed(1).replace('-', '−') + ' dB at 7 MHz', m.X(3.05), m.Y(-4.4 - 0.95 * i), col); });
+      lbl(x, 'grey: ±' + sd.toFixed(2) + (nw(w) ? ' dB (K = 32 noise)' : ' dB, ln-spectrum std at K = 32'), m.X(3.05), m.Y(1.25), c.mu); },
+    /* 15 attenuation error moves ESD */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), a = 50, z = 3, da = 0.1 / NP, k = f => 2 * PI * f / CUM;
+      const yT = f => -0.827 * (k(f) * a) ** 2 + 0.827 * (k(3) * a) ** 2, yB = f => yT(f) + 4 * da * f * z - 4 * da * 3 * z;
+      const xs = [], ys = []; for (let i = 0; i <= 200; i++) { const f = 3 + 4 * i / 200; xs.push(k(f) ** 2); ys.push(yB(f)); } const fit = linfit(xs, ys), esd = 2 * Math.sqrt(-fit[1] / 0.827);
+      const m = Mi.panel(x, rbx(w, h), [9, 49], [-1.9, 0.2], { lab: nw(w) ? 'ln[BSC/k⁴] (Np) vs f² (MHz²)' : 'ln[BSC/k⁴] (Np, re 3 MHz) vs f² (MHz²)', base: -1.9, ticks: [[9, '3²'], [25, '5²'], [49, '7²']] });
+      const F = u => Math.sqrt(u); Mi.curve(x, m, u => yT(F(u)), c.a, { w: 2 }); Mi.curve(x, m, u => yB(F(u)), c.c, { w: 2 }); Mi.curve(x, m, u => fit[0] + fit[1] * k(F(u)) ** 2, c.c, { dash: [4, 3], w: 1.2 });
+      lbl(x, nw(w) ? 'true ESD 100 µm' : 'true ESD 100 µm (slope −0.827a²)', m.X(10), m.Y(-1.72), c.a); lbl(x, (nw(w) ? '+0.1 dB/cm/MHz → ' : '+0.1 dB/cm/MHz at 3 cm → fit ') + esd.toFixed(1) + ' µm', m.X(10), m.Y(-1.4), c.c); },
+    /* 16 midband fit precision */
+    cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), n = 40; let Sff = 0; for (let i = 0; i < n; i++) Sff += (3 + 4 * i / (n - 1) - 5) ** 2;
+      const sf = f => Math.sqrt(1 / n + (f - 5) ** 2 / Sff), m = Mi.panel(x, rbx(w, h), [0, 7.5], [0, 0.8], { lab: nw(w) ? 'fit std / σ vs f (MHz), n = 40' : 'std of fitted line / σ vs f (MHz), n = 40 in 3–7', ticks: [[0, '0'], [3, '3'], [5, 'f̄ = 5'], [7, '7']] });
+      x.save(); x.fillStyle = c.b; x.globalAlpha = 0.12; x.fillRect(m.X(3), m.b.y, m.X(7) - m.X(3), m.b.h); x.restore();
+      Mi.curve(x, m, sf, c.a, { w: 2 }); dots(x, m, [[5, sf(5)], [0, sf(0)]], c.a, 3.5);
+      lbl(x, 'midband 1/√n = ' + sf(5).toFixed(3), m.X(5), m.Y(sf(5)) - 11, c.a, 'center'); lbl(x, 'intercept ' + sf(0).toFixed(3) + ' (×' + (sf(0) / sf(5)).toFixed(1) + ')', m.X(0.15), m.Y(sf(0)) + 10, c.a); }
+  ];
+  Lab.onShow('m27', () => RF.forEach((f, i) => { const cv = $('m27-rf-' + (i + 1)); if (cv) try { f(cv); } catch (e) { console.error(e); } }));
+})();
+</script>

@@ -1,0 +1,1064 @@
+<section class="view" id="m29" data-title="Doppler and flow imaging" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part V · Module 29</div>
+    <h1>Doppler and flow imaging</h1>
+    <p class="lede">Every flow mode measures one thing: how the phase of a backscattered echo changes from one transmit to the next. Spectral, colour, power, ultrafast and vector Doppler differ in how they sample that slow-time signal, how they remove the tissue that sits 40 dB above it, and which estimator they apply. The same slow-time signal, filtered by SVD, is what ULM tracks and what sound-speed and aberration estimators must not corrupt.</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>Derive the Doppler equation, the pulsed-Doppler Nyquist limit and the range–velocity product \(v_{\max} z_{\max} = c^{2}/(8 f_0\cos\theta)\), and quote the numbers at 3, 5 and 15 MHz</li>
+        <li>Predict the shape of a Doppler spectrum from the velocity profile, the gate, the elevation beam and the aperture (geometric broadening)</li>
+        <li>Write the Kasai and Loupas autocorrelators, their bias and variance, and the noise bias of the variance (turbulence) estimate</li>
+        <li>Design a wall filter (regression or SVD) for a given ensemble and tissue motion, and explain why ultrafast power Doppler gains sensitivity as \(\sqrt{N}\)</li>
+        <li>Estimate 2D velocity vectors from multi-angle Doppler or transverse oscillation, and predict the lateral precision penalty \(\cot\gamma\)</li>
+      </ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 06</a> · Eigendecomposition &amp; SVD: SVD clutter filtering; <a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 08</a> · Analytic signal &amp; IQ demodulation: IQ demodulation</li>
+        <li><a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 09</a> · Digital filter design: regression wall filters; <a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 11</a> · Correlation &amp; time-delay estimation: the lag-one phase estimator</li>
+        <li><a href="{{PART4_URL}}" target="_blank" rel="noopener">Module 23</a> · Beam patterns, k-space and compounding: plane-wave coherent compounding; <a href="#m28">Module 28</a> · Microbubble physics, contrast imaging and the ULM signal source: microbubbles as flow tracers</li>
+      </ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>Monte Carlo slow-time ensembles, estimators and SVD run here in JS (same models as the Octave scripts)</span><span><span class="prov model">Approx. model</span>simplified physics; assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not to scale</span><span>Defaults: \(c\) = 1540 m/s, \(f_0\) = 5 MHz (15 MHz for functional ultrasound), beam-to-flow angle \(\theta\) = 60°.</span></div>
+
+  <!-- ======================= 29.1 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">29.1</span>The Doppler equation and why the angle dominates the error budget</h2>
+    <p>A scatterer moving with velocity component \(v\cos\theta\) along the beam shortens (or lengthens) the round-trip path by \(2v\cos\theta\) per second. The echo phase \(\varphi = -4\pi f_0 z/c\) therefore rotates at the Doppler frequency</p>
+    <div class="eqn key" id="m29-eq1">
+      <div class="eqn-body"><div class="eqn-math">\[ f_D = \frac{2\,v\,f_0\cos\theta}{c} \]</div><span class="eqn-no">(29.1)</span></div>
+      <dl class="where"><dt>\(f_D\)</dt><dd>Doppler shift, Hz (positive for flow toward the probe)</dd><dt>\(v\)</dt><dd>scatterer speed, m/s</dd><dt>\(f_0\)</dt><dd>transmit (centre) frequency, Hz</dd><dt>\(\theta\)</dt><dd>angle between the beam and the velocity vector</dd><dt>\(c\)</dt><dd>speed of sound, 1540 m/s</dd></dl>
+      <span class="note">The factor 2 is the round trip. At 5 MHz, 1 m/s along the beam gives 6.49 kHz: Doppler shifts of blood are audio frequencies, \(v/c \approx 10^{-3}\) of the carrier.</span>
+    </div>
+    <p>The equation is exact to first order in \(v/c\); the second-order term \((v/c)^{2}\) is of order \(10^{-6}\) and never matters. What matters is \(\cos\theta\). The scanner measures \(f_D\), the operator sets \(\theta\), and the velocity is \(v = c f_D/(2 f_0\cos\theta)\). An angle error \(\delta\theta\) produces</p>
+    <div class="eqn" id="m29-eq2">
+      <div class="eqn-body"><div class="eqn-math">\[ \frac{\delta v}{v} \approx \tan\theta\;\delta\theta, \qquad \frac{v_{\mathrm{est}}}{v} = \frac{\cos\theta_{\mathrm{true}}}{\cos\theta_{\mathrm{set}}} \]</div><span class="eqn-no">(29.2)</span></div>
+    <dl class="where"><dt>\(\theta\)</dt><dd>beam-to-flow angle, rad</dd><dt>\(\delta v,\ \delta\theta\)</dt><dd>velocity error (m/s) and angle error (rad)</dd><dt>\(v_{\mathrm{est}},\ v\)</dt><dd>estimated and true speed, m/s</dd><dt>\(\theta_{\mathrm{true}},\ \theta_{\mathrm{set}}\)</dt><dd>true beam-to-flow angle and the angle-correction setting on the scanner, rad</dd></dl>
+      <span class="note">At 60° a 5° error is 15 % (linear) or 18.3 % (exact, \(\cos 60°/\cos 65°\)); at 30° it is 5.7 %. Because the error scales as \(\tan\theta\), it grows steeply above 60° and diverges as \(\theta \to 90°\), which is why clinical protocols cap the insonation angle at 60°.</span>
+    </div>
+    <p><strong>CW versus PW.</strong> A continuous-wave probe transmits on one half of the aperture and receives on the other. The Doppler signal comes from everything in the overlap of the two beams: no range resolution, but no sampling either, so no aliasing (the limit is the analog bandwidth). Pulsed-wave Doppler transmits a short burst every \(T = 1/\mathrm{PRF}\) and samples the demodulated echo once per pulse at the delay \(2z/c\): this <em>range gate</em> buys depth selectivity at the price of sampling the Doppler signal at the PRF. Everything in 29.2 follows from that sampling.</p>
+  </div>
+  <figure class="m29-fig" id="m29-fig-cwpw">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 29.A</b> · CW and PW Doppler: where the signal comes from and how it is sampled</div>
+    <div class="mx-scroll"><svg viewBox="0 0 780 330" role="img" aria-label="Left: continuous-wave probe with separate transmit and receive halves; sensitive region is the overlap of the two beams. Right: pulsed-wave probe with a range gate at depth z; below, the pulse train with period one over PRF and one IQ sample per pulse at delay 2z over c.">
+      <defs><marker id="m29-ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 Z" style="fill:var(--muted)"/></marker></defs>
+      <text x="20" y="20" class="t">CW: separate Tx and Rx halves</text>
+      <rect x="50" y="34" width="56" height="16" class="box"/><rect x="128" y="34" width="56" height="16" class="box"/>
+      <text x="78" y="46" text-anchor="middle" class="s">Tx</text><text x="156" y="46" text-anchor="middle" class="s">Rx</text>
+      <path d="M50 50 L106 50 L149 215 L127.5 215 Z" class="beam1"/><path d="M128 50 L184 50 L106.5 215 L85 215 Z" class="beam2"/>
+      <path d="M20 150 H330" class="w"/><path d="M20 180 H330" class="w"/>
+      <path d="M100.1 156.8 L117 92.2 L133.9 156.8 L117 192.7 Z" class="ov"/>
+      <text x="150" y="100" class="m">beam overlap = sample volume</text><text x="150" y="114" class="m">(typically cm long)</text>
+      <path d="M240 165 H300" class="arr" marker-end="url(#m29-ah)"/><text x="245" y="160" class="s">v</text>
+      <text x="20" y="230" class="m">continuous transmit and receive:</text>
+      <text x="20" y="246" class="m">no range gate, no PRF, no aliasing</text>
+      <path d="M20 280 H330" class="base"/>
+      <path d="M20 280 L23.5 274 L27 280 L30.5 286 L34 280 L37.5 274 L41 280 L44.5 286 L48 280 L51.5 274 L55 280 L58.5 286 L62 280 L65.5 274 L69 280 L72.5 286 L76 280 L79.5 274 L83 280 L86.5 286 L90 280 L93.5 274 L97 280 L100.5 286 L104 280 L107.5 274 L111 280 L114.5 286 L118 280 L121.5 274 L125 280 L128.5 286 L132 280 L135.5 274 L139 280 L142.5 286 L146 280 L149.5 274 L153 280 L156.5 286 L160 280 L163.5 274 L167 280 L170.5 286 L174 280 L177.5 274 L181 280 L184.5 286 L188 280 L191.5 274 L195 280 L198.5 286 L202 280 L205.5 274 L209 280 L212.5 286 L216 280 L219.5 274 L223 280 L226.5 286 L230 280 L233.5 274 L237 280 L240.5 286 L244 280 L247.5 274 L251 280 L254.5 286 L258 280 L261.5 274 L265 280 L268.5 286 L272 280 L275.5 274 L279 280 L282.5 286 L286 280 L289.5 274 L293 280 L296.5 286 L300 280 L303.5 274 L307 280 L310.5 286 L314 280 L317.5 274 L321 280 L324.5 286 L328 280" class="wv1"/>
+      <text x="20" y="306" class="s">Tx carrier f₀ (continuous)</text>
+      <text x="420" y="20" class="t">PW: one aperture, gate at depth z</text>
+      <rect x="490" y="34" width="112" height="16" class="box"/><text x="546" y="46" text-anchor="middle" class="s">Tx / Rx</text>
+      <path d="M492 50 L536 165 L556 165 L600 50 Z" class="beam1"/>
+      <path d="M420 150 H760" class="w"/><path d="M420 180 H760" class="w"/>
+      <path d="M546 150 V180" class="gate"/><path d="M538 150 H554 M538 180 H554" class="gate"/>
+      <text x="566" y="168" class="m">gate: length c·τ/2 (≈ 1–5 mm)</text>
+      <path d="M440 64 V160" class="dim" marker-start="url(#m29-ah)" marker-end="url(#m29-ah)"/><text x="446" y="110" class="s">z</text>
+      <text x="420" y="210" class="m">one burst every T = 1/PRF,</text><text x="420" y="225" class="m">one IQ sample per burst at delay 2z/c</text>
+      <path d="M420 280 H760" class="base"/>
+      <path d="M430 280 l3 -12 l3 24 l3 -24 l3 24 l3 -12" class="wv1"/><path d="M530 280 l3 -12 l3 24 l3 -24 l3 24 l3 -12" class="wv1"/><path d="M630 280 l3 -12 l3 24 l3 -24 l3 24 l3 -12" class="wv1"/><path d="M730 280 l3 -12 l3 24 l3 -24 l3 24 l3 -12" class="wv1"/>
+      <circle cx="490" cy="262" r="4" class="smp"/><circle cx="590" cy="258" r="4" class="smp"/><circle cx="690" cy="266" r="4" class="smp"/>
+      <path d="M433 248 H488" class="dim" marker-end="url(#m29-ah)"/><text x="610" y="248" class="s">2z/c after each burst</text>
+      <path d="M445 300 H545" class="dim" marker-start="url(#m29-ah)" marker-end="url(#m29-ah)"/><text x="470" y="316" class="s">T = 1/PRF</text>
+      <text x="600" y="316" class="s">samples rotate by 2π f_D T</text>
+    </svg></div>
+    <figcaption class="prov-note">Proportions are illustrative. A CW sample volume is the beam overlap, typically centimetres; a PW gate is set by the burst length (a 4-cycle burst at 5 MHz is 0.62 mm in depth) plus the receive window.</figcaption>
+  </figure>
+  <div class="rf-grid" id="m29-g1"></div>
+
+  <!-- ======================= 29.2 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">29.2</span>Pulsed Doppler: the PRF, the Nyquist limit and the range–velocity trade-off</h2>
+    <p>Between two pulses the scatterer moves \(vT\cos\theta\) toward the probe and the gated IQ sample rotates by \(\Delta\varphi = 4\pi f_0 v T\cos\theta/c = 2\pi f_D T\). The slow-time sequence \(z_n\) is a complex sinusoid at \(f_D\) sampled at the PRF, so it is unambiguous only while \(\lvert\Delta\varphi\rvert &lt; \pi\):</p>
+    <div class="eqn" id="m29-eq3">
+      <div class="eqn-body"><div class="eqn-math">\[ \lvert f_D\rvert &lt; \frac{\mathrm{PRF}}{2} \quad\Longleftrightarrow\quad \lvert v\rvert &lt; v_{\mathrm{Nyq}} = \frac{c\,\mathrm{PRF}}{4 f_0\cos\theta} \]</div><span class="eqn-no">(29.3)</span></div>
+      <dl class="where"><dt>\(\mathrm{PRF}\)</dt><dd>pulse repetition frequency (slow-time sampling rate), Hz</dd><dt>\(v_{\mathrm{Nyq}}\)</dt><dd>Nyquist (aliasing) velocity, m/s</dd><dt>\(f_D,\ v,\ f_0,\ \theta,\ c\)</dt><dd>as in (29.1)</dd></dl>
+      <span class="note">5 MHz, PRF 4 kHz, \(\theta\) = 0: \(v_{\mathrm{Nyq}}\) = 0.308 m/s. A complex (IQ) sequence distinguishes ±\(f_D\), so the full band is one PRF wide, from −PRF/2 to +PRF/2.</span>
+    </div>
+    <p>The next pulse cannot be fired until the echo from the gate has returned, \(T \ge 2z/c\). Combining \(\mathrm{PRF} \le c/(2z_{\max})\) with <span class="eqref">(29.3)</span> removes the PRF:</p>
+    <div class="eqn key" id="m29-eq4">
+      <div class="eqn-body"><div class="eqn-math">\[ z_{\max} = \frac{c}{2\,\mathrm{PRF}}, \qquad v_{\max}\, z_{\max} = \frac{c^{2}}{8 f_0\cos\theta} \]</div><span class="eqn-no">(29.4)</span></div>
+      <dl class="where"><dt>\(z_{\max}\)</dt><dd>deepest unambiguous gate depth, m</dd><dt>\(v_{\max}\)</dt><dd>largest unaliased speed at that depth, m/s</dd><dt>\(c,\ f_0,\ \theta\)</dt><dd>as in (29.1)</dd><dt>\(\mathrm{PRF}\)</dt><dd>pulse repetition frequency, Hz</dd></dl>
+      <span class="note">The range–velocity product depends only on \(f_0\) and the angle: 0.0593 m²/s at 5 MHz and \(\theta\) = 0 (0.59 m/s at 10 cm), 0.0988 m²/s at 3 MHz (0.99 m/s at 10 cm). Halving \(f_0\) doubles it; that is why cardiac Doppler of fast jets uses 2–2.5 MHz and still needs CW.</span>
+    </div>
+    <p>When the flow exceeds \(v_{\mathrm{Nyq}}\) the spectrum wraps: the peak of a systolic waveform reappears at the opposite edge of the display. Three remedies, in order of preference: shift the baseline (the band is still one PRF wide but can be placed asymmetrically, up to nearly \(2v_{\mathrm{Nyq}}\) in one direction), raise the PRF (until \(z_{\max}\) reaches the gate; beyond that "high-PRF" mode accepts several gates in range), or lower \(f_0\) or increase \(\theta\) (the last one trades aliasing for angle error).</p>
+  </div>
+
+  <div class="demo" id="m29-d1">
+    <div class="demo-head"><span class="tag">Demo 29.1</span><h3>Spectral Doppler: aliasing, baseline shift and the depth limit</h3><span class="prov model">Approx. model</span><span class="prov-note">Parabolic flow insonated over the whole lumen (flat spectrum from 0 to \(f_{D,\max}(t)\)), exponential speckle per time–frequency cell, illustrative pulsatile waveform with a 1.0 m/s systolic peak at 60 beats per minute. The wrapping of the spectrum by the PRF is exact.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m29-d1-cv" aria-label="Simulated spectral Doppler display with aliasing"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>baseline (0 Hz)</span><span><i style="background:var(--sig2)"></i>true peak velocity (unwrapped)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m29-d1-f0">Transmit frequency <output id="m29-d1-f0-out">5 MHz</output></label><input type="range" id="m29-d1-f0" min="2" max="10" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m29-d1-th">Beam-to-flow angle θ <output id="m29-d1-th-out">60°</output></label><input type="range" id="m29-d1-th" min="0" max="75" step="5" value="60"></div>
+        <div class="ctrl"><label for="m29-d1-prf">PRF <output id="m29-d1-prf-out">4 kHz</output></label><input type="range" id="m29-d1-prf" min="0.5" max="12" step="0.25" value="4"></div>
+        <div class="ctrl"><label for="m29-d1-bl">Baseline shift (fraction of PRF, + moves it down) <output id="m29-d1-bl-out">0</output></label><input type="range" id="m29-d1-bl" min="-0.45" max="0.45" step="0.05" value="0"></div>
+        <div class="ctrl"><label for="m29-d1-z">Gate depth <output id="m29-d1-z-out">4 cm</output></label><input type="range" id="m29-d1-z" min="1" max="20" step="0.5" value="4"></div>
+        <div class="readout" id="m29-d1-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> at the defaults the systolic peak (3.25 kHz) exceeds PRF/2 = 2 kHz and wraps to the bottom. Shift the baseline to +0.35 and the same PRF shows it. Then set the gate to 20 cm: the PRF can be at most 3.85 kHz, and the readout tells you the largest velocity that depth allows.</div>
+  </div>
+  <div class="rf-grid" id="m29-g2"></div>
+
+  <!-- ======================= 29.3 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">29.3</span>Spectral Doppler: what shapes the spectrum</h2>
+    <p>The Doppler power spectrum is, to first order, the histogram of Doppler frequencies of the scatterers in the sample volume, weighted by how strongly the beam and gate insonate each one:</p>
+    <div class="eqn" id="m29-eq5">
+      <div class="eqn-body"><div class="eqn-math">\[ S(f) \propto \int_{\mathrm{lumen}} W(\mathbf{r})\; \delta\!\left(f - \frac{2 f_0\cos\theta}{c}\, v(\mathbf{r})\right) d^{2}\mathbf{r} \]</div><span class="eqn-no">(29.5)</span></div>
+      <dl class="where"><dt>\(W(\mathbf{r})\)</dt><dd>two-way beam and gate weight at position \(\mathbf{r}\) in the vessel cross-section</dd><dt>\(v(\mathbf{r})\)</dt><dd>local speed along the vessel axis, m/s</dd><dt>\(S(f)\)</dt><dd>Doppler power spectrum at frequency \(f\), arbitrary units</dd><dt>\(\propto\)</dt><dd>proportional to</dd><dt>\(\delta\)</dt><dd>Dirac delta function</dd><dt>\(f_0,\ \theta,\ c\)</dt><dd>as in (29.1)</dd><dt>\(d^{2}\mathbf{r}\)</dt><dd>area element of the vessel cross-section, m²</dd></dl>
+      <span class="note">For laminar Poiseuille flow, \(v = v_{\max}(1 - r^{2}/a^{2})\), and uniform insonation of the whole lumen, the area between radii \(r\) and \(r + dr\) maps linearly onto \(v\): the spectrum is flat from 0 to \(f_{D,\max}\) and its mean is \(f_{D,\max}/2\).</span>
+    </div>
+    <p>Three things change that shape. <strong>Profile:</strong> plug flow gives a narrow line at \(f_{D,\max}\); a blunted profile, \(1 - (r/a)^{4}\), puts the mean at \(\tfrac23 f_{D,\max}\). <strong>Gate and elevation beam:</strong> a small gate on the axis keeps only the fast core; a thin elevation beam samples one diameter rather than the disk, which tilts the spectrum toward \(f_{D,\max}\) (mean \(\tfrac23\) for the full diameter). <strong>The aperture:</strong> each element sees the scatterer at a slightly different angle, so a single velocity produces a band of frequencies (geometric or "intrinsic" spectral broadening). With transmit and receive angles spread over \(\theta \pm \alpha\), where \(\alpha = \arctan(1/(2F_{\#}))\),</p>
+    <div class="eqn" id="m29-eq6">
+      <div class="eqn-body"><div class="eqn-math">\[ f \in f_D\left[\frac{\cos(\theta + \alpha)}{\cos\theta},\; \frac{\cos(\theta - \alpha)}{\cos\theta}\right] \approx f_D\,(1 \pm \alpha\tan\theta) \]</div><span class="eqn-no">(29.6)</span></div>
+      <dl class="where"><dt>\(\alpha\)</dt><dd>aperture half-angle seen from the gate, rad</dd><dt>\(F_{\#}\)</dt><dd>F-number (focal depth / aperture width)</dd><dt>\(f,\ f_D\)</dt><dd>frequency of a spectral component and the Doppler shift of (29.1), Hz</dd><dt>\(\theta\)</dt><dd>beam-to-flow angle, rad</dd></dl>
+      <span class="note">\(F_{\#}\) = 2, \(\theta\) = 60°: \(\alpha\) = 14.0°, the spectrum extends to 1.39 \(f_{D,\max}\) (1.42 linearized). Reading the "maximum velocity" off the spectral envelope then overestimates it by 20–40 %. The mean frequency is unchanged to first order.</span>
+    </div>
+    <p>The transit-time picture gives the same answer: a scatterer crossing a beam of width \(W\) at speed \(v\sin\theta\) is seen for \(W/(v\sin\theta)\) seconds, and a signal of that duration has a bandwidth of order \(v\sin\theta/W\). Newhouse and colleagues showed in 1980 that geometric and transit-time broadening are one phenomenon described two ways. The point for a velocity estimator is the same: broadening scales with \(v\), so it is a fixed fraction of \(f_D\) set by the aperture and \(\tan\theta\).</p>
+    <p><strong>The spectrogram is a short-time Fourier transform.</strong> The display is \(\lvert\mathrm{STFT}\rvert^{2}\) of the slow-time IQ sequence with a window of \(N_w\) samples:</p>
+    <div class="eqn" id="m29-eq7">
+      <div class="eqn-body"><div class="eqn-math">\[ \Delta t = \frac{N_w}{\mathrm{PRF}}, \qquad \Delta f_{-6\,\mathrm{dB}} \approx \frac{2\,\mathrm{PRF}}{N_w}\ \ (\text{Hann}), \qquad \Delta f\,\Delta t \approx 2 \]</div><span class="eqn-no">(29.7)</span></div>
+    <dl class="where"><dt>\(\Delta t\)</dt><dd>observation time of one spectrum, s</dd><dt>\(N_w\)</dt><dd>number of pulses in the analysis window</dd><dt>\(\mathrm{PRF}\)</dt><dd>pulse repetition frequency, Hz</dd><dt>\(\Delta f_{-6\,\mathrm{dB}}\)</dt><dd>spectral resolution (−6 dB width) with a Hann window, Hz</dd></dl>
+      <span class="note">PRF 5 kHz, \(N_w\) = 128: 25.6 ms per spectrum, −6 dB resolution 79 Hz, i.e. 12 mm/s at 5 MHz and \(\theta\) = 0. Shorter windows follow systolic acceleration better but blur velocity; vendors use 5–20 ms windows with overlap.</span>
+    </div>
+  </div>
+
+  <div class="demo" id="m29-d2">
+    <div class="demo-head"><span class="tag">Demo 29.2</span><h3>The Doppler spectrum of a vessel: profile, gate, elevation beam and aperture</h3><span class="prov sim">Simulation</span><span class="prov-note">Monte Carlo histogram of 60 000 scatterers placed uniformly in the gated part of the lumen, each with transmit and receive angles drawn uniformly in \(\theta \pm \alpha\); same model as m29_doppler_spectrum_profile.m. The geometry panel is drawn to scale for a 6 mm vessel.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m29-d2-geo" aria-label="Vessel, beam and range gate geometry"></canvas>
+        <canvas id="m29-d2-cv" aria-label="Doppler power spectrum histogram"></canvas>
+        <div class="legend"><span><i style="background:var(--muted)"></i>no broadening</span><span><i style="background:var(--accent)"></i>with aperture broadening</span><span><i style="background:var(--sig2)"></i>f<sub>D,max</sub> and the broadened edge</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m29-d2-prof">Velocity profile</label><select id="m29-d2-prof"><option value="1">plug</option><option value="2" selected>parabolic (Poiseuille)</option><option value="4">blunted, 1 − (r/a)⁴</option></select></div>
+        <div class="ctrl"><label for="m29-d2-th">Beam-to-flow angle θ <output id="m29-d2-th-out">60°</output></label><input type="range" id="m29-d2-th" min="20" max="80" step="5" value="60"></div>
+        <div class="ctrl"><label for="m29-d2-g">Gate (fraction of the diameter, centred) <output id="m29-d2-g-out">100 %</output></label><input type="range" id="m29-d2-g" min="0.1" max="1" step="0.05" value="1"></div>
+        <div class="ctrl"><label for="m29-d2-fn">Aperture F-number <output id="m29-d2-fn-out">2</output></label><input type="range" id="m29-d2-fn" min="1" max="10" step="0.5" value="2"></div>
+        <label class="check"><input type="checkbox" id="m29-d2-thin"> thin elevation beam (one diameter instead of the disk)</label>
+        <div class="readout" id="m29-d2-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> parabolic, whole lumen: flat spectrum (mean 0.5). Shrink the gate to 30 % with a thin beam: a narrow peak near \(f_{D,\max}\). Then go to θ = 75° at F# 1: the broadened edge reaches 2.56 \(f_{D,\max}\) while the mean barely moves.</div>
+  </div>
+  <!-- ======================= 29.4 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">29.4</span>Colour flow: short ensembles and the autocorrelation estimators</h2>
+    <p>Colour flow imaging cannot afford a spectrum per pixel. It fires a short <em>ensemble</em> (packet) of \(N\) = 6–16 pulses along each line, and estimates three numbers per pixel from the slow-time sequence: the mean Doppler frequency, the power and the spectral width. The estimator, due to Kasai and colleagues (1985), is the phase of the lag-one autocorrelation, the same estimator you met for displacement in <a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 11</a>:</p>
+    <div class="eqn key" id="m29-eq8">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat R(1) = \frac{1}{N-1}\sum_{n=0}^{N-2} z_{n+1}\, z_n^{*}, \qquad \hat v = \frac{c\,\mathrm{PRF}}{4\pi f_0}\,\arg \hat R(1) \]</div><span class="eqn-no">(29.8)</span></div>
+      <dl class="where"><dt>\(z_n\)</dt><dd>complex (IQ) sample of one pixel at pulse \(n\), after the wall filter</dd><dt>\(N\)</dt><dd>ensemble length (pulses per pixel)</dd><dt>\(\hat R(1)\)</dt><dd>lag-one slow-time autocorrelation estimate</dd><dt>\(\arg\)</dt><dd>four-quadrant phase, in \((-\pi, \pi]\)</dd><dt>\(c,\ f_0\)</dt><dd>as in (29.1)</dd><dt>\(\mathrm{PRF}\)</dt><dd>pulse repetition frequency, Hz</dd><dt>\(\hat v\)</dt><dd>estimated axial velocity, m/s</dd><dt>\((\cdot)^{*}\)</dt><dd>complex conjugate</dd><dt>\(n\)</dt><dd>pulse (slow-time) index</dd></dl>
+      <span class="note">Because \(R(T) = \int S(f)\,e^{j2\pi f T}\,df\), its phase equals \(2\pi \bar f T\) exactly for a symmetric spectrum and approximately otherwise: the Kasai estimate is the mean Doppler frequency, with no FFT. Averaging \(\hat R(1)\) over a few depth samples (and lateral pixels) before taking the phase is cheap and reduces the variance.</span>
+    </div>
+    <p><strong>The hidden frequency.</strong> <span class="eqref">(29.8)</span> uses \(f_0\), the demodulation frequency. The received echo is centred lower, because attenuation downshifts the spectrum (Module 27, frequency-dependent attenuation) and each scatterer weights frequencies differently. Since the Doppler phase per pulse is \(4\pi f v T/c\) at every RF frequency \(f\), the measured phase reflects the mean RF frequency \(\bar f_{\mathrm{RF}}\): using \(f_0\) biases \(\hat v\) by \(\bar f_{\mathrm{RF}}/f_0\). Loupas, Powers and Gill (1995) estimate \(\bar f_{\mathrm{RF}}\) from the lag-one correlation <em>along depth</em> on the same data block:</p>
+    <div class="eqn" id="m29-eq9">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat v = \frac{c}{2}\;\frac{\dfrac{\mathrm{PRF}}{2\pi}\arg \hat R(0,1)}{f_{\mathrm{dem}} + \dfrac{f_s}{2\pi}\arg \hat R(1,0)}, \qquad \hat R(m', n') = \sum_{m,n} z_{m+m',\,n+n'}\; z_{m,n}^{*} \]</div><span class="eqn-no">(29.9)</span></div>
+      <dl class="where"><dt>\(z_{m,n}\)</dt><dd>IQ sample at depth index \(m\) and pulse \(n\)</dd><dt>\(f_s\)</dt><dd>IQ sampling rate along depth, Hz</dd><dt>\(f_{\mathrm{dem}}\)</dt><dd>demodulation frequency, Hz</dd><dt>\(\hat R(0,1),\ \hat R(1,0)\)</dt><dd>lag one in slow time, lag one in depth</dd><dt>\(c,\ \mathrm{PRF}\)</dt><dd>as in (29.1), (29.3)</dd><dt>\(\hat v\)</dt><dd>estimated velocity, m/s</dd><dt>\(m\prime,\ n\prime\)</dt><dd>lag in depth and slow time, samples</dd><dt>\((\cdot)^{*}\)</dt><dd>complex conjugate</dd></dl>
+      <span class="note">In m29_kasai_loupas.m a 4.5 MHz echo demodulated at 5 MHz biases Kasai by −10 % (measured −9.6 to −10.4 %), while Loupas stays within 0.3 % and has a lower standard deviation (0.0100 vs 0.0121 m/s at \(N\) = 16). Both estimators sum the same 8-sample depth block; Loupas is less noisy because it divides by each block’s own mean RF frequency, which fluctuates from one speckle realization to the next together with the Doppler phase.</span>
+    </div>
+    <p><strong>Spectral width and turbulence.</strong> The magnitude of the normalized correlation measures how fast the signal decorrelates. For a Gaussian spectrum of standard deviation \(\sigma_f\), \(\lvert R(T)\rvert/R(0) = e^{-(2\pi\sigma_f T)^{2}/2}\), so</p>
+    <div class="eqn" id="m29-eq10">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat\sigma_\omega^{2} = \frac{2}{T^{2}}\left(1 - \frac{\lvert \hat R(1)\rvert}{\hat R(0)}\right), \qquad \frac{\lvert R(1)\rvert}{R(0)}\Big|_{\mathrm{noisy}} = \frac{\mathrm{SNR}}{1 + \mathrm{SNR}}\; \frac{\lvert R(1)\rvert}{R(0)}\Big|_{\mathrm{clean}} \]</div><span class="eqn-no">(29.10)</span></div>
+      <dl class="where"><dt>\(\hat\sigma_\omega\)</dt><dd>spectral width (angular), rad/s; \(\sigma_f = \sigma_\omega/2\pi\)</dd><dt>\(T\)</dt><dd>pulse interval 1/PRF, s</dd><dt>\(\mathrm{SNR}\)</dt><dd>signal-to-noise power ratio per sample</dd><dt>\(\hat R(0),\ \hat R(1)\)</dt><dd>lag-zero (power) and lag-one slow-time autocorrelation, as in (29.8)</dd><dt>\(\lvert\cdot\rvert\)</dt><dd>magnitude</dd></dl>
+      <span class="note">White noise adds to \(R(0)\) only, so it masquerades as turbulence: with \(\sigma_f\) = 150 Hz at PRF 4 kHz the estimate reads 153, 187, 347 and 658 Hz at 40, 20, 10 and 0 dB SNR (m29_kasai_loupas.m). The scanner's "variance" colour (green mixed into red/blue) is as much an SNR map as a turbulence map.</span>
+    </div>
+  </div>
+  <figure class="m29-fig" id="m29-fig-seq">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 29.B</b> · The data block behind every flow estimate, and how conventional and ultrafast sequences fill it</div>
+    <div class="mx-scroll"><svg viewBox="0 0 780 360" role="img" aria-label="Left: the slow-time by fast-time data matrix of one beam line. Right: conventional colour flow fires a packet of N pulses on each line before moving on; ultrafast Doppler fires plane waves that insonify the whole field so every pixel gets one sample per compounded frame."><defs><marker id="m29-ah2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 Z" style="fill:var(--muted)"/></marker></defs><text x="20" y="20" class="t">One beam line: fast time × slow time</text><rect x="70" y="40" width="16" height="12" class="cell"/><rect x="88" y="40" width="16" height="12" class="cell"/><rect x="106" y="40" width="16" height="12" class="cell"/><rect x="124" y="40" width="16" height="12" class="cell"/><rect x="142" y="40" width="16" height="12" class="cell"/><rect x="160" y="40" width="16" height="12" class="cell"/><rect x="178" y="40" width="16" height="12" class="cell"/><rect x="196" y="40" width="16" height="12" class="cell"/><rect x="214" y="40" width="16" height="12" class="cell"/><rect x="232" y="40" width="16" height="12" class="cell"/><rect x="70" y="54" width="16" height="12" class="cell"/><rect x="88" y="54" width="16" height="12" class="cell"/><rect x="106" y="54" width="16" height="12" class="cell"/><rect x="124" y="54" width="16" height="12" class="cell"/><rect x="142" y="54" width="16" height="12" class="cell"/><rect x="160" y="54" width="16" height="12" class="cell"/><rect x="178" y="54" width="16" height="12" class="cell"/><rect x="196" y="54" width="16" height="12" class="cell"/><rect x="214" y="54" width="16" height="12" class="cell"/><rect x="232" y="54" width="16" height="12" class="cell"/><rect x="70" y="68" width="16" height="12" class="cell"/><rect x="88" y="68" width="16" height="12" class="cell"/><rect x="106" y="68" width="16" height="12" class="cell"/><rect x="124" y="68" width="16" height="12" class="cell"/><rect x="142" y="68" width="16" height="12" class="cell"/><rect x="160" y="68" width="16" height="12" class="cell"/><rect x="178" y="68" width="16" height="12" class="cell"/><rect x="196" y="68" width="16" height="12" class="cell"/><rect x="214" y="68" width="16" height="12" class="cell"/><rect x="232" y="68" width="16" height="12" class="cell"/><rect x="70" y="82" width="16" height="12" class="cell"/><rect x="88" y="82" width="16" height="12" class="cell"/><rect x="106" y="82" width="16" height="12" class="cell"/><rect x="124" y="82" width="16" height="12" class="cell"/><rect x="142" y="82" width="16" height="12" class="cell"/><rect x="160" y="82" width="16" height="12" class="cell"/><rect x="178" y="82" width="16" height="12" class="cell"/><rect x="196" y="82" width="16" height="12" class="cell"/><rect x="214" y="82" width="16" height="12" class="cell"/><rect x="232" y="82" width="16" height="12" class="cell"/><rect x="70" y="96" width="16" height="12" class="cell"/><rect x="88" y="96" width="16" height="12" class="cell"/><rect x="106" y="96" width="16" height="12" class="cell"/><rect x="124" y="96" width="16" height="12" class="cell"/><rect x="142" y="96" width="16" height="12" class="cell"/><rect x="160" y="96" width="16" height="12" class="cell"/><rect x="178" y="96" width="16" height="12" class="cell"/><rect x="196" y="96" width="16" height="12" class="cell"/><rect x="214" y="96" width="16" height="12" class="cell"/><rect x="232" y="96" width="16" height="12" class="cell"/><rect x="70" y="110" width="16" height="12" class="cell"/><rect x="88" y="110" width="16" height="12" class="cell"/><rect x="106" y="110" width="16" height="12" class="cell"/><rect x="124" y="110" width="16" height="12" class="cell"/><rect x="142" y="110" width="16" height="12" class="cell"/><rect x="160" y="110" width="16" height="12" class="cell"/><rect x="178" y="110" width="16" height="12" class="cell"/><rect x="196" y="110" width="16" height="12" class="cell"/><rect x="214" y="110" width="16" height="12" class="cell"/><rect x="232" y="110" width="16" height="12" class="cell"/><rect x="70" y="124" width="16" height="12" class="cellb"/><rect x="88" y="124" width="16" height="12" class="cellb"/><rect x="106" y="124" width="16" height="12" class="cellb"/><rect x="124" y="124" width="16" height="12" class="cellb"/><rect x="142" y="124" width="16" height="12" class="cellb"/><rect x="160" y="124" width="16" height="12" class="cellb"/><rect x="178" y="124" width="16" height="12" class="cellb"/><rect x="196" y="124" width="16" height="12" class="cellb"/><rect x="214" y="124" width="16" height="12" class="cellb"/><rect x="232" y="124" width="16" height="12" class="cellb"/><rect x="70" y="138" width="16" height="12" class="cell"/><rect x="88" y="138" width="16" height="12" class="cell"/><rect x="106" y="138" width="16" height="12" class="cell"/><rect x="124" y="138" width="16" height="12" class="cell"/><rect x="142" y="138" width="16" height="12" class="cell"/><rect x="160" y="138" width="16" height="12" class="cell"/><rect x="178" y="138" width="16" height="12" class="cell"/><rect x="196" y="138" width="16" height="12" class="cell"/><rect x="214" y="138" width="16" height="12" class="cell"/><rect x="232" y="138" width="16" height="12" class="cell"/><rect x="70" y="152" width="16" height="12" class="cell"/><rect x="88" y="152" width="16" height="12" class="cell"/><rect x="106" y="152" width="16" height="12" class="cell"/><rect x="124" y="152" width="16" height="12" class="cell"/><rect x="142" y="152" width="16" height="12" class="cell"/><rect x="160" y="152" width="16" height="12" class="cell"/><rect x="178" y="152" width="16" height="12" class="cell"/><rect x="196" y="152" width="16" height="12" class="cell"/><rect x="214" y="152" width="16" height="12" class="cell"/><rect x="232" y="152" width="16" height="12" class="cell"/><rect x="70" y="166" width="16" height="12" class="cell"/><rect x="88" y="166" width="16" height="12" class="cell"/><rect x="106" y="166" width="16" height="12" class="cell"/><rect x="124" y="166" width="16" height="12" class="cell"/><rect x="142" y="166" width="16" height="12" class="cell"/><rect x="160" y="166" width="16" height="12" class="cell"/><rect x="178" y="166" width="16" height="12" class="cell"/><rect x="196" y="166" width="16" height="12" class="cell"/><rect x="214" y="166" width="16" height="12" class="cell"/><rect x="232" y="166" width="16" height="12" class="cell"/><rect x="70" y="180" width="16" height="12" class="cell"/><rect x="88" y="180" width="16" height="12" class="cell"/><rect x="106" y="180" width="16" height="12" class="cell"/><rect x="124" y="180" width="16" height="12" class="cell"/><rect x="142" y="180" width="16" height="12" class="cell"/><rect x="160" y="180" width="16" height="12" class="cell"/><rect x="178" y="180" width="16" height="12" class="cell"/><rect x="196" y="180" width="16" height="12" class="cell"/><rect x="214" y="180" width="16" height="12" class="cell"/><rect x="232" y="180" width="16" height="12" class="cell"/><rect x="70" y="194" width="16" height="12" class="cell"/><rect x="88" y="194" width="16" height="12" class="cell"/><rect x="106" y="194" width="16" height="12" class="cell"/><rect x="124" y="194" width="16" height="12" class="cell"/><rect x="142" y="194" width="16" height="12" class="cell"/><rect x="160" y="194" width="16" height="12" class="cell"/><rect x="178" y="194" width="16" height="12" class="cell"/><rect x="196" y="194" width="16" height="12" class="cell"/><rect x="214" y="194" width="16" height="12" class="cell"/><rect x="232" y="194" width="16" height="12" class="cell"/><path d="M70 218 H250" class="arr" marker-end="url(#m29-ah2)"/><text x="70" y="234" class="s">slow time n (pulse), rate PRF</text><path d="M58 40 V208" class="arr" marker-end="url(#m29-ah2)"/><text x="52" y="124.0" class="s" text-anchor="end">depth</text><text x="52" y="137.0" class="s" text-anchor="end">(fs)</text><text x="256" y="134" class="s">← one gate:</text><text x="256" y="148" class="s">the ensemble</text><text x="20" y="258" class="s">Kasai: one row (lag 1 in slow time).</text><text x="20" y="272" class="s">Loupas: a block (lag 1 in both directions).</text><text x="400" y="20" class="t">Conventional colour flow: packet per line</text><rect x="400" y="32" width="8" height="18" class="cellb"/><rect x="410" y="32" width="8" height="18" class="cellb"/><rect x="420" y="32" width="8" height="18" class="cellb"/><rect x="430" y="32" width="8" height="18" class="cellb"/><rect x="440" y="32" width="8" height="18" class="cellb"/><rect x="450" y="32" width="8" height="18" class="cellb"/><rect x="460" y="32" width="8" height="18" class="cellb"/><rect x="470" y="32" width="8" height="18" class="cellb"/><rect x="486" y="32" width="8" height="18" class="cellc"/><rect x="496" y="32" width="8" height="18" class="cellc"/><rect x="506" y="32" width="8" height="18" class="cellc"/><rect x="516" y="32" width="8" height="18" class="cellc"/><rect x="526" y="32" width="8" height="18" class="cellc"/><rect x="536" y="32" width="8" height="18" class="cellc"/><rect x="546" y="32" width="8" height="18" class="cellc"/><rect x="556" y="32" width="8" height="18" class="cellc"/><rect x="572" y="32" width="8" height="18" class="cell"/><rect x="582" y="32" width="8" height="18" class="cell"/><rect x="592" y="32" width="8" height="18" class="cell"/><rect x="602" y="32" width="8" height="18" class="cell"/><rect x="612" y="32" width="8" height="18" class="cell"/><rect x="622" y="32" width="8" height="18" class="cell"/><rect x="632" y="32" width="8" height="18" class="cell"/><rect x="642" y="32" width="8" height="18" class="cell"/><text x="662" y="46" class="m">…</text><text x="400" y="66" class="s">line 1: N pulses, line 2: N pulses, …</text><text x="400" y="80" class="s">frame rate = PRF/(N · lines)</text><text x="400" y="94" class="s">PRF 4 kHz, N = 10, 40 lines: 10 frames/s</text><text x="400" y="132" class="t">Ultrafast: plane waves, all pixels at once</text><rect x="400" y="144" width="8" height="18" class="cellb"/><rect x="410" y="144" width="8" height="18" class="cellb"/><rect x="420" y="144" width="8" height="18" class="cellb"/><rect x="430" y="144" width="8" height="18" class="cellc"/><rect x="440" y="144" width="8" height="18" class="cellc"/><rect x="450" y="144" width="8" height="18" class="cellc"/><rect x="460" y="144" width="8" height="18" class="cellb"/><rect x="470" y="144" width="8" height="18" class="cellb"/><rect x="480" y="144" width="8" height="18" class="cellb"/><rect x="490" y="144" width="8" height="18" class="cellc"/><rect x="500" y="144" width="8" height="18" class="cellc"/><rect x="510" y="144" width="8" height="18" class="cellc"/><rect x="520" y="144" width="8" height="18" class="cellb"/><rect x="530" y="144" width="8" height="18" class="cellb"/><rect x="540" y="144" width="8" height="18" class="cellb"/><rect x="550" y="144" width="8" height="18" class="cellc"/><rect x="560" y="144" width="8" height="18" class="cellc"/><rect x="570" y="144" width="8" height="18" class="cellc"/><rect x="580" y="144" width="8" height="18" class="cellb"/><rect x="590" y="144" width="8" height="18" class="cellb"/><rect x="600" y="144" width="8" height="18" class="cellb"/><rect x="610" y="144" width="8" height="18" class="cellc"/><rect x="620" y="144" width="8" height="18" class="cellc"/><rect x="630" y="144" width="8" height="18" class="cellc"/><rect x="640" y="144" width="8" height="18" class="cellb"/><rect x="650" y="144" width="8" height="18" class="cellb"/><rect x="660" y="144" width="8" height="18" class="cellb"/><rect x="670" y="144" width="8" height="18" class="cellc"/><rect x="680" y="144" width="8" height="18" class="cellc"/><rect x="690" y="144" width="8" height="18" class="cellc"/><text x="400" y="178" class="s">3 tilted plane waves → 1 compounded frame</text><text x="400" y="192" class="s">PRF 3 kHz, 3 angles: 1 kHz frame rate;</text><text x="400" y="206" class="s">200 ms gives N = 200 for every pixel</text><rect x="400" y="222" width="150" height="110" class="cell"/><path d="M420 222 L530 222 L510.6 332 L400.6 332 Z" class="beam1"/><path d="M420 222 L530 222 L530.0 332 L420.0 332 Z" class="beam2"/><path d="M420 222 L530 222 L549.4 332 L439.4 332 Z" class="beam1"/><text x="562" y="246" class="s">each plane wave insonifies</text><text x="562" y="261" class="s">the whole field: N is set</text><text x="562" y="276" class="s">by acquisition time, not</text><text x="562" y="291" class="s">by the number of lines</text></svg></div>
+    <figcaption class="prov-note">Timing numbers are worked examples, not a specific scanner. Real colour-flow sequences interleave several lines to keep the PRF low enough for slow flow while the frame rate stays acceptable.</figcaption>
+  </figure>
+
+  <div class="demo" id="m29-d3">
+    <div class="demo-head"><span class="tag">Demo 29.3</span><h3>The Kasai estimator on a short ensemble: N, noise, spectral width and aliasing</h3><span class="prov sim">Simulation</span><span class="prov-note">400 independent ensembles per setting: complex Gaussian slow-time process with a Gaussian Doppler spectrum (white noise shaped by FFT, aliased into one PRF) plus white noise; Kasai and variance estimators applied to the first \(N\) samples. \(f_0\) = 5 MHz, PRF 4 kHz, \(v_{\mathrm{Nyq}}\) = 0.308 m/s, \(\theta\) = 0.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m29-d3-cv" aria-label="Phasor cloud of lag-one correlations and histogram of velocity estimates"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>estimates</span><span><i style="background:var(--sig2)"></i>true velocity (wrapped)</span><span><i style="background:var(--muted)"></i>±v<sub>Nyq</sub></span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m29-d3-v">True axial velocity <output id="m29-d3-v-out">0.15 m/s</output></label><input type="range" id="m29-d3-v" min="-0.6" max="0.6" step="0.01" value="0.15"></div>
+        <div class="ctrl"><label for="m29-d3-n">Ensemble length N <output id="m29-d3-n-out">8</output></label><input type="range" id="m29-d3-n" min="2" max="32" step="1" value="8"></div>
+        <div class="ctrl"><label for="m29-d3-snr">SNR per sample <output id="m29-d3-snr-out">10 dB</output></label><input type="range" id="m29-d3-snr" min="-5" max="40" step="1" value="10"></div>
+        <div class="ctrl"><label for="m29-d3-sv">Velocity spread σ<sub>v</sub> <output id="m29-d3-sv-out">0.02 m/s</output></label><input type="range" id="m29-d3-sv" min="0.005" max="0.1" step="0.005" value="0.02"></div>
+        <div class="readout" id="m29-d3-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> N = 2 at 0 dB: the cloud of \(\hat R(1)\) fills the circle and the histogram is nearly flat. Raise N to 32: the cloud tightens around the true angle. Push v past 0.308 m/s: the estimates jump to the other side (aliasing). Raise σ<sub>v</sub> or lower the SNR and watch the variance estimate rise.</div>
+  </div>
+
+  <!-- ======================= 29.5 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">29.5</span>Wall filters: removing tissue 40 dB above the blood</h2>
+    <p>Before any estimator, the tissue echo (the vessel wall, myocardium, liver) has to go. It is 20–40 dB stronger than blood in most organs and more near strong walls, and it moves slowly: breathing, pulsation and probe motion give tissue Doppler of a few to tens of hertz. Left in place it drags \(\arg\hat R(1)\) toward the tissue velocity and floods the power map. The wall filter is a high-pass filter in slow time, but with \(N\) = 8–16 samples there is no room for a long FIR or for IIR transients. The standard answer is the <strong>polynomial regression filter</strong> (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 09</a>): project out the best-fitting polynomial of degree \(p\) over the ensemble,</p>
+    <div class="eqn" id="m29-eq11">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathbf{y} = \left(\mathbf{I} - \mathbf{Q}\mathbf{Q}^{T}\right)\mathbf{z}, \qquad f_{-3\,\mathrm{dB}} \approx (0.44 + 0.41\,p)\,\frac{\mathrm{PRF}}{N} \]</div><span class="eqn-no">(29.11)</span></div>
+      <dl class="where"><dt>\(\mathbf{z},\ \mathbf{y}\)</dt><dd>ensemble before and after filtering, \(N\times 1\) complex</dd><dt>\(\mathbf{Q}\)</dt><dd>\(N\times(p+1)\) orthonormal basis of polynomials of degree \(\le p\) in slow time</dd><dt>\(p\)</dt><dd>regression order (0 = mean removal)</dd><dt>\(\mathbf{I}\)</dt><dd>identity matrix</dd><dt>\((\cdot)^{T}\)</dt><dd>transpose</dd><dt>\(f_{-3\,\mathrm{dB}}\)</dt><dd>−3 dB cut-off of the wall filter, Hz</dd><dt>\(\mathrm{PRF},\ N\)</dt><dd>pulse repetition frequency (Hz) and ensemble length</dd></dl>
+      <span class="note">\(N\) = 12, PRF 2 kHz: cutoffs 75, 145, 210 and 278 Hz for \(p\) = 0 … 3 (measured in m29_color_flow_wallfilter.m; the rule of thumb gives 73, 142, 210 and 278). At 5 MHz and \(\theta\) = 60° the \(p\) = 2 filter removes all flow slower than 6.5 cm/s along the vessel.</span>
+    </div>
+    <p>The filter has \(N - p - 1\) degrees of freedom left, so it also removes \((p+1)/N\) of the white noise, and every degree of \(p\) raises the minimum detectable velocity. The design choice is a trade between residual clutter (too low a cutoff: flash artefacts and velocities pulled toward zero) and lost slow flow (too high a cutoff: holes near the vessel walls where the parabolic profile is slow). The demo shows this on a simulated colour-flow frame. Sections 29.6 and the SVD filter remove the trade-off by using space as well as time.</p>
+  </div>
+
+  <div class="demo" id="m29-d4">
+    <div class="demo-head"><span class="tag">Demo 29.4</span><h3>Colour-flow map with a regression wall filter</h3><span class="prov sim">Simulation</span><span class="prov-note">Same model as m29_color_flow_wallfilter.m, smaller grid: inclined vessel (radius 3 mm, \(v_{\max}\) = 0.25 m/s, \(\theta\) = 60°, parabolic), tissue speckle 40 dB above blood moving axially at \(v_t\), blood-to-noise 15 dB; each signal a sum of 8 random phasors around its mean Doppler (blood σ = 40 Hz, tissue σ = 3 Hz). \(f_0\) = 5 MHz, PRF 2 kHz, \(N\) = 12. Detection: \(\hat R(0)\) more than 3 dB above the expected filtered noise power.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m29-d4-cv" aria-label="Colour-flow map over a grey tissue background"></canvas>
+        <canvas id="m29-d4-h" aria-label="Wall filter frequency response"></canvas>
+        <div class="legend"><span><i style="background:rgb(194,54,111)"></i>toward probe</span><span><i style="background:rgb(31,95,209)"></i>away</span><span><i style="background:var(--accent)"></i>|H(f)|²</span><span><i style="background:var(--sig2)"></i>tissue Doppler</span><span><i style="background:var(--sig3)"></i>blood (axial) band</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m29-d4-p">Regression order p <output id="m29-d4-p-out">2</output></label><input type="range" id="m29-d4-p" min="0" max="4" step="1" value="2"></div>
+        <div class="ctrl"><label for="m29-d4-vt">Tissue velocity v<sub>t</sub> <output id="m29-d4-vt-out">3 mm/s</output></label><input type="range" id="m29-d4-vt" min="0" max="8" step="0.5" value="3"></div>
+        <div class="ctrl"><label for="m29-d4-map">Display</label><select id="m29-d4-map"><option value="v" selected>velocity (Kasai)</option><option value="p">power R(0) (dB)</option><option value="s">normalized variance 1 − |R(1)|/R(0)</option></select></div>
+        <div class="readout" id="m29-d4-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> p = 0: tissue at 3 mm/s (19.5 Hz) leaks through, colour fills the whole frame. p = 1: still a flash. p = 2: a clean vessel with mean error 6 mm/s. p = 4: the lumen edges go dark. Set v<sub>t</sub> = 0 and p = 0 is enough; set v<sub>t</sub> = 8 mm/s and even p = 2 flashes.</div>
+  </div>
+  <!-- ======================= 29.6 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">29.6</span>Power Doppler, ultrafast Doppler and functional ultrasound</h2>
+    <p><strong>Power Doppler</strong> displays \(\hat R(0)\), the energy left after the wall filter, and ignores the phase. It has no aliasing and no angle dependence of its value (only of whether the flow survives the wall filter), and the power is proportional to the number of moving red cells in the resolution cell: a blood-volume map rather than a velocity map. Its sensitivity is set by how well the power estimate separates a weak vessel from the noise floor, and that improves with the number of independent samples.</p>
+    <p><strong>Ultrafast Doppler</strong> (Bercoff et al., IEEE TUFFC 2011) replaces line-by-line packets with tilted plane waves that insonify the whole field, coherently compounded into frames at 0.5–2 kHz (Figure 29.B). Every pixel then has a continuous slow-time record: the ensemble is set by the acquisition time, not by the number of lines, and \(N\) = 200–400 is routine. Two things follow. First, the wall filter can use space: tissue motion is spatially coherent (the whole organ moves together), blood is not, so the Casorati matrix of pixels × time separates them by rank (Demené et al., IEEE TMI 2015; <a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 06</a>):</p>
+    <div class="eqn" id="m29-eq12">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathbf{S} = \sum_{k=1}^{N} \sigma_k\, \mathbf{u}_k \mathbf{v}_k^{H}, \qquad \mathbf{S}_f = \mathbf{S} - \sum_{k=1}^{K} \sigma_k\, \mathbf{u}_k \mathbf{v}_k^{H} = \mathbf{S}\left(\mathbf{I} - \mathbf{V}_K\mathbf{V}_K^{H}\right) \]</div><span class="eqn-no">(29.12)</span></div>
+      <dl class="where"><dt>\(\mathbf{S}\)</dt><dd>Casorati matrix, \(P\) pixels × \(N\) frames, complex IQ</dd><dt>\(\sigma_k,\ \mathbf{u}_k,\ \mathbf{v}_k\)</dt><dd>singular values, spatial and temporal singular vectors</dd><dt>\(K\)</dt><dd>clutter rank: number of components removed</dd><dt>\(\mathbf{V}_K\)</dt><dd>first \(K\) temporal singular vectors, \(N\times K\)</dd><dt>\(\mathbf{S}_f\)</dt><dd>filtered (clutter-removed) Casorati matrix</dd><dt>\(\mathbf{I}\)</dt><dd>identity matrix</dd><dt>\((\cdot)^{H}\)</dt><dd>conjugate transpose</dd><dt>\(N\)</dt><dd>number of frames (ensemble length)</dd></dl>
+      <span class="note">The temporal vectors \(\mathbf{v}_k\) are the eigenvectors of the \(N\times N\) matrix \(\mathbf{S}^{H}\mathbf{S}\), so the filter is a data-adaptive projection in slow time, chosen by spatial coherence. Tissue moving at the same Doppler frequency as slow blood is removed; slow blood is kept.</span>
+    </div>
+    <p>Second, the power estimate gets \(N - K\) degrees of freedom. For complex Gaussian noise of power \(P_n\) the background power Doppler value has mean \(P_n (N-K)/N\) and standard deviation \(P_n\sqrt{N-K}/N\); a vessel adds \(P_b (N-K)/N\). The contrast-to-noise ratio of the power map is therefore</p>
+    <div class="eqn key" id="m29-eq13">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat P(\mathbf{r}) = \frac{1}{N}\sum_{n=1}^{N} \lvert s_f(\mathbf{r}, n)\rvert^{2}, \qquad \mathrm{CNR} = \frac{\bar P_{\mathrm{vessel}} - \bar P_{\mathrm{bg}}}{\mathrm{std}(P_{\mathrm{bg}})} \approx \frac{P_b}{P_n}\sqrt{N - K} \]</div><span class="eqn-no">(29.13)</span></div>
+      <dl class="where"><dt>\(\hat P\)</dt><dd>power Doppler value of a pixel</dd><dt>\(P_b,\ P_n\)</dt><dd>blood and noise power per sample (after compounding)</dd><dt>\(N - K\)</dt><dd>independent noise samples left after the filter</dd><dt>\(\mathbf{r},\ n\)</dt><dd>pixel position and frame index</dd><dt>\(s_f(\mathbf{r}, n)\)</dt><dd>IQ sample after clutter filtering</dd><dt>\(N,\ K\)</dt><dd>number of frames and clutter rank removed, as in (29.12)</dd><dt>\(\bar P_{\mathrm{vessel}},\ \bar P_{\mathrm{bg}}\)</dt><dd>mean power in the vessel and background regions</dd><dt>\(\mathrm{std}\)</dt><dd>standard deviation over the background region</dd><dt>\(\mathrm{CNR}\)</dt><dd>contrast-to-noise ratio, dimensionless</dd></dl>
+      <span class="note">Sensitivity grows as \(\sqrt{N}\): four times the ensemble doubles the CNR (m29_ultrafast_power_doppler.m measures ×1.98 from 100 to 400 frames). With \(P_b/P_n\) = −6 dB a vessel crosses CNR = 3 near \(N\) = 150. Coherent compounding of \(n_a\) angles adds up to \(10\log_{10} n_a\) dB to \(P_b/P_n\) on top.</span>
+    </div>
+    <p>The assumption hidden in \(\sqrt{N-K}\) is that blood decorrelates within the ensemble. Blood in a 1 mm/s microvessel at 15 MHz has a Doppler of 19.5 Hz and stays correlated for tens of milliseconds; over a 25-frame ensemble it looks as static as tissue and part of it is projected out with the clutter. The script shows this: at \(N\) = 25 the 1 mm/s vessel reaches a CNR of 0.41 against 1.2 predicted, at \(N\) = 400 it is within 16 % of theory.</p>
+    <p><strong>Functional ultrasound</strong> (Macé et al., Nature Methods 2011) uses exactly this sensitivity: ultrafast plane-wave power Doppler images transient changes of cerebral blood volume, including in vessels too small for conventional Doppler, and those changes during a stimulus (neurovascular coupling) are the functional signal. The first paper mapped whisker-evoked activity in the rat cortex and thalamus and followed the spread of epileptic seizures. ULM (Module 31) takes the same SVD-filtered data and, instead of integrating power, localizes the individual microbubbles in it.</p>
+  </div>
+
+  <div class="demo" id="m29-d5">
+    <div class="demo-head"><span class="tag">Demo 29.5</span><h3>Ultrafast power Doppler: SVD clutter filter and sensitivity versus ensemble length</h3><span class="prov sim">Simulation</span><span class="prov-note">Same model as m29_ultrafast_power_doppler.m on a 32 × 32 pixel grid (100 µm pixels): tissue speckle 40 dB above blood with non-rigid axial motion (50 µm at 3.3 Hz, ×1.5 at the bottom); four 200 µm vessels at 1, 3, 10 and 30 mm/s (Gaussian Doppler spectra); noise 6 dB above blood; 15 MHz, 1 kHz frames. Top singular components by subspace iteration on \(\mathbf{S}^{H}\mathbf{S}\) with Rayleigh–Ritz, JS.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m29-d5-cv" aria-label="Power Doppler map, singular spectrum and CNR versus ensemble length"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>singular power, kept</span><span><i style="background:var(--sig2)"></i>removed as clutter</span><span><i style="background:var(--muted)"></i>theory (P<sub>b</sub>/P<sub>n</sub>)√(N − K)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m29-d5-n">Ensemble length N</label><select id="m29-d5-n"><option value="32">32 frames (32 ms)</option><option value="64">64 frames</option><option value="128" selected>128 frames</option><option value="256">256 frames (256 ms)</option></select></div>
+        <div class="ctrl"><label for="m29-d5-k">Components removed K <output id="m29-d5-k-out">4</output></label><input type="range" id="m29-d5-k" min="0" max="10" step="1" value="4"></div>
+        <div class="ctrl"><label for="m29-d5-f">Clutter filter</label><select id="m29-d5-f"><option value="svd" selected>SVD (remove first K)</option><option value="hp">FFT high-pass, |f| &gt; 75 Hz</option></select></div>
+        <div class="readout" id="m29-d5-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> K = 0: tissue swamps everything. K = 2–4: four vessels appear; compare the map at N = 32 and N = 256. Push K to 10: the background barely changes, but at N = 32 the slow vessels fade (their energy shares the first components). Switch to the high-pass: the motion is not periodic in the ensemble, so its spectrum leaks through the rectangular window and the map is flooded.</div>
+  </div>
+
+  <!-- ======================= 29.7 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">29.7</span>Vector flow: measuring the component the beam cannot see</h2>
+    <p>Every estimator so far measures \(v\cos\theta\). Flow perpendicular to the beam gives zero Doppler, and the operator's angle correction assumes the flow direction is known (parallel to the vessel wall), which fails in bifurcations, stenoses, aneurysms and the heart. Vector flow imaging measures two (or three) components. Four families, reviewed by Jensen, Nikolov, Yu and Garcia (IEEE TUFFC 2016):</p>
+    <ul>
+      <li><strong>Multi-angle (cross-beam) Doppler.</strong> Transmit and/or receive from \(K \ge 2\) directions; each pair \((\alpha_k, \beta_k)\) measures a different projection of the velocity:
+      <div class="eqn key" id="m29-eq14">
+        <div class="eqn-body"><div class="eqn-math">\[ f_k = -\frac{f_0}{c}\Big[(\sin\alpha_k + \sin\beta_k)\,v_x + (\cos\alpha_k + \cos\beta_k)\,v_z\Big], \qquad \hat{\mathbf{v}} = (\mathbf{A}^{T}\mathbf{A})^{-1}\mathbf{A}^{T}\hat{\mathbf{f}}, \quad \mathrm{Cov}(\hat{\mathbf{v}}) = \sigma_f^{2}(\mathbf{A}^{T}\mathbf{A})^{-1} \]</div><span class="eqn-no">(29.14)</span></div>
+        <dl class="where"><dt>\(\alpha_k,\ \beta_k\)</dt><dd>transmit and receive steering angles of pair \(k\) (from the array normal)</dd><dt>\(v_x,\ v_z\)</dt><dd>lateral and axial velocity (z downward, so \(v_z &lt; 0\) is toward the probe), m/s</dd><dt>\(\mathbf{A}\)</dt><dd>\(K\times 2\) matrix of the bracketed coefficients times \(-f_0/c\)</dd><dt>\(\sigma_f\)</dt><dd>standard deviation of each Doppler estimate, Hz</dd><dt>\(f_0,\ c\)</dt><dd>as in (29.1)</dd><dt>\(f_k\)</dt><dd>Doppler shift measured for pair \(k\), Hz</dd><dt>\(k\)</dt><dd>index of the transmit/receive angle pair, \(1\dots K\)</dd><dt>\(\hat{\mathbf{v}},\ \hat{\mathbf{f}}\)</dt><dd>estimated velocity vector \((v_x, v_z)\) and the vector of measured shifts \(f_k\)</dd><dt>\(\mathrm{Cov}\)</dt><dd>covariance matrix</dd><dt>\((\cdot)^{T},\ (\cdot)^{-1}\)</dt><dd>transpose, matrix inverse</dd></dl>
+        <span class="note">With \(\alpha = \beta = 0\) it reduces to <span class="eqref">(29.1)</span>. For two symmetric pairs at \(\pm\gamma\) (transmit = receive), \(\mathbf{A}^{T}\mathbf{A}\) is diagonal and \(\sigma_{v_x}/\sigma_{v_z} = \cot\gamma\): 5.67 at 10°, 2.75 at 20°. Receiving at 0° only gives \(\cot(\gamma/2)\), twice as bad.</span>
+      </div></li>
+      <li><strong>Transverse oscillation</strong> (Jensen and Munk 1998; Anderson 1998). A receive apodization with two peaks separated by \(d\) produces a field that oscillates laterally with wavelength</li>
+    </ul>
+    <div class="eqn" id="m29-eq15">
+      <div class="eqn-body"><div class="eqn-math">\[ \lambda_x = \frac{2\lambda z}{d} \]</div><span class="eqn-no">(29.15)</span></div>
+      <dl class="where"><dt>\(\lambda_x\)</dt><dd>lateral oscillation wavelength, m</dd><dt>\(z\)</dt><dd>depth, m</dd><dt>\(d\)</dt><dd>separation of the two apodization peaks, m</dd><dt>\(\lambda\)</dt><dd>wavelength, m</dd></dl>
+      <span class="note">5 MHz, \(z\) = 30 mm, \(d\) = 10 mm: \(\lambda_x\) = 1.85 mm (m29_vector_flow_multiangle.m measures 1.849 mm from the Fraunhofer field). A lateral motion then rotates the phase of the lateral signal, and a Kasai-type estimator on two quadrature beams returns \(v_x\). Because \(\lambda_x \gg \lambda\), the lateral estimate is noisier and aliases later.</span>
+    </div>
+    <ul>
+      <li><strong>Speckle tracking.</strong> 2D block matching between frames (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 11</a>), angle independent but limited by speckle decorrelation (out-of-plane motion, shear, flow gradients) and by the frame rate; plane-wave imaging made it practical for blood.</li>
+      <li><strong>Directional beamforming and model-based methods.</strong> Beamform along the flow direction (directional cross-correlation), or combine Doppler with the continuity equation and wall boundary conditions (vector flow mapping in echocardiography).</li>
+    </ul>
+    <p>The common lesson is geometric: the lateral component is measured through an effective aperture angle (\(\gamma\) or \(d/z\)) much smaller than the 180° of the axial "aperture", so its precision is several times worse and degrades with depth. The same \(\cot\gamma\) penalty governs lateral displacement estimation in elastography and the lateral resolution of sound-speed tomography from limited angles (Module 32).</p>
+  </div>
+
+  <div class="demo" id="m29-d6">
+    <div class="demo-head"><span class="tag">Demo 29.6</span><h3>Multi-angle vector Doppler: least squares, covariance and the cot γ penalty</h3><span class="prov sim">Simulation</span><span class="prov-note">400 trials: per angle, \(N\) slow-time samples of a complex exponential at \(f_k\) with random phase plus white noise, Kasai estimate, then least-squares vector; ellipses are the theoretical 1σ and 2σ contours \(\sigma_f^{2}(\mathbf{A}^{T}\mathbf{A})^{-1}\) with the measured per-angle \(\sigma_f\). Same model as m29_vector_flow_multiangle.m: 5 MHz, transmit rate 10 kHz shared by the \(K\) angles.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m29-d6-cv" aria-label="Beam geometry and scatter of vector estimates with covariance ellipses"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>transmit directions</span><span><i style="background:var(--sig3)"></i>receive directions</span><span><i style="background:var(--sig2)"></i>true vector</span><span><i style="background:var(--ink)"></i>1σ, 2σ theory</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m29-d6-g">Angle span ±γ <output id="m29-d6-g-out">10°</output></label><input type="range" id="m29-d6-g" min="2" max="30" step="1" value="10"></div>
+        <div class="ctrl"><label for="m29-d6-k">Number of angles K <output id="m29-d6-k-out">2</output></label><input type="range" id="m29-d6-k" min="2" max="7" step="1" value="2"></div>
+        <div class="ctrl"><label for="m29-d6-m">Receive</label><select id="m29-d6-m"><option value="tx" selected>steered like transmit (β = α)</option><option value="zero">fixed at 0° (β = 0)</option></select></div>
+        <div class="ctrl"><label for="m29-d6-phi">Flow direction (from +x) <output id="m29-d6-phi-out">−27°</output></label><input type="range" id="m29-d6-phi" min="-90" max="90" step="1" value="-27"></div>
+        <div class="ctrl"><label for="m29-d6-snr">SNR per sample <output id="m29-d6-snr-out">10 dB</output></label><input type="range" id="m29-d6-snr" min="-5" max="30" step="1" value="10"></div>
+        <div class="readout" id="m29-d6-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> K = 2, ±10°, receive steered: the cloud is a long ellipse along \(v_x\), ratio 5.7. Open to ±30°: ratio 1.7. Switch receive to 0°: the ratio doubles (\(\cot(\gamma/2)\)). Turn the flow to −90° (straight toward the probe): the precision does not change, because the covariance does not depend on \(\mathbf{v}\).</div>
+  </div>
+
+  <!-- ======================= 29.8 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">29.8</span>Aliasing and unwrapping, turbulence, and the Doppler SNR budget</h2>
+    <p><strong>Recognizing aliasing in a colour map.</strong> An aliased velocity jumps from \(+v_{\mathrm{Nyq}}\) to \(-v_{\mathrm{Nyq}}\) between neighbouring pixels: the colour goes from the brightest red straight to the brightest blue. A true flow reversal passes through zero, so it goes through black. The estimate is the true velocity wrapped into one PRF,</p>
+    <div class="eqn" id="m29-eq16">
+      <div class="eqn-body"><div class="eqn-math">\[ v = \hat v + 2m\,v_{\mathrm{Nyq}}, \quad m \in \mathbb{Z}, \qquad v_{\mathrm{ext}} = \frac{\lambda}{4\,\lvert T_2 - T_1\rvert} \]</div><span class="eqn-no">(29.16)</span></div>
+      <dl class="where"><dt>\(m\)</dt><dd>unknown wrap count per pixel</dd><dt>\(T_1,\ T_2\)</dt><dd>two interleaved pulse intervals (staggered PRF), s</dd><dt>\(v_{\mathrm{ext}}\)</dt><dd>extended unambiguous velocity of the dual-PRF difference, m/s</dd><dt>\(v,\ \hat v\)</dt><dd>true velocity and aliased (wrapped) estimate, m/s</dd><dt>\(v_{\mathrm{Nyq}}\)</dt><dd>as in (29.3), m/s</dd><dt>\(\mathbb{Z}\)</dt><dd>set of integers</dd><dt>\(\lambda\)</dt><dd>wavelength at \(f_0\), m</dd><dt>\(\lvert\cdot\rvert\)</dt><dd>magnitude</dd></dl>
+      <span class="note">Spatial unwrapping chooses \(m\) so that neighbouring pixels differ by less than \(v_{\mathrm{Nyq}}\) (Itoh's condition, as in 2D phase unwrapping). Dual-PRF methods use the phase difference \(4\pi v(T_2 - T_1)/\lambda\): with \(T_2 = 1.5\,T_1\) the extended limit is \(2v_{\mathrm{Nyq},1}\).</span>
+    </div>
+    <p>Spatial unwrapping works when the velocity field is smooth over the pixel grid and the region is connected; it fails at the vessel wall (noise) and in jets narrower than a few pixels. Robust implementations unwrap along paths of high power and low variance, which is the same quality-guided strategy used for phase unwrapping in MRI and interferometry.</p>
+    <p><strong>Turbulence and spectral broadening.</strong> Disturbed flow downstream of a stenosis has a wide range of velocities in the sample volume, so its spectrum widens and the colour "variance" rises. Two other effects widen it too and must be subtracted before calling it turbulence: the geometric broadening of 29.3 (a fixed fraction \(\approx 2\alpha\tan\theta\) of \(f_D\)) and noise <span class="eqref">(29.10)</span>. A velocity gradient across the sample volume (the near-wall shear) also widens the spectrum without any turbulence.</p>
+    <p><strong>Doppler SNR budget.</strong> Blood backscatter is 20–40 dB below the surrounding tissue (Jensen, <em>Estimation of Blood Velocities Using Ultrasound</em>, 1996), so flow imaging lives near the noise floor. What buys SNR, in dB:</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Lever</th><th>Gain</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr><td>Ensemble length \(N\) (power map CNR)</td><td>\(5\log_{10}N\) in CNR (×2 per 4×)</td><td>time per frame; blood must decorrelate</td></tr>
+        <tr><td>Coherent compounding of \(n_a\) plane waves</td><td>up to \(10\log_{10}n_a\) in SNR (4.8 dB for 3)</td><td>PRF divided by \(n_a\): \(v_{\mathrm{Nyq}}\) drops</td></tr>
+        <tr><td>Longer transmit burst (\(M\) cycles)</td><td>energy ∝ \(M\): +3 dB per doubling</td><td>axial resolution, gate length</td></tr>
+        <tr><td>Spatial averaging of \(\hat R(1)\) over \(n_s\) pixels</td><td>variance of \(\hat v\) ∝ \(1/n_s\)</td><td>resolution of the colour map</td></tr>
+        <tr><td>Lower \(f_0\)</td><td>less attenuation (≈ 0.5 dB/cm/MHz one way in soft tissue)</td><td>lower \(f_D\), wider PSF; blood scattering ∝ \(f^{4}\) falls</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <div class="rf-grid" id="m29-g8"></div>
+  <!-- ======================= 29.9 Visual summary ======================= -->
+  <h2><span class="sec">29.9</span>Visual summary</h2>
+  <div class="prose"><p>Twelve questions an expert answers in five seconds. Each figure is computed from the formula or model named in its badge.</p></div>
+  <div class="rf-grid" id="m29-vis"></div>
+
+  <!-- ======================= 29.10 Rules ======================= -->
+  <h2><span class="sec">29.10</span>How experts think about it</h2>
+  <div class="prose"><p>A flow expert sees a slow-time signal per pixel, sampled at the PRF, made of a huge, slow, spatially coherent tissue component, a weak, decorrelating blood component and white noise. Every design question becomes: how many samples, at what rate, which subspace to remove, and which moment of the remaining spectrum to estimate. The angle, the Nyquist limit and the noise floor are the three things that go wrong.</p></div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">Doppler measures the projection of the velocity on the beam, not the speed.</div>
+      <div class="keynum"><span>f<sub>D</sub> = 2vf₀cosθ/c</span><span>6.49 kHz per m/s at 5 MHz</span></div>
+      <div class="why"><p>The round-trip path changes at \(2v\cos\theta\), so the phase per pulse is \(4\pi f_0 vT\cos\theta/c\) <span class="eqref">(29.1)</span>. At 90° the Doppler shift is zero whatever the speed: a vessel parallel to the array is invisible to axial Doppler unless the beams are steered. 1 m/s at 60° and 5 MHz gives 3.25 kHz.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-1" aria-label="Doppler shift versus angle for 1 m/s"></canvas></div></div>
+      <div class="limits">First order in \(v/c\) (error \(\sim 10^{-6}\)); assumes a single, known direction of motion inside the sample volume.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Never trust an angle-corrected velocity above 60°.</div>
+      <div class="keynum"><span>δv/v ≈ tanθ δθ</span><span>5° at 60° → 18 %</span></div>
+      <div class="why"><p>The correction divides by \(\cos\theta\); its derivative gives \(\tan\theta\,\delta\theta\) <span class="eqref">(29.2)</span>. The exact error \(\cos\theta/\cos(\theta+\delta\theta) - 1\) for a 5° misalignment is 5.7 % at 30°, 18.3 % at 60° and 32 % at 70°. The vessel axis, not the jet direction, is what the operator aligns, so in a stenosis the true angle is unknown anyway.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-2" aria-label="Velocity error versus angle for three misalignments"></canvas></div></div>
+      <div class="limits">Assumes the flow direction is known and uniform; vector methods (29.7) remove the assumption at the price of lateral precision.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Depth and maximum velocity trade against each other through f₀ alone.</div>
+      <div class="keynum"><span>v<sub>max</sub>z<sub>max</sub> = c²/(8f₀cosθ)</span><span>0.059 m²/s at 5 MHz</span></div>
+      <div class="why"><p>\(\mathrm{PRF} \le c/(2z)\) and \(v_{\mathrm{Nyq}} = c\,\mathrm{PRF}/(4f_0\cos\theta)\) multiply to <span class="eqref">(29.4)</span>. At 10 cm and 3 MHz the limit is 0.99 m/s; a 4 m/s aortic jet at 10 cm would need \(f_0\) = 0.74 MHz. Baseline shift buys at most a factor 2; beyond that, CW or high-PRF.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-3" aria-label="Range-velocity hyperbolas for three frequencies"></canvas></div></div>
+      <div class="limits">Ignores the time for the beam to settle and multi-line interleaving, which lower the usable PRF further; high-PRF mode accepts range ambiguity to exceed it.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Aliasing wraps the velocity, it never clips it.</div>
+      <div class="keynum"><span>v̂ = v − 2m v<sub>Nyq</sub></span><span>bright red next to bright blue</span></div>
+      <div class="why"><p>The estimator returns a phase in \((-\pi, \pi]\), so a velocity of 1.3 \(v_{\mathrm{Nyq}}\) reads −0.7 \(v_{\mathrm{Nyq}}\). In a colour map the alias boundary joins the two brightest colours; a real reversal passes through black. A baseline shift moves the window (figure: shifted by +0.4 PRF), it does not widen it.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-4" aria-label="Wrapped velocity estimate with and without baseline shift"></canvas></div></div>
+      <div class="limits">Exact for the phase estimator; spectral displays wrap the whole spectrum, so a broad spectrum aliases before its mean does.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Poiseuille flow under a uniform beam gives a flat spectrum whose mean is half the peak.</div>
+      <div class="keynum"><span>mean = f<sub>D,max</sub>/2</span><span>thin beam or blunt: mean 2/3</span></div>
+      <div class="why"><p>With \(v = v_{\max}(1 - r^{2}/a^{2})\), the area element \(2\pi r\,dr\) is proportional to \(dv\), so every velocity is equally represented <span class="eqref">(29.5)</span>. A thin elevation beam samples one diameter (\(dv \propto u\,du\)) and gives density \(\propto 1/\sqrt{1 - v/v_{\max}}\), rising to the peak; a blunted \(1 - (r/a)^{4}\) profile under a wide beam gives the same density. Volume flow = mean velocity × area only when the whole lumen is uniformly insonated.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-5" aria-label="Spectral density for plug, parabolic and thin-beam or blunted cases"></canvas></div></div>
+      <div class="limits">Steady laminar flow; ignores broadening, the gate weighting and the wall filter, which removes the slow end.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Spectral broadening is a fixed fraction of the Doppler shift, set by the aperture and tanθ.</div>
+      <div class="keynum"><span>f<sub>D</sub>(1 ± α tanθ)</span><span>F# 2, 60° → 1.39 f<sub>D</sub></span></div>
+      <div class="why"><p>Each transmit–receive element pair sees the scatterer at a slightly different angle <span class="eqref">(29.6)</span>. With \(\alpha = \arctan(1/2F_{\#})\) = 14° and \(\theta\) = 60° the edge is at \(\cos 46°/\cos 60°\) = 1.39 \(f_D\). The spectral-envelope "peak velocity" overestimates by up to that factor; vendors calibrate it out, which is why peak velocities differ between scanners.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-6" aria-label="Broadened spectral edge versus angle for three F-numbers"></canvas></div></div>
+      <div class="limits">Uniform angular weighting across the aperture; the transit-time picture gives the same scaling (Newhouse et al. 1980).</div>
+    </div>
+    <div class="rule">
+      <div class="say">The phase of R(1) is the mean velocity; its magnitude is the spectral width.</div>
+      <div class="keynum"><span>|R(1)|/R(0) = e<sup>−(2πσ<sub>f</sub>T)²/2</sup></span><span>σ<sub>f</sub> = 150 Hz, 4 kHz → 0.97</span></div>
+      <div class="why"><p>\(R(T)\) is the Fourier transform of the Doppler spectrum evaluated at one lag. For a Gaussian spectrum its phase is \(2\pi\bar f T\) and its magnitude falls as a Gaussian in \(\sigma_f T\) <span class="eqref">(29.10)</span>. The variance estimate is useful only while \(\sigma_f T\) is small but not negligible: at PRF 4 kHz a 150 Hz width moves \(\lvert R(1)\rvert/R(0)\) by just 3 %, so a small bias in \(R(0)\) (noise) dominates.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-7" aria-label="Normalized lag-one correlation versus spectral width for two PRFs"></canvas></div></div>
+      <div class="limits">Gaussian spectrum; for skewed spectra the phase is close to, but not exactly, the mean.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Kasai is biased by the mean RF frequency of the echo; Loupas measures it on the same data.</div>
+      <div class="keynum"><span>bias = f̄<sub>RF</sub>/f<sub>dem</sub> − 1</span><span>4.5 vs 5 MHz → −10 %</span></div>
+      <div class="why"><p>The Doppler phase per pulse is \(4\pi f vT/c\) at every frequency in the echo band, so the measured phase is set by the mean RF frequency, which attenuation pulls below \(f_0\) in proportion to depth, attenuation slope and the square of the bandwidth (Module 27). Loupas divides by \(f_{\mathrm{dem}} + (f_s/2\pi)\arg R(1,0)\) <span class="eqref">(29.9)</span>. Figure: m29_kasai_loupas.m, 400 trials each.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Octave output of m29_kasai_loupas.m (moving speckle, M = 8 depth samples, SNR 20 dB, σ<sub>v</sub> = 0.02 m/s); bars ±1 std</span><canvas id="m29-rf-8" aria-label="Kasai and Loupas mean estimates versus ensemble length"></canvas></div></div>
+      <div class="limits">The bias grows with depth (more downshift) and differs between tissue and blood; Loupas assumes the mean RF frequency is constant over the depth block.</div>
+    </div>
+    <div class="rule">
+      <div class="say">White noise looks like turbulence in a variance map.</div>
+      <div class="keynum"><span>× SNR/(1 + SNR)</span><span>10 dB: 150 → 306 Hz</span></div>
+      <div class="why"><p>Noise adds power to \(R(0)\) and nothing to \(R(1)\) (it is white), so \(\lvert R(1)\rvert/R(0)\) shrinks by \(\mathrm{SNR}/(1+\mathrm{SNR})\) and the width estimate grows <span class="eqref">(29.10)</span>. Figure: apparent versus true width at PRF 4 kHz. At 10 dB SNR the floor alone (true width zero) is 271 Hz; any width below that is unmeasurable. Subtracting an estimate of the noise power from \(R(0)\) removes most of the bias.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-9" aria-label="Apparent spectral width versus true width at three SNRs"></canvas></div></div>
+      <div class="limits">Large-N limit; short ensembles add their own positive bias (the demo shows it).</div>
+    </div>
+    <div class="rule">
+      <div class="say">A regression wall filter of order p cuts at about (0.44 + 0.41p) PRF/N.</div>
+      <div class="keynum"><span>N = 12, 2 kHz: 75, 145, 210, 278 Hz</span><span>v<sub>min</sub> ∝ PRF/N</span></div>
+      <div class="why"><p>Projecting out \(p+1\) polynomials removes a band around DC whose width scales as PRF/N <span class="eqref">(29.11)</span>. Each order adds about 0.41 PRF/N of cutoff and about 20–25 dB of stop-band depth at low frequency (figure, computed). To lower \(v_{\min}\) without losing rejection, lengthen \(N\), not lower \(p\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-10" aria-label="Regression filter responses for orders 0 to 3"></canvas></div></div>
+      <div class="limits">Fit from N = 8–32; regression filters have no transient but are not shift-invariant, so the response is an average over the ensemble.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Tissue is low rank in the Casorati matrix; blood and noise are not.</div>
+      <div class="keynum"><span>K ≈ 2–6</span><span>σ₁²/floor ≈ 55 dB</span></div>
+      <div class="why"><p>An organ moving as a whole gives every pixel the same temporal signature (up to a slowly varying gain), so it occupies a few temporal singular vectors <span class="eqref">(29.12)</span>; blood speckle in different vessels decorrelates independently and spreads over all \(N\). Figure: the Demo 29.5 model at \(N\) = 128, four components 20–55 dB above a flat floor.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Ritz values from Demo 29.5 (JS), N = 128</span><canvas id="m29-rf-11" aria-label="Singular value spectrum of a simulated ensemble"></canvas></div></div>
+      <div class="limits">Large or non-rigid motion, out-of-plane motion and big fields of view raise the clutter rank; block-wise (local) SVD restores low rank.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Power Doppler sensitivity grows as the square root of the ensemble.</div>
+      <div class="keynum"><span>CNR ≈ (P<sub>b</sub>/P<sub>n</sub>)√(N − K)</span><span>4× N → 2× CNR</span></div>
+      <div class="why"><p>The background power estimate is an average of \(N - K\) independent exponential variables: its standard deviation falls as \(1/\sqrt{N-K}\) while the vessel's excess power stays <span class="eqref">(29.13)</span>. Figure: m29_ultrafast_power_doppler.m for the 10 mm/s vessel (dots) against theory (dashed): 1.23, 1.54, 2.61, 3.44, 4.68 for \(N\) = 25 … 400.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Octave output of m29_ultrafast_power_doppler.m; dashed: 0.251 √(N − K)</span><canvas id="m29-rf-12" aria-label="CNR versus ensemble length, simulation and theory"></canvas></div></div>
+      <div class="limits">Needs blood that decorrelates within the ensemble and tissue motion that stays in the clutter subspace; acquisition time and data rate cap \(N\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Slow blood must decorrelate inside the ensemble before any filter can separate it.</div>
+      <div class="keynum"><span>N ≳ PRF/f<sub>D</sub></span><span>1 mm/s, 15 MHz: N ≳ 50 at 1 kHz</span></div>
+      <div class="why"><p>A signal at \(f_D\) completes one phase turn in \(\mathrm{PRF}/f_D\) samples. Over a shorter ensemble it is nearly constant and lies in the same temporal subspace as static tissue; SVD projects part of it out and a high-pass removes it entirely. Figure: \(\mathrm{PRF}/f_D\) versus speed at 15 MHz and 1 kHz. The script shows the consequence: the 1 mm/s vessel reaches CNR 0.41 at \(N\) = 25 against 1.2 predicted.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">one-turn criterion; real decorrelation also depends on the spectral width</span><canvas id="m29-rf-13" aria-label="Minimum ensemble length versus blood speed"></canvas></div></div>
+      <div class="limits">Order-of-magnitude criterion; spectral broadening and transit time help slow vessels decorrelate earlier.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The lateral velocity component costs cot γ in precision.</div>
+      <div class="keynum"><span>σ<sub>vx</sub>/σ<sub>vz</sub> = cot γ</span><span>±10° → 5.7, receive at 0° → 11.4</span></div>
+      <div class="why"><p>Two symmetric pairs at \(\pm\gamma\) give rows \(-(2f_0/c)[\pm\sin\gamma, \cos\gamma]\); \(\mathbf{A}^{T}\mathbf{A}\) is diagonal with \(2\sin^{2}\gamma\) and \(2\cos^{2}\gamma\) <span class="eqref">(29.14)</span>. With receive fixed at 0° the rows are \([\pm\sin\gamma, 1 + \cos\gamma]\) and the ratio is \(\cot(\gamma/2)\). m29_vector_flow_multiangle.m reproduces 5.66 at 10° (theory 5.67).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-14" aria-label="Lateral to axial precision ratio versus angle span"></canvas></div></div>
+      <div class="limits">Equal noise per angle; more angles across the same span lower both errors, but spreading them uniformly raises the ratio to about \(\cot\gamma\sqrt{3(K-1)/(K+1)}\) for small \(\gamma\) (1.41 cot γ for \(K\) = 5): only the outermost angles carry lateral information.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Transverse oscillation trades lateral wavelength for depth: λ<sub>x</sub> = 2λz/d.</div>
+      <div class="keynum"><span>5 MHz, 30 mm, d = 10 mm → 1.85 mm</span><span>λ<sub>x</sub>/λ = 6</span></div>
+      <div class="why"><p>The receive field in the focal plane is the Fourier transform of the apodization: two peaks at \(\pm d/2\) give \(\cos(\pi x d/\lambda z)\) under an envelope, a lateral period of \(2\lambda z/d\) <span class="eqref">(29.15)</span>; the unapodized transmit beam only sets the envelope. A longer \(\lambda_x\) means a smaller lateral phase change per unit motion, so lateral estimates are noisier, alias later, and degrade linearly with depth.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-15" aria-label="Lateral oscillation wavelength versus depth for three peak separations"></canvas></div></div>
+      <div class="limits">Fraunhofer (focal-plane) approximation; dynamic receive apodization keeps \(d/z\) constant to hold \(\lambda_x\) fixed.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Compounding n plane waves buys up to 10 log n dB of SNR and costs a factor n in Nyquist velocity.</div>
+      <div class="keynum"><span>3 angles: +4.8 dB, v<sub>Nyq</sub>/3</span><span>frame rate = PRF/n</span></div>
+      <div class="why"><p>Coherent summation of \(n\) echoes with independent noise raises signal power \(n^{2}\) and noise power \(n\). The compounded frame rate, which is the slow-time sampling rate of ultrafast Doppler, is PRF/\(n\), so \(v_{\mathrm{Nyq}}\) falls by \(n\). Motion during the \(n\) transmits adds a phase error, another reason to keep \(n\) small for fast flow.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m29-rf-16" aria-label="SNR gain and Nyquist velocity versus number of compounded angles"></canvas></div></div>
+      <div class="limits">Upper bound: assumes perfect coherence between angles (no aberration or motion); sound-speed errors reduce the gain (Module 32).</div>
+    </div>
+  </div>
+
+  <!-- ======================= 29.11 Cheat sheet ======================= -->
+  <h2><span class="sec">29.11</span>Cheat sheet</h2>
+  <div class="tbl-wrap"><table><thead><tr><th>Concept</th><th>Formula</th><th>Ultrasound use</th></tr></thead><tbody>
+    <tr><td>Doppler equation</td><td>\(f_D = 2vf_0\cos\theta/c\)</td><td>6.49 kHz per m/s at 5 MHz, \(\theta\) = 0</td></tr>
+    <tr><td>Angle error</td><td>\(\delta v/v \approx \tan\theta\,\delta\theta\)</td><td>keep \(\theta \le 60°\)</td></tr>
+    <tr><td>Nyquist velocity</td><td>\(v_{\mathrm{Nyq}} = c\,\mathrm{PRF}/(4f_0\cos\theta)\)</td><td>0.308 m/s at 5 MHz, 4 kHz</td></tr>
+    <tr><td>Depth limit</td><td>\(z_{\max} = c/(2\,\mathrm{PRF})\)</td><td>19.3 cm at 4 kHz</td></tr>
+    <tr><td>Range–velocity product</td><td>\(v_{\max}z_{\max} = c^{2}/(8f_0\cos\theta)\)</td><td>choose \(f_0\) for deep fast flow</td></tr>
+    <tr><td>Poiseuille spectrum</td><td>flat on \([0, f_{D,\max}]\), mean \(f_{D,\max}/2\)</td><td>volume flow from mean velocity</td></tr>
+    <tr><td>Geometric broadening</td><td>\(f_D\cos(\theta \mp \alpha)/\cos\theta\)</td><td>peak-velocity overestimate</td></tr>
+    <tr><td>STFT resolution</td><td>\(\Delta f \approx 2\,\mathrm{PRF}/N_w\), \(\Delta t = N_w/\mathrm{PRF}\)</td><td>spectrogram window choice</td></tr>
+    <tr><td>Kasai</td><td>\(\hat v = \frac{c\,\mathrm{PRF}}{4\pi f_0}\arg\hat R(1)\)</td><td>colour flow velocity</td></tr>
+    <tr><td>Loupas</td><td>divide by \(f_{\mathrm{dem}} + \frac{f_s}{2\pi}\arg\hat R(1,0)\)</td><td>removes RF downshift bias</td></tr>
+    <tr><td>Spectral width</td><td>\(\hat\sigma_\omega^{2} = \frac{2}{T^{2}}(1 - \lvert\hat R(1)\rvert/\hat R(0))\)</td><td>variance (turbulence) map; noise-biased</td></tr>
+    <tr><td>Regression wall filter</td><td>\(f_{-3\,\mathrm{dB}} \approx (0.44 + 0.41p)\,\mathrm{PRF}/N\)</td><td>colour-flow clutter rejection</td></tr>
+    <tr><td>SVD clutter filter</td><td>\(\mathbf{S}_f = \mathbf{S}(\mathbf{I} - \mathbf{V}_K\mathbf{V}_K^{H})\)</td><td>ultrafast Doppler, fUS, ULM</td></tr>
+    <tr><td>Power Doppler CNR</td><td>\((P_b/P_n)\sqrt{N - K}\)</td><td>ensemble length design</td></tr>
+    <tr><td>Multi-angle vector</td><td>\(\hat{\mathbf{v}} = (\mathbf{A}^{T}\mathbf{A})^{-1}\mathbf{A}^{T}\hat{\mathbf{f}}\); ratio \(\cot\gamma\)</td><td>vector flow, angle-free velocity</td></tr>
+    <tr><td>Transverse oscillation</td><td>\(\lambda_x = 2\lambda z/d\)</td><td>lateral velocity from one beam pair</td></tr>
+    <tr><td>Dual PRF</td><td>\(v_{\mathrm{ext}} = \lambda/(4\lvert T_2 - T_1\rvert)\)</td><td>anti-aliasing</td></tr>
+  </tbody></table></div>
+
+  <!-- ======================= 29.12 Interview ======================= -->
+  <h2><span class="sec">29.12</span>Interview and qualifying-exam questions</h2>
+  <details class="quiz"><summary><span class="q">I1</span><span>Where does the factor 2 in the Doppler equation come from, and how large is the shift for carotid flow? <span class="muted">· screen</span></span></summary><div class="a"><p>The scatterer is a moving receiver on the way in and a moving source on the way back, so the path changes at \(2v\cos\theta\) and the echo phase rotates at \(f_D = 2vf_0\cos\theta/c\). For 1 m/s peak systolic flow at 60° and 5 MHz: 3.25 kHz. Follow-up: "is it a frequency shift of the echo?" In PW it is a phase change from pulse to pulse, sampled at the PRF; the shift of the RF spectrum within one pulse (\(v/c \approx 10^{-3}\)) is far below the bandwidth and is not what is measured.</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>Why does PW Doppler alias and CW not? Give the maximum unaliased velocity for a carotid at 3 cm, 5 MHz, 60°. <span class="muted">· screen</span></span></summary><div class="a"><p>PW samples the slow-time signal at the PRF; CW demodulates continuously. \(\mathrm{PRF}_{\max} = c/(2z)\) = 25.7 kHz at 3 cm, so \(v_{\max} = c^{2}/(8f_0\cos\theta\,z)\) = 3.95 m/s <span class="eqref">(29.4)</span>: no problem for a normal carotid, but a severe stenosis jet can exceed it. Follow-up: "what if the gate were at 15 cm?" 0.79 m/s; use baseline shift, lower \(f_0\), high-PRF or CW.</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>Sketch the Doppler spectrum of laminar flow in a vessel and explain why the maximum-velocity envelope overestimates. <span class="muted">· onsite</span></span></summary><div class="a"><p>Uniform insonation of a parabolic profile gives a flat spectrum from 0 to \(f_{D,\max}\) (equal area per velocity bin); a thin beam or a central gate tilts it toward the maximum. The aperture spreads each velocity over \(f_D[\cos(\theta + \alpha), \cos(\theta - \alpha)]/\cos\theta\): at F# 2 and 60° the edge reaches 1.39 \(f_{D,\max}\), so an envelope tracer reads 20–40 % high. The mean is unbiased to first order. Follow-up: "how would you correct it?" Calibrate the envelope for the aperture, use a smaller receive aperture, or use the mean.</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>Derive the Kasai estimator. Why is it the mean frequency, and when is it biased? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(R(T) = E[z_{n+1}z_n^{*}] = \int S(f)e^{j2\pi fT}df\); for a spectrum symmetric about \(\bar f\), \(R(T) = e^{j2\pi\bar fT}\int S(f')\cos(2\pi f'T)\,df'\), so \(\arg R(T) = 2\pi\bar fT\) <span class="eqref">(29.8)</span>. Biases: asymmetric spectra (small), clutter residue (pulls toward tissue), aliasing, and the RF downshift: using \(f_{\mathrm{dem}}\) instead of the mean RF frequency scales \(\hat v\) by \(\bar f_{\mathrm{RF}}/f_{\mathrm{dem}}\), −10 % for 4.5 vs 5 MHz. Follow-up: Loupas 2D autocorrelation <span class="eqref">(29.9)</span>, which also lowers the variance by normalizing each estimate by the local mean RF frequency of the same block (depth averaging of \(\hat R(1)\) helps both estimators).</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>The variance map lights up in a vein with laminar flow. What is going on? <span class="muted">· onsite</span></span></summary><div class="a"><p>Low SNR: noise is white, adds to \(R(0)\) only and reduces \(\lvert R(1)\rvert/R(0)\) by \(\mathrm{SNR}/(1+\mathrm{SNR})\) <span class="eqref">(29.10)</span>. At PRF 4 kHz and 10 dB SNR a 150 Hz spectrum reads 306 Hz. Slow venous flow is also close to the wall filter, which shapes the residual spectrum. Fixes: subtract a noise estimate from \(R(0)\), threshold the variance by power, average over more samples. Follow-up: geometric broadening and shear also widen the spectrum without turbulence.</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>Design a wall filter: N = 10, PRF 3 kHz, 5 MHz, tissue moving at 5 mm/s, clutter 40 dB above blood. <span class="muted">· onsite</span></span></summary><div class="a"><p>Tissue Doppler is 32.5 Hz. Regression filters attenuate it by 14 dB (\(p\) = 0), 36 dB (\(p\) = 1) and 61 dB (\(p\) = 2), so \(p\) = 2 is needed to bring the residue below blood. Its cutoff is 380 Hz (rule: 378 Hz), i.e. flow slower than 0.117 m/s along a vessel at 60° is lost. To recover slow flow: longer \(N\) (cutoff ∝ PRF/N), or a lower PRF if the Nyquist limit allows, or an adaptive (SVD, eigen) filter. Follow-up: "why not an IIR filter?" Its transient eats most of a 10-sample ensemble unless it is initialized (projection initialization).</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>Why does an SVD filter beat a high-pass filter for microvascular imaging, and how do you pick K? <span class="muted">· research</span></span></summary><div class="a"><p>Slow microvascular flow and tissue motion overlap in Doppler frequency (1 mm/s at 15 MHz is 19.5 Hz, breathing and pulsatility give tens of Hz), so no frequency cutoff separates them. They differ in space: tissue moves coherently and is low rank in the Casorati matrix, blood is not <span class="eqref">(29.12)</span>. A short-ensemble high-pass also leaks motion through the window sidelobes (m29_ultrafast_power_doppler.m: background 11.5 dB above noise). K: from the knee of the singular spectrum, from the spatial similarity of singular vectors (Baranger et al.), or by a power threshold; too small leaves flash, too large removes slow blood that has not decorrelated. Follow-up: large fields with non-uniform motion need block-wise SVD; the noise subspace can also be cut at the high end.</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>Derive how power Doppler sensitivity scales with ensemble length. What stops you from making N arbitrarily large? <span class="muted">· research</span></span></summary><div class="a"><p>The background value is a mean of \(N - K\) exponential variables: mean \(P_n\), relative spread \(1/\sqrt{N-K}\); hence \(\mathrm{CNR} \approx (P_b/P_n)\sqrt{N-K}\) <span class="eqref">(29.13)</span>, ×2 per ×4 in \(N\). Limits: the stationarity of the scene (motion moves vessels between pixels and raises the clutter rank), the temporal resolution needed (fUS wants a power value every 0.2–1 s), data rate and memory (\(P\times N\) complex samples per block) and SVD cost (\(\propto PN^{2}\)). Follow-up: compounding adds \(10\log_{10}n_a\) dB to \(P_b/P_n\) at the cost of frame rate.</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>How does cross-beam vector Doppler work, and why is the lateral component noisier? Compare with transverse oscillation. <span class="muted">· onsite</span></span></summary><div class="a"><p>Each beam pair measures a projection \(f_k\) <span class="eqref">(29.14)</span>; least squares gives \(\mathbf{v}\) with covariance \(\sigma_f^{2}(\mathbf{A}^{T}\mathbf{A})^{-1}\). For \(\pm\gamma\) the lateral row coefficient is \(\propto\sin\gamma\), the axial \(\propto\cos\gamma\): ratio \(\cot\gamma\), 5.7 at 10°. Transverse oscillation creates a lateral wavelength \(\lambda_x = 2\lambda z/d\) (1.85 mm at 30 mm with \(d\) = 10 mm, six times \(\lambda\)), so the lateral phase per unit motion is six times smaller, the same geometric penalty in another form. Follow-up: both degrade with depth because the usable angle shrinks as \(d/z\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>How do sound-speed errors and aberration enter Doppler, and how is Doppler used in ULM? <span class="muted">· research</span></span></summary><div class="a"><p>\(v = cf_D/(2f_0\cos\theta)\) scales with the assumed \(c\) (a 3 % error is a 3 % velocity error), refraction changes the true \(\theta\), and defocusing (wrong \(c\), aberrating layers) widens the beam, so more angles contribute (more broadening) and the compounded SNR drops (Modules 32, 33). Phase aberration that is constant over the ensemble cancels in \(\arg R(1)\), which is why Doppler is robust to it while B-mode is not. In ULM the SVD filter of 29.6 isolates bubbles; the sign of the bubble's Doppler (or the direction of its track) separates up- and down-going flow, and track velocities give the velocity maps. Follow-up: motion between compounded angles creates a velocity-dependent phase error that biases both Doppler and ULM localization.</p></div></details>
+
+  <!-- ======================= 29.13 MATLAB ======================= -->
+  <h2><span class="sec">29.13</span>MATLAB lab</h2>
+  <div class="prose"><p class="code-note">Base MATLAB only (no toolboxes); each script runs as-is in MATLAB R2019b+ and GNU Octave 8. Paste into the editor and press Run.</p></div>
+  <details class="code">
+    <summary><span class="fname">m29_doppler_spectrum_profile.m</span><button class="copy" type="button">Copy</button><span class="what">Doppler spectrum of plug, parabolic and blunted profiles; gate and elevation beam; geometric broadening; simulated periodogram; STFT resolution · change θ, vmax, F#, gate, Nw · runtime ≈ 4 s</span></summary>
+    <pre><code data-file="matlab/m29_doppler_spectrum_profile.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> \(f_{D,\max}\) = 2597 Hz; mean frequency 1.000, 0.500 and 0.667 \(f_{D,\max}\) for plug, parabolic and blunted; with a thin beam and a 30 % gate the mean is 0.970 and the minimum 0.910; at F# 2 the broadened extent is 1.390 \(f_{D,\max}\) (linear 1.424), the −20 dB edge 1.336, an apparent \(v_{\max}\) of 1.07 m/s for a true 0.80; Hann STFT at PRF 5 kHz: 79.3 Hz −6 dB width for \(N_w\) = 128 (25.6 ms).</p></div>
+  <details class="code">
+    <summary><span class="fname">m29_kasai_loupas.m</span><button class="copy" type="button">Copy</button><span class="what">Kasai versus Loupas on moving speckle with an RF downshift; variance estimate and its noise bias; aliasing curve · change fc, N, M, SNR, σv · runtime ≈ 7 s</span></summary>
+    <pre><code data-file="matlab/m29_kasai_loupas.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> for \(v\) = 0.15 m/s Kasai reads 0.134–0.136 m/s (−9.6 to −10.4 %, expected −10.0 %) and Loupas 0.150 m/s (within 0.3 %); the standard deviation falls from 0.018 to 0.012 m/s (Kasai) and 0.014 to 0.010 m/s (Loupas) between \(N\) = 4 and 16; the width estimate of a 150 Hz spectrum reads 153, 187, 347 and 658 Hz at 40, 20, 10 and 0 dB SNR, against 149, 173, 306 and 645 Hz predicted.</p></div>
+  <details class="code">
+    <summary><span class="fname">m29_color_flow_wallfilter.m</span><button class="copy" type="button">Copy</button><span class="what">Colour-flow frame: regression wall filters p = 0–3, Kasai velocity, power threshold, normalized variance; measured cutoffs against the rule · change p, N, PRF, CBR, vt · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m29_color_flow_wallfilter.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> cutoffs 75, 145, 210, 278 Hz (rule 73, 142, 210, 278); residual clutter-to-blood 26.7, 6.9, −16.3, −42.0 dB for \(p\) = 0 … 3; flash outside the vessel 100, 99.2, 27.4, 1.8 %; mean velocity error 81, 58, 6.2 and 7.3 mm/s; normalized variance 0.10 at the lumen centre, 0.35 at the edge and 0.71 in noise.</p></div>
+  <details class="code">
+    <summary><span class="fname">m29_ultrafast_power_doppler.m</span><button class="copy" type="button">Copy</button><span class="what">SVD clutter filter of a simulated ultrafast ensemble, power Doppler CNR versus N against √(N − K), SVD versus FFT high-pass · change Am, CBRdB, BNRdB, fcut, vessel speeds · runtime ≈ 5 s</span></summary>
+    <pre><code data-file="matlab/m29_ultrafast_power_doppler.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> clutter rank \(K\) = 4 at \(N\) = 400 (first four components hold 99.9993 % of the tissue energy, \(\sigma_1^{2}\) 58.5 dB above the median); CNR of the 10 mm/s vessel 1.23, 1.54, 2.61, 3.44, 4.68 for \(N\) = 25, 50, 100, 200, 400 against 1.20, 1.74, 2.47, 3.52, 5.00; mean ratio 1.98 from 100 to 400 frames; the 1 mm/s vessel lags at small \(N\) (0.41 at 25); at \(N\) = 200 the SVD background is 0.99 × noise and the high-pass background 11.5 dB above noise, with no vessel detectable.</p></div>
+  <details class="code">
+    <summary><span class="fname">m29_vector_flow_multiangle.m</span><button class="copy" type="button">Copy</button><span class="what">Multi-angle Doppler vectors: Monte Carlo against the least-squares covariance, cot γ and cot(γ/2) laws, transverse-oscillation wavelength from the Fraunhofer field · change γ, K, mode, SNR, N · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m29_vector_flow_multiangle.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> Monte Carlo and covariance standard deviations agree to the second digit; for \(K\) = 2 with steered receive the ratio is 11.34, 5.66, 2.82, 1.68 at 5, 10, 20, 30° (cot γ: 11.43, 5.67, 2.75, 1.73), and with receive at 0° 22.83, 11.41, 5.56, 3.65 (cot(γ/2)); five angles spread uniformly over the same span lower both standard deviations but raise the ratio to about 1.4 cot γ (8.03 at 10°), because the inner angles add little lateral information; \(\lambda_x\) = 1.231, 1.849, 2.466 mm at 20, 30, 40 mm (theory 1.232, 1.848, 2.464).</p></div>
+
+  <!-- ======================= 29.14 Self-check ======================= -->
+  <h2><span class="sec">29.14</span>Self-check</h2>
+  <details class="quiz"><summary><span class="q">Q1</span><span>7.5 MHz, θ = 45°, measured \(f_D\) = 2 kHz. What is v?</span></summary><div class="a"><p>\(v = cf_D/(2f_0\cos\theta)\) \(= 1540 \times 2000\,/\,(2 \times 7.5\times 10^{6} \times 0.707)\) = 0.29 m/s.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>A gate at 8 cm, 3.5 MHz, θ = 0. Maximum PRF and unaliased velocity?</span></summary><div class="a"><p>\(\mathrm{PRF}_{\max} = c/(2z)\) = 9.63 kHz; \(v_{\max} = c^{2}/(8f_0 z)\) = 1540²/(8 × 3.5 × 10⁶ × 0.08) = 1.06 m/s.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>Plug versus parabolic flow, same centreline speed: which has the higher mean Doppler frequency under uniform insonation, and by how much?</span></summary><div class="a"><p>Plug: mean = \(f_{D,\max}\); parabolic: \(f_{D,\max}/2\). Plug is twice as high <span class="eqref">(29.5)</span>.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>The lag-one phase is 120° at PRF 2 kHz and 5 MHz. Velocity? What if the true velocity were larger than \(v_{\mathrm{Nyq}}\)?</span></summary><div class="a"><p>\(\hat v = c\,\mathrm{PRF}\,\varphi/(4\pi f_0)\) \(= 1540 \times 2000 \times (2\pi/3)\,/\,(4\pi \times 5\times 10^{6})\) = 0.103 m/s (\(v_{\mathrm{Nyq}}\) = 0.154 m/s). The same phase also fits \(0.103 + 2m \times 0.154\) m/s, e.g. 0.411 or −0.205 m/s.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>N = 16, PRF 4 kHz, regression order 1. Cutoff, and the slowest axial velocity kept at 5 MHz?</span></summary><div class="a"><p>\((0.44 + 0.41)\times 4000/16\) = 213 Hz; \(v = cf/(2f_0)\) = 3.3 cm/s axial <span class="eqref">(29.11)</span>.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>Blood-to-noise is −10 dB per sample after compounding and K = 5. What ensemble gives a power Doppler CNR of 3?</span></summary><div class="a"><p>\(0.1\sqrt{N - 5} = 3\) → \(N\) = 905 frames, about 0.9 s at 1 kHz <span class="eqref">(29.13)</span>. Compounding 9 angles instead of 1 would add up to 9.5 dB (\(P_b/P_n\) = 0.9) and bring it to \(N\) = 16, at a ninth of the frame rate for the same PRF.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>Cross-beam with ±15° (receive steered), axial precision 2 mm/s. Lateral precision?</span></summary><div class="a"><p>\(\cot 15°\) = 3.73, so 7.5 mm/s; with receive fixed at 0°, \(\cot 7.5°\) = 7.6, i.e. 15.2 mm/s <span class="eqref">(29.14)</span>.</p></div></details>
+
+  <!-- ======================= 29.15 Literature ======================= -->
+  <h2><span class="sec">29.15</span>Figures from the literature</h2>
+  <div class="prose"><p>Measured data behind the models of this module. Figure numbers checked against the author manuscripts or the publisher's page; links only, no images reproduced.</p></div>
+  <div class="litfig"><h4>The transverse oscillation field, and what it shows in a carotid bifurcation</h4>
+    <p class="cite">J. A. Jensen, S. I. Nikolov, A. C. H. Yu and D. Garcia, "Ultrasound vector flow imaging, Part I: Sequential systems," IEEE Trans. Ultrason. Ferroelectr. Freq. Control 63(11), 1704–1721 (2016). <a href="https://doi.org/10.1109/TUFFC.2016.2600763" target="_blank" rel="noopener">doi:10.1109/TUFFC.2016.2600763</a></p>
+    <p><b>Look at Fig. 4</b> (the two-peak receive apodization and the left and right TO point-spread functions: the lateral oscillation of <span class="eqref">(29.15)</span>) and <b>Fig. 5</b> (TO vector flow image of a carotid bifurcation with a vortex near peak systole). <b>Why:</b> the vortex is invisible to axial Doppler, and the TO field is the mechanism that makes it measurable from one aperture.</p></div>
+  <div class="litfig"><h4>Cross-beam geometry and Doppler bandwidth versus beam geometry</h4>
+    <p class="cite">Same review as above (Part I). <a href="https://doi.org/10.1109/TUFFC.2016.2600763" target="_blank" rel="noopener">doi:10.1109/TUFFC.2016.2600763</a></p>
+    <p><b>Look at Fig. 1</b> (cross-beam acquisition, the \(K\) = 2 case of <span class="eqref">(29.14)</span>) and <b>Fig. 7</b> (Doppler bandwidth versus beam geometry, and a spectrogram from a transversely insonated common carotid). <b>Why:</b> Fig. 7 is the measured version of the geometric broadening of 29.3: at 90° the mean Doppler is zero but the spectrum still has a width proportional to the transverse velocity, which is the idea behind bandwidth-based transverse velocity estimation.</p></div>
+  <div class="litfig"><h4>Plane-wave vector flow in vivo</h4>
+    <p class="cite">J. A. Jensen, S. I. Nikolov, A. C. H. Yu and D. Garcia, "Ultrasound vector flow imaging, Part II: Parallel systems," IEEE Trans. Ultrason. Ferroelectr. Freq. Control 63(11), 1722–1732 (2016). <a href="https://doi.org/10.1109/TUFFC.2016.2598180" target="_blank" rel="noopener">doi:10.1109/TUFFC.2016.2598180</a></p>
+    <p><b>Look at Fig. 7</b> (plane-wave vector flow of the jugular vein and carotid artery at three points of the cardiac cycle) and <b>Fig. 8</b> (high-frame-rate vector flow of a neonatal ventricular septal defect). <b>Why:</b> with plane waves every pixel is sampled continuously, so the multi-angle estimator of Demo 29.6 runs over the whole field at kHz rates.</p></div>
+  <div class="litfig"><h4>From conventional Doppler to functional ultrasound in the rat brain</h4>
+    <p class="cite">Same review (Part II). <a href="https://doi.org/10.1109/TUFFC.2016.2598180" target="_blank" rel="noopener">doi:10.1109/TUFFC.2016.2598180</a></p>
+    <p><b>Look at Fig. 9</b> (rat cerebral blood flow with conventional velocity imaging, plane-wave power Doppler and functional ultrasound). <b>Why:</b> the same brain imaged with a short conventional ensemble and with a long ultrafast ensemble: the gain in visible small vessels is the \(\sqrt{N}\) law of <span class="eqref">(29.13)</span> plus the SVD filter.</p></div>
+  <div class="litfig"><h4>Functional ultrasound: principle and first applications</h4>
+    <p class="cite">E. Macé, G. Montaldo, I. Cohen, M. Baulac, M. Fink and M. Tanter, "Functional ultrasound imaging of the brain," Nature Methods 8, 662–664 (2011). <a href="https://doi.org/10.1038/nmeth.1641" target="_blank" rel="noopener">doi:10.1038/nmeth.1641</a></p>
+    <p><b>Look at Figs. 1 and 2</b> (between them: plane-wave power Doppler of cerebral blood volume in the rat, whisker-evoked cortical and thalamic responses, and the propagation of epileptiform seizures). <b>Why:</b> it turned ultrafast power Doppler sensitivity into a neuroimaging modality, and it is the acquisition on which ULM of the brain was later built.</p></div>
+
+  <!-- ======================= 29.16 Go deeper ======================= -->
+  <h2><span class="sec">29.16</span>Go deeper</h2>
+  <ul class="refs">
+    <li>J. A. Jensen, <em>Estimation of Blood Velocities Using Ultrasound: A Signal Processing Approach</em>, Cambridge University Press (1996). The standard text: Doppler signal model, spectral estimation, autocorrelation and cross-correlation estimators, clutter.</li>
+    <li>C. Kasai, K. Namekawa, A. Koyano and R. Omoto, "Real-time two-dimensional blood flow imaging using an autocorrelation technique," IEEE Trans. Sonics Ultrason. SU-32, 458–464 (1985). The colour-flow estimator of 29.4.</li>
+    <li>T. Loupas, J. T. Powers and R. W. Gill, "An axial velocity estimator for ultrasound blood flow imaging, based on a full evaluation of the Doppler equation by means of a two-dimensional autocorrelation approach," IEEE TUFFC 42(4), 672–688 (1995). <a href="https://doi.org/10.1109/58.393110" target="_blank" rel="noopener">doi:10.1109/58.393110</a></li>
+    <li>V. L. Newhouse, E. S. Furgason, G. F. Johnson and D. A. Wolf, "The dependence of ultrasound Doppler bandwidth on beam geometry," IEEE Trans. Sonics Ultrason. SU-27, 50–59 (1980). Geometric and transit-time broadening as one effect.</li>
+    <li>J. Bercoff, G. Montaldo, T. Loupas, D. Savery, F. Mézière, M. Fink and M. Tanter, "Ultrafast compound Doppler imaging: providing full blood flow characterization," IEEE TUFFC 58(1), 134–147 (2011). <a href="https://doi.org/10.1109/TUFFC.2011.1780" target="_blank" rel="noopener">doi:10.1109/TUFFC.2011.1780</a></li>
+    <li>C. Demené et al., "Spatiotemporal clutter filtering of ultrafast ultrasound data highly increases Doppler and fUltrasound sensitivity," IEEE Trans. Med. Imaging 34(11), 2271–2285 (2015). <a href="https://doi.org/10.1109/TMI.2015.2428634" target="_blank" rel="noopener">doi:10.1109/TMI.2015.2428634</a> The SVD filter of 29.6.</li>
+    <li>J. A. Jensen and P. Munk, "A new method for estimation of velocity vectors," IEEE TUFFC 45(3), 837–851 (1998). <a href="https://doi.org/10.1109/58.677749" target="_blank" rel="noopener">doi:10.1109/58.677749</a> Transverse oscillation.</li>
+    <li>Lab cross-links: lag-one phase estimation and speckle tracking (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 11</a>), SVD (<a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 06</a>), regression filters (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 09</a>); next: elastography (Module 30) reuses the same estimators on tissue, and ULM (Module 31) starts from the SVD-filtered ensemble.</li>
+  </ul>
+  <div class="next"><a href="#m28">← 28 Microbubbles &amp; contrast</a><a href="#m30">30 Elastography →</a></div>
+</section>
+
+<style>
+#m29 .prov-legend .prov, #m29 .rule-fig .prov, #m29 .m29-fig .fh .prov { margin-left: 0; }
+#m29 .demo-head .prov-note { flex-basis: 100%; }
+#m29 .rule-fig .prov-note { margin: 0 0 4px; }
+#m29 .m29-fig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 12px; margin: 18px 0; }
+#m29 .m29-fig .fh { font-size: 0.9rem; margin-bottom: 6px; }
+#m29 .m29-fig .mx-scroll > svg { display: block; width: 100%; height: auto; min-width: 620px; }
+#m29 .m29-fig text { font: 12px var(--f-mono); fill: var(--ink); }
+#m29 .m29-fig text.m { fill: var(--muted); }
+#m29 .m29-fig text.s { font-size: 11px; fill: var(--muted); }
+#m29 .m29-fig text.t { font-weight: 600; font-size: 12.5px; }
+#m29 .m29-fig .box { fill: var(--paper); stroke: var(--ink); stroke-width: 1.2; }
+#m29 .m29-fig .beam1 { fill: var(--accent); fill-opacity: 0.13; stroke: var(--accent); stroke-width: 1; }
+#m29 .m29-fig .beam2 { fill: var(--sig2); fill-opacity: 0.13; stroke: var(--sig2); stroke-width: 1; }
+#m29 .m29-fig .ov { fill: var(--sig3); fill-opacity: 0.45; stroke: var(--sig3); }
+#m29 .m29-fig .w { stroke: var(--ink); stroke-width: 1.4; fill: none; }
+#m29 .m29-fig .gate { stroke: var(--sig3); stroke-width: 3; fill: none; }
+#m29 .m29-fig .base, #m29 .m29-fig .dim { stroke: var(--muted); fill: none; stroke-width: 1; }
+#m29 .m29-fig .arr { stroke: var(--muted); stroke-width: 1.3; fill: none; }
+#m29 .m29-fig .wv1 { stroke: var(--accent); stroke-width: 1.6; fill: none; }
+#m29 .m29-fig .wv2 { stroke: var(--sig2); stroke-width: 1.6; fill: none; }
+#m29 .m29-fig .smp { fill: var(--sig2); }
+#m29 .m29-fig .cell { fill: var(--paper); stroke: var(--rule); }
+#m29 .m29-fig .cellb { fill: var(--accent); fill-opacity: 0.25; stroke: var(--accent); }
+#m29 .m29-fig .cellc { fill: var(--sig2); fill-opacity: 0.25; stroke: var(--sig2); }
+#m29 .litfig h4 { margin: 0 0 4px; font-size: 0.98rem; }
+#m29 .litfig p { margin: 4px 0; }
+#m29 .stage canvas + canvas { margin-top: 8px; }
+</style>
+<script>
+(function () {
+const $ = id => document.getElementById(id);
+const PI = Math.PI, TAU = 2 * PI, CS = 1540;
+const Mm = () => Lab.mini;
+const fmt = (v, d) => Lab.fmt(v, d);
+function fig(cv, h, xr, yr, o) { const M = Mm(); const S = M.size(cv, h); const m = M.panel(S.x, { x: 8, y: 16, w: S.w - 16, h: h - 36 }, xr, yr, Object.assign({ base: yr[0], yaxis: false }, o || {})); return { x: S.x, m, w: S.w, h }; }
+function poly(x, m, xs, ys, col, o) { o = o || {}; x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.beginPath();
+  for (let i = 0; i < xs.length; i++) { const px = m.X(xs[i]), py = m.Y(ys[i]); i ? x.lineTo(px, py) : x.moveTo(px, py); } x.strokeStyle = col; x.lineWidth = o.w || 1.7; if (o.dash) x.setLineDash(o.dash); x.stroke(); x.restore(); }
+function dot(x, m, X, Y, col, r) { x.save(); x.fillStyle = col; x.beginPath(); x.arc(m.X(X), m.Y(Y), r || 3, 0, 7); x.fill(); x.restore(); }
+function vline(x, m, X, col, lab) { x.save(); x.strokeStyle = col; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(m.X(X) + 0.5, m.b.y); x.lineTo(m.X(X) + 0.5, m.b.y + m.b.h); x.stroke(); x.restore(); if (lab) Mm().text(x, lab, m.X(X) + 3, m.b.y + 6, col); }
+const L10 = Math.log10, logTicks = vals => vals.map(v => [L10(v), fmt(v)]);
+const deg = d => d * PI / 180;
+/* complex helpers */
+function cgauss(r) { return [r.g() * Math.SQRT1_2, r.g() * Math.SQRT1_2]; }
+
+/* ================= Demo 29.1: spectral display with aliasing ================= */
+const g = (t, m, s) => Math.exp(-(((t - m) / s) ** 2));
+function vPeak(t) { const tt = ((t % 1) + 1) % 1; return 0.2 + 0.8 * g(tt, 0.12, 0.05) - 0.08 * g(tt, 0.27, 0.025) + 0.1 * g(tt, 0.34, 0.05); }
+let d1Speck = null;
+function draw1() {
+  const c = Lab.colors(); const f0 = +$('m29-d1-f0').value * 1e6, th = deg(+$('m29-d1-th').value), prf = +$('m29-d1-prf').value * 1e3, bl = +$('m29-d1-bl').value, z = +$('m29-d1-z').value / 100;
+  $('m29-d1-f0-out').textContent = fmt(f0 / 1e6) + ' MHz'; $('m29-d1-th-out').textContent = Math.round(th * 180 / PI) + '°'; $('m29-d1-prf-out').textContent = fmt(prf / 1e3) + ' kHz'; $('m29-d1-bl-out').textContent = fmt(bl); $('m29-d1-z-out').textContent = fmt(z * 100) + ' cm';
+  const { ctx, w, h } = Lab.canvas($('m29-d1-cv'), 300);
+  const box = { x: 58, y: 14, w: w - 74, h: h - 58 };
+  const k = 2 * f0 * Math.cos(th) / CS;                 /* Hz per m/s */
+  const fLo = -(0.5 - bl) * prf, fHi = fLo + prf;
+  const vLo = k > 1e-9 ? fLo / k : -9, vHi = k > 1e-9 ? fHi / k : 9;
+  const cols = Math.max(60, Math.min(520, Math.round(box.w))), rows = Math.max(60, Math.min(260, Math.round(box.h)));
+  if (!d1Speck || d1Speck.length !== rows * cols) { const r = Lab.rng(281); d1Speck = new Float32Array(rows * cols); for (let i = 0; i < rows * cols; i++) d1Speck[i] = -Math.log(1 - r.u() * 0.999); }
+  const img = new Float32Array(rows * cols);
+  for (let j = 0; j < cols; j++) { const t = (j + 0.5) / cols * 2, fm = k * vPeak(t);
+    for (let i = 0; i < rows; i++) { const f = fHi - (i + 0.5) / rows * prf; let s = 0;
+      for (let mm = -6; mm <= 6; mm++) { const ft = f + mm * prf; if (ft >= 0 && ft <= fm) s += 1; else if (ft > fm && ft < fm * 1.08) s += 1 - (ft - fm) / (fm * 0.08); }
+      img[i * cols + j] = s * d1Speck[i * cols + j] * 0.55 + 0.02 * d1Speck[(i * 7 + j * 3) % (rows * cols)]; } }
+  Lab.image(ctx, img, rows, cols, box, 0, 1.6, 'gray');
+  const ax = Lab.axes(ctx, box, [0, 2], [vLo, vHi], { xlabel: 'time (s)', ylabel: 'velocity (m/s)', grid: false });
+  ctx.save(); ax.clip(); ctx.strokeStyle = c.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(box.x, ax.Y(0)); ctx.lineTo(box.x + box.w, ax.Y(0)); ctx.stroke();
+  const xs = [], ys = []; for (let j = 0; j <= 200; j++) { xs.push(j / 100); ys.push(vPeak(j / 100)); } ax.unclip(); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y - 30, box.w, box.h + 30); ctx.clip(); Lab.line(ctx, ax, xs, ys, c.sig2, 1.4, [5, 4]); ctx.restore();
+  const fpk = k * 1.0, vNyq = CS * prf / (4 * f0 * Math.max(Math.cos(th), 1e-9)), aliased = fpk > fHi;
+  const zmax = CS / (2 * prf), prfMax = CS / (2 * z), vzA = CS * CS / (8 * f0 * Math.max(Math.cos(th), 1e-9) * z);
+  $('m29-d1-read').innerHTML = 'peak f<sub>D</sub> = <b>' + fmt(fpk / 1e3, 2) + ' kHz</b> · v<sub>Nyq</sub> = <b>' + fmt(vNyq, 3) + ' m/s</b><br>display: <b>' + fmt(vLo, 2) + ' to ' + fmt(vHi, 2) + ' m/s</b> · systolic peak ' + (aliased ? '<b style="color:var(--bad)">aliased</b>' : '<b style="color:var(--good)">shown</b>') +
+    '<br>z<sub>max</sub> = c/(2 PRF) = <b>' + fmt(zmax * 100, 1) + ' cm</b> ' + (z > zmax ? '<b style="color:var(--bad)">gate beyond z<sub>max</sub>: range ambiguous</b>' : '(gate OK)') +
+    '<br>at ' + fmt(z * 100) + ' cm: PRF ≤ <b>' + fmt(prfMax / 1e3, 2) + ' kHz</b>, v<sub>max</sub> = c²/(8f₀ cosθ z) = <b>' + fmt(vzA, 2) + ' m/s</b> (×2 with full baseline shift)';
+}
+['m29-d1-f0', 'm29-d1-th', 'm29-d1-prf', 'm29-d1-bl', 'm29-d1-z'].forEach(id => $(id).addEventListener('input', draw1));
+
+/* ================= Demo 29.2: Doppler spectrum by Monte Carlo ================= */
+function spectrumMC(o) {           /* o: {n (profile exponent), th, gate, alpha, thin, M, nb, lo, hi} returns {h, h0, mean, mean0, max} in units of fDmax */
+  const r = Lab.rng(2802), nb = o.nb, lo = o.lo, hi = o.hi, dfb = (hi - lo) / nb, h = new Float64Array(nb), h0 = new Float64Array(nb);
+  let s = 0, s0 = 0, mx = 0, cnt = 0; const ct = Math.cos(o.th);
+  while (cnt < o.M) {
+    const u = (2 * r.u() - 1) * o.gate, y = o.thin ? 0 : 2 * r.u() - 1, r2 = u * u + y * y; if (r2 >= 1) continue; cnt++;
+    const v = o.n === 1 ? 1 : 1 - Math.pow(r2, o.n / 2);
+    const fac = o.alpha > 0 ? (Math.cos(o.th + o.alpha * (2 * r.u() - 1)) + Math.cos(o.th + o.alpha * (2 * r.u() - 1))) / (2 * ct) : 1;
+    const f = v * fac; s += f; s0 += v; mx = Math.max(mx, f);
+    const b = Math.floor((f - lo) / dfb), b0 = Math.floor((v - lo) / dfb); if (b >= 0 && b < nb) h[b]++; if (b0 >= 0 && b0 < nb) h0[b0]++; }
+  for (let i = 0; i < nb; i++) { h[i] /= o.M * dfb; h0[i] /= o.M * dfb; }
+  return { h, h0, mean: s / o.M, mean0: s0 / o.M, max: mx, dfb };
+}
+function draw2() {
+  const c = Lab.colors(); const n = +$('m29-d2-prof').value, thd = +$('m29-d2-th').value, th = deg(thd), gate = +$('m29-d2-g').value, fn = +$('m29-d2-fn').value, thin = $('m29-d2-thin').checked;
+  $('m29-d2-th-out').textContent = thd + '°'; $('m29-d2-g-out').textContent = Math.round(gate * 100) + ' %'; $('m29-d2-fn-out').textContent = fmt(fn);
+  const alpha = Math.atan(1 / (2 * fn)), lo = -0.1, hi = 2.8, nb = 290;
+  const S = spectrumMC({ n, th, gate, alpha, thin, M: 60000, nb, lo, hi });
+  /* geometry panel */
+  { const { ctx, w, h } = Lab.canvas($('m29-d2-geo'), 170); const sc = Math.min((h - 30) / 14, w / 40);   /* px per mm */
+    const cx = w / 2, cy = h / 2 + 18, a = 3; ctx.save(); ctx.strokeStyle = c.fg; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(10, cy - a * sc); ctx.lineTo(w - 10, cy - a * sc); ctx.moveTo(10, cy + a * sc); ctx.lineTo(w - 10, cy + a * sc); ctx.stroke();
+    for (let k = -4; k <= 4; k++) { const yy = k / 4.5 * a, vv = n === 1 ? 1 : 1 - Math.pow(Math.abs(yy / a), n); Lab.arrow(ctx, 18, cy + yy * sc, 18 + vv * 46, cy + yy * sc, c.muted, 1.1); }
+    const dx = Math.cos(th), dz = Math.sin(th);   /* beam direction from probe to vessel: angle th to the +x flow axis, pointing down-left so cos > 0 => toward probe */
+    const L = 9 * sc; const px = cx + dx * L, pz = cy - dz * L;
+    ctx.fillStyle = c.accent; ctx.globalAlpha = 0.12; ctx.beginPath(); ctx.moveTo(px - dz * 4.5 * sc / fn, pz - dx * 4.5 * sc / fn); ctx.lineTo(cx, cy); ctx.lineTo(px + dz * 4.5 * sc / fn, pz + dx * 4.5 * sc / fn); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = c.accent; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(px, pz); ctx.lineTo(cx - dx * 4 * sc, cy + dz * 4 * sc); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = c.fg; ctx.fillRect(px - dz * 4.5 * sc / fn - 2, pz - dx * 4.5 * sc / fn - 2, 4, 4);
+    const gl = gate * a / dz; ctx.strokeStyle = c.sig3; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(cx + dx * gl * sc, cy - dz * gl * sc); ctx.lineTo(cx - dx * gl * sc, cy + dz * gl * sc); ctx.stroke();
+    ctx.font = '11px ' + c.mono; ctx.fillStyle = c.muted; ctx.textAlign = 'left'; ctx.fillText('flow →', 70, cy + 4); ctx.fillText('θ = ' + thd + '°, gate ' + fmt(2 * gate * a / dz, 1) + ' mm along the beam, α = ' + fmt(alpha * 180 / PI, 1) + '°', 10, 12); ctx.restore(); }
+  /* spectrum */
+  const { ctx, w, h } = Lab.canvas($('m29-d2-cv'), 250);
+  const ymax = Math.min(12, Math.max(2.2, Math.max(...S.h0) * 1.1, Math.max(...S.h) * 1.15));
+  const ax = Lab.axes(ctx, { x: 52, y: 12, w: w - 66, h: h - 52 }, [lo, hi], [0, ymax], { xlabel: 'f / f_D,max', ylabel: 'power density', nx: w < 520 ? 4 : 8 });
+  const xs = [], y0 = [], y1 = []; for (let i = 0; i < nb; i++) { xs.push(lo + (i + 0.5) * S.dfb); y0.push(S.h0[i]); y1.push(S.h[i]); }
+  ax.clip(); Lab.line(ctx, ax, xs, y0, c.muted, 1.4, [4, 3]); Lab.line(ctx, ax, xs, y1, c.accent, 2);
+  const eHi = Math.cos(th - alpha) / Math.cos(th);
+  [[1, 'f_D,max'], [eHi, 'cos(θ−α)/cosθ']].forEach(([f, lab], i) => { ctx.save(); ctx.strokeStyle = c.sig2; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ax.X(f), ax.box.y); ctx.lineTo(ax.X(f), ax.box.y + ax.box.h); ctx.stroke(); ctx.fillStyle = c.sig2; ctx.font = '11px ' + c.mono; ctx.fillText(lab, ax.X(f) + 4, ax.box.y + 12 + 14 * i); ctx.restore(); });
+  ax.unclip();
+  /* -20 dB edge relative to the median plateau of the broadened spectrum */
+  const inBand = []; for (let i = 0; i < nb; i++) if (S.h[i] > 0) inBand.push(S.h[i]); inBand.sort((p, q) => p - q); const plat = inBand.length ? inBand[Math.floor(inBand.length * 0.6)] : 1;
+  let iE = 0; for (let i = 0; i < nb; i++) if (S.h[i] > 0.01 * plat) iE = i; const fE = lo + (iE + 1) * S.dfb;
+  const f0 = 5e6, vmax = 0.8, fD = 2 * vmax * f0 * Math.cos(th) / CS;
+  $('m29-d2-read').innerHTML = 'f<sub>D,max</sub> (0.8 m/s, 5 MHz) = <b>' + fmt(fD, 0) + ' Hz</b><br>mean f: <b>' + fmt(S.mean0, 3) + '</b> (no broadening) · <b>' + fmt(S.mean, 3) + '</b> (broadened) × f<sub>D,max</sub><br>broadened edge: exact <b>' + fmt(eHi, 3) + '</b>, linear 1 + α tanθ = ' + fmt(1 + alpha * Math.tan(th), 3) +
+    '<br>−20 dB edge ≈ <b>' + fmt(fE, 2) + ' f<sub>D,max</sub></b> → envelope "v<sub>max</sub>" = <b>' + fmt(vmax * fE, 2) + ' m/s</b> (true 0.80)';
+}
+['m29-d2-prof', 'm29-d2-th', 'm29-d2-g', 'm29-d2-fn', 'm29-d2-thin'].forEach(id => $(id).addEventListener('input', draw2));
+
+/* ================= card grids, sections 29.1 and 29.2 ================= */
+const H = 132;
+const G1 = [
+  { prov: 'exact', q: 'How big is a Doppler shift?', a: '<b>f<sub>D</sub> = 2vf₀cosθ/c</b>: 1 m/s along the beam is 2.60 kHz at 2 MHz, 6.49 kHz at 5 MHz and 19.5 kHz at 15 MHz. A 1 mm/s microvessel at 15 MHz gives 19.5 Hz.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 1], [0, 21], { lab: 'f_D (kHz) vs v cosθ (m/s)', ticks: [[0.25, '0.25'], [0.5, '0.5'], [0.75, '0.75'], [1, '1']], hlines: [[6.49, '6.49'], [19.5, '19.5']] });
+      [[2, c.d], [5, c.a], [15, c.b]].forEach(([f, col]) => { Mm().curve(x, m, v => 2 * v * f * 1e6 / CS / 1e3, col, { w: 2 }); Mm().text(x, f + ' MHz', m.X(Math.min(0.62, 18 / (2 * f * 1e3 / CS))), m.Y(2 * Math.min(0.62, 18 / (2 * f * 1e3 / CS)) * f * 1e3 / CS) - 8, col); }); } },
+  { prov: 'exact', q: 'How much does a 5° angle error cost?', a: 'Exact ratio <b>cos θ / cos(θ + 5°)</b>: 3.7 % at 20°, 10.0 % at 45°, 18.3 % at 60°, 32 % at 70°. The linear estimate tanθ·δθ (dashed) underestimates it at large angles.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 75], [0, 60], { lab: 'velocity error (%) vs θ (deg), δθ = 5°', ticks: [[20, '20'], [45, '45'], [60, '60'], [75, '75']], hlines: [[18.3, '18.3 %']] });
+      Mm().curve(x, m, t => 100 * (Math.cos(deg(t)) / Math.cos(deg(t + 5)) - 1), c.a, { w: 2 }); Mm().curve(x, m, t => 100 * Math.tan(deg(t)) * deg(5), c.b, { w: 1.6, dash: [4, 3] }); dot(x, m, 60, 18.3, c.a); } },
+  { prov: 'exact', q: 'What does the gate length buy?', a: 'Axial extent of the sample volume ≈ <b>cτ/2</b> for a burst of duration τ: a 4-cycle burst is 0.62 mm at 5 MHz and 1.54 mm at 2 MHz. Longer bursts narrow the RF band and lower the Doppler noise, but blur the gate.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [1, 16], [0, 6.5], { lab: 'gate length cτ/2 (mm) vs cycles', ticks: [[2, '2'], [4, '4'], [8, '8'], [12, '12'], [16, '16']], hlines: [[0.62, '0.62'], [1.54, '1.54']] });
+      [[2, c.d], [5, c.a], [10, c.b]].forEach(([f, col]) => { Mm().curve(x, m, n => CS * n / (f * 1e6) / 2 * 1e3, col, { w: 2 }); Mm().text(x, f + ' MHz', m.X(11), m.Y(CS * 11 / (f * 1e6) / 2 * 1e3) - 8, col); }); dot(x, m, 4, 0.616, c.a); } }
+];
+const G2 = [
+  { prov: 'exact', q: 'How fast can you measure at depth?', a: '<b>v<sub>max</sub> z<sub>max</sub> = c²/(8f₀cosθ)</b>: at 10 cm, 0.99 m/s at 3 MHz and 0.59 m/s at 5 MHz (θ = 0). Aortic stenosis jets of 4–5 m/s are beyond PW at the 10–15 cm of an apical view (1.0–1.5 m/s even at 2 MHz): CW.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [1, 20], [0, 3], { lab: 'v_max (m/s) vs gate depth (cm), θ = 0', ticks: [[5, '5'], [10, '10'], [15, '15'], [20, '20']], hlines: [[0.988, '0.99'], [0.593, '0.59']] });
+      [[2, c.d], [3, c.b], [5, c.a]].forEach(([f, col]) => { Mm().curve(x, m, z => CS * CS / (8 * f * 1e6 * z / 100), col, { w: 2 }); Mm().text(x, f + ' MHz', m.X(13), m.Y(CS * CS / (8 * f * 1e6 * 0.13)) - 8, col); }); dot(x, m, 10, 0.988, c.b); dot(x, m, 10, 0.593, c.a); } },
+  { prov: 'exact', q: 'Where does an aliased velocity land?', a: 'The estimate is the true velocity wrapped into one PRF: <b>v̂ = v − 2m v<sub>Nyq</sub></b>, with m the integer that brings it into [−v<sub>Nyq</sub>, v<sub>Nyq</sub>). A baseline shift slides that window, it never widens it.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [-2.5, 2.5], [-1.2, 1.2], { lab: 'v̂ / v_Nyq vs v / v_Nyq', base: 0, ticks: [[-2, '−2'], [-1, '−1'], [1, '1'], [2, '2']] });
+      Mm().curve(x, m, v => v, c.mu, { dash: [4, 3] }); poly(x, m, [], [], c.a); const W = v => ((v + 1) % 2 + 2) % 2 - 1;
+      for (let s = -3; s <= 1; s++) { const a0 = 2 * s + 1, a1 = 2 * s + 3, xs = [], ys = []; for (let i = 0; i <= 40; i++) { const v = a0 + (a1 - a0) * i / 40 - 1e-6 * (i === 40); xs.push(v); ys.push(W(v)); } poly(x, m, xs, ys, c.a, { w: 2 }); } } }
+];
+Lab.cardGrid('m29', 'm29-g1', G1); Lab.cardGrid('m29', 'm29-g2', G2);
+/* ================= Demo 29.3: Kasai on short ensembles ================= */
+const D3 = { f0: 5e6, prf: 4e3, Lf: 256, M: 400 };
+function gaussProc(r, Lf, fD, sf, prf, re, im) {      /* fills re/im (length Lf) with a unit-power process, Gaussian spectrum std sf (Hz) at fD, aliased */
+  let h2 = 0; const H = new Float64Array(Lf);
+  for (let k = 0; k < Lf; k++) { const f = (k < Lf / 2 ? k : k - Lf) * prf / Lf; let d = f - fD; d = ((d + prf / 2) % prf + prf) % prf - prf / 2; H[k] = Math.exp(-d * d / (4 * sf * sf)); h2 += H[k] * H[k]; }
+  for (let k = 0; k < Lf; k++) { re[k] = r.g() * Math.SQRT1_2; im[k] = r.g() * Math.SQRT1_2; }
+  Lab.fft(re, im, false); for (let k = 0; k < Lf; k++) { re[k] *= H[k]; im[k] *= H[k]; } Lab.fft(re, im, true);
+  const sc = 1 / Math.sqrt(h2 / Lf); for (let k = 0; k < Lf; k++) { re[k] *= sc; im[k] *= sc; }
+}
+function draw3() {
+  const c = Lab.colors(); const v = +$('m29-d3-v').value, N = +$('m29-d3-n').value, snrdB = +$('m29-d3-snr').value, sv = +$('m29-d3-sv').value;
+  $('m29-d3-v-out').textContent = fmt(v, 2) + ' m/s'; $('m29-d3-n-out').textContent = N; $('m29-d3-snr-out').textContent = snrdB + ' dB'; $('m29-d3-sv-out').textContent = fmt(sv, 3) + ' m/s';
+  const { f0, prf, Lf, M } = D3, T = 1 / prf, kf = 2 * f0 / CS, fD = kf * v, sf = kf * sv, vN = CS * prf / (4 * f0), ns = Math.sqrt(1 / (2 * Math.pow(10, snrdB / 10)));
+  const r = Lab.rng(2803), re = new Float64Array(Lf), im = new Float64Array(Lf);
+  const vh = new Float64Array(M), px = new Float64Array(M), py = new Float64Array(M); let s2sum = 0;
+  for (let t = 0; t < M; t++) {
+    gaussProc(r, Lf, fD, sf, prf, re, im);
+    for (let n = 0; n < N; n++) { re[n] += ns * r.g(); im[n] += ns * r.g(); }
+    let a = 0, b = 0, p0 = 0;
+    for (let n = 0; n < N - 1; n++) { a += re[n + 1] * re[n] + im[n + 1] * im[n]; b += im[n + 1] * re[n] - re[n + 1] * im[n]; p0 += 0.5 * (re[n + 1] * re[n + 1] + im[n + 1] * im[n + 1] + re[n] * re[n] + im[n] * im[n]); }
+    vh[t] = CS * prf / (4 * PI * f0) * Math.atan2(b, a); px[t] = a / p0; py[t] = b / p0; s2sum += 2 / (T * T) * (1 - Math.hypot(a, b) / p0);
+  }
+  const vw = ((v + vN) % (2 * vN) + 2 * vN) % (2 * vN) - vN;
+  let mu = 0; for (let t = 0; t < M; t++) mu += vh[t]; mu /= M; let sd = 0; for (let t = 0; t < M; t++) sd += (vh[t] - mu) ** 2; sd = Math.sqrt(sd / (M - 1));
+  let far = 0; for (let t = 0; t < M; t++) { let d = vh[t] - vw; d = ((d + vN) % (2 * vN) + 2 * vN) % (2 * vN) - vN; if (Math.abs(d) > vN / 2) far++; }
+  const { ctx, w, h } = Lab.canvas($('m29-d3-cv'), 280);
+  const side = Math.min(h - 40, w * 0.36); const b1 = { x: 30, y: 16, w: side, h: side };
+  const ax1 = Lab.axes(ctx, b1, [-1.15, 1.15], [-1.15, 1.15], { xticks: [-1, 0, 1], yticks: [-1, 0, 1], title: 'R̂(1)/R̂(0)' });
+  ctx.save(); ctx.strokeStyle = c.rule; ctx.beginPath(); ctx.arc(ax1.X(0), ax1.Y(0), ax1.X(1) - ax1.X(0), 0, TAU); ctx.stroke();
+  const ang = 2 * PI * fD * T; ctx.strokeStyle = c.sig2; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ax1.X(0), ax1.Y(0)); ctx.lineTo(ax1.X(1.12 * Math.cos(ang)), ax1.Y(1.12 * Math.sin(ang))); ctx.stroke();
+  ctx.strokeStyle = c.muted; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ax1.X(0), ax1.Y(0)); ctx.lineTo(ax1.X(-1.12), ax1.Y(0)); ctx.stroke(); ctx.restore();
+  Lab.dots(ctx, ax1, px, py, c.accent, 1.6);
+  const b2 = { x: b1.x + side + 58, y: 16, w: w - (b1.x + side + 58) - 12, h: h - 56 };
+  const nb = 61, hist = new Float64Array(nb), lo = -1.0 * vN, bw = 2 * vN / nb; for (let t = 0; t < M; t++) { const k = Math.min(nb - 1, Math.max(0, Math.floor((vh[t] - lo) / bw))); hist[k]++; }
+  const hm = Math.max(...hist) * 1.12;
+  const ax2 = Lab.axes(ctx, b2, [-0.62, 0.62], [0, hm], { xlabel: 'v̂ (m/s)', ylabel: 'count', ny: 3 });
+  ctx.save(); ctx.fillStyle = c.accent; ctx.globalAlpha = 0.75; for (let k = 0; k < nb; k++) { const x0 = ax2.X(lo + k * bw), x1 = ax2.X(lo + (k + 1) * bw); ctx.fillRect(x0, ax2.Y(hist[k]), Math.max(1, x1 - x0 - 1), ax2.Y(0) - ax2.Y(hist[k])); } ctx.restore();
+  ctx.save(); ctx.strokeStyle = c.muted; ctx.setLineDash([4, 3]); [-vN, vN].forEach(q => { ctx.beginPath(); ctx.moveTo(ax2.X(q), b2.y); ctx.lineTo(ax2.X(q), b2.y + b2.h); ctx.stroke(); }); ctx.setLineDash([]);
+  ctx.strokeStyle = c.sig2; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax2.X(vw), b2.y); ctx.lineTo(ax2.X(vw), b2.y + b2.h); ctx.stroke(); ctx.restore();
+  const s2 = s2sum / M, sfh = Math.sqrt(Math.max(s2, 0)) / TAU, snr = Math.pow(10, snrdB / 10), rho = snr / (1 + snr) * Math.exp(-((TAU * sf * T) ** 2) / 2), sfp = Math.sqrt(2 / (T * T) * (1 - rho)) / TAU;
+  $('m29-d3-read').innerHTML = 'f<sub>D</sub> = <b>' + fmt(fD, 0) + ' Hz</b>, phase per pulse <b>' + fmt(ang * 180 / PI, 0) + '°</b>' + (Math.abs(v) > vN ? ' <b style="color:var(--bad)">(beyond Nyquist)</b>' : '') +
+    '<br>mean v̂ = <b>' + fmt(mu, 3) + '</b> m/s (wrapped truth ' + fmt(vw, 3) + ') · std <b>' + fmt(sd, 3) + ' m/s</b><br>estimates more than v<sub>Nyq</sub>/2 off: <b>' + fmt(100 * far / M, 1) + ' %</b>' +
+    '<br>σ<sub>f</sub>: true <b>' + fmt(sf, 0) + ' Hz</b>, estimated <b>' + fmt(sfh, 0) + ' Hz</b>, large-N prediction (29.10) ' + fmt(sfp, 0) + ' Hz';
+}
+['m29-d3-v', 'm29-d3-n', 'm29-d3-snr', 'm29-d3-sv'].forEach(id => $(id).addEventListener('input', draw3));
+
+/* ================= Demo 29.4: colour-flow map with a regression filter ================= */
+const D4 = { f0: 5e6, prf: 2e3, N: 12, nz: 46, nx: 76, dx: 0.5e-3, a: 3e-3, vmax: 0.25, th: deg(60), Kp: 8, CBR: 100, SNR: 15, sb: 40, st: 3 };
+let d4Base = null;
+function d4Init() {
+  const o = D4, P = o.nz * o.nx, r = Lab.rng(2804), K = o.Kp;
+  const tA = new Float64Array(P * K * 2), tF = new Float64Array(P * K), bA = new Float64Array(P * K * 2), bF = new Float64Array(P * K), fb = new Float64Array(P), lum = new Uint8Array(P), dist = new Float64Array(P);
+  const nr = new Float64Array(P * o.N * 2), sn = Math.pow(10, -o.SNR / 20) * Math.SQRT1_2, ang = PI / 2 - o.th;
+  for (let i = 0; i < o.nz; i++) for (let j = 0; j < o.nx; j++) { const p = i * o.nx + j, X = (j - o.nx / 2) * o.dx, Z = (i - o.nz / 2) * o.dx, d = -X * Math.sin(ang) + Z * Math.cos(ang);
+    dist[p] = d; if (Math.abs(d) < o.a) { lum[p] = 1; fb[p] = 2 * o.vmax * (1 - (d / o.a) ** 2) * Math.cos(o.th) * o.f0 / CS; }
+    for (let k = 0; k < K; k++) { const s = 1 / Math.sqrt(2 * K); tA[2 * (p * K + k)] = r.g() * s; tA[2 * (p * K + k) + 1] = r.g() * s; tF[p * K + k] = o.st * r.g(); bA[2 * (p * K + k)] = r.g() * s; bA[2 * (p * K + k) + 1] = r.g() * s; bF[p * K + k] = o.sb * r.g(); }
+    for (let n = 0; n < o.N; n++) { nr[2 * (p * o.N + n)] = sn * r.g(); nr[2 * (p * o.N + n) + 1] = sn * r.g(); } }
+  /* blood part is fixed: precompute */
+  const B = new Float64Array(P * o.N * 2), T = 1 / o.prf;
+  for (let p = 0; p < P; p++) if (lum[p]) for (let n = 0; n < o.N; n++) { let re = 0, im = 0; for (let k = 0; k < K; k++) { const ph = TAU * (fb[p] + bF[p * K + k]) * n * T, ar = bA[2 * (p * K + k)], ai = bA[2 * (p * K + k) + 1]; re += ar * Math.cos(ph) - ai * Math.sin(ph); im += ar * Math.sin(ph) + ai * Math.cos(ph); } B[2 * (p * o.N + n)] = re; B[2 * (p * o.N + n) + 1] = im; }
+  d4Base = { P, tA, tF, B, nr, lum, dist, fb, X: new Float64Array(P * o.N * 2), vt: null };
+}
+function d4Signals(vt) {
+  const o = D4, S = d4Base, K = o.Kp, T = 1 / o.prf, ft = 2 * vt * o.f0 / CS;
+  if (S.vt === vt) return; S.vt = vt;
+  for (let p = 0; p < S.P; p++) for (let n = 0; n < o.N; n++) { let re = 0, im = 0; for (let k = 0; k < K; k++) { const ph = TAU * (ft + S.tF[p * K + k]) * n * T, ar = S.tA[2 * (p * K + k)], ai = S.tA[2 * (p * K + k) + 1]; re += ar * Math.cos(ph) - ai * Math.sin(ph); im += ar * Math.sin(ph) + ai * Math.cos(ph); }
+    const q = 2 * (p * o.N + n); S.X[q] = o.CBR * re + S.B[q] + S.nr[q]; S.X[q + 1] = o.CBR * im + S.B[q + 1] + S.nr[q + 1]; }
+}
+function regBasis(N, p) {     /* Gram-Schmidt on centred powers; returns array of p+1 orthonormal vectors */
+  const Q = []; for (let d = 0; d <= p; d++) { const v = new Float64Array(N); for (let n = 0; n < N; n++) v[n] = Math.pow((n - (N - 1) / 2) / N, d);
+    for (let pass = 0; pass < 2; pass++) Q.forEach(q => { let s = 0; for (let n = 0; n < N; n++) s += q[n] * v[n]; for (let n = 0; n < N; n++) v[n] -= s * q[n]; });
+    let nn = 0; for (let n = 0; n < N; n++) nn += v[n] * v[n]; nn = Math.sqrt(nn); for (let n = 0; n < N; n++) v[n] /= nn; Q.push(v); } return Q;
+}
+function regH2(N, Q, f, prf) { /* |H(f)|^2 = |(I-QQ')e|^2/N for e_n = exp(j2pi f n/prf) */
+  const er = new Float64Array(N), ei = new Float64Array(N); for (let n = 0; n < N; n++) { er[n] = Math.cos(TAU * f * n / prf); ei[n] = Math.sin(TAU * f * n / prf); }
+  Q.forEach(q => { let sr = 0, si = 0; for (let n = 0; n < N; n++) { sr += q[n] * er[n]; si += q[n] * ei[n]; } for (let n = 0; n < N; n++) { er[n] -= sr * q[n]; ei[n] -= si * q[n]; } });
+  let s = 0; for (let n = 0; n < N; n++) s += er[n] * er[n] + ei[n] * ei[n]; return s / N;
+}
+const cmapDiv = t => Lab.cmap.diverge(t), cmapHeat = t => Lab.cmap.heat(t);
+function draw4() {
+  if (!d4Base) d4Init();
+  const c = Lab.colors(), o = D4, p = +$('m29-d4-p').value, vt = +$('m29-d4-vt').value * 1e-3, mode = $('m29-d4-map').value;
+  $('m29-d4-p-out').textContent = p; $('m29-d4-vt-out').textContent = fmt(vt * 1e3) + ' mm/s';
+  d4Signals(vt); const S = d4Base, N = o.N, Q = regBasis(N, p), vN = CS * o.prf / (4 * o.f0);
+  const vk = new Float64Array(S.P), R0 = new Float64Array(S.P), nv = new Float64Array(S.P), bm = new Float64Array(S.P), det = new Uint8Array(S.P);
+  const nfl = Math.pow(10, -o.SNR / 10) * (N - p - 1) / N * (N - 1);
+  const yr = new Float64Array(N), yi = new Float64Array(N);
+  let nIn = 0, nInD = 0, nOut = 0, nOutD = 0, errS = 0, errN = 0;
+  for (let q = 0; q < S.P; q++) { let pw = 0;
+    for (let n = 0; n < N; n++) { yr[n] = S.X[2 * (q * N + n)]; yi[n] = S.X[2 * (q * N + n) + 1]; pw += yr[n] * yr[n] + yi[n] * yi[n]; } bm[q] = 10 * L10(pw / N + 1e-9);
+    Q.forEach(b => { let sr = 0, si = 0; for (let n = 0; n < N; n++) { sr += b[n] * yr[n]; si += b[n] * yi[n]; } for (let n = 0; n < N; n++) { yr[n] -= sr * b[n]; yi[n] -= si * b[n]; } });
+    let a = 0, bb = 0, r0 = 0; for (let n = 0; n < N - 1; n++) { a += yr[n + 1] * yr[n] + yi[n + 1] * yi[n]; bb += yi[n + 1] * yr[n] - yr[n + 1] * yi[n]; r0 += 0.5 * (yr[n + 1] ** 2 + yi[n + 1] ** 2 + yr[n] ** 2 + yi[n] ** 2); }
+    vk[q] = CS * o.prf / (4 * PI * o.f0) * Math.atan2(bb, a); R0[q] = r0; nv[q] = 1 - Math.hypot(a, bb) / r0; det[q] = r0 > 2 * nfl ? 1 : 0;
+    if (S.lum[q]) { nIn++; if (det[q]) { nInD++; errS += Math.abs(vk[q] - S.fb[q] * CS / (2 * o.f0)); errN++; } } else { nOut++; if (det[q]) nOutD++; } }
+  /* map */
+  const { ctx, w, h } = Lab.canvas($('m29-d4-cv'), 0.62);
+  const sc = Math.min((w - 84) / o.nx, (h - 40) / o.nz), rw = o.nx * sc, rh = o.nz * sc, rx = 54, ry = 8;
+  const off = document.createElement('canvas'); off.width = o.nx; off.height = o.nz; const g2 = off.getContext('2d'), im = g2.createImageData(o.nx, o.nz);
+  let bmax = -1e9; for (let q = 0; q < S.P; q++) bmax = Math.max(bmax, bm[q]);
+  for (let q = 0; q < S.P; q++) { let rgb;
+    const gr = Math.max(0, Math.min(1, (bm[q] - (bmax - 30)) / 30)); const gray = [Math.round(40 + 150 * gr), Math.round(40 + 150 * gr), Math.round(40 + 150 * gr)];
+    if (mode === 'v') rgb = det[q] ? cmapDiv(Math.max(0, Math.min(1, 0.5 + vk[q] / (2 * vN)))) : gray;
+    else if (mode === 'p') rgb = cmapHeat(Math.max(0, Math.min(1, (10 * L10(R0[q] / nfl) + 3) / 50)));
+    else rgb = det[q] ? cmapHeat(Math.max(0, Math.min(1, nv[q]))) : gray;
+    im.data[4 * q] = rgb[0]; im.data[4 * q + 1] = rgb[1]; im.data[4 * q + 2] = rgb[2]; im.data[4 * q + 3] = 255; }
+  g2.putImageData(im, 0, 0); ctx.imageSmoothingEnabled = false; ctx.drawImage(off, rx, ry, rw, rh);
+  const axm = Lab.axes(ctx, { x: rx, y: ry, w: rw, h: rh }, [0, o.nx * o.dx * 1e3], [o.nz * o.dx * 1e3, 0], { xlabel: 'x (mm)', ylabel: 'z (mm)', grid: false, ny: 3 });
+  /* colour bar */
+  const cbx = rx + rw + 8, cbw = 10; for (let k = 0; k < 100; k++) { const t = 1 - k / 99; const rgb = mode === 'v' ? cmapDiv(t) : cmapHeat(t); ctx.fillStyle = 'rgb(' + rgb.join(',') + ')'; ctx.fillRect(cbx, ry + k * rh / 100, cbw, rh / 100 + 1); }
+  ctx.fillStyle = c.muted; ctx.font = '10px ' + c.mono; ctx.textAlign = 'left';
+  const lab = mode === 'v' ? ['+' + fmt(vN, 3), '−' + fmt(vN, 3)] : mode === 'p' ? ['+47 dB', '−3 dB'] : ['1', '0'];
+  ctx.save(); ctx.translate(cbx + cbw + 3, ry + 8); ctx.fillText(lab[0], 0, 0); ctx.restore(); ctx.save(); ctx.translate(cbx + cbw + 3, ry + rh - 2); ctx.fillText(lab[1], 0, 0); ctx.restore();
+  /* response */
+  { const { ctx: x2, w: w2, h: h2 } = Lab.canvas($('m29-d4-h'), 170); const a2 = Lab.axes(x2, { x: 50, y: 10, w: w2 - 64, h: h2 - 46 }, [-1000, 1000], [-60, 3], { xlabel: 'Doppler frequency (Hz)', ylabel: '|H|² (dB)', ny: 3 });
+    const bLo = 0, bHi = 2 * o.vmax * Math.cos(o.th) * o.f0 / CS; x2.save(); x2.fillStyle = c.sig3; x2.globalAlpha = 0.18; x2.fillRect(a2.X(bLo), a2.box.y, a2.X(bHi) - a2.X(bLo), a2.box.h); x2.restore();
+    const xs = [], ys = []; for (let i = 0; i <= 400; i++) { const f = -1000 + 5 * i; xs.push(f); ys.push(10 * L10(regH2(N, Q, f, o.prf) + 1e-7)); } a2.clip(); Lab.line(x2, a2, xs, ys, c.accent, 2);
+    const ft = 2 * vt * o.f0 / CS; x2.strokeStyle = c.sig2; x2.setLineDash([4, 3]); x2.beginPath(); x2.moveTo(a2.X(ft), a2.box.y); x2.lineTo(a2.X(ft), a2.box.y + a2.box.h); x2.stroke(); a2.unclip(); }
+  let fc3 = 0; for (let f = 0; f <= 1000; f += 1) if (regH2(N, Q, f, o.prf) >= 0.5) { fc3 = f; break; }
+  $('m29-d4-read').innerHTML = 'v<sub>Nyq</sub> = <b>' + fmt(vN, 3) + ' m/s</b> · tissue Doppler <b>' + fmt(2 * vt * o.f0 / CS, 1) + ' Hz</b><br>−3 dB cutoff <b>' + fc3 + ' Hz</b> (rule ' + fmt((0.44 + 0.41 * p) * o.prf / N, 0) + ' Hz) → slowest flow along the vessel <b>' + fmt(CS * fc3 / (2 * o.f0 * Math.cos(o.th)) * 100, 1) + ' cm/s</b>' +
+    '<br>lumen detected <b>' + fmt(100 * nInD / nIn, 1) + ' %</b> · flash outside <b>' + fmt(100 * nOutD / nOut, 1) + ' %</b><br>mean |v̂ − v| in detected lumen <b>' + (errN ? fmt(errS / errN * 1000, 1) : '–') + ' mm/s</b>';
+}
+['m29-d4-p', 'm29-d4-vt', 'm29-d4-map'].forEach(id => $(id).addEventListener('input', draw4));
+/* ================= Demo 29.5: ultrafast power Doppler with SVD ================= */
+const D5 = { f0: 15e6, prf: 1e3, nz: 32, nx: 32, Nmax: 256, CBR: 100, BNR: -6, Am: 50e-6, fm: 3.3, grad: 0.5, vax: [1e-3, 3e-3, 10e-3, 30e-3], zc: [5, 13, 20, 27], Kb: 12, fcut: 75 };
+let d5 = null;
+function d5Init() {
+  const o = D5, P = o.nz * o.nx, N = o.Nmax, r = Lab.rng(2805), T = 1 / o.prf;
+  const Sr = new Float64Array(P * N), Si = new Float64Array(P * N), lab = new Uint8Array(P);
+  for (let i = 0; i < o.nz; i++) for (let j = 0; j < o.nx; j++) for (let k = 0; k < 4; k++) if (Math.abs(i - o.zc[k] - 0.12 * (j - o.nx / 2)) <= 1) lab[i * o.nx + j] = k + 1;
+  const sn = Math.pow(10, -o.BNR / 20) * Math.SQRT1_2;
+  for (let p = 0; p < P; p++) { const i = Math.floor(p / o.nx), wgt = 1 + o.grad * i / (o.nz - 1), ar = r.g() * Math.SQRT1_2, ai = r.g() * Math.SQRT1_2;
+    for (let n = 0; n < N; n++) { const ph = 4 * PI * o.f0 / CS * wgt * o.Am * Math.sin(TAU * o.fm * n * T + 0.7), cr = Math.cos(ph), ci = Math.sin(ph);
+      Sr[p * N + n] = o.CBR * (ar * cr - ai * ci) + sn * r.g(); Si[p * N + n] = o.CBR * (ar * ci + ai * cr) + sn * r.g(); } }
+  const Lf = 512, re = new Float64Array(Lf), im = new Float64Array(Lf);
+  for (let p = 0; p < P; p++) if (lab[p]) { const fD = 2 * o.vax[lab[p] - 1] * o.f0 / CS; gaussProc(r, Lf, fD, 20 + 0.3 * fD, o.prf, re, im); for (let n = 0; n < N; n++) { Sr[p * N + n] += re[n]; Si[p * N + n] += im[n]; } }
+  d5 = { P, Sr, Si, lab, eig: {}, maps: {} };
+}
+function hermEigTop(Gr, Gi, N, Kb, r) {   /* top-Kb eigenpairs of Hermitian N x N (row-major) by subspace iteration + Rayleigh-Ritz */
+  let Vr = [], Vi = []; for (let k = 0; k < Kb; k++) { const a = new Float64Array(N), b = new Float64Array(N); for (let n = 0; n < N; n++) { a[n] = r.g(); b[n] = r.g(); } Vr.push(a); Vi.push(b); }
+  const orth = () => { for (let k = 0; k < Kb; k++) { for (let pass = 0; pass < 2; pass++) for (let j = 0; j < k; j++) { let sr = 0, si = 0; for (let n = 0; n < N; n++) { sr += Vr[j][n] * Vr[k][n] + Vi[j][n] * Vi[k][n]; si += Vr[j][n] * Vi[k][n] - Vi[j][n] * Vr[k][n]; }
+        for (let n = 0; n < N; n++) { Vr[k][n] -= sr * Vr[j][n] - si * Vi[j][n]; Vi[k][n] -= sr * Vi[j][n] + si * Vr[j][n]; } }
+      let nn = 0; for (let n = 0; n < N; n++) nn += Vr[k][n] ** 2 + Vi[k][n] ** 2; nn = Math.sqrt(nn) || 1; for (let n = 0; n < N; n++) { Vr[k][n] /= nn; Vi[k][n] /= nn; } } };
+  const mul = (xr, xi) => { const yr = new Float64Array(N), yi = new Float64Array(N); for (let i = 0; i < N; i++) { let sr = 0, si = 0; const o = i * N; for (let j = 0; j < N; j++) { const gr = Gr[o + j], gi = Gi[o + j]; sr += gr * xr[j] - gi * xi[j]; si += gr * xi[j] + gi * xr[j]; } yr[i] = sr; yi[i] = si; } return [yr, yi]; };
+  orth(); for (let it = 0; it < 18; it++) { for (let k = 0; k < Kb; k++) { const y = mul(Vr[k], Vi[k]); Vr[k] = y[0]; Vi[k] = y[1]; } orth(); }
+  /* Rayleigh-Ritz: B = V^H G V (Kb x Kb Hermitian) -> real symmetric 2Kb embedding */
+  const GV = []; for (let k = 0; k < Kb; k++) GV.push(mul(Vr[k], Vi[k]));
+  const M = 2 * Kb, A = []; for (let i = 0; i < M; i++) A.push(new Array(M).fill(0));
+  for (let a = 0; a < Kb; a++) for (let b = 0; b < Kb; b++) { let sr = 0, si = 0; for (let n = 0; n < N; n++) { sr += Vr[a][n] * GV[b][0][n] + Vi[a][n] * GV[b][1][n]; si += Vr[a][n] * GV[b][1][n] - Vi[a][n] * GV[b][0][n]; }
+    A[a][b] = sr; A[a + Kb][b + Kb] = sr; A[a + Kb][b] = si; A[a][b + Kb] = -si; }
+  for (let i = 0; i < M; i++) for (let j = i + 1; j < M; j++) { const m = 0.5 * (A[i][j] + A[j][i]); A[i][j] = m; A[j][i] = m; }
+  const E = Lab.eigSym(A);  /* {values, vectors} */
+  const vals = E.values, vecs = E.vectors;
+  const idx = [...vals.keys()].sort((p, q) => vals[q] - vals[p]);
+  const outV = [], lam = []; const used = [];
+  for (const ii of idx) { if (outV.length >= Kb) break;
+    const yr = new Float64Array(Kb), yi = new Float64Array(Kb); for (let k = 0; k < Kb; k++) { yr[k] = vecs[ii][k]; yi[k] = vecs[ii][k + Kb]; }
+    const ur = new Float64Array(N), ui = new Float64Array(N); for (let k = 0; k < Kb; k++) for (let n = 0; n < N; n++) { ur[n] += yr[k] * Vr[k][n] - yi[k] * Vi[k][n]; ui[n] += yr[k] * Vi[k][n] + yi[k] * Vr[k][n]; }
+    /* each eigenvalue appears twice (u and j u); skip vectors parallel to a kept one. Row p of S has clutter along conj(v_k): s_f = s - sum (s v_k) conj(v_k) */
+    let dup = false; for (const [qr, qi] of used) { let sr = 0, si = 0; for (let n = 0; n < N; n++) { sr += qr[n] * ur[n] + qi[n] * ui[n]; si += qr[n] * ui[n] - qi[n] * ur[n]; } if (sr * sr + si * si > 0.5) { dup = true; break; } }
+    if (dup) continue; let nn = 0; for (let n = 0; n < N; n++) nn += ur[n] ** 2 + ui[n] ** 2; nn = Math.sqrt(nn); for (let n = 0; n < N; n++) { ur[n] /= nn; ui[n] /= nn; }
+    used.push([ur, ui]); outV.push([ur, ui]); lam.push(vals[ii]); }
+  return { V: outV, lam };
+}
+function d5Eig(N) {
+  if (d5.eig[N]) return d5.eig[N];
+  const { P, Sr, Si } = d5, NM = D5.Nmax, Gr = new Float64Array(N * N), Gi = new Float64Array(N * N); let tr = 0;
+  for (let p = 0; p < P; p++) { const o = p * NM; for (let i = 0; i < N; i++) { const ar = Sr[o + i], ai = Si[o + i]; for (let j = i; j < N; j++) { const br = Sr[o + j], bi = Si[o + j]; Gr[i * N + j] += ar * br + ai * bi; Gi[i * N + j] += ar * bi - ai * br; } } }
+  for (let i = 0; i < N; i++) { tr += Gr[i * N + i]; for (let j = i + 1; j < N; j++) { Gr[j * N + i] = Gr[i * N + j]; Gi[j * N + i] = -Gi[i * N + j]; } }
+  const e = hermEigTop(Gr, Gi, N, D5.Kb, Lab.rng(5000 + N)); e.trace = tr; d5.eig[N] = e; return e;
+}
+function d5Map(N, K, filt) {
+  const key = N + '-' + K + '-' + filt; if (d5.maps[key]) return d5.maps[key];
+  const { P, Sr, Si, lab } = d5, NM = D5.Nmax, PD = new Float64Array(P);
+  if (filt === 'svd') { const e = d5Eig(N), V = e.V.slice(0, K);
+    for (let p = 0; p < P; p++) { const o = p * NM; const cr = new Float64Array(K), ci = new Float64Array(K);
+      for (let k = 0; k < K; k++) { const [vr, vi] = V[k]; let sr = 0, si = 0; for (let n = 0; n < N; n++) { sr += Sr[o + n] * vr[n] - Si[o + n] * vi[n]; si += Sr[o + n] * vi[n] + Si[o + n] * vr[n]; } cr[k] = sr; ci[k] = si; }
+      let s = 0; for (let n = 0; n < N; n++) { let yr = Sr[o + n], yi = Si[o + n]; for (let k = 0; k < K; k++) { const [vr, vi] = V[k]; yr -= cr[k] * vr[n] + ci[k] * vi[n]; yi -= ci[k] * vr[n] - cr[k] * vi[n]; } s += yr * yr + yi * yi; } PD[p] = s / N; } }
+  else { const re = new Float64Array(N), im = new Float64Array(N);
+    for (let p = 0; p < P; p++) { const o = p * NM; for (let n = 0; n < N; n++) { re[n] = Sr[o + n]; im[n] = Si[o + n]; } Lab.fft(re, im, false);
+      let s = 0; for (let k = 0; k < N; k++) { const f = (k < N / 2 ? k : k - N) * D5.prf / N; if (Math.abs(f) > D5.fcut) s += re[k] * re[k] + im[k] * im[k]; } PD[p] = s / (N * N); } }
+  let mb = 0, nb = 0; for (let p = 0; p < P; p++) if (!lab[p]) { mb += PD[p]; nb++; } mb /= nb; let sb = 0; for (let p = 0; p < P; p++) if (!lab[p]) sb += (PD[p] - mb) ** 2; sb = Math.sqrt(sb / (nb - 1));
+  const cnr = [0, 0, 0, 0], cnt = [0, 0, 0, 0]; for (let p = 0; p < P; p++) if (lab[p]) { cnr[lab[p] - 1] += PD[p]; cnt[lab[p] - 1]++; } for (let k = 0; k < 4; k++) cnr[k] = (cnr[k] / cnt[k] - mb) / sb;
+  const res = { PD, mb, sb, cnr }; d5.maps[key] = res; return res;
+}
+function draw5() {
+  if (!d5) d5Init();
+  const c = Lab.colors(), N = +$('m29-d5-n').value, K = +$('m29-d5-k').value, filt = $('m29-d5-f').value, o = D5, Pn = Math.pow(10, -o.BNR / 10);
+  $('m29-d5-k-out').textContent = filt === 'svd' ? K : '–';
+  const M = d5Map(N, K, filt), e = d5Eig(N);
+  const { ctx, w, h } = Lab.canvas($('m29-d5-cv'), w5h());
+  function w5h() { const cw = $('m29-d5-cv').clientWidth || 600; return cw < 560 ? Math.min(cw - 90, 230) + 300 : 300; }
+  const narrow = w < 560;
+  const side = narrow ? Math.min(w - 90, 230) : Math.min(h - 50, (w - 130) * 0.36);
+  const mapB = { x: 54, y: 18, w: side, h: side };
+  const off = document.createElement('canvas'); off.width = o.nx; off.height = o.nz; const g2 = off.getContext('2d'), img = g2.createImageData(o.nx, o.nz);
+  const lo = filt === 'svd' ? -1.5 : 0, hi = filt === 'svd' ? 3 : 30;
+  for (let p = 0; p < d5.P; p++) { const dB = 10 * L10(M.PD[p] / Pn + 1e-12); const rgb = Lab.cmap.heat(Math.max(0, Math.min(1, (dB - lo) / (hi - lo)))); img.data[4 * p] = rgb[0]; img.data[4 * p + 1] = rgb[1]; img.data[4 * p + 2] = rgb[2]; img.data[4 * p + 3] = 255; }
+  g2.putImageData(img, 0, 0); ctx.imageSmoothingEnabled = false; ctx.drawImage(off, mapB.x, mapB.y, mapB.w, mapB.h);
+  Lab.axes(ctx, mapB, [0, 3.2], [3.2, 0], { xlabel: 'x (mm)', ylabel: 'z (mm)', grid: false, nx: 3, ny: 3, title: 'PD, dB re noise (' + lo + ' to ' + hi + ')' });
+  /* singular spectrum */
+  const sB = narrow ? { x: 54, y: mapB.y + side + 60, w: (w - 70) / 2 - 20, h: 150 } : { x: mapB.x + side + 56, y: 18, w: (w - mapB.x - side - 56) / 2 - 30, h: h - 58 };
+  const lam = e.lam, l0 = lam[0], rest = (e.trace - lam.reduce((s, v) => s + v, 0)) / (N - lam.length);
+  const ax2 = Lab.axes(ctx, sB, [0.4, lam.length + 0.6], [-70, 0], { xlabel: 'index k', ylabel: 'σ_k² / σ_1² (dB)', xticks: [1, 4, 8, 12], ny: 3, title: 'top 12 of ' + N + ', dashed: mean of rest' });
+  for (let k = 0; k < lam.length; k++) { const v = 10 * L10(Math.max(lam[k], 1e-12) / l0); ctx.fillStyle = (filt === 'svd' && k < K) ? c.sig2 : c.accent; const x0 = ax2.X(k + 1 - 0.32), x1 = ax2.X(k + 1 + 0.32); ctx.fillRect(x0, ax2.Y(Math.max(v, -70)), x1 - x0, ax2.Y(-70) - ax2.Y(Math.max(v, -70))); }
+  ctx.save(); ctx.strokeStyle = c.muted; ctx.setLineDash([4, 3]); const yR = ax2.Y(10 * L10(rest / l0)); ctx.beginPath(); ctx.moveTo(sB.x, yR); ctx.lineTo(sB.x + sB.w, yR); ctx.stroke(); ctx.restore();
+  /* CNR vs N */
+  const cB = narrow ? { x: sB.x + sB.w + 56, y: sB.y, w: w - (sB.x + sB.w + 56) - 10, h: 150 } : { x: sB.x + sB.w + 60, y: 18, w: w - (sB.x + sB.w + 60) - 10, h: h - 58 };
+  const Ns = [32, 64, 128, 256]; const curves = [0, 1, 2, 3].map(k => Ns.map(n => d5Map(n, K, filt).cnr[k]));
+  const ymax = Math.max(6, ...curves.flat().map(v => isFinite(v) ? v : 0)) * 1.05;
+  const ax3 = Lab.axes(ctx, cB, [L10(25), L10(300)], [Math.min(0, ...curves.flat()), ymax], { xlabel: 'N (log)', ylabel: 'CNR', xticks: [L10(32), L10(64), L10(128), L10(256)], xfmt: v => fmt(Math.round(10 ** v)), ny: 3 });
+  const th = []; for (let i = 0; i <= 40; i++) { const lg = L10(25) + (L10(300) - L10(25)) * i / 40; th.push([lg, Math.pow(10, o.BNR / 10) * Math.sqrt(Math.max(10 ** lg - (filt === 'svd' ? K : 0), 0))]); }
+  Lab.line(ctx, ax3, th.map(q => q[0]), th.map(q => q[1]), c.muted, 1.6, [5, 4]);
+  const cc = [c.sig4, c.sig3, c.sig2, c.accent]; curves.forEach((cv, k) => { Lab.line(ctx, ax3, Ns.map(L10), cv, cc[k], 1.6); Lab.dots(ctx, ax3, Ns.map(L10), cv, cc[k], 2.6); });
+  ctx.font = '10px ' + c.mono; ['1', '3', '10', '30 mm/s'].forEach((s, k) => { ctx.fillStyle = cc[k]; ctx.fillText(s, cB.x + 4 + k * 22, cB.y + 12); });
+  const rk = filt === 'svd' ? K : 0;
+  $('m29-d5-read').innerHTML = 'vessel Doppler: <b>19.5, 58, 195, 584 Hz</b> (Nyquist 500 Hz)<br>background PD = <b>' + fmt(M.mb / Pn, 2) + ' × noise</b>' + (M.mb / Pn > 2 ? ' <b style="color:var(--bad)">clutter residue</b>' : '') +
+    '<br>CNR at N = ' + N + ': <b>' + M.cnr.map(v => fmt(v, 2)).join(', ') + '</b><br>theory (P<sub>b</sub>/P<sub>n</sub>)√(N − K) = <b>' + fmt(Math.pow(10, o.BNR / 10) * Math.sqrt(N - rk), 2) + '</b> · σ₁²/mean(rest) = <b>' + fmt(10 * L10(l0 / rest), 1) + ' dB</b>';
+}
+['m29-d5-n', 'm29-d5-k', 'm29-d5-f'].forEach(id => $(id).addEventListener('input', draw5));
+
+/* ================= Demo 29.6: multi-angle vector Doppler ================= */
+function draw6() {
+  const c = Lab.colors(), gd = +$('m29-d6-g').value, K = +$('m29-d6-k').value, mode = $('m29-d6-m').value, phid = +$('m29-d6-phi').value, snrdB = +$('m29-d6-snr').value;
+  $('m29-d6-g-out').textContent = gd + '°'; $('m29-d6-k-out').textContent = K; $('m29-d6-phi-out').textContent = (phid < 0 ? '−' : '') + Math.abs(phid) + '°'; $('m29-d6-snr-out').textContent = snrdB + ' dB';
+  const f0 = 5e6, PRF = 10e3 / K, N = 32, M = 400, sp = 0.2236, phi = deg(phid), v = [sp * Math.cos(phi), sp * Math.sin(phi)], gam = deg(gd);
+  const al = [], be = []; for (let k = 0; k < K; k++) { const a = -gam + 2 * gam * k / (K - 1); al.push(a); be.push(mode === 'tx' ? a : 0); }
+  const A = al.map((a, k) => [-(f0 / CS) * (Math.sin(a) + Math.sin(be[k])), -(f0 / CS) * (Math.cos(a) + Math.cos(be[k]))]);
+  const f = A.map(row => row[0] * v[0] + row[1] * v[1]);
+  let a11 = 0, a12 = 0, a22 = 0; A.forEach(r => { a11 += r[0] * r[0]; a12 += r[0] * r[1]; a22 += r[1] * r[1]; }); const det = a11 * a22 - a12 * a12, i11 = a22 / det, i12 = -a12 / det, i22 = a11 / det;
+  const r = Lab.rng(2806), ns = Math.sqrt(1 / (2 * Math.pow(10, snrdB / 10)));
+  const ex = new Float64Array(M), ez = new Float64Array(M); let sf2 = 0;
+  for (let t = 0; t < M; t++) { const fh = [];
+    for (let k = 0; k < K; k++) { const ph0 = TAU * r.u(); let pr = 0, pi = 0, qr = 0, qi = 0;
+      for (let n = 0; n < N; n++) { const ph = ph0 + TAU * f[k] * n / PRF, zr = Math.cos(ph) + ns * r.g(), zi = Math.sin(ph) + ns * r.g(); if (n) { pr += zr * qr + zi * qi; pi += zi * qr - zr * qi; } qr = zr; qi = zi; }
+      fh.push(PRF / TAU * Math.atan2(pi, pr)); }
+    { let d = fh[0] - f[0]; d = ((d + PRF / 2) % PRF + PRF) % PRF - PRF / 2; sf2 += d * d; } let b1 = 0, b2 = 0; A.forEach((row, k) => { b1 += row[0] * fh[k]; b2 += row[1] * fh[k]; }); ex[t] = i11 * b1 + i12 * b2; ez[t] = i12 * b1 + i22 * b2; }
+  const sf = Math.sqrt(sf2 / M);
+  const mean = a => a.reduce((s, x) => s + x, 0) / a.length, sd = a => { const m = mean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1)); };
+  const sdx = sd(ex), sdz = sd(ez), thx = sf * Math.sqrt(i11), thz = sf * Math.sqrt(i22);
+  const cw6 = $('m29-d6-cv').clientWidth || 600, nar = cw6 < 560;
+  const { ctx, w, h } = Lab.canvas($('m29-d6-cv'), nar ? 520 : 300);
+  /* geometry */
+  const gh = nar ? 200 : h, gw = nar ? w - 28 : Math.min(w * 0.38, 260), cx = 14 + gw / 2, top = 30;
+  ctx.save(); ctx.fillStyle = c.fg; ctx.fillRect(cx - gw * 0.4, top - 6, gw * 0.8, 6); ctx.font = '11px ' + c.mono; ctx.fillStyle = c.muted; ctx.textAlign = 'center'; ctx.fillText('array', cx, top - 12); ctx.restore();
+  const pz = top + (gh - top) * 0.62, L = (gh - top) * 0.5;
+  al.forEach((a, k) => { Lab.arrow(ctx, cx - Math.sin(a) * L, pz - Math.cos(a) * L, cx - Math.sin(a) * L * 0.12, pz - Math.cos(a) * L * 0.12, c.accent, 1.6); const b = be[k]; ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = c.sig3; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(cx, pz); ctx.lineTo(cx - Math.sin(b) * L * 0.9, pz - Math.cos(b) * L * 0.9); ctx.stroke(); ctx.restore(); });
+  Lab.arrow(ctx, cx, pz, cx + v[0] / sp * 60, pz + v[1] / sp * 60, c.sig2, 2.4);
+  ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.textAlign = 'left'; ctx.fillText('±' + gd + '°, K = ' + K, 10, gh - 8);
+  /* scatter */
+  const B = nar ? { x: 62, y: gh + 16, w: w - 76, h: h - gh - 56 } : { x: gw + 74, y: 14, w: w - gw - 88, h: h - 54 };
+  const span = Math.max(4 * Math.max(thx, thz), 0.02), hx = Math.max(span, 0.02), aspect = B.h / B.w;
+  const xr = [v[0] - hx, v[0] + hx], zr = [v[1] - hx * aspect, v[1] + hx * aspect];
+  const ax = Lab.axes(ctx, B, xr, zr, { xlabel: 'v_x (m/s)', ylabel: 'v_z (m/s)', nx: nar ? 3 : 5, ny: 4 });
+  ax.clip(); Lab.dots(ctx, ax, ex, ez, c.accent, 1.5);
+  const C11 = sf * sf * i11, C12 = sf * sf * i12, C22 = sf * sf * i22, tr = C11 + C22, dd = Math.sqrt(((C11 - C22) / 2) ** 2 + C12 * C12), l1 = tr / 2 + dd, l2 = Math.max(tr / 2 - dd, 0), an = 0.5 * Math.atan2(2 * C12, C11 - C22);
+  [1, 2].forEach(s => { ctx.save(); ctx.strokeStyle = c.fg; ctx.lineWidth = 1.4; ctx.setLineDash(s === 2 ? [5, 4] : []); ctx.beginPath(); for (let i = 0; i <= 90; i++) { const t = TAU * i / 90, ux = s * Math.sqrt(l1) * Math.cos(t), uz = s * Math.sqrt(l2) * Math.sin(t), X = v[0] + ux * Math.cos(an) - uz * Math.sin(an), Z = v[1] + ux * Math.sin(an) + uz * Math.cos(an); i ? ctx.lineTo(ax.X(X), ax.Y(Z)) : ctx.moveTo(ax.X(X), ax.Y(Z)); } ctx.stroke(); ctx.restore(); });
+  Lab.dots(ctx, ax, [v[0]], [v[1]], c.sig2, 4); ax.unclip();
+  const vNa = CS * PRF / (4 * f0), fmax = Math.max(...f.map(Math.abs));
+  $('m29-d6-read').innerHTML = 'σ<sub>vx</sub>: MC <b>' + fmt(sdx * 1e3, 1) + '</b>, theory ' + fmt(thx * 1e3, 1) + ' mm/s<br>σ<sub>vz</sub>: MC <b>' + fmt(sdz * 1e3, 2) + '</b>, theory ' + fmt(thz * 1e3, 2) + ' mm/s<br>ratio <b>' + fmt(sdx / sdz, 2) + '</b> · cot γ = ' + fmt(1 / Math.tan(gam), 2) + ' · cot(γ/2) = ' + fmt(1 / Math.tan(gam / 2), 2) +
+    '<br>per-angle PRF ' + fmt(PRF / 1e3, 2) + ' kHz, axial v<sub>Nyq</sub> ' + fmt(vNa, 3) + ' m/s' + (fmax > PRF / 2 ? ' <b style="color:var(--bad)">aliased angle</b>' : '');
+}
+['m29-d6-g', 'm29-d6-k', 'm29-d6-m', 'm29-d6-phi', 'm29-d6-snr'].forEach(id => $(id).addEventListener('input', draw6));
+
+/* ================= card grid 29.8 ================= */
+const G8 = [
+  { prov: 'exact', q: 'How does noise inflate the variance estimate?', a: 'From (29.10): <b>|R(1)|/R(0) × SNR/(1+SNR)</b>. With σ<sub>f</sub> = 150 Hz at PRF 4 kHz the apparent width is 149, 173, 306, 645 Hz at 40, 20, 10, 0 dB.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [-5, 40], [0, 900], { lab: 'apparent σ_f (Hz) vs SNR (dB)', ticks: [[0, '0'], [10, '10'], [20, '20'], [30, '30'], [40, '40']], hlines: [[150, 'true 150']] });
+      const T = 1 / 4000; Mm().curve(x, m, s => { const q = 10 ** (s / 10), rho = q / (1 + q) * Math.exp(-((TAU * 150 * T) ** 2) / 2); return Math.sqrt(2 / (T * T) * (1 - rho)) / TAU; }, c.a, { w: 2 }); [[40, 149.2], [20, 173.2], [10, 306.4], [0, 645.3]].forEach(([s, v]) => dot(x, m, s, v, c.b)); } },
+  { prov: 'exact', q: 'What does an aliased profile look like, and how is it unwrapped?', a: 'A parabolic profile peaking at 1.6 v<sub>Nyq</sub> wraps in the core (pink): the jump is <b>2v<sub>Nyq</sub></b> between neighbours. Adding 2v<sub>Nyq</sub> where the neighbour step exceeds v<sub>Nyq</sub> restores it (blue dashed).',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [-1, 1], [-1.2, 1.8], { lab: 'v / v_Nyq across the lumen (r/a)', base: 0, ticks: [[-1, '−1'], [0, '0'], [1, '1']], hlines: [[1, '+v_Nyq'], [-1, '−v_Nyq']] });
+      Mm().curve(x, m, u => 1.6 * (1 - u * u), c.a, { w: 2, dash: [5, 3] }); const xs = [], ys = []; for (let i = 0; i <= 300; i++) { const u = -1 + 2 * i / 300, vv = 1.6 * (1 - u * u); const wv = ((vv + 1) % 2 + 2) % 2 - 1; if (i && Math.abs(wv - ys[ys.length - 1]) > 1) { poly(x, m, xs.slice(), ys.slice(), c.b, { w: 2 }); xs.length = 0; ys.length = 0; } xs.push(u); ys.push(wv); } poly(x, m, xs, ys, c.b, { w: 2 }); } },
+  { prov: 'exact', q: 'How noisy is one power Doppler pixel?', a: 'For N independent complex Gaussian samples the power estimate has <b>std/mean = 1/√N</b>: 18 % at N = 32, 6.3 % at 256. That spread, not the mean, sets the detectable vessel contrast.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [L10(8), L10(512)], [0, 40], { lab: 'std/mean (%) vs N (log)', ticks: logTicks([8, 32, 128, 512]), hlines: [[17.7, '17.7'], [6.25, '6.3']] }); Mm().curve(x, m, l => 100 / Math.sqrt(10 ** l), c.a, { w: 2 }); dot(x, m, L10(32), 17.7, c.b); dot(x, m, L10(256), 6.25, c.b); } }
+];
+Lab.cardGrid('m29', 'm29-g8', G8);
+/* ================= visual summary ================= */
+const VIS = [
+  { prov: 'exact', q: 'What sets the Nyquist velocity?', a: '<b>v<sub>Nyq</sub> = c·PRF/(4f₀cosθ)</b>: 0.308 m/s at 5 MHz and 4 kHz (θ = 0). Doubling f₀ halves it; doubling the PRF doubles it.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0.5, 10], [0, 1.6], { lab: 'v_Nyq (m/s) vs PRF (kHz), θ = 0', ticks: [[2, '2'], [4, '4'], [6, '6'], [8, '8'], [10, '10']], hlines: [[0.308, '0.308']] });
+      [[2.5, c.d], [5, c.a], [7.5, c.b]].forEach(([f, col]) => { Mm().curve(x, m, p => CS * p * 1e3 / (4 * f * 1e6), col, { w: 2 }); Mm().text(x, f + ' MHz', m.X(7.2), m.Y(CS * 7.2e3 / (4 * f * 1e6)) - 8, col); }); dot(x, m, 4, 0.308, c.a); } },
+  { prov: 'exact', q: 'How deep can a given PRF reach?', a: '<b>z<sub>max</sub> = c/(2·PRF)</b>: 19.3 cm at 4 kHz, 7.7 cm at 10 kHz. Ultrafast compounding divides the frame rate, not the PRF, so the depth limit applies per transmit.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0.5, 20], [0, 40], { lab: 'z_max (cm) vs PRF (kHz)', ticks: [[4, '4'], [10, '10'], [15, '15'], [20, '20']], hlines: [[19.25, '19.3'], [7.7, '7.7']] }); Mm().curve(x, m, p => CS / (2 * p * 1e3) * 100, c.a, { w: 2 }); dot(x, m, 4, 19.25, c.b); dot(x, m, 10, 7.7, c.b); } },
+  { prov: 'exact', q: 'What does the spectrum of laminar flow look like?', a: 'Uniform beam, parabolic profile: <b>flat on [0, f<sub>D,max</sub>]</b> (blue). Thin beam, or a blunted profile: density <b>∝ 1/√(1 − f/f<sub>D,max</sub>)</b> (pink), mean 2/3.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [-0.1, 1.2], [0, 4], { lab: 'density vs f / f_D,max', ticks: [[0, '0'], [0.5, '0.5'], [1, '1']] });
+      Mm().curve(x, m, f => (f >= 0 && f <= 1) ? 1 : 0, c.a, { w: 2, fill: true }); Mm().curve(x, m, f => (f >= 0 && f < 0.999) ? 0.5 / Math.sqrt(1 - f) : 0, c.b, { w: 2 }); } },
+  { prov: 'exact', q: 'How do spectrogram time and frequency resolution trade?', a: 'Hann window of N<sub>w</sub> samples: <b>Δf ≈ 2·PRF/N<sub>w</sub>, Δt = N<sub>w</sub>/PRF</b>, product ≈ 2. At 5 kHz: 79 Hz with 25.6 ms, or 317 Hz with 6.4 ms.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [2, 60], [0, 800], { lab: 'Δf −6 dB (Hz) vs Δt (ms), PRF 5 kHz', ticks: [[6.4, '6.4'], [25.6, '25.6'], [51.2, '51.2']], hlines: [[79.3, '79']] }); Mm().curve(x, m, t => 2.03 / (t * 1e-3), c.a, { w: 2 }); [[6.4, 317.4], [12.8, 158.7], [25.6, 79.3], [51.2, 39.7]].forEach(([t, f]) => dot(x, m, t, f, c.b)); } },
+  { prov: 'exact', q: 'What is the best a velocity estimator can do?', a: 'Cramér–Rao bound for one tone in white noise: <b>σ<sub>f</sub> ≥ PRF·√(6/(4π²·SNR·N(N²−1)))</b>. At 10 dB, 3 kHz, 5 MHz: 2.5 mm/s for N = 8, 0.3 mm/s for 32. Blood is not a tone: its own spectral width dominates.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [L10(4), L10(64)], [-1, 1.5], { lab: 'CRLB σ_v (mm/s, log) vs N (log), 10 dB', ticks: logTicks([4, 8, 16, 32, 64]), hlines: [[L10(2.54), '2.5'], [L10(0.315), '0.31']] });
+      Mm().curve(x, m, l => { const N = 10 ** l, sf = 3000 * Math.sqrt(6 / (4 * PI * PI * 10 * N * (N * N - 1))); return L10(CS * sf / (2 * 5e6) * 1e3); }, c.a, { w: 2 }); } },
+  { prov: 'exact', q: 'How much slow flow does the wall filter remove?', a: '<b>v<sub>min</sub> = c·f<sub>c</sub>/(2f₀cosθ)</b> with f<sub>c</sub> ≈ (0.44 + 0.41p)PRF/N. At 2 kHz and 5 MHz, θ = 60°: 6.5 cm/s for p = 2, N = 12; 3.2 cm/s with N = 24.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [6, 64], [0, 12], { lab: 'v_min (cm/s) vs N, PRF 2 kHz, 5 MHz, 60°', ticks: [[12, '12'], [24, '24'], [48, '48'], [64, '64']], hlines: [[6.4, '6.4']] });
+      [[0, c.d], [1, c.b], [2, c.a], [3, c.c]].forEach(([p, col]) => { Mm().curve(x, m, N => CS * (0.44 + 0.41 * p) * 2000 / N / (2 * 5e6 * 0.5) * 100, col, { w: 1.8 }); Mm().text(x, 'p=' + p, m.X(16 + 9 * p), m.Y(CS * (0.44 + 0.41 * p) * 2000 / (16 + 9 * p) / 5e6 * 100) - 7, col); }); dot(x, m, 12, 6.4, c.a); } },
+  { prov: 'model', q: 'Why can a high-pass not separate slow blood from moving tissue?', a: 'At 15 MHz, tissue moving at 1–1.5 mm/s (pink) and blood at 1 mm/s (blue, <b>19.5 Hz</b>) occupy the same Doppler band. Space separates them, frequency does not: hence SVD.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [-150, 150], [0, 1.1], { lab: 'normalized spectrum vs Doppler (Hz), 15 MHz', base: 0, ticks: [[-75, '−75'], [0, '0'], [19.5, ''], [75, '75']] });
+      Mm().curve(x, m, f => Math.exp(-(f * f) / (2 * 15 * 15)), c.b, { w: 2, fill: true }); Mm().curve(x, m, f => 0.8 * Math.exp(-((f - 19.5) ** 2) / (2 * 26 * 26)), c.a, { w: 2 }); vline(x, m, 75, c.mu, 'cutoff'); vline(x, m, -75, c.mu); } },
+  { prov: 'exact', q: 'How does power Doppler CNR grow with the ensemble?', a: '<b>CNR ≈ (P<sub>b</sub>/P<sub>n</sub>)√(N − K)</b>: for P<sub>b</sub>/P<sub>n</sub> = −6 dB and K = 4, 2.5 at N = 100 and 5.0 at 400. Every 6 dB of SNR is worth 16× in N.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [1, L10(1000)], [0, 8], { lab: 'CNR vs N (log)', ticks: logTicks([10, 30, 100, 300]), hlines: [[3, 'CNR 3']] });
+      [[-10, c.d], [-6, c.a], [0, c.b]].forEach(([d, col]) => Mm().curve(x, m, l => Math.pow(10, d / 10) * Math.sqrt(Math.max(10 ** l - 4, 0)), col, { w: 2 })); Mm().text(x, '0 dB', m.X(1.15), m.Y(5.5), c.b); Mm().text(x, '−6', m.X(2.4), m.Y(4.6), c.a); Mm().text(x, '−10', m.X(2.6), m.Y(1.3), c.d); } },
+  { prov: 'exact', q: 'How far does the aperture broaden the spectrum?', a: 'Upper edge <b>cos(θ − α)/cosθ</b> with α = atan(1/2F#). At 60°: 1.67 for F# 1, 1.39 for F# 2, 1.21 for F# 4. A small aperture or a small angle keeps the envelope honest.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [1, 8], [1, 2.4], { lab: 'edge / f_D vs F-number', base: 1, ticks: [[1, '1'], [2, '2'], [4, '4'], [8, '8']], hlines: [[1.39, '1.39']] });
+      [[45, c.d], [60, c.a], [70, c.b]].forEach(([t, col]) => { Mm().curve(x, m, F => Math.cos(deg(t) - Math.atan(1 / (2 * F))) / Math.cos(deg(t)), col, { w: 2 }); Mm().text(x, t + '°', m.X(1.05), m.Y(Math.cos(deg(t) - Math.atan(0.5)) / Math.cos(deg(t))) + (t === 70 ? -8 : 8), col); }); dot(x, m, 2, 1.39, c.a); } },
+  { prov: 'exact', q: 'How much does a staggered (dual) PRF extend the Nyquist limit?', a: '<b>v<sub>ext</sub>/v<sub>Nyq,1</sub> = 1/(T₂/T₁ − 1)</b>: ×2 for a 3:2 stagger, ×4 for 5:4. Closer intervals extend more but make the difference phase noisier.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [1.1, 2], [0, 10.5], { lab: 'v_ext / v_Nyq,1 vs T₂/T₁', ticks: [[1.25, '5:4'], [1.5, '3:2'], [2, '2:1']], hlines: [[2, '×2'], [4, '×4']] }); Mm().curve(x, m, r => 1 / (r - 1), c.a, { w: 2 }); dot(x, m, 1.5, 2, c.b); dot(x, m, 1.25, 4, c.b); } },
+  { prov: 'model', q: 'Which frequency maximizes the blood echo at depth?', a: 'Rayleigh scattering grows as f⁴ (+40 log f dB) while the round trip loses 2αfz: optimum <b>f* = 8.69/(αz)</b> MHz (α in dB/cm/MHz, z in cm): 3.5 MHz at 5 cm, 8.7 MHz at 2 cm for α = 0.5.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [1, 15], [-30, 5], { lab: 'blood echo (dB, peak = 0) vs f (MHz)', base: -30, ticks: [[3.47, '3.5'], [8.69, '8.7'], [15, '15']] });
+      [[5, c.a], [2, c.b]].forEach(([z, col]) => { const g = f => 40 * L10(f) - 2 * 0.5 * f * z, pk = g(8.69 / (0.5 * z)); Mm().curve(x, m, f => g(f) - pk, col, { w: 2 }); Mm().text(x, z + ' cm', m.X(8.69 / (0.5 * z)) + 4, m.Y(1.5), col); }); } },
+  { prov: 'exact', q: 'Why is the lateral velocity noisier?', a: 'Two symmetric angle pairs: <b>σ<sub>vx</sub>/σ<sub>vz</sub> = cot γ</b> (blue), <b>cot(γ/2)</b> if receive stays at 0° (pink). ±10° gives 5.7; ±30° gives 1.7.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [2, 40], [0, 2], { lab: 'ratio (log) vs γ (deg)', ticks: [[5, '5'], [10, '10'], [20, '20'], [30, '30'], [40, '40']], hlines: [[L10(5.67), '5.7'], [L10(1.73), '1.7']] });
+      Mm().curve(x, m, g => L10(1 / Math.tan(deg(g))), c.a, { w: 2 }); Mm().curve(x, m, g => L10(1 / Math.tan(deg(g) / 2)), c.b, { w: 2, dash: [5, 3] }); dot(x, m, 10, L10(5.67), c.a); } }
+];
+Lab.cardGrid('m29', 'm29-vis', VIS);
+
+/* ================= rule figures ================= */
+const RH = 128;
+const RF = {
+  1: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [0, 90], [0, 7], { lab: 'f_D (kHz) vs θ (deg), 1 m/s, 5 MHz', ticks: [[0, '0'], [30, '30'], [60, '60'], [90, '90']], hlines: [[3.25, '3.25']] }); Mm().curve(x, m, t => 2 * 5e6 * Math.cos(deg(t)) / CS / 1e3, c.a, { w: 2 }); dot(x, m, 60, 3.247, c.b); },
+  2: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [0, 75], [0, 60], { lab: 'velocity error (%) vs θ (deg)', ticks: [[30, '30'], [45, '45'], [60, '60'], [75, '75']], hlines: [[18.3, '18.3']] });
+    [[2, c.d], [5, c.a], [10, c.b]].forEach(([d, col]) => { Mm().curve(x, m, t => 100 * (Math.cos(deg(t)) / Math.cos(deg(Math.min(t + d, 89.5))) - 1), col, { w: 2 }); Mm().text(x, 'δθ = ' + d + '°', m.X(8), m.Y([2, 5, 10].indexOf(d) * 12 + 30), col); }); dot(x, m, 60, 18.3, c.a); },
+  3: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [2, 20], [0, 4], { lab: 'v_max (m/s) vs depth (cm), θ = 0', ticks: [[5, '5'], [10, '10'], [15, '15'], [20, '20']], hlines: [[0.988, '0.99'], [0.593, '0.59']] });
+    [[2, c.d], [3, c.b], [5, c.a]].forEach(([f, col]) => { Mm().curve(x, m, z => CS * CS / (8 * f * 1e6 * z / 100), col, { w: 2 }); Mm().text(x, f + ' MHz', m.X(11 + f), m.Y(CS * CS / (8 * f * 1e6 * (0.11 + f / 100))) - 8, col); }); },
+  4: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [-2.5, 2.5], [-1.2, 2], { lab: 'v̂ / v_Nyq vs v / v_Nyq', base: 0, ticks: [[-2, '−2'], [-1, '−1'], [1, '1'], [2, '2']] });
+    Mm().curve(x, m, v => v, c.mu, { dash: [4, 3] });
+    [[0, c.a], [0.4, c.b]].forEach(([s, col]) => { const lo = -1 + 2 * s; const W = v => (((v - lo) % 2) + 2) % 2 + lo; let xs = [], ys = []; for (let i = 0; i <= 500; i++) { const v = -2.5 + 5 * i / 500, w = W(v); if (i && Math.abs(w - ys[ys.length - 1]) > 1) { poly(x, m, xs, ys, col, { w: 2 }); xs = []; ys = []; } xs.push(v); ys.push(w); } poly(x, m, xs, ys, col, { w: 2 }); });
+    Mm().text(x, 'baseline +0.4', m.X(0.9), m.Y(1.85), c.b); },
+  5: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [-0.05, 1.15], [0, 3.5], { lab: 'density vs f / f_D,max', ticks: [[0, '0'], [0.5, '0.5'], [2 / 3, '⅔'], [1, '1']] });
+    Mm().curve(x, m, f => (f >= 0 && f <= 1) ? 1 : 0, c.a, { w: 2 }); Mm().curve(x, m, f => (f >= 0 && f < 0.995) ? 0.5 / Math.sqrt(1 - f) : 0, c.b, { w: 2 }); Mm().stems(x, m, [[1, 3.2]], c.d);
+    Mm().text(x, 'parabolic, wide', m.X(0.05), m.Y(1.25), c.a); Mm().text(x, 'thin beam or blunt', m.X(0.05), m.Y(0.35), c.b); Mm().text(x, 'plug', m.X(1.03), m.Y(3.0), c.d); },
+  6: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [0, 80], [1, 3], { lab: 'edge / f_D vs θ (deg)', base: 1, ticks: [[20, '20'], [40, '40'], [60, '60'], [80, '80']], hlines: [[1.39, '1.39']] });
+    [[1, c.b], [2, c.a], [4, c.d]].forEach(([F, col]) => { const a = Math.atan(1 / (2 * F)); Mm().curve(x, m, t => Math.cos(deg(t) - a) / Math.cos(deg(t)), col, { w: 2 }); Mm().text(x, 'F# ' + F, m.X(66 + 4 * F) - 40, m.Y(Math.cos(deg(66 + 4 * F) - a) / Math.cos(deg(66 + 4 * F))) - 6, col); }); dot(x, m, 60, 1.39, c.a); },
+  7: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [0, 800], [0, 1.05], { lab: '|R(1)|/R(0) vs σ_f (Hz)', ticks: [[150, '150'], [400, '400'], [800, '800']], hlines: [[0.973, '0.97']] });
+    [[2000, c.b], [4000, c.a]].forEach(([prf, col]) => { Mm().curve(x, m, s => Math.exp(-((TAU * s / prf) ** 2) / 2), col, { w: 2 }); Mm().text(x, fmt(prf / 1e3) + ' kHz', m.X(prf === 2000 ? 320 : 600), m.Y(Math.exp(-((TAU * (prf === 2000 ? 320 : 600) / prf) ** 2) / 2)) + 12, col); }); dot(x, m, 150, 0.973, c.a); },
+  8: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [0, 3], [0.11, 0.17], { lab: 'v̂ (m/s) ±1 std vs N; true 0.15', base: 0.11, ticks: [[0.5, '4'], [1.5, '8'], [2.5, '16']], hlines: [[0.15, 'true']] });
+    const K = [[0.1344, 0.0179], [0.1347, 0.0157], [0.1355, 0.0121]], L = [[0.1499, 0.0139], [0.1504, 0.0123], [0.1504, 0.0100]];
+    [[K, c.b, -0.12, 'Kasai'], [L, c.a, 0.12, 'Loupas']].forEach(([D, col, dx, lab]) => D.forEach(([mu, sd], i) => { const X = i + 0.5 + dx; x.save(); x.strokeStyle = col; x.lineWidth = 1.6; x.beginPath(); x.moveTo(m.X(X), m.Y(Math.max(mu - sd, 0.11))); x.lineTo(m.X(X), m.Y(Math.min(mu + sd, 0.17))); x.stroke(); x.restore(); dot(x, m, X, mu, col, 3.5); if (i === 0) Mm().text(x, lab, m.X(X) + 6, m.Y(mu) + (dx < 0 ? 8 : -8), col); })); },
+  9: cv => { const c = Mm().col(); const T = 1 / 4000; const { x, m } = fig(cv, RH, [0, 400], [0, 600], { lab: 'apparent vs true σ_f (Hz), PRF 4 kHz', ticks: [[100, '100'], [200, '200'], [300, '300'], [400, '400']] });
+    Mm().curve(x, m, s => s, c.mu, { dash: [4, 3] });
+    [[40, c.d], [20, c.b], [10, c.a]].forEach(([q, col]) => { const g = 10 ** (q / 10); Mm().curve(x, m, s => Math.sqrt(2 / (T * T) * (1 - g / (1 + g) * Math.exp(-((TAU * s * T) ** 2) / 2))) / TAU, col, { w: 2 }); const xl = q === 10 ? 20 : q === 20 ? 140 : 250; Mm().text(x, q + ' dB', m.X(xl), m.Y(Math.sqrt(2 / (T * T) * (1 - g / (1 + g) * Math.exp(-((TAU * xl * T) ** 2) / 2))) / TAU) - 9, col); }); },
+  10: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [0, 1000], [-70, 3], { lab: '|H|² (dB) vs f (Hz), N = 12, PRF 2 kHz', base: -70, ticks: [[75, ''], [210, '210'], [500, '500'], [1000, '1000']], hlines: [[-3, '−3 dB']] });
+    [[0, c.d], [1, c.b], [2, c.a], [3, c.c]].forEach(([p, col]) => { const Q = regBasis(12, p); Mm().curve(x, m, f => 10 * L10(regH2(12, Q, f, 2000) + 1e-8), col, { w: 1.8 }); }); },
+  11: cv => { const c = Mm().col(); const e = d5 ? d5Eig(128) : null; const { x, m } = fig(cv, RH, [0.4, 12.6], [-70, 0], { lab: 'σ_k² / σ_1² (dB) vs k, N = 128', base: -70, ticks: [[1, '1'], [4, '4'], [8, '8'], [12, '12']] });
+    if (e) e.lam.forEach((l, k) => { const v = Math.max(10 * L10(l / e.lam[0]), -70), x0 = m.X(k + 1 - 0.3), x1 = m.X(k + 1 + 0.3); x.fillStyle = k < 4 ? c.b : c.a; x.fillRect(x0, m.Y(v), x1 - x0, m.Y(-70) - m.Y(v)); });
+    Mm().text(x, 'clutter (removed)', m.X(4.6), m.Y(-6), c.b); Mm().text(x, 'blood + noise floor', m.X(5.2), m.Y(-20), c.a); },
+  12: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [L10(20), L10(500)], [0, 5.6], { lab: 'CNR vs N (log), 10 mm/s vessel', ticks: logTicks([25, 50, 100, 200, 400]) });
+    const Ns = [25, 50, 100, 200, 400], Ks = [2, 2, 3, 4, 4], v = [1.23, 1.54, 2.61, 3.44, 4.68];
+    Mm().curve(x, m, l => 0.2512 * Math.sqrt(Math.max(10 ** l - 4, 0)), c.mu, { dash: [5, 3], w: 1.8 }); poly(x, m, Ns.map(L10), v, c.a, { w: 2 }); Ns.forEach((n, i) => dot(x, m, L10(n), v[i], c.a, 3.2)); },
+  13: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [L10(0.3), L10(30)], [0, 3.2], { lab: 'PRF/f_D (log) vs v (mm/s, log), 15 MHz, 1 kHz', ticks: logTicks([0.3, 1, 3, 10, 30]), hlines: [[L10(25), 'N = 25'], [L10(200), 'N = 200']] });
+    Mm().curve(x, m, l => L10(1000 / (2 * 10 ** l * 1e-3 * 15e6 / CS)), c.a, { w: 2 }); dot(x, m, 0, L10(51.3), c.b); },
+  14: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [2, 40], [0, 1.8], { lab: 'σ_vx / σ_vz (log) vs γ (deg)', ticks: [[5, '5'], [10, '10'], [20, '20'], [30, '30'], [40, '40']], hlines: [[L10(5.67), '5.67'], [L10(11.43), '11.4']] });
+    Mm().curve(x, m, g => L10(1 / Math.tan(deg(g))), c.a, { w: 2 }); Mm().curve(x, m, g => L10(1 / Math.tan(deg(g) / 2)), c.b, { w: 2, dash: [5, 3] });
+    [[5, 11.34], [10, 5.66], [20, 2.82], [30, 1.68]].forEach(([g, r]) => dot(x, m, g, L10(r), c.a, 2.8)); Mm().text(x, 'rx = tx', m.X(26), m.Y(0.45), c.a); Mm().text(x, 'rx = 0', m.X(26), m.Y(0.75), c.b); },
+  15: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [5, 60], [0, 8], { lab: 'λx (mm) vs depth (mm), 5 MHz', ticks: [[10, '10'], [20, '20'], [30, '30'], [40, '40'], [60, '60']], hlines: [[1.848, '1.85']] });
+    [[5, c.b], [10, c.a], [20, c.d]].forEach(([d, col]) => { Mm().curve(x, m, z => 2 * CS / 5e6 * 1e3 * z / d, col, { w: 2 }); Mm().text(x, 'd = ' + d + ' mm', m.X(42), m.Y(2 * 0.308 * 42 / d) - 8, col); }); dot(x, m, 30, 1.848, c.a); },
+  16: cv => { const c = Mm().col(); const { x, m } = fig(cv, RH, [1, 16], [0, 14], { lab: 'SNR gain (dB, blue) and v_Nyq × 10 (pink) vs n', ticks: [[1, '1'], [3, '3'], [5, '5'], [9, '9'], [16, '16']], hlines: [[4.77, '4.8']] });
+    Mm().curve(x, m, n => 10 * L10(n), c.a, { w: 2 }); Mm().curve(x, m, n => 10 / n, c.b, { w: 2, dash: [5, 3] }); dot(x, m, 3, 4.77, c.a); }
+};
+function drawRules() { Object.keys(RF).forEach(k => { const cv = $('m29-rf-' + k); if (cv) { try { RF[k](cv); } catch (e) { console.error(e); } } }); }
+
+
+
+
+function drawAll() { draw1(); draw2(); draw3(); draw4(); draw5(); draw6(); drawRules(); }
+Lab.onShow('m29', drawAll);
+})();
+</script>

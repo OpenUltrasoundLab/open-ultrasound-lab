@@ -1,0 +1,12 @@
+{
+ "entries": [
+  {
+   "version": "1.0",
+   "date": "2026-10-26",
+   "title": "First public release",
+   "body": "33 modules in five parts, formula sheet, interview collection and MATLAB/Octave scripts. Before release every module was audited claim by claim (about 1,400 claims checked; wrong and imprecise statements fixed and the fixes re-verified). The 57 claims that audit could not confirm were rechecked against primary sources on 26 October 2026: 32 confirmed, 9 corrected, 12 reworded or removed; the 3 items below are still open.",
+   "items": [],
+   "flagged": "from-audits"
+  }
+ ]
+}

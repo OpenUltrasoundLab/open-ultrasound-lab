@@ -1,0 +1,1271 @@
+<section class="view" id="m24" data-title="Fourier-domain beamforming" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part IV · Module 24</div>
+    <h1>Fourier-domain beamforming: f-k migration and k-space imaging</h1>
+    <p class="lede">Module 23 read every transmit scheme as a way of filling k-space. This module turns that picture into an imaging algorithm: transform the channel data once, move every spectral sample to the object wavenumber it measures, transform back. Stolt's f-k migration and its plane-wave versions are the result: the physics of DAS at FFT cost, with every approximation visible as a mapping error you can plot and bound.</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>Read channel data in \((k_x, f)\): the propagating cone, the evanescent region, spatial aliasing for plane-wave and zero-offset data</li>
+        <li>Derive Stolt's map for zero-offset data from the exploding-reflector model, including the \(c/2\) and the Jacobian, and know its one homogeneous-medium error (interpolation)</li>
+        <li>Derive Garcia's plane-wave ERM fit \((\hat{v}, \beta, \gamma)\), bound its error, and write the exact transmit-plus-receive wavevector map</li>
+        <li>Predict the k-space support and PSF of a plane-wave set and compound in k-space</li>
+        <li>Defend f-k against DAS on accuracy (F#, aliasing, interpolation, gain), cost and the medium model, and extend it to layers by phase shift</li>
+      </ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li><a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 04</a> · Sampling, Fourier &amp; LTI systems: 2D FFT, k-space of an image, beam = FT of aperture</li>
+        <li><a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 08</a> · Analytic signal &amp; IQ demodulation: IQ data and the analytic signal; DAS with steered plane waves</li>
+        <li><a href="#m23">Module 23</a> · Beam patterns, k-space and compounding: coarray, plane-wave compounding, the \(\lambda/\Delta(\sin\theta)\) replica rule</li>
+      </ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is (dispersion cone, Stolt and Ewald maps, ERM parameters)</span><span><span class="prov sim">Simulation</span>JS in the page: point and speckle channel data synthesized from the delay law, FFT-based f-k migration and DAS on the same data</span><span><span class="prov model">Approx. model</span>simplified physics (narrowband PSF, flop counts, straight-ray layer shifts, Monte Carlo coefficients); assumptions stated under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition; the k-space drawings are to scale at 5 MHz but not computed from data</span><span>All simulations are our own code (JS here, Octave/MATLAB in 24.11); no Field II or k-Wave output is shown. c = 1540 m/s throughout.</span></div>
+
+  <!-- ===================== 24.1 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">24.1</span>The angular spectrum: channel data as a sum of plane waves</h2>
+    <p>In a homogeneous medium every solution of the wave equation is a superposition of plane waves \(e^{\,j2\pi(k_x x + k_z z + f t)}\) (sign of \(f t\) chosen to match the transform in (24.1), so positive f is the analytic band). Wavenumbers are in cycles/mm and frequencies in MHz throughout, with \(c = 1.54\) mm/µs. The wave equation ties the three together, \(k_x^2 + k_z^2 = (f/c)^2\), so the array, which measures only x and t, determines \(k_z\) up to a sign:</p>
+  </div>
+  <div class="eqn key" id="m24-eq1">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} D(k_x, f) &amp;= \iint d(x, t)\, e^{-j2\pi(k_x x + f t)}\, dx\, dt \\ k_z &amp;= \pm\sqrt{(f/c)^{2} - k_x^{2}} \\ k_x &amp;= (f/c)\sin\alpha \end{aligned} \]</div><span class="eqn-no">(24.1)</span></div>
+    <dl class="where"><dt>\(d(x, t)\)</dt><dd>channel data: element position x (mm), fast time t (µs)</dd><dt>\(D(k_x, f)\)</dt><dd>its 2D spectrum (MATLAB: fft over t, then over x)</dd><dt>\(k_x, k_z\)</dt><dd>lateral and axial wavenumbers, cycles/mm</dd><dt>\(f\)</dt><dd>temporal frequency, MHz</dd><dt>\(c\)</dt><dd>speed of sound, 1.54 mm/µs</dd><dt>\(\alpha\)</dt><dd>arrival angle to the array normal</dd><dt>\(\iint\)</dt><dd>double integral over element position and time</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(x,\ t\)</dt><dd>as in the definition of \(d(x, t)\)</dd></dl>
+    <span class="note">\(k_z\) is real for \(\lvert k_x\rvert \le \lvert f\rvert/c\) (propagating) and imaginary otherwise (evanescent). A sample at \((k_x, f)\) is a plane wave arriving from angle α; the cone edge \(\lvert k_x\rvert = f/c\) is a grazing arrival. At 5 MHz, \(f/c = 3.25\) cycles/mm.</span>
+  </div>
+  <div class="prose">
+    <p><strong>Where the data live.</strong> In plane-wave imaging the receive leg is a one-way wave from each scatterer to the array, so the data spectrum fills the cone \(\lvert k_x\rvert \le f/c\). Zero-offset (monostatic) data have delay \(2r/c\) and slope \(2\sin\alpha/c\) across the array, so they fill \(\lvert k_x\rvert \le 2f/c\). Outside the cone the field would be evanescent:</p>
+  </div>
+  <div class="eqn" id="m24-eq2">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} \lvert p(z)\rvert \propto e^{-2\pi z\sqrt{k_x^{2} - (f/c)^{2}}} \\ 5\ \mathrm{MHz}:\ -25,\ -81,\ -198\ \mathrm{dB/mm} \\ \text{at}\ k_x = 1.01,\ 1.1,\ 1.5 \times f/c \end{gathered} \]</div><span class="eqn-no">(24.2)</span></div>
+      <dl class="where"><dt>\(\lvert p(z)\rvert\)</dt><dd>amplitude of an evanescent component at distance z from the source plane</dd><dt>\(z\)</dt><dd>distance from the source plane, mm</dd><dt>\(k_x\)</dt><dd>lateral wavenumber, cycles/mm</dd><dt>\(f/c\)</dt><dd>wavenumber of a plane wave at frequency \(f\) (radius of the propagating cone), cycles/mm</dd><dt>\(f,\ c\)</dt><dd>as in (24.1)</dd><dt>\(\propto\)</dt><dd>proportional to</dd><dt>\(\mathrm{dB/mm}\)</dt><dd>20 log\(_{10}\) amplitude loss per mm of distance</dd></dl>
+    <span class="note">Scatterers sit millimetres from the array, so their evanescent components arrive more than 100 dB down. What appears outside the cone in practice is leakage from truncating the aperture: −22 dB for a target at 5 mm with a rectangular aperture, −29 to −53 dB with a 25 % Tukey taper (m24_kspace_evanescent.m).</span>
+  </div>
+  <div class="prose">
+    <p><strong>The phase-shift propagator.</strong> Moving the recorded field from z to \(z + \Delta z\) in a homogeneous slab multiplies each component by a pure phase. This is the angular spectrum method, exact for propagating waves:</p>
+  </div>
+  <div class="eqn" id="m24-eq3">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} P(k_x, f; z + \Delta z) &amp;= P(k_x, f; z) \\ &amp;\quad \times e^{\,j2\pi k_z \Delta z} \\ k_z &amp;= \sqrt{(f/c)^{2} - k_x^{2}} \\ &amp;\quad (\lvert k_x\rvert \le f/c\ \text{only}) \end{aligned} \]</div><span class="eqn-no">(24.3)</span></div>
+    <dl class="where"><dt>\(P(k_x, f; z)\)</dt><dd>angular spectrum of the field on the plane at depth z</dd><dt>\(\Delta z\)</dt><dd>propagation step, mm</dd><dt>\(k_x,\ f,\ k_z\)</dt><dd>as in (24.1)</dd><dt>\(z\)</dt><dd>depth, mm</dd><dt>\(c\)</dt><dd>speed of sound, mm/µs</dd><dt>\(j\)</dt><dd>imaginary unit</dd></dl>
+    <span class="note">Back-propagating evanescent components would multiply them by \(e^{+2\pi\lvert k_z\rvert\Delta z}\): 81 dB per millimetre at \(1.1\,f/c\), applied to noise. Every Fourier imaging method masks them.</span>
+  </div>
+  <div class="prose">
+    <p><strong>Spatial sampling.</strong> Elements at pitch p sample x, so \(k_x\) is periodic with period \(1/p\) and the Nyquist limit is \(1/(2p)\). The plane-wave cone stays inside it at every angle only if \(p \le \lambda_{\min}/2\). A 0.30 mm pitch is about λ at 5 MHz: the cone meets Nyquist at \(f = c/(2p) = 2.57\) MHz, and above it every arrival steeper than \(\alpha_{\mathrm{alias}} = \arcsin\!\big(c/(2pf)\big)\) folds (30.9° at 5 MHz, 20.0° at 7.5 MHz). For a 0° plane wave the share of channel energy beyond \(1/(2 \times 0.30\ \mathrm{mm})\) is 82 % for a target at 5 mm, 65 % at 10 mm, 34 % at 20 mm and 10 % at 30 mm.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 24.1</span><h3>Channel data and its k<sub>x</sub>–f spectrum: cone, Nyquist and folding</h3><span class="prov sim">Simulation</span><span class="prov-note">IQ channel data synthesized in JS from the plane-wave or zero-offset delay law (Gaussian pulse, point targets), 2D FFT in the page; cone and Nyquist lines are exact.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m24-ks-cv" aria-label="Channel data and its two-dimensional spectrum"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>cone \(\lvert k_x\rvert = f/c\) (×2 for zero-offset)</span><span><i style="background:var(--sig3)"></i>Nyquist \(\pm 1/(2p)\)</span><span><i style="background:var(--bad)"></i>cone folded by \(\pm 1/p\)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m24-ks-mode">Data</label><select id="m24-ks-mode"><option value="pw" selected>Plane wave (receive cone f/c)</option><option value="zo">Zero-offset (cone 2f/c)</option></select></div>
+        <div class="ctrl"><label for="m24-ks-p">Pitch <output id="m24-ks-p-o">0.30 mm</output></label><input type="range" id="m24-ks-p" min="0" max="4" step="1" value="3"></div>
+        <div class="ctrl"><label for="m24-ks-z">Target depth <output id="m24-ks-z-o">12 mm</output></label><input type="range" id="m24-ks-z" min="4" max="30" step="1" value="12"></div>
+        <div class="ctrl"><label for="m24-ks-th">Steering θ <output id="m24-ks-th-o">0°</output></label><input type="range" id="m24-ks-th" min="-20" max="20" step="1" value="0"></div>
+        <label class="check"><input type="checkbox" id="m24-ks-comp"> steering compensation</label>
+        <div class="readout" id="m24-ks-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> at pitch 0.075 mm everything sits inside the cone and inside Nyquist. Step the pitch up: at 0.30 mm the red folded copies enter the band above 2.6 MHz. Move the target to 4 mm (steep arrivals, more folding) and to 30 mm (shallow arrivals, little). Switch to zero-offset: the cone doubles and even 0.15 mm aliases. Steer to 15° and tick compensation: the cone shears by \(f\sin\theta/c\), the operation every plane-wave f-k method starts with (Section 24.3). 19.2 mm aperture, 5 MHz, 60 % band, IQ at 20 MHz, two point targets.</div>
+  </div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>The receive cone is not the image's k-space. The image spectrum of a plane-wave acquisition is the receive wavevector plus the transmit wavevector (Section 24.4), which doubles the axial wavenumber and shifts the lateral one by \((f/c)\sin\theta\). Reading resolution off the raw data spectrum underestimates the axial extent by a factor of two.</p></div>
+
+  <!-- ===================== 24.2 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">24.2</span>Exploding reflectors and Stolt's change of variables</h2>
+    <p><strong>The exploding reflector.</strong> In zero-offset data each element fires alone and records its own echo. A point at \((x_0, z_0)\) arrives at</p>
+  </div>
+  <div class="eqn" id="m24-eq4">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \tau(x) &amp;= \frac{2\sqrt{(x - x_0)^{2} + z_0^{2}}}{c} \\ &amp;= \frac{\sqrt{(x - x_0)^{2} + z_0^{2}}}{c/2} \end{aligned} \]</div><span class="eqn-no">(24.4)</span></div>
+    <dl class="where"><dt>\((x_0, z_0)\)</dt><dd>scatterer position, mm</dd><dt>\(x\)</dt><dd>position of the element that fires and receives, mm</dd><dt>\(\tau(x)\)</dt><dd>zero-offset (monostatic) echo delay, µs</dd><dt>\(c\)</dt><dd>speed of sound, mm/µs</dd><dt>\(c/2\)</dt><dd>effective speed of the exploding-reflector model</dd></dl>
+    <span class="note">This is the one-way arrival time of a source at the reflector that fires at t = 0 into a medium of speed \(v = c/2\). Every reflector "explodes" at t = 0, the recorded data are a one-way wave field, and imaging means propagating it back to t = 0 (Loewenthal et al., 1976; Claerbout, 1985).</span>
+  </div>
+  <div class="prose">
+    <p>Downward continuation by phase shift gives the field at depth z; the imaging condition t = 0 sums it over frequency. Gazdag's phase-shift migration (1978) evaluates this depth by depth:</p>
+  </div>
+  <div class="eqn" id="m24-eq5">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} r(x, z) &amp;= \iint D(k_x, f)\, e^{\,j2\pi(k_x x + k_z z)}\, df\, dk_x \\ k_z &amp;= \operatorname{sign}(f)\sqrt{(f/v)^{2} - k_x^{2}} \\ v &amp;= c/2 \end{aligned} \]</div><span class="eqn-no">(24.5)</span></div>
+    <dl class="where"><dt>\(r(x, z)\)</dt><dd>complex image (reflectivity estimate)</dd><dt>\(v\)</dt><dd>migration speed, \(c/2\) for zero-offset data</dd><dt>\(D(k_x, f)\)</dt><dd>data spectrum, as in (24.1)</dd><dt>\(k_x,\ k_z,\ f\)</dt><dd>as in (24.1)</dd><dt>\(\operatorname{sign}(f)\)</dt><dd>+1 for positive and \(-1\) for negative frequencies</dd><dt>\(\iint\)</dt><dd>double integral over \(f\) and \(k_x\)</dd><dt>\(c\)</dt><dd>speed of sound, mm/µs</dd></dl>
+    <span class="note">Sign check: a vertical upgoing wave seen at depth z arrives \(z/v\) earlier, a factor \(e^{+j2\pi f z/v}\) with this transform convention, so \(k_z = +f/v\) for \(f &gt; 0\).</span>
+  </div>
+  <div class="prose">
+    <p><strong>Stolt's step</strong> (Stolt, 1978) removes the depth loop: change the integration variable from f to \(k_z\). The integral becomes an inverse 2D Fourier transform of a resampled, reweighted copy of the data spectrum:</p>
+  </div>
+  <div class="eqn key" id="m24-eq6">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} f &amp;= v\,\operatorname{sign}(k_z)\sqrt{k_x^{2} + k_z^{2}} \\ df &amp;= \frac{v\,\lvert k_z\rvert}{\sqrt{k_x^{2} + k_z^{2}}}\, dk_z \\ R(k_x, k_z) &amp;= D\big(k_x,\ v\sqrt{k_x^{2} + k_z^{2}}\big) \\ &amp;\quad \times \frac{v\,k_z}{\sqrt{k_x^{2} + k_z^{2}}} \\ r &amp;= \mathrm{IFFT}_2\left[R\right] \end{aligned} \]</div><span class="eqn-no">(24.6)</span></div>
+    <dl class="where"><dt>\(R(k_x, k_z)\)</dt><dd>image spectrum on the output wavenumber grid</dd><dt>\(v k_z/\sqrt{k_x^2 + k_z^2}\)</dt><dd>Jacobian \(\lvert\partial f/\partial k_z\rvert = v\cos\varphi\), φ the propagation angle</dd><dt>\(\mathrm{IFFT}_2\)</dt><dd>inverse 2D FFT over \((k_x, k_z)\)</dd><dt>\(f,\ k_x,\ k_z\)</dt><dd>as in (24.1) and (24.5)</dd><dt>\(D\)</dt><dd>data spectrum, as in (24.1)</dd><dt>\(df\)</dt><dd>frequency element mapped to \(dk_z\) by the change of variables (Stolt mapping)</dd><dt>\(v\)</dt><dd>migration speed, as in (24.5)</dd></dl>
+    <span class="note">The weight is the Jacobian: the cosine of the propagation angle of the plane wave. Since \(f \ge v\lvert k_x\rvert\) on the output grid, the evanescent region is never read. Only \(f &gt; 0\) is used, so the image is analytic and \(\lvert r\rvert\) is the envelope.</span>
+  </div>
+  <div class="prose">
+    <ol>
+      <li>FFT in t and in x, zero-padded (Section 24.5 says how much).</li>
+      <li>For each \(k_x\) column and each output \(k_z\), compute \(f = v\sqrt{k_x^2 + k_z^2}\) and interpolate \(D(k_x, \cdot)\) there: one 1D interpolation per column.</li>
+      <li>Multiply by the Jacobian.</li>
+      <li>Inverse 2D FFT.</li>
+    </ol>
+    <p><strong>What it does to a sample.</strong> A sample at \((k_x, f)\) moves to \(k_z = \sqrt{(f/v)^2 - k_x^2}\): straight down in \(k_z\), along its \(k_x\) column (Figure 24.A). A flat reflector (\(k_x = 0\)) is only relabelled, \(k_z = 2f/c\), which is time-to-depth conversion. Steep components (large \(k_x\)) move most; this is the dip correction that collapses hyperbolas.</p>
+  </div>
+  <figure class="stack-fig" id="m24-fig-stolt">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 24.A</b> · Stolt's map in k-space: each sample is first placed at k<sub>z</sub> = 2f/c and then moved straight down its k<sub>x</sub> column onto the circle of radius 2f/c (drawn to scale at 5 MHz, not computed from data)</div>
+    <div class="mx-scroll"><svg viewBox="0 0 760 340" role="img" aria-label="Stolt mapping in k-space: each spectral sample placed at kz = 2f/c moves straight down its kx column onto the circle of radius 2f/c">
+<defs><marker id="m24-ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" style="fill:var(--sig2)"/></marker><marker id="m24-ah0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" style="fill:var(--ink)"/></marker></defs>
+<rect x="21.6" y="38.4" width="37.6" height="251.6" style="fill:var(--muted);fill-opacity:.10"/>
+<rect x="500.8" y="38.4" width="37.6" height="251.6" style="fill:var(--muted);fill-opacity:.10"/>
+<path d="M21.6 290 H538.4" style="stroke:var(--ink);stroke-width:1;fill:none" marker-end="url(#m24-ah0)"/>
+<path d="M280 290 V31.6" style="stroke:var(--ink);stroke-width:1;fill:none" marker-end="url(#m24-ah0)"/>
+<text x="538.4" y="320" text-anchor="end">kₓ (cycles/mm)</text><text x="286" y="35.6">k_z</text>
+<path d="M76.0 290 v4" style="stroke:var(--ink)"/><text x="76.0" y="306" text-anchor="middle" class="s">−6</text>
+<path d="M144.0 290 v4" style="stroke:var(--ink)"/><text x="144.0" y="306" text-anchor="middle" class="s">−4</text>
+<path d="M212.0 290 v4" style="stroke:var(--ink)"/><text x="212.0" y="306" text-anchor="middle" class="s">−2</text>
+<path d="M348.0 290 v4" style="stroke:var(--ink)"/><text x="348.0" y="306" text-anchor="middle" class="s">2</text>
+<path d="M416.0 290 v4" style="stroke:var(--ink)"/><text x="416.0" y="306" text-anchor="middle" class="s">4</text>
+<path d="M484.0 290 v4" style="stroke:var(--ink)"/><text x="484.0" y="306" text-anchor="middle" class="s">6</text>
+<path d="M147.5 290 A132.5 132.5 0 0 1 412.5 290" style="stroke:var(--muted);stroke-width:1;stroke-dasharray:4 3;fill:none"/>
+<path d="M59.2 290 A220.8 220.8 0 0 1 500.8 290" style="stroke:var(--accent);stroke-width:2;fill:none"/>
+<path d="M59.2 69.2 H500.8" style="stroke:var(--sig2);stroke-width:1.2;stroke-dasharray:5 4;fill:none"/>
+<circle cx="70.3" cy="69.2" r="3" style="fill:var(--sig2)"/>
+<path d="M70.3 72.2 V219.1" style="stroke:var(--sig2);stroke-width:1.4;fill:none" marker-end="url(#m24-ah1)"/>
+<circle cx="70.3" cy="221.1" r="3" style="fill:var(--accent)"/>
+<circle cx="103.4" cy="69.2" r="3" style="fill:var(--sig2)"/>
+<path d="M103.4 72.2 V155.5" style="stroke:var(--sig2);stroke-width:1.4;fill:none" marker-end="url(#m24-ah1)"/>
+<circle cx="103.4" cy="157.5" r="3" style="fill:var(--accent)"/>
+<circle cx="147.5" cy="69.2" r="3" style="fill:var(--sig2)"/>
+<path d="M147.5 72.2 V111.4" style="stroke:var(--sig2);stroke-width:1.4;fill:none" marker-end="url(#m24-ah1)"/>
+<circle cx="147.5" cy="113.4" r="3" style="fill:var(--accent)"/>
+<circle cx="213.8" cy="69.2" r="3" style="fill:var(--sig2)"/>
+<path d="M213.8 72.2 V77.4" style="stroke:var(--sig2);stroke-width:1.4;fill:none" marker-end="url(#m24-ah1)"/>
+<circle cx="213.8" cy="79.4" r="3" style="fill:var(--accent)"/>
+<circle cx="346.2" cy="69.2" r="3" style="fill:var(--sig2)"/>
+<path d="M346.2 72.2 V77.4" style="stroke:var(--sig2);stroke-width:1.4;fill:none" marker-end="url(#m24-ah1)"/>
+<circle cx="346.2" cy="79.4" r="3" style="fill:var(--accent)"/>
+<circle cx="412.5" cy="69.2" r="3" style="fill:var(--sig2)"/>
+<path d="M412.5 72.2 V111.4" style="stroke:var(--sig2);stroke-width:1.4;fill:none" marker-end="url(#m24-ah1)"/>
+<circle cx="412.5" cy="113.4" r="3" style="fill:var(--accent)"/>
+<circle cx="456.6" cy="69.2" r="3" style="fill:var(--sig2)"/>
+<path d="M456.6 72.2 V155.5" style="stroke:var(--sig2);stroke-width:1.4;fill:none" marker-end="url(#m24-ah1)"/>
+<circle cx="456.6" cy="157.5" r="3" style="fill:var(--accent)"/>
+<circle cx="489.7" cy="69.2" r="3" style="fill:var(--sig2)"/>
+<path d="M489.7 72.2 V219.1" style="stroke:var(--sig2);stroke-width:1.4;fill:none" marker-end="url(#m24-ah1)"/>
+<circle cx="489.7" cy="221.1" r="3" style="fill:var(--accent)"/>
+<path d="M280 290 L412.5 113.4" style="stroke:var(--muted);stroke-width:1;fill:none"/>
+<path d="M280 230 A60 60 0 0 1 316.0 242.0" style="stroke:var(--muted);fill:none"/>
+<text x="292" y="224" class="s">φ</text>
+<text x="560" y="40" class="t">Zero-offset, 5 MHz</text>
+<text x="560" y="59" class="s" style="fill:var(--sig2)">before: sample at k_z = 2f/c</text>
+<text x="560" y="78" class="s">(time-to-depth relabel only)</text>
+<text x="560" y="97" class="s" style="fill:var(--accent)">after: k_z = √((2f/c)² − kₓ²)</text>
+<text x="560" y="116" class="s">radius 2f/c = 6.49 /mm</text>
+<text x="560" y="135" class="s">kₓ = 0.8·2f/c: 6.49 → 3.90 /mm</text>
+<text x="560" y="154" class="s">kₓ = 0: no move (flat events)</text>
+<text x="560" y="173" class="s">weight J = cos φ (Jacobian)</text>
+<text x="560" y="192" class="s">dashed: 3 MHz circle, r = 3.90</text>
+<text x="560" y="211" class="s">grey: |kₓ| &gt; 2f/c, never read</text>
+</svg></div>
+  </figure>
+  <div class="prose">
+    <p><strong>Interpolation is the only error</strong> in a homogeneous medium. Linear interpolation of \(e^{-j2\pi f t}\) between bins Δf apart at fractional position w is off by \(w(1 - w)\varphi^2/2\) with \(\varphi = 2\pi\,\Delta f\, t\). The mean part is a smooth gain loss (\(\varphi^2/12\)); the part that varies from one \(k_x\) column to the next (rms \(0.037\,\varphi^2\), verified by Monte Carlo) spreads each echo across x at its own depth. Two cures, both cheap: zero-pad the record before the FFT (smaller Δf) and centre the time origin (multiply by \(e^{\,j2\pi f t_c}\) before, \(e^{-j2\pi F t_c}\) after, so t becomes \(t - t_c\)).</p>
+  </div>
+  <div class="eqn" id="m24-eq7">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} \text{smear} \approx 20\log_{10}\!\left(0.037\,\varphi^{2}\right)\ \mathrm{dB\ per\ echo} \\ \varphi = 2\pi\,\Delta f\,\lvert t - t_c\rvert \\ -30\ \mathrm{dB\ needs}\ \varphi \le 0.92 \end{gathered} \]</div><span class="eqn-no">(24.7)</span></div>
+    <dl class="where"><dt>\(\Delta f\)</dt><dd>FFT bin spacing, \(f_s/N_{\mathrm{FFT}}\)</dd><dt>\(t_c\)</dt><dd>time origin after centring, µs</dd><dt>\(\varphi\)</dt><dd>phase step of the echo between adjacent bins, rad</dd><dt>\(\text{smear}\)</dt><dd>level of the interpolation artifact relative to the echo, dB</dd><dt>\(\log_{10}\)</dt><dd>base-10 logarithm</dd><dt>\(t\)</dt><dd>echo time, µs</dd><dt>\(\lvert\cdot\rvert\)</dt><dd>absolute value</dd></dl>
+    <span class="note">m24_stolt_planewave.m, 62.5 µs record: a 2048-point FFT without centring (\(\varphi \approx 3\) at the speckle) leaves clutter beside a speckle block at −10.6 dB instead of the DAS −18.7 dB; 4096 points give −18.2 dB, and centring adds headroom.</span>
+  </div>
+  <div class="prose">
+    <p><strong>Velocity and sampling.</strong> Migrating zero-offset data with \(v = c\) instead of \(c/2\) halves every \(k_z\): a target at 10 mm reappears at 19.94 mm, 21 to 24 dB below its focused peak (m24_fk_migration_zero_offset.m). Zero-offset data fill \(\lvert k_x\rvert \le 2f/c\), so the alias-free pitch is \(\lambda_{\min}/4\) (0.077 mm at 5 MHz, 0.048 mm at 8 MHz), or \(\lambda/(4\sin\alpha)\) once a receive F-number limits the angle.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 24.2</span><h3>Stolt mapping, step by step (zero-offset data, exploding reflector)</h3><span class="prov sim">Simulation</span><span class="prov-note">Zero-offset IQ data of point targets synthesized in JS (256 elements, 0.075 mm), Stolt map with the selected interpolation, padding and Jacobian, inverse FFT in the page.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m24-st-cv" aria-label="Four panels: data, data spectrum, remapped spectrum, image"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>output row \(k_z\) probe: where it samples D</span><span><i style="background:var(--sig4)"></i>true target positions</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m24-st-step">Step <output id="m24-st-step-o">2 · map</output></label><input type="range" id="m24-st-step" min="1" max="4" step="1" value="2"></div>
+        <div class="ctrl"><label for="m24-st-kz">Probe output row k<sub>z</sub> <output id="m24-st-kz-o">6.5 /mm</output></label><input type="range" id="m24-st-kz" min="2" max="12" step="0.1" value="6.5"></div>
+        <div class="ctrl"><label for="m24-st-v">Migration speed v/c <output id="m24-st-v-o">0.50</output></label><input type="range" id="m24-st-v" min="0.40" max="1.00" step="0.01" value="0.50"></div>
+        <div class="ctrl"><label for="m24-st-int">Interpolation along f</label><select id="m24-st-int"><option value="linear" selected>Linear</option><option value="nearest">Nearest bin</option></select></div>
+        <div class="ctrl"><label for="m24-st-pad">FFT length / record</label><select id="m24-st-pad"><option value="1">1× (no padding)</option><option value="2" selected>2×</option><option value="4">4×</option></select></div>
+        <label class="check"><input type="checkbox" id="m24-st-jac" checked> Jacobian weight</label>
+        <label class="check"><input type="checkbox" id="m24-st-tc" checked> centre the time origin</label>
+        <div class="readout" id="m24-st-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> slide the \(k_z\) probe: each output row reads the data spectrum along a hyperbola \(f = v\sqrt{k_x^2 + k_z^2}\) that touches \(k_x = 0\) at \(f = v k_z\). Set v/c to 1.00: targets land at twice their depth and smear into arcs. Nearest-bin interpolation with no padding fills the image with lateral streaks at the target depths; linear, 2×, centred removes them. Turning the Jacobian off barely changes the image: it is an amplitude weight, not a focusing term. 256 elements at 0.075 mm (λ/4 at 5 MHz), fan filter F# 1.</div>
+  </div>
+  <div class="callout intuit"><span class="label">Intuition</span><p>DAS sums along a hyperbola in (x, t) for every pixel. Stolt does the same bookkeeping once for all pixels: in the Fourier domain a hyperbola family becomes a family of curves \(f(k_x, k_z)\), and summing along all of them at once is a resampling followed by an inverse FFT.</p></div>
+
+  <!-- ===================== 24.3 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">24.3</span>Plane-wave transmits: steering compensation and Garcia's ERM fit</h2>
+    <p>For a plane wave steered by θ, with the wavefront through the array centre at t = 0, a point at \((x_0, z_0)\) reaches element x at</p>
+  </div>
+  <div class="eqn" id="m24-eq8">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} c\,\tau(x) &amp;= x_0\sin\theta + z_0\cos\theta \\ &amp;\quad + \sqrt{(x - x_0)^{2} + z_0^{2}} \end{aligned} \]</div><span class="eqn-no">(24.8)</span></div>
+    <dl class="where"><dt>\(\theta\)</dt><dd>steering angle of the transmitted plane wave</dd><dt>\(x_0\sin\theta + z_0\cos\theta\)</dt><dd>transmit path to the scatterer, mm</dd><dt>\(\sqrt{(x - x_0)^2 + z_0^2}\)</dt><dd>receive path to element x, mm</dd><dt>\(\tau(x)\)</dt><dd>plane-wave echo delay at element x, µs</dd><dt>\(c\)</dt><dd>speed of sound, mm/µs</dd><dt>\(x,\ x_0,\ z_0\)</dt><dd>element and scatterer positions, as in (24.4), mm</dd></dl>
+    <span class="note">The transmit term depends on \(x_0\), the receive term on \(x - x_0\). A migration needs a curve that depends only on \(x - x_0\).</span>
+  </div>
+  <div class="prose">
+    <p><strong>Steering compensation.</strong> Shift every channel by \(-x\sin\theta/c\), i.e. multiply \(D(x, f)\) by \(e^{\,j2\pi f x\sin\theta/c}\). With \(u = x - x_0\) the curve becomes shift-invariant:</p>
+  </div>
+  <div class="eqn" id="m24-eq9">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} c\,\tau'(u) = z_0\cos\theta - u\sin\theta + \sqrt{u^{2} + z_0^{2}} \\ \Longleftrightarrow\quad k_x \to k_x + \frac{f\sin\theta}{c} \end{gathered} \]</div><span class="eqn-no">(24.9)</span></div>
+      <dl class="where"><dt>\(\tau^{\prime}(u)\)</dt><dd>steering-compensated echo delay, µs</dd><dt>\(u\)</dt><dd>\(x - x_0\), lateral offset between element and scatterer, mm</dd><dt>\(z_0,\ \theta,\ c\)</dt><dd>as in (24.8)</dd><dt>\(\Longleftrightarrow\)</dt><dd>equivalent to</dd><dt>\(k_x \to k_x + f\sin\theta/c\)</dt><dd>shear of the lateral wavenumber axis (cycles/mm)</dd><dt>\(f\)</dt><dd>temporal frequency, MHz</dd></dl>
+    <span class="note">In the spectrum this is a shear: the receive cone tilts by \(\sin\theta\) (Demo 24.1). On a sampled array the sheared spectrum can exceed Nyquist, so upsample laterally first (the MATLAB code zero-pads \(k_x\) by 2×) or the image wraps.</span>
+  </div>
+  <div class="prose">
+    <p>\(\tau'\) is not a hyperbola, so Stolt cannot be applied directly. Garcia et al. (2013) fit an exploding-reflector hyperbola \(\hat{\tau}(u) = \sqrt{(u - \hat{u})^2 + \hat{z}^2}/\hat{v}\) that matches \(\tau'\) in value, slope and curvature at u = 0, the element above the scatterer:</p>
+  </div>
+  <div class="eqn" id="m24-eq10">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \frac{R}{\hat{v}} &amp;= \frac{z_0(1 + \cos\theta)}{c} &amp;&amp;\text{value} \\ \frac{\hat{u}}{R\hat{v}} &amp;= \frac{\sin\theta}{c} &amp;&amp;\text{slope} \\ \frac{\hat{z}^{2}}{R^{3}\hat{v}} &amp;= \frac{1}{z_0 c} &amp;&amp;\text{curv.} \\ R^{2} &amp;= \hat{u}^{2} + \hat{z}^{2} \\ \Rightarrow\ R^{2} &amp;= \frac{z_0^{2}(1 + \cos\theta)^{2}}{1 + \cos\theta + \sin^{2}\theta} \end{aligned} \]</div><span class="eqn-no">(24.10)</span></div>
+    <dl class="where"><dt>\(\hat{v}\)</dt><dd>equivalent exploding-reflector speed, mm/µs</dd><dt>\((\hat{u}, \hat{z})\)</dt><dd>apex of the fitted hyperbola relative to the scatterer column, mm</dd><dt>\(R\)</dt><dd>distance from the element above the scatterer to the fitted apex, mm</dd><dt>\(z_0,\ \theta,\ c\)</dt><dd>as in (24.8)</dd></dl>
+  </div>
+  <div class="eqn key" id="m24-eq11">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \hat{v} &amp;= \frac{c}{\sqrt{1 + \cos\theta + \sin^{2}\theta}} \\ \beta &amp;= \frac{(1 + \cos\theta)^{3/2}}{1 + \cos\theta + \sin^{2}\theta}, \quad \hat{z} = \beta z_0 \\ \gamma &amp;= \frac{\sin\theta}{2 - \cos\theta}, \quad \hat{u} = \gamma z_0 \end{aligned} \]</div><span class="eqn-no">(24.11)</span></div>
+    <dl class="where"><dt>\(\hat{v}\)</dt><dd>ERM migration speed; \(c/\sqrt{2}\) at θ = 0</dd><dt>\(\beta\)</dt><dd>depth stretch of the ERM image, \(\sqrt{2}\) at θ = 0</dd><dt>\(\gamma\)</dt><dd>lateral shear of the ERM image per unit depth, 0 at θ = 0</dd><dt>\(\theta\)</dt><dd>steering angle</dd><dt>\(c\)</dt><dd>speed of sound, mm/µs</dd><dt>\(z_0\)</dt><dd>scatterer depth, mm</dd></dl>
+    <span class="note">θ = 0: \(\hat{v} = c/\sqrt{2}\), \(\beta = \sqrt{2}\), \(\gamma = 0\). θ = 10°: \(\hat{v} = 0.7045c\), β = 1.388, γ = 0.171. θ = 20°: 0.6973c, 1.314, 0.323. The identity \((1 + \cos\theta)/(1 + \cos\theta + \sin^2\theta) = 1/(2 - \cos\theta)\) gives γ its compact form.</span>
+  </div>
+  <div class="prose">
+    <p><strong>Back to true coordinates.</strong> Migration with \(\hat{v}\) puts the point at \((x_0 + \gamma z_0, \beta z_0)\). The image we want is \(I(x, z) = \hat{I}(x + \gamma z, \beta z)\); in k-space that is the substitution \(\hat{k}_z = (K_z - \gamma K_x)/\beta\), so the whole method is still one interpolation along f per column:</p>
+  </div>
+  <div class="eqn" id="m24-eq12">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} f &amp;= \hat{v}\sqrt{K_x^{2} + \left(\frac{K_z - \gamma K_x}{\beta}\right)^{2}} \\ \left\lvert\frac{\partial f}{\partial K_z}\right\rvert &amp;= \frac{\hat{v}\,\hat{k}_z}{\beta\sqrt{K_x^{2} + \hat{k}_z^{2}}} \end{aligned} \]</div><span class="eqn-no">(24.12)</span></div>
+    <dl class="where"><dt>\((K_x, K_z)\)</dt><dd>object (image) wavenumbers on the output grid, cycles/mm</dd><dt>\(\hat{k}_z\)</dt><dd>axial wavenumber of the ERM image, \((K_z - \gamma K_x)/\beta\)</dd><dt>\(f\)</dt><dd>temporal frequency read from the data for the output sample, MHz</dd><dt>\(\hat{v},\ \beta,\ \gamma\)</dt><dd>as in (24.11)</dd><dt>\(\partial f/\partial K_z\)</dt><dd>Jacobian of the change of variables, mm/µs</dd><dt>\(\lvert\cdot\rvert\)</dt><dd>absolute value</dd></dl>
+  </div>
+  <div class="prose">
+    <p><strong>The price of the fit.</strong> It is exact to second order at u = 0. At θ = 0 the leading error is a path excess of \(z_0\tan^4\alpha/16\) at receive angle α (exact: 21 µm at 18.4° and 99 µm at 26.6° for \(z_0 = 30\) mm; the formula gives 23 and 117 µm). Keeping it below λ/4, a quarter-cycle of phase error, bounds the usable receive aperture:</p>
+  </div>
+  <div class="eqn" id="m24-eq13">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} F\# \ge \left(\frac{z}{64\lambda}\right)^{1/4} \\ 5\ \mathrm{MHz}:\ 1.00,\ 1.11,\ 1.19,\ 1.32 \\ \text{at}\ z = 20,\ 30,\ 40,\ 60\ \mathrm{mm} \end{gathered} \]</div><span class="eqn-no">(24.13)</span></div>
+      <dl class="where"><dt>\(F\#\)</dt><dd>receive f-number, depth over aperture width, dimensionless</dd><dt>\(z\)</dt><dd>imaging depth, mm</dd><dt>\(\lambda\)</dt><dd>wavelength \(c/f\), mm</dd><dt>\(F\# \ge\)</dt><dd>f-numbers at or above this keep the ERM path error below \(\lambda/4\)</dd></dl>
+    <span class="note">From \(z\tan^4\alpha/16 \le \lambda/4\) with \(\tan\alpha = 1/(2F\#)\). For θ ≠ 0 the fit point is not the apex of \(\tau'\) (which sits at \(u = z_0\tan\theta\)), and the error gains an odd, cubic part: at θ = 10°, \(z_0 = 30\) mm it is +69 µm at α = +18.4° and −24 µm at −18.4°. An odd phase error shifts the peak: 35 µm laterally at 9° in m24_stolt_planewave.m.</span>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 24.3</span><h3>The ERM fit: true travel time against the fitted hyperbola</h3><span class="prov exact">Exact formula</span><span class="prov-note">Travel times (24.8)–(24.9) and the fitted hyperbola from (24.11), evaluated as is.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m24-erm-cv" aria-label="Travel-time curves and fit error versus receive angle"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>true \(\tau'\) after compensation</span><span><i style="background:var(--sig2)"></i>ERM hyperbola</span><span><i style="background:var(--muted)"></i>θ = 0 reference</span><span><i style="background:var(--bad)"></i>±λ/4</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m24-erm-th">Steering θ <output id="m24-erm-th-o">10°</output></label><input type="range" id="m24-erm-th" min="-25" max="25" step="1" value="10"></div>
+        <div class="ctrl"><label for="m24-erm-z">Depth z<sub>0</sub> <output id="m24-erm-z-o">30 mm</output></label><input type="range" id="m24-erm-z" min="5" max="80" step="1" value="30"></div>
+        <div class="ctrl"><label for="m24-erm-f">Centre frequency <output id="m24-erm-f-o">5.0 MHz</output></label><input type="range" id="m24-erm-f" min="2" max="10" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m24-erm-F">Receive F#</label><select id="m24-erm-F"><option value="1">1.0</option><option value="1.5" selected>1.5</option><option value="2">2.0</option></select></div>
+        <div class="readout" id="m24-erm-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> at θ = 0 the error is even and tiny inside F# 1.5 at 30 mm. Steer to 10°: the curve tilts and the error becomes lopsided (the cubic term). Go deep (80 mm) or high in frequency (10 MHz): the λ/4 band is crossed inside the aperture, and the readout's minimum F# rises. The exact map of Section 24.4 has zero error on this plot.</div>
+  </div>
+
+  <!-- ===================== 24.4 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">24.4</span>The exact map: transmit plus receive wavevectors</h2>
+    <p>No fit is needed. In the Born approximation and a homogeneous medium, write the incident plane wave as a delay \(e^{-j2\pi (f/c)(x\sin\theta + z\cos\theta)}\) and the receive leg as an angular spectrum of plane waves (the 2D Green's function is \(\int e^{\,j2\pi(k_x x + k_z\lvert z\rvert)}/k_z\, dk_x\) up to a constant). The x-integral over the object then picks out one object wavenumber per data sample:</p>
+  </div>
+  <div class="eqn key" id="m24-eq14">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} D(k_x, f) &amp;\propto \frac{1}{k_z}\, O(K_x, K_z) \\ K_x &amp;= k_x + (f/c)\sin\theta \\ K_z &amp;= k_z + (f/c)\cos\theta \\ k_z &amp;= \sqrt{(f/c)^{2} - k_x^{2}} \end{aligned} \]</div><span class="eqn-no">(24.14)</span></div>
+    <dl class="where"><dt>\(O(K_x, K_z)\)</dt><dd>2D Fourier transform of the reflectivity</dd><dt>\((f/c)(\sin\theta, \cos\theta)\)</dt><dd>transmit wavevector \(\mathbf{k}_{\mathrm{tx}}\)</dd><dt>\((k_x, k_z)\)</dt><dd>receive wavevector \(\mathbf{k}_{\mathrm{rx}}\), length \(f/c\)</dd><dt>\(D(k_x, f)\)</dt><dd>data spectrum, as in (24.1)</dd><dt>\(k_x,\ k_z,\ f,\ c,\ \theta\)</dt><dd>as in (24.1) and (24.8)</dd><dt>\(K_x,\ K_z\)</dt><dd>object wavenumbers, cycles/mm</dd><dt>\(1/k_z\)</dt><dd>obliquity weight of the receive wave</dd><dt>\(\propto\)</dt><dd>proportional to</dd></dl>
+    <span class="note">Each sample measures the object at the transmit wavevector plus a receive wavevector of length \(f/c\). For fixed f these points lie on a circle of radius \(f/c\) centred on the transmit wavevector: the Ewald circle of diffraction tomography (Kak &amp; Slaney, 1988; Figure 24.B). Lu's Fourier method (Cheng &amp; Lu, 2006) maps plane-wave data the same way.</span>
+  </div>
+  <figure class="stack-fig" id="m24-fig-ewald">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 24.B</b> · The Ewald circle of one plane wave: <b>K</b> = <b>k</b><sub>tx</sub> + <b>k</b><sub>rx</sub>; the receive fan selects an arc, the pulse band sweeps it into a crescent (to scale for θ = 15°, 5 MHz, F# 1.5; geometry from (24.14), not from data)</div>
+    <div class="mx-scroll"><svg viewBox="0 0 760 440" role="img" aria-label="Ewald circle: the transmit wavevector plus a receive wavevector of length f over c reaches the object wavenumber; the receive fan and the pulse band sweep a crescent">
+<defs><marker id="m24-ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" style="fill:var(--sig3)"/></marker><marker id="m24-ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" style="fill:var(--accent)"/></marker><marker id="m24-ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" style="fill:var(--sig2)"/></marker><marker id="m24-ah5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" style="fill:var(--ink)"/></marker></defs>
+<path d="M91.6 410 H496.4" style="stroke:var(--ink);stroke-width:1;fill:none" marker-end="url(#m24-ah5)"/>
+<path d="M250 410 V14.0" style="stroke:var(--ink);stroke-width:1;fill:none" marker-end="url(#m24-ah5)"/>
+<text x="496.4" y="426" text-anchor="end">Kₓ (cycles/mm)</text><text x="256" y="18.0">K_z</text>
+<path d="M250 322.0 h-4" style="stroke:var(--ink)"/><text x="242" y="326.0" text-anchor="end" class="s">2</text>
+<path d="M250 234.0 h-4" style="stroke:var(--ink)"/><text x="242" y="238.0" text-anchor="end" class="s">4</text>
+<path d="M250 146.0 h-4" style="stroke:var(--ink)"/><text x="242" y="150.0" text-anchor="end" class="s">6</text>
+<path d="M250 58.0 h-4" style="stroke:var(--ink)"/><text x="242" y="62.0" text-anchor="end" class="s">8</text>
+<path d="M244.3 218.5 L245.8 218.0 L247.3 217.6 L248.9 217.1 L250.4 216.7 L252.0 216.3 L253.5 215.9 L255.1 215.6 L256.7 215.3 L258.3 215.0 L259.9 214.7 L261.5 214.5 L263.0 214.2 L264.6 214.0 L266.2 213.9 L267.8 213.7 L269.5 213.6 L271.1 213.5 L272.7 213.5 L274.3 213.4 L275.9 213.4 L277.5 213.4 L279.1 213.5 L280.7 213.5 L282.3 213.6 L283.9 213.7 L285.5 213.9 L287.1 214.0 L288.7 214.2 L290.3 214.5 L291.9 214.7 L293.5 215.0 L295.1 215.3 L296.6 215.6 L298.2 215.9 L299.8 216.3 L301.3 216.7 L302.9 217.1 L304.4 217.6 L306.0 218.0 L307.5 218.5 L356.8 54.4 L354.0 53.5 L351.1 52.6 L348.2 51.8 L345.3 51.0 L342.4 50.3 L339.5 49.6 L336.6 48.9 L333.7 48.3 L330.8 47.8 L327.8 47.3 L324.9 46.8 L321.9 46.4 L318.9 46.1 L316.0 45.8 L313.0 45.5 L310.0 45.3 L307.0 45.1 L304.0 45.0 L301.1 44.9 L298.1 44.9 L295.1 44.9 L292.1 45.0 L289.1 45.1 L286.1 45.3 L283.1 45.5 L280.2 45.8 L277.2 46.1 L274.2 46.4 L271.3 46.8 L268.3 47.3 L265.4 47.8 L262.4 48.3 L259.5 48.9 L256.6 49.6 L253.7 50.3 L250.8 51.0 L247.9 51.8 L245.0 52.6 L242.2 53.5 L239.3 54.4 Z" style="fill:var(--accent);fill-opacity:.13;stroke:var(--accent);stroke-width:1"/>
+<circle cx="287.0" cy="272.0" r="142.9" style="fill:none;stroke:var(--muted);stroke-width:1;stroke-dasharray:4 3"/>
+<path d="M241.8 136.5 L244.0 135.8 L246.2 135.1 L248.4 134.5 L250.6 133.9 L252.8 133.3 L255.1 132.8 L257.3 132.3 L259.6 131.8 L261.8 131.4 L264.1 131.0 L266.4 130.6 L268.6 130.3 L270.9 130.1 L273.2 129.8 L275.5 129.6 L277.8 129.4 L280.1 129.3 L282.4 129.2 L284.7 129.2 L287.0 129.2 L289.3 129.2 L291.6 129.2 L293.9 129.3 L296.2 129.4 L298.5 129.6 L300.7 129.8 L303.0 130.1 L305.3 130.3 L307.6 130.6 L309.9 131.0 L312.1 131.4 L314.4 131.8 L316.6 132.3 L318.9 132.8 L321.1 133.3 L323.3 133.9 L325.6 134.5 L327.8 135.1 L330.0 135.8 L332.1 136.5" style="fill:none;stroke:var(--accent);stroke-width:3"/>
+<path d="M250 410 L287.0 272.0" style="stroke:var(--sig3);stroke-width:2;fill:none" marker-end="url(#m24-ah2)"/>
+<path d="M287.0 272.0 L311.8 131.3" style="stroke:var(--sig2);stroke-width:2;fill:none" marker-end="url(#m24-ah4)"/>
+<path d="M250 410 L311.8 131.3" style="stroke:var(--accent);stroke-width:1.6;stroke-dasharray:6 3;fill:none" marker-end="url(#m24-ah3)"/>
+<circle cx="287.0" cy="272.0" r="3" style="fill:var(--sig3)"/>
+<path d="M250 360 A50 50 0 0 1 262.9 361.7" style="stroke:var(--sig3);fill:none"/><text x="256" y="354" class="s" style="fill:var(--sig3)">θ</text>
+<text x="276.5" y="341.0" style="fill:var(--sig3)">k_tx</text>
+<text x="307.4" y="205.7" style="fill:var(--sig2)">k_rx</text>
+<text x="362.2" y="135.3" style="fill:var(--accent)">K = k_tx + k_rx</text>
+<text x="505" y="60" class="t">One plane wave, θ = 15°, f = 5 MHz:</text>
+<text x="505" y="78" class="s">· k_tx = (f/c)(sin θ, cos θ)</text>
+<text x="505" y="96" class="s">  |k_tx| = f/c = 3.25 /mm</text>
+<text x="505" y="114" class="s">· |k_rx| = f/c: circle of radius</text>
+<text x="505" y="132" class="s">  3.25 /mm centred on the tip of k_tx</text>
+<text x="505" y="150" class="s">· receive F# 1.5: |α| ≤ 18.4° (thick arc)</text>
+<text x="505" y="168" class="s">· band 3.5–6.5 MHz: arc → crescent</text>
+<text x="505" y="186" class="s">· top of crescent |K| ≈ 2f/c = 8.4 /mm</text>
+<text x="505" y="204" class="s">· steering moves the centre along the</text>
+<text x="505" y="222" class="s">  circle |k_tx| = f/c; compounding adds</text>
+<text x="505" y="240" class="s">  one crescent per angle</text>
+</svg></div>
+  </figure>
+  <div class="prose">
+    <p><strong>Inverting the map.</strong> After steering compensation the data column is \(K_x = k_x + (f/c)\sin\theta\), so again only f must be found. With \(K_x' = K_x - (f/c)\sin\theta\), squaring \(K_z - (f/c)\cos\theta = \sqrt{(f/c)^2 - K_x'^2}\) gives a closed form:</p>
+  </div>
+  <div class="eqn key" id="m24-eq15">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} f &amp;= \frac{c\,(K_x^{2} + K_z^{2})}{2M} \\ M &amp;= K_x\sin\theta + K_z\cos\theta \\ \left\lvert\frac{\partial f}{\partial K_z}\right\rvert &amp;= \frac{c\,\lvert 2K_z M - (K_x^{2} + K_z^{2})\cos\theta\rvert}{2M^{2}} \end{aligned} \]</div><span class="eqn-no">(24.15)</span></div>
+    <dl class="where"><dt>\(f\)</dt><dd>data frequency to read for output sample \((K_x, K_z)\), MHz</dd><dt>\(M\)</dt><dd>projection of \(\mathbf{K}\) on the transmit direction, cycles/mm</dd><dt>validity</dt><dd>\(K_z \ge (f/c)\cos\theta\) (upper half of the circle)</dd><dt>\(K_x,\ K_z,\ \theta,\ c\)</dt><dd>as in (24.14)</dd><dt>\(\partial f/\partial K_z\)</dt><dd>Jacobian of the change of variables, mm/µs</dd><dt>\(\lvert\cdot\rvert\)</dt><dd>absolute value</dd></dl>
+    <span class="note">θ = 0: \(f = c(K_x^2 + K_z^2)/(2K_z)\). For small \(K_x\), \(K_z \approx 2f/c - cK_x^2/(2f)\): exactly the second-order behaviour of the ERM, whose curve \(\sqrt{4(f/c)^2 - 2K_x^2}\) is an ellipse that osculates the Ewald circle at α = 0. They part at large receive angles, which is the ERM error of Section 24.3 seen in k-space.</span>
+  </div>
+  <div class="prose">
+    <p>The exact map costs the same as the ERM (one 1D interpolation per column) and removes the fit error: in m24_stolt_planewave.m its peak position error at 9° is below the 2 µm resolution of the measurement, against 35 µm for the ERM, with identical widths.</p>
+    <p><strong>k-space support.</strong> One plane wave, one frequency and a receive half-angle \(\alpha_{\max}\) cover an arc of the Ewald circle. The pulse band sweeps the arc into a crescent; steering rotates the crescent's centre about the origin. For a plane-wave set:</p>
+  </div>
+  <div class="eqn" id="m24-eq16">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} K_x &amp;\ge (f/c)(\sin\theta_{\min} - \sin\alpha_{\max}) \\ K_x &amp;\le (f/c)(\sin\theta_{\max} + \sin\alpha_{\max}) \\ K_z &amp;\ge (f_{\mathrm{lo}}/c)(\cos\theta_{\max} + \cos\alpha_{\max}) \\ K_z &amp;\le 2f_{\mathrm{hi}}/c \end{aligned} \]</div><span class="eqn-no">(24.16)</span></div>
+    <dl class="where"><dt>\(\theta_{\min}, \theta_{\max}\)</dt><dd>extreme steering angles of the set</dd><dt>\(\alpha_{\max}\)</dt><dd>receive half-angle, \(\arctan(1/(2F\#))\)</dd><dt>\(f_{\mathrm{lo}}, f_{\mathrm{hi}}\)</dt><dd>band edges, MHz</dd><dt>\(K_x,\ K_z\)</dt><dd>object wavenumbers, cycles/mm, as in (24.14)</dd><dt>\(f,\ c\)</dt><dd>as in (24.1); \(f/c\) is the wavenumber of the carrier, cycles/mm</dd><dt>\(\theta\)</dt><dd>steering angle, as in (24.8)</dd><dt>\(\alpha\)</dt><dd>receive arrival angle, as in (24.1)</dd></dl>
+    <span class="note">The PSF is the inverse Fourier transform of the weighted coverage: Module 23's coarray, now with depth. Narrowband at 5 MHz, F# 1.5 (\(\sin\alpha = 0.316\)), a continuous span of ±9° gives a −6 dB width of 0.54 mm (receive-only: 0.59 mm, using \(\sin\alpha\) rather than the small-angle \(1.207\lambda F\# = 0.56\) mm).</span>
+  </div>
+  <div class="prose">
+    <p><strong>Compounding in k-space.</strong> Images add, so spectra add. On a common f-k grid, sum the remapped spectra of all angles and apply one inverse 2D FFT per frame instead of one per angle. Where crescents overlap, spectra add coherently; gaps between them, from a coarse angle step, are the transmit replicas of Module 23.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 24.4</span><h3>k-space coverage of a plane-wave set and the PSF it implies</h3><span class="prov model">Approx. model</span><span class="prov-note">Born, homogeneous medium: coverage from the exact map (24.14) with a Gaussian pulse spectrum and uniform receive \(k_x\) weight; PSF by a 256 × 256 inverse FFT of that coverage (no channel data, no element directivity).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m24-kc-cv" aria-label="k-space coverage map and point-spread function"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>Ewald circle at \(f_0\), \(\theta = \theta_{\max}\)</span><span><i style="background:var(--sig2)"></i>ERM ellipse at \(f_0\), same θ</span><span><i style="background:var(--sig3)"></i>lateral PSF profile</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m24-kc-n">Angles N <output id="m24-kc-n-o">7</output></label><input type="range" id="m24-kc-n" min="1" max="21" step="2" value="7"></div>
+        <div class="ctrl"><label for="m24-kc-span">Span ±θ<sub>max</sub> <output id="m24-kc-span-o">9°</output></label><input type="range" id="m24-kc-span" min="0" max="25" step="1" value="9"></div>
+        <div class="ctrl"><label for="m24-kc-F">Receive F# <output id="m24-kc-F-o">1.5</output></label><input type="range" id="m24-kc-F" min="0.75" max="3" step="0.25" value="1.5"></div>
+        <div class="ctrl"><label for="m24-kc-b">Fractional bandwidth <output id="m24-kc-b-o">60 %</output></label><input type="range" id="m24-kc-b" min="0.2" max="1.0" step="0.05" value="0.6"></div>
+        <label class="check"><input type="checkbox" id="m24-kc-erm" checked> show ERM ellipse</label>
+        <div class="readout" id="m24-kc-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> one angle gives a single crescent and the receive-only width. Open the span to ±20° with 21 angles: the crescents merge into a wide fan and the PSF narrows. Keep ±20° but drop to 3 angles: three separate crescents, and the PSF grows replica lobes. Raise F# to 3: each crescent thins. Steer far with the ERM ellipse shown: it hugs the circle near the middle and parts at the edges. Coverage weight: Gaussian pulse spectrum, uniform in receive \(k_x\); PSF from a 256 × 256 inverse FFT.</div>
+  </div>
+
+  <!-- ===================== 24.5 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">24.5</span>f-k against DAS: same physics, different bookkeeping</h2>
+    <p><strong>Why they agree.</strong> Under the same model (Born, homogeneous, point elements) DAS and f-k both apply the adjoint of the forward operator: DAS sums the data along each pixel's delay curve; f-k evaluates the same integral in the Fourier domain. By stationary phase the two differ only by smooth weights in k-space: the Jacobian against DAS's element density, spreading and per-pixel normalization. Weights change amplitudes and sidelobe shapes, not where energy focuses.</p>
+    <p><strong>Where they differ in practice:</strong></p>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Issue</th><th>DAS</th><th>f-k (Stolt, ERM or exact)</th></tr></thead>
+    <tbody>
+      <tr><td>Receive aperture, F#</td><td>per-pixel element window z/F#</td><td>fan filter \(\lvert k_x\rvert \le (f/c)\sin\alpha_{\max}\) before mapping: a constant-F# dynamic aperture</td></tr>
+      <tr><td>Apodization</td><td>element weights</td><td>a window across the fan in \(k_x\)</td></tr>
+      <tr><td>Spatial aliasing</td><td>elements outside the window never enter</td><td>folded energy that lands inside the fan passes and is mapped to the wrong place</td></tr>
+      <tr><td>Interpolation</td><td>in time, on a smooth IQ envelope</td><td>in frequency; error grows with \(\Delta f\,\lvert t - t_c\rvert\)</td></tr>
+      <tr><td>Depth gain</td><td>unit-sum weights: flat for this lossless simulation</td><td>no per-pixel normalization: \(\propto\sqrt{z}\) relative to unit-sum DAS here (stationary-phase amplitude of the data spectrum; the Jacobian depends on angle only and cannot set a depth gain)</td></tr>
+      <tr><td>Medium</td><td>any delay law: layers, refraction, measured c maps</td><td>homogeneous (Stolt); horizontally layered by phase shift (Section 24.6)</td></tr>
+      <tr><td>Pixel grid</td><td>arbitrary</td><td>the FFT grid (x at pitch/U, z at the \(K_z\) step); other grids need a final interpolation</td></tr>
+      <tr><td>Edges</td><td>none</td><td>circular wrap in x and t unless zero-padded</td></tr>
+      <tr><td>Cost per angle</td><td>\(N_{\mathrm{pix}} \times N_{\mathrm{active}}\) interpolations</td><td>2D FFTs of the padded data, one interpolation per output sample, one \(\mathrm{IFFT}_2\)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose">
+    <p><strong>Cost.</strong> DAS needs one interpolation per pixel per active element; f-k replaces the element factor by the logarithm of the FFT. For the 390 × 161-pixel grid of the MATLAB lab, DAS uses 3.4 million (pixel, element) pairs per angle; f-k uses FFTs of 4096 × 128 and 2 × 1721 × 512 points plus 0.39 million interpolations. Octave runs f-k 2.1–2.5× faster (0.29–0.39 s against 0.76–0.79 s per angle for two phantoms; the ratio varies from run to run with machine load). The ratio grows with pixel count and element count, and shrinks if DAS is restricted to a few lines or a small ROI. Demo 24.5 times both in your browser.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 24.5</span><h3>f-k against DAS on the same channel data: images, difference, timing</h3><span class="prov sim">Simulation</span><span class="prov-note">Plane-wave IQ channel data of points, speckle and a cyst synthesized in JS (128 elements, 0.30 mm, 5 MHz); f-k (exact or ERM map) and DAS run on the same data in the page and are timed there.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m24-fd-cv" aria-label="DAS image, f-k image and their envelope difference"></canvas>
+        <canvas id="m24-fd-pr" aria-label="Lateral profiles through the point targets at 12 mm"></canvas>
+        <div class="legend"><span><i style="background:var(--muted)"></i>DAS</span><span><i style="background:var(--accent)"></i>f-k</span><span><i style="background:var(--sig2)"></i>difference: f-k minus DAS envelope, ±6 dB</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m24-fd-map">f-k map</label><select id="m24-fd-map"><option value="exact" selected>Exact (transmit + receive)</option><option value="erm">Garcia ERM fit</option></select></div>
+        <div class="ctrl"><label for="m24-fd-n">Angles (3° step)</label><select id="m24-fd-n"><option value="1" selected>1 (0°)</option><option value="3">3 (±3°)</option><option value="5">5 (±6°)</option><option value="7">7 (±9°)</option><option value="s">1 at 9° (steered)</option></select></div>
+        <div class="ctrl"><label for="m24-fd-int">Interpolation · FFT length</label><select id="m24-fd-int"><option value="linear-4-1" selected>Linear · 4× · centred</option><option value="linear-2-1">Linear · 2× · centred</option><option value="linear-1-0">Linear · 1× · not centred</option><option value="nearest-1-0">Nearest · 1× · not centred</option></select></div>
+        <div class="ctrl"><label for="m24-fd-F">Receive F# (DAS window, f-k fan)</label><select id="m24-fd-F"><option value="1">1.0</option><option value="1.5" selected>1.5</option><option value="2">2.0</option></select></div>
+        <div class="ctrl"><label for="m24-fd-c">Assumed c <output id="m24-fd-c-o">1540 m/s</output></label><input type="range" id="m24-fd-c" min="1460" max="1620" step="10" value="1540"></div>
+        <div class="ctrl"><label for="m24-fd-dr">Dynamic range <output id="m24-fd-dr-o">50 dB</output></label><input type="range" id="m24-fd-dr" min="30" max="70" step="5" value="50"></div>
+        <div class="readout" id="m24-fd-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> the default images agree to the eye. The difference map is pink on average (f-k brighter with depth: the \(\sqrt{z}\) gain, since both are normalized on the 12 mm targets) and the speckle differs pixel by pixel by a few dB, because the k-space weights differ slightly; targets, sidelobes and the cyst agree. Pick "Nearest · 1×" or "Linear · 1× · not centred": haze fills the image at the depths of the targets and the speckle and the cyst contrast collapses from about −17 dB to about −2 dB, the interpolation smear at \(\varphi \approx 2\pi\). Pick 7 angles: sidelobes drop in both. Select the 9° steered set and switch to the ERM map: a small lateral offset appears in the readout. Set c to 1480 m/s: both methods defocus and shift alike, because both assume one speed. Above the targets f-k shows a faint haze where DAS is exactly zero (every echo from deeper scatterers arrives after the delays of a shallower pixel): the hard edge of the fan filter rings in both directions in z. A raised-cosine taper across the fan removes it (points only, 0°, in MATLAB: mean level above the targets −58 dB with a hard fan, −94 dB tapered). Timing is honest but not like for like: f-k computes the whole 512 × 512 FFT grid (262 k pixels), DAS only the 43 k displayed pixels with a precomputed delay table; compare the per-pixel cost. Point targets at 12 mm, anechoic cyst (radius 3 mm) in speckle at 24 mm; 128 elements, 0.30 mm pitch, 5 MHz.</div>
+  </div>
+
+  <div class="prose">
+    <p>The full comparison, simulated in MATLAB (<code>m24_stolt_planewave.m</code>: 7 angles over ±9°, F# 1.5, 0.15 × 0.077 mm pixels; widths and positions from spline-refined profiles):</p>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Set</th><th>Method</th><th class="num">Lateral −6 dB (mm)</th><th class="num">Axial −6 dB (mm)</th><th class="num">PSL (dB)</th><th class="num">Peak offset (mm)</th><th class="num">Cyst contrast (dB)</th><th class="num">Beside block (dB)</th><th class="num">Residual vs DAS (dB)</th></tr></thead>
+    <tbody>
+      <tr><td>0°</td><td>DAS</td><td class="num">0.535</td><td class="num">0.234</td><td class="num">−20.5</td><td class="num">0</td><td class="num">−16.6</td><td class="num">−18.7</td><td class="num">ref.</td></tr>
+      <tr><td>0°</td><td>f-k ERM</td><td class="num">0.565</td><td class="num">0.236</td><td class="num">−20.8</td><td class="num">0</td><td class="num">−16.6</td><td class="num">−18.1</td><td class="num">−10.4</td></tr>
+      <tr><td>0°</td><td>f-k exact</td><td class="num">0.555</td><td class="num">0.236</td><td class="num">−21.6</td><td class="num">0</td><td class="num">−16.8</td><td class="num">−18.3</td><td class="num">−11.6</td></tr>
+      <tr><td>7 angles</td><td>DAS</td><td class="num">0.505</td><td class="num">0.236</td><td class="num">−35.1</td><td class="num">0</td><td class="num">−26.5</td><td class="num">−28.3</td><td class="num">ref.</td></tr>
+      <tr><td>7 angles</td><td>f-k ERM</td><td class="num">0.505</td><td class="num">0.238</td><td class="num">−33.6</td><td class="num">0</td><td class="num">−26.9</td><td class="num">−27.2</td><td class="num">−16.9</td></tr>
+      <tr><td>7 angles</td><td>f-k exact</td><td class="num">0.505</td><td class="num">0.238</td><td class="num">−34.2</td><td class="num">0</td><td class="num">−27.8</td><td class="num">−27.6</td><td class="num">−18.7</td></tr>
+      <tr><td>9° only</td><td>DAS / ERM / exact</td><td class="num">0.555 / 0.555 / 0.550</td><td class="num">0.236 / 0.238 / 0.238</td><td class="num">−21.1 / −20.7 / −21.4</td><td class="num">0 / <b>0.035</b> / 0</td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose"><p>"Beside block" is the mean intensity in an empty strip 1.5 mm beside the speckle block relative to the block (clutter that leaked sideways). The residual is the complex difference after one complex gain per depth row, which removes the depth-gain difference: the f-k peak at 22 mm is 1.20× the one at 15 mm, against 0.95–0.99 for DAS, and \(\sqrt{22/15} = 1.21\). What remains is the k-space weighting. Interpolation (0°, exact map): nearest-bin on a 2048-point FFT gives contrast −8.2 dB and beside-block −7.2 dB; linear 2048 gives −11.3 and −10.6; linear 4096 gives −16.7 and −18.2, equal to DAS; centring or 8192 points change nothing further here.</p></div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Interpolation smear and aliasing leakage both look like clutter, and both fill cysts. If an f-k implementation shows lower contrast than DAS on the same data, check zero-padding and the fan filter before blaming the method: in the simulation above, contrast went from −11.3 dB to −16.7 dB (DAS −16.6 dB) by doubling the FFT length alone.</p></div>
+
+  <!-- ===================== 24.6 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">24.6</span>Beyond one speed of sound: layers, sound-speed sweeps and the reflection matrix</h2>
+    <p><strong>Phase shift through layers.</strong> In a horizontally stratified medium \(c(z)\), a flat interface conserves \(k_x\) (Snell's law), so the angular spectrum can be stepped down slab by slab with the local speed. For a 0° plane wave the transmit leg is vertical and the step is</p>
+  </div>
+  <div class="eqn" id="m24-eq17">
+    <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \Psi(k_x, f; z + \Delta z) &amp;= \Psi(k_x, f; z) \\ &amp;\quad \times e^{\,j2\pi\left(k_z(z) + f/c(z)\right)\Delta z} \\ k_z(z) &amp;= \sqrt{(f/c(z))^{2} - k_x^{2}} \\ \mathrm{image} &amp;= \mathrm{IFFT}_{k_x} \textstyle\sum_f \Psi(k_x, f; z) \end{aligned} \]</div><span class="eqn-no">(24.17)</span></div>
+    <dl class="where"><dt>\(\Psi(k_x, f; z)\)</dt><dd>data spectrum continued down to depth z (receive leg plus vertical transmit leg)</dd><dt>\(c(z)\)</dt><dd>local speed of the slab at depth z, mm/µs</dd><dt>\(\Delta z\)</dt><dd>depth step (slab thickness), mm</dd><dt>\(k_x,\ f,\ z\)</dt><dd>as in (24.1) and (24.3)</dd><dt>\(k_z(z)\)</dt><dd>axial wavenumber of the receive wave in the slab, cycles/mm</dd><dt>\(f/c(z)\)</dt><dd>axial wavenumber of the vertical transmit leg, cycles/mm</dd><dt>\(\sum_f\)</dt><dd>sum over temporal frequencies</dd><dt>\(\mathrm{IFFT}_{k_x}\)</dt><dd>inverse FFT over the lateral wavenumber \(k_x\), giving lateral position \(x\)</dd><dt>\(\mathrm{image}\)</dt><dd>beamformed image line set at depth z</dd><dt>\(j\)</dt><dd>imaginary unit</dd></dl>
+    <span class="note">Gazdag (1978). Exact for horizontal layers (ignoring transmission losses and multiples); cost \(N_z N_f N_{kx}\) instead of one interpolation. Lateral variation needs split-step corrections (a phase screen per slab in x, then a homogeneous step; Stoffa et al., 1990) or a return to time-domain delays.</span>
+  </div>
+  <div class="prose">
+    <p>An 8 mm layer at 1450 m/s over tissue at 1540 m/s (<code>m24_phase_shift_layered.m</code>, ray-traced data): phase-shift migration puts every target within 1 µm of the truth with a 0.555 mm width at all depths. Stolt at 1540 m/s puts every target \((c_2/c_1 - 1)\,d_1 = 0.497\) mm too deep (measured 0.499 mm) and widens it by 15 %. Stolt with the time-average speed to 25 mm (1510 m/s) is exact only there: +0.20 mm at 15 mm, −0.20 mm at 35 mm.</p>
+    <p><strong>Sound-speed sweeps.</strong> At θ = 0 the exact map is \(f = c\, g(K_x, K_z)\): changing c rescales the frequency at which each output sample reads the spectrum. A focus-versus-c sweep (Module 14's autofocus) therefore reuses the data FFTs and costs one interpolation and one IFFT per trial speed. The figure below shows how sharply coherence across the aperture peaks at the true c.</p>
+    <p><strong>The reflection-matrix view.</strong> A full plane-wave (or element) acquisition is a reflection matrix R(input, output, f). f-k imaging propagates both sides to each depth and keeps the confocal part, input and output focused at the same point. The distortion-matrix approach (Lambert et al., 2020) keeps the off-confocal terms to estimate and correct aberrations. REFoCUS (Bottenus, 2018) recovers the element-wise synthetic-aperture data set from focused transmits by undoing the known transmit delays frequency by frequency, after which any of these Fourier or matrix methods applies.</p>
+  </div>
+  <div class="rf-grid" id="m24-beyond"></div>
+  <div class="callout pitfall"><span class="label">Name clash</span><p>"Fourier-domain beamforming" also names a different idea: Chernyakova &amp; Eldar (2014) compute each scanline's DAS output from a small set of Fourier coefficients of the channel data, to sample below Nyquist. That is per-line DAS in the frequency domain, not migration; it keeps DAS's geometry and cost structure.</p></div>
+
+  <!-- ===================== 24.7 Visual summary ===================== -->
+  <h2><span class="sec">24.7</span>Visual summary</h2>
+  <div class="prose"><p>Fourteen pictures that carry the module. Each card is a question to answer in five seconds, the answer with its number, and a figure computed from the formula; the badge on each card says whether it is a closed form or a simplified model.</p></div>
+  <div class="rf-grid" id="m24-vis"></div>
+
+  <!-- ===================== 24.8 Experts ===================== -->
+  <h2><span class="sec">24.8</span>How experts think about it</h2>
+  <div class="prose"><p>An expert treats an imaging algorithm as a map from data wavenumbers \((k_x, f)\) to object wavenumbers \((K_x, K_z)\). The physics fixes the map (transmit plus receive wavevector); an algorithm is good to the extent it reproduces the map's phase, and the amplitudes are a choice of weighting. Every failure then has an address: a wrong phase (ERM fit, wrong c, layers), a wrong sample (interpolation, aliasing, wrap), or a weight (Jacobian, fan, apodization).</p></div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">Every point of the channel-data spectrum is a plane wave: \(k_x = (f/c)\sin\alpha\).</div>
+      <div class="keynum"><span>cone \(\lvert k_x\rvert \le f/c\)</span><span>5 MHz: 3.25 /mm</span><span>α = 30° → 1.62 /mm</span></div>
+      <div class="why"><p>A plane wave crossing the array at angle α has a linear delay \(x\sin\alpha/c\), a phase ramp \(2\pi f x\sin\alpha/c\), so its lateral wavenumber is \((f/c)\sin\alpha\). Straight lines through the origin of the \((k_x, f)\) plane are arrival directions; the cone edge is 90°. For pulse-echo plane-wave data the receive leg is one-way, so the data fill the cone; reading an angle off a spectral feature is one division.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-1" aria-label="Arrival directions as lines in the kx-f plane"></canvas></div></div>
+      <div class="limits">Homogeneous medium under the array; a lens or matching layer refracts and rescales angles; zero-offset data fill \(2f/c\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Outside the cone there is nothing to image, and nothing to back-propagate: \(1.1\,f/c\) decays 81 dB per millimetre.</div>
+      <div class="keynum"><span>\(e^{-2\pi z\sqrt{k_x^2 - (f/c)^2}}\)</span><span>\(1.01\,f/c\): 25 dB/mm</span><span>\(1.5\,f/c\): 198 dB/mm</span></div>
+      <div class="why"><p>Beyond \(\lvert k_x\rvert = f/c\) the wave equation makes \(k_z\) imaginary. Scatterers are millimetres away, so their evanescent parts arrive more than 100 dB down. Run the propagator backwards and the decay becomes a gain of the same size, applied to noise and leakage, which is why every Fourier imager masks the region (Stolt never reads it: \(f \ge v\lvert k_x\rvert\)). Energy you see outside the cone is aperture-truncation leakage: −22 dB for a 5 mm target with a rectangular aperture.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-2" aria-label="Back-propagation gain over one millimetre versus kx"></canvas></div></div>
+      <div class="limits">Near-field scatterers within a fraction of λ (lens, skin line); leaky or surface waves in the probe; truncation leakage is not evanescent energy.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Plane-wave receive needs λ/2 pitch, zero-offset data need λ/4; at λ pitch every arrival steeper than 31° folds at 5 MHz.</div>
+      <div class="keynum"><span>PW: \(p \le \lambda/(2\sin\alpha)\)</span><span>ZO: \(p \le \lambda/(4\sin\alpha)\)</span><span>0.30 mm: \(\alpha_{\mathrm{alias}}\) 30.9° (5 MHz), 20.0° (7.5 MHz)</span></div>
+      <div class="why"><p>The data cone reaches \(k_x = (f/c)\sin\alpha\) (one-way) or \(2(f/c)\sin\alpha\) (two-way); Nyquist is \(1/(2p)\). Setting them equal gives the limits. For a 0° plane wave and 0.30 mm pitch, 82 % of the channel energy of a target at 5 mm lies beyond Nyquist, 10 % at 30 mm. With a receive F# the angle is bounded (\(\sin\alpha = 0.316\) at F# 1.5), so the fan itself stays inside Nyquist for \(p \le 1.58\lambda\) (plane waves) and \(0.79\lambda\) (zero-offset). That does not make the fan alias-free: steep arrivals outside the fan fold by \(1/p\) into it unless \(p \le \lambda/(1 + \sin\alpha) = 0.76\lambda\) (plane waves) or \(\lambda/(2(1 + \sin\alpha)) = 0.38\lambda\) (zero-offset), or element directivity suppresses them.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-3" aria-label="Alias angle versus frequency"></canvas></div></div>
+      <div class="limits">Element directivity attenuates steep arrivals but does not remove them; aliasing that has folded cannot be filtered afterwards.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Pulse-echo is one-way propagation at \(c/2\): migrate zero-offset data with half the speed of sound.</div>
+      <div class="keynum"><span>\(\tau = 2r/c = r/(c/2)\)</span><span>\(v = c\) → depth ×2</span><span>10 mm → 19.94 mm, −21 dB</span></div>
+      <div class="why"><p>The exploding-reflector model <span class="eqref">(24.4)</span>: zero-offset delays equal one-way delays from sources at the reflectors that fire at t = 0 in a medium of speed \(c/2\). Migrating with \(v = c\) halves every \(k_z\), so depths double and the hyperbola curvatures no longer match (m24_fk_migration_zero_offset.m: 21–24 dB peak loss). For plane waves the equivalent speed is Garcia's \(\hat{v}\), \(c/\sqrt{2}\) at broadside.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-4" aria-label="Imaged depth versus true depth for several migration speeds"></canvas></div></div>
+      <div class="limits">Exact for zero-offset (monostatic) data only; any separation of transmit and receive breaks the one-way equivalence.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Stolt migration is time-to-depth conversion plus a dip correction: \(k_z = \sqrt{(2f/c)^2 - k_x^2}\).</div>
+      <div class="keynum"><span>\(k_x = 0\): \(k_z = 2f/c\)</span><span>steep \(k_x\): largest shift</span></div>
+      <div class="why"><p>Each sample moves straight down its \(k_x\) column from \(2f/c\) to the circle of radius \(2f/c\) (Figure 24.A, <span class="eqref">(24.6)</span>). Flat reflectors (\(k_x = 0\)) are only relabelled, which is time-to-depth conversion. A sample at \(k_x = 0.8 \times 2f/c\) moves to \(0.6 \times 2f/c\), the largest correction: steeply dipping energy, the hyperbola flanks, collapses most. Total cost: two FFTs and one interpolation per column.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-5" aria-label="Stolt moves spectral samples down onto circles"></canvas></div></div>
+      <div class="limits">Homogeneous medium, one speed; the output grid is the FFT grid.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The Jacobian is an obliquity weight, the cosine of the propagation angle; it changes amplitudes, not focus.</div>
+      <div class="keynum"><span>\(v k_z/\lvert\mathbf{k}\rvert = v\cos\varphi\)</span><span>30°: −1.2 dB</span><span>60°: −6.0 dB</span></div>
+      <div class="why"><p>\(df = \lvert\partial f/\partial k_z\rvert\, dk_z\) converts the frequency integral into a \(k_z\) integral; for zero-offset Stolt it is \(v k_z/\sqrt{k_x^2 + k_z^2} = v\cos\varphi\). It is real and smooth, so it reshapes the PSF's k-space weighting slightly but never moves energy. Being a weight on \((K_x, K_z)\) alone, it acts as a shift-invariant filter and cannot create a depth-dependent gain. Demo 24.2 lets you switch it off: the image barely changes. Phase-shift migration needs no weight at all: it integrates over f directly (m24_kspace_evanescent.m: Stolt and phase-shift peaks within 2.1 %, phases equal).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-6" aria-label="Jacobian weight in dB versus propagation angle"></canvas></div></div>
+      <div class="limits">For true-amplitude work (attenuation, backscatter) the weights matter and must be derived for the actual source and receiver model.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Interpolation along f is Stolt's only error in a homogeneous medium: keep \(2\pi\,\Delta f\,\lvert t - t_c\rvert\) below about one.</div>
+      <div class="keynum"><span>smear \(0.037\,\varphi^2\)</span><span>φ = 0.92 → −30 dB</span><span>φ = 3 → −10 dB</span></div>
+      <div class="why"><p>Linear interpolation of \(e^{-j2\pi f t}\) at fractional bin w errs by \(w(1 - w)\varphi^2/2\); the column-to-column fluctuation (rms \(0.037\,\varphi^2\)) smears each echo across x at its depth <span class="eqref">(24.7)</span>. Zero-padding shrinks Δf, centring the time origin shrinks \(\lvert t - t_c\rvert\) by half. The figure plots the smear at the end of the record against the padding factor. Simulated: 2048 points, uncentred, 62.5 µs record → beside-block clutter −10.6 dB (theory at φ = 3: −10.0 dB); 4096 points → −18.2 dB, equal to DAS.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Smear law \(0.037\,\varphi^2\): coefficient from a Monte Carlo over fractional bin positions, linear interpolation, one echo.</span><canvas id="m24-rf-7" aria-label="Interpolation smear versus zero-padding factor"></canvas></div></div>
+      <div class="limits">Higher-order or windowed-sinc interpolators cut the error further at more cost; nearest-bin is never acceptable.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Steering compensation is a spectral shear: multiply by \(e^{\,j2\pi f x\sin\theta/c}\) and the cone tilts by \(\sin\theta\).</div>
+      <div class="keynum"><span>\(k_x \to k_x + f\sin\theta/c\)</span><span>15°, 7 MHz: +1.18 /mm</span></div>
+      <div class="why"><p>Removing the transmit delay \(x\sin\theta/c\) from each channel makes the plane-wave delay curve depend only on \(x - x_0\), the shift invariance a migration needs <span class="eqref">(24.9)</span>. In k-space it adds \(f\sin\theta/c\) to every \(k_x\): a shear growing with frequency. The sheared spectrum can cross the lateral Nyquist even when the raw data do not, so upsample in x (or apply the shear inside the mapping) before transforming back.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-8" aria-label="Cone before and after steering compensation"></canvas></div></div>
+      <div class="limits">Assumes the wavefront passes the array centre at t = 0; any other time origin is a further phase \(e^{\,j2\pi f t_0}\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Garcia's ERM speed is \(c/\sqrt{1 + \cos\theta + \sin^2\theta}\): \(c/\sqrt{2}\) at broadside.</div>
+      <div class="keynum"><span>θ = 0: \(\hat{v} = 0.7071c\), \(\beta = \sqrt{2}\)</span><span>10°: 0.7045c, 1.388, γ 0.171</span><span>20°: 0.6973c, 1.314, 0.323</span></div>
+      <div class="why"><p>Matching the compensated travel time \(z_0\cos\theta - u\sin\theta + \sqrt{u^2 + z_0^2}\) by a hyperbola \(\sqrt{(u - \hat{u})^2 + \hat{z}^2}/\hat{v}\) in value, slope and curvature at u = 0 gives three equations and three unknowns: \(\hat{v}\), \(\hat{z} = \beta z_0\) and \(\hat{u} = \gamma z_0\) <span class="eqref">(24.11)</span>. At θ = 0, apex \(2z_0/c\) and curvature \(1/(z_0 c)\) force \(\hat{z} = \sqrt{2}\,z_0\) and \(\hat{v} = c/\sqrt{2}\). The image is mapped back by \(\hat{k}_z = (K_z - \gamma K_x)/\beta\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-9" aria-label="ERM speed, beta and gamma versus steering angle"></canvas></div></div>
+      <div class="limits">A local fit: exact to second order at the element above the scatterer only.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The ERM fit errs by \(z\tan^4\alpha/16\); f-k with the ERM is safe for \(F\# \gtrsim (z/64\lambda)^{1/4}\), about 1.1 at 30 mm.</div>
+      <div class="keynum"><span>30 mm, 18.4°: 21 µm</span><span>26.6°: 99 µm</span><span>\(F\#_{\min}\) 1.00 / 1.11 / 1.32 at 20 / 30 / 60 mm</span></div>
+      <div class="why"><p>Expand true and fitted travel times at θ = 0 with \(t = \tan\alpha\): \(z(2 + t^2/2 - t^4/8)\) against \(z(2 + t^2/2 - t^4/16)\). The difference \(z t^4/16\) must stay below λ/4; with \(\tan\alpha = 1/(2F\#)\) that gives \(F\# \ge (z/(64\lambda))^{1/4}\) <span class="eqref">(24.13)</span>. The bound rises slowly with depth and frequency. Steered waves add an odd error that shifts the peak (35 µm at 9°). The exact map has none of this at equal cost.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-10" aria-label="Minimum F-number versus depth for three frequencies"></canvas></div></div>
+      <div class="limits">Leading-order term: overestimates the exact error at large angles (117 vs 99 µm at 26.6°); λ/4 is a convention, not a hard limit.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Each data sample measures the object at transmit plus receive wavevector: an Ewald circle of radius \(f/c\).</div>
+      <div class="keynum"><span>\(f = c\lvert\mathbf{K}\rvert^2/(2\,\mathbf{K}\cdot\hat{\mathbf{n}}_\theta)\)</span><span>θ = 0: \(K_z = f/c + \sqrt{(f/c)^2 - k_x^2}\)</span></div>
+      <div class="why"><p>Born plus the angular-spectrum Green's function give \(D \propto O(\mathbf{k}_{\mathrm{tx}} + \mathbf{k}_{\mathrm{rx}})/k_z\) <span class="eqref">(24.14)</span>. Inverting for f is closed form <span class="eqref">(24.15)</span>, so the exact map costs one interpolation per column, like Stolt. The ERM curve (dashed) is an ellipse osculating the circle at α = 0; at θ = 0 both expand as \(K_z \approx 2f/c - cK_x^2/(2f)\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-11" aria-label="Ewald circle and ERM ellipse"></canvas></div></div>
+      <div class="limits">Born approximation, homogeneous medium, infinite plane wave; finite apertures add edge waves the map does not model.</div>
+    </div>
+    <div class="rule">
+      <div class="say">In f-k, compound before the inverse FFT: spectra add, so N angles cost one \(\mathrm{IFFT}_2\).</div>
+      <div class="keynum"><span>\(\sum_\theta \mathrm{IFFT}(R_\theta) = \mathrm{IFFT}(\sum_\theta R_\theta)\)</span><span>crescent centres at \((f/c)\,\hat{\mathbf{n}}_\theta\)</span></div>
+      <div class="why"><p>Coherent compounding sums complex images; the inverse FFT is linear, so summing remapped spectra on a common grid and transforming once is identical. Each angle contributes a crescent centred on its transmit wavevector; the span sets the lateral extent of the union (resolution), overlaps add coherently, and gaps from a coarse step are the replicas of Module 23. The figure draws the −6 dB band crescents for −12° to +12° in 6° steps at F# 1.5.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-12" aria-label="Crescents of three plane waves in k-space"></canvas></div></div>
+      <div class="limits">Motion between angles makes the spectra add with phase errors (Module 23's motion rule applies unchanged).</div>
+    </div>
+    <div class="rule">
+      <div class="say">A k-space fan filter is a constant-F# dynamic aperture, and it cannot undo aliasing that has already folded into the fan.</div>
+      <div class="keynum"><span>\(\lvert k_x\rvert \le (f/c)\sin(\arctan(1/2F\#))\)</span><span>F# 1.5: \(0.316\,f/c\)</span></div>
+      <div class="why"><p>By stationary phase, receive angle α maps to \(k_x = (f/c)\sin\alpha\) at every depth, so masking the fan applies the same angular aperture everywhere, which is what a constant-F# DAS window does until the aperture saturates. But a steep arrival beyond Nyquist folds by \(1/p\) and can land inside the fan (red line: the cone folded for 0.30 mm pitch). DAS never uses those elements; f-k has already mixed them in.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-13" aria-label="Fan filter region and folded cone line"></canvas></div></div>
+      <div class="limits">Near the array edges DAS's aperture saturates and f-k's does not; a hard fan edge rings in z (taper it, the k-space version of apodization); apodization inside the fan is a \(k_x\) window, not an element window.</div>
+    </div>
+    <div class="rule">
+      <div class="say">f-k and DAS differ by smooth k-space weights: expect equal widths, a \(\sqrt{z}\) gain difference and a −17 to −19 dB residual.</div>
+      <div class="keynum"><span>width 0.505 = 0.505 mm (7 angles)</span><span>A(22)/A(15): 1.20 vs \(\sqrt{22/15} = 1.21\)</span></div>
+      <div class="why"><p>Both are adjoints of the same Born operator, so they focus identically; stationary phase leaves only amplitude factors (Jacobian, element density, spreading, DAS's per-pixel normalization). Simulated with 7 angles: lateral width equal, PSL within 1.5 dB, cyst contrast −26.5 (DAS) against −26.9 and −27.8 dB, and a residual of −17 to −19 dB once one gain per depth row removes the \(\sqrt{z}\) trend shown here.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Line: \(\sqrt{z/15}\) depth-gain law of unnormalized f-k (stationary-phase amplitude of a constant-amplitude echo's spectrum) against flat unit-sum DAS; dots: the two simulated values at 22 mm (m24_stolt_planewave.m).</span><canvas id="m24-rf-14" aria-label="f-k over DAS amplitude ratio versus depth"></canvas></div></div>
+      <div class="limits">Holds only if both use the same aperture (fan versus window), the same c, and f-k is padded and fan-filtered.</div>
+    </div>
+    <div class="rule">
+      <div class="say">DAS costs pixels × elements, f-k costs N log N: the speed-up is of order \(N_{\mathrm{active}}/\log_2 N\).</div>
+      <div class="keynum"><span>Octave: 2.1–2.5× (63 k pixels, 54 active)</span><span>flop model: 2.2×</span><span>DAS 3.4 M pairs / angle</span></div>
+      <div class="why"><p>DAS does an interpolation and a complex multiply per (pixel, active element), about 14 flops. f-k does the equivalent of two 2D FFTs on a 2× padded grid (\(5N\log_2 N\) flops each) plus one interpolation per output sample. With 128 elements at F# 1.5 that predicts 2.2× for the lab's 390 × 161 grid; Octave measured 2.1–2.5×. The gain is modest for a 1D array and grows with the element count: the dashed curve is a 500-element active aperture, typical of a 2D matrix array, where Fourier methods pay most.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Flop counts: DAS 14 flops per (pixel, element); f-k \(20N\log_2(2N) + 10N\); memory traffic ignored.</span><canvas id="m24-rf-15" aria-label="Operation count versus number of pixels"></canvas></div></div>
+      <div class="limits">Small ROIs or few scanlines favour DAS; f-k's grid is fixed by the FFT; memory traffic, not flops, often dominates, and a GPU DAS narrows the gap.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Stolt assumes one speed: under a layer every target shifts by \((c_2/c_1 - 1)\,d_1\), and phase-shift migration removes it.</div>
+      <div class="keynum"><span>8 mm at 1450 m/s: +0.497 mm</span><span>measured +0.499 mm</span><span>\(\bar{c}\) fixes one depth only: ±0.20 mm</span></div>
+      <div class="why"><p>The two-way time to a target below the layer is preserved; a single speed \(c_2\) converts the extra time \(2d_1(1/c_1 - 1/c_2)\) into depth \(c_2 d_1(1/c_1 - 1/c_2)\). An average speed \(\bar{c} = z_{\mathrm{ref}}/t_{\mathrm{ref}}\) zeroes the error at \(z_{\mathrm{ref}}\) only (lines: 1540 m/s flat, 1510 m/s crossing zero at 25 mm). Phase shift with the local speed conserves \(k_x\) across the interface and focuses everywhere <span class="eqref">(24.17)</span> (width 0.555 mm at every depth, against 0.635 mm for Stolt at 1540 m/s).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Vertical rays, horizontal layer, depth = assumed speed × one-way time; refraction of oblique rays ignored.</span><canvas id="m24-rf-16" aria-label="Depth error versus target depth for two single speeds"></canvas></div></div>
+      <div class="limits">Horizontal layers only; tilted or rough interfaces need split-step or time-domain delays; transmission losses and multiples ignored.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A sound-speed sweep in f-k reuses the FFTs: the map \(f = c\,g(\mathbf{K})\) only rescales the frequency axis.</div>
+      <div class="keynum"><span>θ = 0: \(f = c(K_x^2 + K_z^2)/(2K_z)\)</span><span>per trial c: 1 interpolation + 1 IFFT</span></div>
+      <div class="why"><p>At broadside the exact (and ERM) maps are linear in c: every output sample reads the same data spectrum at a frequency proportional to c. A focus metric versus c (coherence, sharpness; Module 14) needs no new forward FFTs, which makes dense sweeps cheap. The figure draws \(f(K_z)\) at \(K_x = 2\) /mm for 1400, 1540 and 1700 m/s. Steered angles add c to the steering compensation and the fan, still without new data FFTs in time.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m24-rf-17" aria-label="Mapping curves for three sound speeds"></canvas></div></div>
+      <div class="limits">A global c only; local speed estimation needs layered or local methods (Module 14, Section 24.6).</div>
+    </div>
+  </div>
+
+  <!-- ===================== 24.9 Cheat sheet ===================== -->
+  <h2><span class="sec">24.9</span>Cheat sheet</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Concept</th><th>Formula</th><th>Ultrasound use</th></tr></thead>
+    <tbody>
+      <tr><td>Plane-wave component</td><td>\(k_x = \frac{f}{c}\sin\alpha,\ \ k_z = \sqrt{(f/c)^2 - k_x^2}\)</td><td>read arrival angles off the data spectrum</td></tr>
+      <tr><td>Evanescent decay</td><td>\(e^{-2\pi z\sqrt{k_x^2 - (f/c)^2}}\); 81 dB/mm at \(1.1\,f/c\), 5 MHz</td><td>mask outside the cone; never back-propagate</td></tr>
+      <tr><td>Phase-shift propagator</td><td>\(\times\, e^{\,j2\pi k_z\Delta z}\)</td><td>angular spectrum method, layered migration</td></tr>
+      <tr><td>Spatial Nyquist</td><td>\(\lvert k_x\rvert \le \frac{1}{2p}\); PW \(p \le \frac{\lambda}{2\sin\alpha}\), ZO \(p \le \frac{\lambda}{4\sin\alpha}\)</td><td>pitch choice, alias angle \(\arcsin(c/(2pf))\)</td></tr>
+      <tr><td>Exploding reflector</td><td>\(\tau = \frac{2r}{c} = \frac{r}{c/2}\)</td><td>zero-offset migration speed \(v = c/2\)</td></tr>
+      <tr><td>Stolt (zero-offset)</td><td>\(f = \frac{c}{2}\sqrt{K_x^2 + K_z^2},\ \ J = \frac{c}{2}\frac{K_z}{\lvert\mathbf{K}\rvert}\)</td><td>SAFT imaging in N log N</td></tr>
+      <tr><td>Steering compensation</td><td>\(\times\, e^{\,j2\pi f x\sin\theta/c} \Leftrightarrow k_x \to k_x + \frac{f\sin\theta}{c}\)</td><td>first step of every plane-wave f-k</td></tr>
+      <tr><td>Garcia ERM</td><td>\(\hat{v} = \frac{c}{\sqrt{1 + \cos\theta + \sin^2\theta}},\ \beta = \frac{(1 + \cos\theta)^{3/2}}{1 + \cos\theta + \sin^2\theta},\ \gamma = \frac{\sin\theta}{2 - \cos\theta}\)</td><td>plane-wave Stolt; map \(f = \hat{v}\sqrt{K_x^2 + ((K_z - \gamma K_x)/\beta)^2}\)</td></tr>
+      <tr><td>ERM error</td><td>\(z\tan^4\alpha/16\) (θ = 0); \(F\# \ge (z/(64\lambda))^{1/4}\)</td><td>usable aperture of the ERM</td></tr>
+      <tr><td>Exact plane-wave map</td><td>\(f = \frac{c\,(K_x^2 + K_z^2)}{2\,(K_x\sin\theta + K_z\cos\theta)}\)</td><td>fit-free f-k, same cost</td></tr>
+      <tr><td>Ewald circle</td><td>centre \(\frac{f}{c}(\sin\theta, \cos\theta)\), radius \(f/c\)</td><td>k-space support, compounding, PSF prediction</td></tr>
+      <tr><td>Interpolation smear</td><td>\(0.037\,\varphi^2,\ \ \varphi = 2\pi\,\Delta f\,\lvert t - t_c\rvert\)</td><td>zero-padding and time-centring choice</td></tr>
+      <tr><td>Fan filter</td><td>\(\lvert k_x\rvert \le \frac{f}{c}\sin\!\big(\arctan\frac{1}{2F\#}\big)\)</td><td>F-number in f-k</td></tr>
+      <tr><td>Layer depth shift</td><td>\(\Delta z = \left(\frac{c_2}{c_1} - 1\right) d_1\)</td><td>fat layer error; phase-shift fix</td></tr>
+      <tr><td>Cost</td><td>DAS \(N_{\mathrm{pix}} N_{\mathrm{active}}\); f-k \(\approx N\log N + N_z N_x\)</td><td>real-time and GPU budgeting</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ===================== 24.10 Interview ===================== -->
+  <h2><span class="sec">24.10</span>Interview and qualifying-exam questions</h2>
+  <details class="quiz"><summary><span class="q">I1</span><span>Why does Stolt migration of pulse-echo data use \(c/2\)? <span class="muted">· screen</span></span></summary><div class="a"><p>Zero-offset delays are \(2r/c\), identical to one-way delays \(r/v\) with \(v = c/2\) from sources placed at the reflectors and fired at t = 0 (exploding reflector, <span class="eqref">(24.4)</span>). The data are then a one-way field, and migration back-propagates it to t = 0 with speed \(c/2\). Using c doubles depths (10 → 19.94 mm in the lab) and defocuses by about 21 dB. Follow-up: "And for plane waves?" There is no exact equivalent speed; Garcia's fit gives \(\hat{v} = c/\sqrt{1 + \cos\theta + \sin^2\theta}\), \(c/\sqrt{2}\) at 0°.</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>What is the evanescent region of a \((k_x, f)\) spectrum, and why is it empty in channel data? <span class="muted">· screen</span></span></summary><div class="a"><p>\(\lvert k_x\rvert &gt; f/c\), where \(k_z\) is imaginary and the field decays as \(e^{-2\pi z\sqrt{k_x^2 - (f/c)^2}}\): 81 dB per mm at \(1.1\,f/c\) at 5 MHz. Scatterers are millimetres away, so nothing evanescent reaches the array; what shows up there is truncation leakage (−22 dB for a 5 mm target, rectangular aperture). Follow-up: "What if you back-propagate it?" The decay becomes a gain on noise; mask it.</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>Derive Stolt's mapping and its Jacobian. What happens if you drop the Jacobian? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(r(x, z) = \iint D(k_x, f)\, e^{\,j2\pi(k_x x + k_z z)}\, df\, dk_x\) with \(k_z = \sqrt{(f/v)^2 - k_x^2}\). Substitute \(f = v\sqrt{k_x^2 + k_z^2}\), \(df = v k_z/\sqrt{k_x^2 + k_z^2}\, dk_z\); the image is an inverse 2D FFT of D resampled at that f times the Jacobian <span class="eqref">(24.6)</span>. Dropping it changes the k-space weighting (a \(\cos\varphi\) obliquity), hence slightly the PSF shape and amplitude, not the focusing and not the \(\sqrt{z}\) depth gain of unnormalized f-k. Follow-up: "Where does Stolt need interpolation and how fine?" Along f; keep \(2\pi\,\Delta f\,\lvert t - t_c\rvert \lesssim 1\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>Why can't zero-offset Stolt be applied to plane-wave data directly? Derive Garcia's ERM velocity. <span class="muted">· onsite</span></span></summary><div class="a"><p>The plane-wave delay \([x_0\sin\theta + z_0\cos\theta + \sqrt{(x - x_0)^2 + z_0^2}]/c\) is not a hyperbola and its transmit part depends on \(x_0\). Steering compensation (shift by \(-x\sin\theta/c\)) makes it depend on \(x - x_0\) only; then fit \(\sqrt{(u - \hat{u})^2 + \hat{z}^2}/\hat{v}\) in value, slope and curvature at u = 0. That gives \(R^2 = z_0^2(1 + \cos\theta)^2/(1 + \cos\theta + \sin^2\theta)\), \(\hat{v} = c/\sqrt{1 + \cos\theta + \sin^2\theta}\), \(\beta = (1 + \cos\theta)^{3/2}/(1 + \cos\theta + \sin^2\theta)\), \(\gamma = \sin\theta/(2 - \cos\theta)\) <span class="eqref">(24.10)</span>–<span class="eqref">(24.11)</span>. Follow-up: "How big is the error?" \(z\tan^4\alpha/16\) at 0°: F# ≳ 1.1 at 30 mm, 5 MHz.</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>How do you implement an F-number and apodization in f-k? <span class="muted">· onsite</span></span></summary><div class="a"><p>Receive angle α corresponds to data wavenumber \(k_x = (f/c)\sin\alpha\), so the F# is a fan filter \(\lvert k_x\rvert \le (f/c)\sin(\arctan(1/(2F\#)))\) applied before steering compensation and mapping, and apodization is a window across the fan. It equals a constant-F# dynamic aperture. Follow-up: "Is it identical to DAS?" Not at the array edges (DAS's aperture saturates) and not for aliased data, which can fold into the fan.</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>Your f-k images show a lateral haze at the depth of every bright reflector, absent in DAS. Diagnose. <span class="muted">· onsite</span></span></summary><div class="a"><p>Interpolation along f is too coarse: the error \(w(1 - w)\varphi^2/2\) with \(\varphi = 2\pi\,\Delta f\, t\) varies from column to column and spreads each echo across x at its depth (rms \(0.037\,\varphi^2\); −10 dB at φ = 3). Fix: zero-pad the time FFT (2–4× the record) and centre the time origin. In the lab, doubling the FFT length took beside-block clutter from −10.6 to −18.2 dB (DAS −18.7). Second suspect: lateral wrap or aliasing; check padding in x and the fan. Follow-up: "Why only at the depth of the echo?" The error multiplies that echo's own spectrum.</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>Compare the cost of f-k and DAS. When is f-k not worth it? <span class="muted">· onsite</span></span></summary><div class="a"><p>DAS: \(N_{\mathrm{pix}} \times N_{\mathrm{active}}\) interpolations per angle (3.4 M in the lab). f-k: FFTs of the padded data (N log N), one interpolation per output sample, one IFFT; compounding adds spectra and needs one IFFT per frame. Measured 2.1–2.5× in Octave; the asymptotic gain is about \(N_{\mathrm{active}}/\log_2 N\). f-k loses for small ROIs or a few lines, arbitrary pixel grids, heterogeneous media, and when a GPU DAS is memory-bound anyway. Follow-up: "And for 3D with a matrix array?" The element factor grows to thousands, which is where Fourier methods pay most.</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>The exact plane-wave map is closed form. Why would anyone use the ERM fit? <span class="muted">· research</span></span></summary><div class="a"><p>Both are one 1D interpolation per column after the same steering compensation, so cost is not the reason. The ERM keeps the Stolt square-root structure, shares code with zero-offset migration, and its error is negligible at moderate F# and steering. The exact map <span class="eqref">(24.15)</span> removes the fit error (35 µm lateral offset at 9° in the lab, none for the exact map). A defensible choice today: the exact map, unless the code base is built around ERM. Follow-up: "What does the exact map still assume?" Born, homogeneous c, an infinite plane wave and point elements.</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>How would you extend f-k imaging to a subcutaneous fat layer, and then to lateral heterogeneity? <span class="muted">· research</span></span></summary><div class="a"><p>Horizontal layers: phase-shift migration, stepping Ψ by \(e^{\,j2\pi(k_z(z) + f/c(z))\Delta z}\) <span class="eqref">(24.17)</span>; \(k_x\) is conserved by Snell's law, so it is exact. An 8 mm layer at 1450 m/s shifts targets by 0.497 mm under single-speed Stolt; phase shift removes it. Lateral variation: split-step Fourier (a phase screen \(e^{\,j2\pi f\Delta s(x)\Delta z}\) per slab, then a homogeneous step) or phase shift plus interpolation between reference speeds; beyond that, time-domain delays from an eikonal solver. Follow-up: "Where does the speed map come from?" From a focus or coherence sweep (cheap in f-k), or tomography (Module 13).</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>How can Fourier-domain imaging help sound-speed estimation and aberration correction research? <span class="muted">· research</span></span></summary><div class="a"><p>At broadside the map is \(f = c\,g(\mathbf{K})\), so each trial c reuses the data FFTs: a dense global-c sweep costs one interpolation and one IFFT per value. For local aberrations, keep the full reflection matrix (all transmit angles and receive elements) instead of the confocal sum: propagating both sides to a depth in the angular-spectrum domain gives focused-basis matrices whose off-confocal structure reveals the aberration (distortion-matrix approach). Follow-up: "And for focused-beam data?" REFoCUS recovers the synthetic-aperture data set first.</p></div></details>
+  <details class="quiz"><summary><span class="q">I11</span><span>A 128-element probe at 0.30 mm pitch runs at 7.5 MHz. Will f-k images alias, and what do you do? <span class="muted">· screen</span></span></summary><div class="a"><p>Nyquist is \(1/(2 \times 0.30) = 1.67\) /mm; the receive cone at 7.5 MHz reaches 4.87 /mm, so arrivals steeper than \(\arcsin(c/(2pf)) = 20.0°\) fold. With F# 1.5 the fan needs \(0.316 \times 4.87 = 1.54\) /mm, still inside Nyquist, but steep energy folded from beyond can land in the fan. Use the fan filter, let element directivity help, and limit the angles that matter, or accept DAS where the aperture window keeps steep elements out. Follow-up: "Zero-offset at the same pitch?" Cone \(2f/c\), hopeless without a small aperture.</p></div></details>
+
+  <!-- ===================== 24.11 MATLAB ===================== -->
+  <h2><span class="sec">24.11</span>MATLAB lab</h2>
+  <div class="prose"><p class="code-note">Base MATLAB only (no toolboxes); each script runs as-is in MATLAB R2019b+ and GNU Octave 8. Paste into the editor and press Run.</p></div>
+  <details class="code">
+    <summary><span class="fname">m24_stolt_planewave.m</span><button class="copy" type="button">Copy</button><span class="what">Plane-wave Stolt (Garcia ERM and exact map) against DAS: timing, widths, PSL, positions, cyst, interpolation · change thetaDeg, Fnum, ntFFT, tCenter, useFan · runtime ≈ 15 s</span></summary>
+    <pre><code data-file="matlab/m24_stolt_planewave.m"></code></pre>
+  </details>
+  <div class="prose"><p>What to look for: widths 0.535 / 0.565 / 0.555 mm at 0° (DAS / ERM / exact), all 0.505 mm with 7 angles; PSL −35.1 / −33.6 / −34.2 dB compounded; at 9° the ERM peak sits 35 µm off, the exact map on target; cyst contrast −26.5 / −26.9 / −27.8 dB; the interpolation table drops from −10.6 dB (2048, uncentred) to −18.2 dB beside the block (DAS −18.7 dB).</p></div>
+  <details class="code">
+    <summary><span class="fname">m24_fk_migration_zero_offset.m</span><button class="copy" type="button">Copy</button><span class="what">Exploding reflector: Stolt with v = c/2 against SAFT, v = c failure, the λ/4 pitch rule · change pitches, Fnum, targets · runtime ≈ 10 s</span></summary>
+    <pre><code data-file="matlab/m24_fk_migration_zero_offset.m"></code></pre>
+  </details>
+  <div class="prose"><p>What to look for: at 0.15 and 0.075 mm pitch Stolt and SAFT agree (0.28 against 0.29 mm width, uniform-\(k_x\) theory 0.294 mm; positions within 2 µm); at 0.30 mm the fan is clipped by Nyquist above 4.1 MHz, Stolt widens to 0.38 mm and aliasing artifacts rise to −21.5 dB; \(v = c\) images the 10 mm target at 19.94 mm.</p></div>
+  <details class="code">
+    <summary><span class="fname">m24_kspace_evanescent.m</span><button class="copy" type="button">Copy</button><span class="what">The data cone, energy beyond Nyquist versus depth, evanescent gains, phase-shift depth loop against Stolt · change depths, pitch · runtime ≈ 3 s</span></summary>
+    <pre><code data-file="matlab/m24_kspace_evanescent.m"></code></pre>
+  </details>
+  <div class="prose"><p>What to look for: energy outside the cone −22 to −35 dB with a rectangular aperture, −29 to −53 dB with a Tukey taper (leakage, not evanescent waves); 82 / 65 / 34 / 10 % of the energy beyond the 0.30 mm Nyquist for targets at 5 / 10 / 20 / 30 mm; Stolt and phase-shift peaks within 2.1 % in amplitude and 0.000 rad in phase.</p></div>
+  <details class="code">
+    <summary><span class="fname">m24_phase_shift_layered.m</span><button class="copy" type="button">Copy</button><span class="what">8 mm fat-like layer: phase-shift migration against single-speed Stolt, ray-traced data · change c1, d1, targets · runtime ≈ 3 s</span></summary>
+    <pre><code data-file="matlab/m24_phase_shift_layered.m"></code></pre>
+  </details>
+  <div class="prose"><p>What to look for: the Snell check prints equal \(\sin\alpha/c\) on both sides; phase shift within 1 µm of every target at 0.555 mm width; Stolt at 1540 m/s +0.499 mm (theory 0.497 mm) and 0.635–0.645 mm wide; Stolt at 1510 m/s exact at 25 mm, ±0.20 mm at 15 and 35 mm.</p></div>
+
+  <!-- ===================== 24.12 Self-check ===================== -->
+  <h2><span class="sec">24.12</span>Self-check</h2>
+  <details class="quiz"><summary><span class="q">Q1</span><span>At 7.5 MHz, where is the cone edge in \(k_x\), and which arrivals alias with a 0.30 mm pitch?</span></summary><div class="a"><p>\(f/c = 7.5/1.54 = 4.87\) cycles/mm. Nyquist is \(1/(2 \times 0.30) = 1.67\) /mm, so arrivals with \(\sin\alpha &gt; 1.67/4.87 = 0.342\), i.e. α &gt; 20.0°, alias.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>Zero-offset data of a point at 20 mm are migrated with \(v = c\). Where does it appear, and is it focused?</span></summary><div class="a"><p>At 40 mm: \(k_z \approx f/c\) instead of \(2f/c\) doubles depth. It is not focused, because the hyperbola curvature corresponds to the wrong speed; the lab shows 21–24 dB peak loss for the same error at 10 mm.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>Compute Garcia's \(\hat{v}/c\), β and γ at θ = 15°.</span></summary><div class="a"><p>\(\cos 15° = 0.9659\), \(\sin^2 15° = 0.0670\), so \(1 + \cos\theta + \sin^2\theta = 2.0329\). \(\hat{v}/c = 1/\sqrt{2.0329} = 0.7014\); \(\beta = 1.9659^{1.5}/2.0329\) = \(2.7564/2.0329 = 1.356\); \(\gamma = 0.2588/(2 - 0.9659) = 0.250\).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>A 60 µs record is migrated with linear interpolation. What bin spacing Δf keeps the smear at −30 dB, with and without time-centring? FFT length at 20 MHz?</span></summary><div class="a"><p>Need \(\varphi = 2\pi\,\Delta f\,\lvert t - t_c\rvert \le 0.92\), i.e. \(\Delta f\,\lvert t - t_c\rvert \le 0.146\). Uncentred, \(\lvert t\rvert \le 60\) µs: \(\Delta f \le 2.44\) kHz, 8192 points. Centred, \(\lvert t - t_c\rvert \le 30\) µs: \(\Delta f \le 4.88\) kHz, 4096 points.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>Estimate the narrowband lateral −6 dB width at 5 MHz for a continuous plane-wave span of ±10° with receive F# 1.5.</span></summary><div class="a"><p>Lateral k-space is the convolution of the transmit span (half-width \((f/c)\sin 10° = 0.564\) /mm) and the receive fan (\((f/c)\sin\alpha = 1.027\) /mm), so the PSF is \(\mathrm{sinc}(2 \times 0.564\, x)\cdot\mathrm{sinc}(2 \times 1.027\, x)\). Its −6 dB width is 0.53 mm, against 0.59 mm receive-only. A discrete 7-angle set at ±9° simulated 0.505 mm: a discrete transmit factor has a slightly narrower central lobe.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>A 6 mm fat layer (1450 m/s) lies over tissue (1540 m/s). How far off is a single-speed (1540 m/s) Stolt image below it?</span></summary><div class="a"><p>\(\Delta z = (c_2/c_1 - 1)\,d_1\) = \((1.0621 - 1) \times 6 = 0.37\) mm too deep, the same for every target below the layer. Phase-shift migration with the layer speed removes it.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>Why does compounding N angles in f-k need only one inverse 2D FFT, and what does it not fix?</span></summary><div class="a"><p>The inverse FFT is linear: \(\sum_\theta \mathrm{IFFT}(R_\theta) = \mathrm{IFFT}(\sum_\theta R_\theta)\), so remapped spectra are summed on the common grid first. Each angle still needs its own forward FFTs, steering compensation and interpolation, and motion between angles still adds phase errors.</p></div></details>
+
+  <!-- ===================== 24.13 Literature figures ===================== -->
+  <h2><span class="sec">24.13</span>Figures from the literature</h2>
+  <div class="prose"><p>Published figures with real or carefully simulated data that show what this module computes. Links only (no reproduced images); figure numbers checked against the cited version.</p></div>
+  <div class="litfig">
+    <h4>Fourier-domain plane-wave imaging against delay-and-sum on a wire phantom</h4>
+    <p class="cite">J. Cheng and J.-y. Lu, "Extended high-frame rate imaging method with limited-diffraction beams," <i>IEEE TUFFC</i> 53(5), 880–899, 2006. <b>Fig. 8</b> (steered plane waves; Fig. 7 is the limited-diffraction-beam version). <a href="https://doi.org/10.1109/TUFFC.2006.1632680">doi:10.1109/TUFFC.2006.1632680</a></p>
+    <p>Wires in water reconstructed in the Fourier domain from 1, 11, 19 and 91 steered plane waves, beside delay-and-sum with a fixed 60 mm transmit focus and with a synthesized dynamic transmit focus. Compare the Fourier reconstructions as transmissions are added with the two DAS panels: more angles means more crescents of Figure 24.B filling the coverage. This is the k-space map of <span class="eqref">(24.14)</span> on experimental data.</p>
+  </div>
+  <div class="litfig">
+    <h4>The same method in vivo: kidney and heart</h4>
+    <p class="cite">Same source. <b>Figs. 13 and 14</b>. <a href="https://doi.org/10.1109/TUFFC.2006.1632680">doi:10.1109/TUFFC.2006.1632680</a></p>
+    <p>Fig. 13: a human right kidney from 91 steered plane waves against delay-and-sum with a 70 mm fixed focus and 88 transmissions. Fig. 14: an ECG-triggered heart with 11, 19 and 91 transmissions. Compare the image quality at equal transmit count: the Fourier method needs no per-pixel delay loop, and its quality is set by the angle coverage, as in Demo 24.4.</p>
+  </div>
+  <div class="litfig">
+    <h4>Stolt and Lu f-k against time-domain plane-wave imaging, with timings</h4>
+    <p class="cite">L. Merabet, S. Robert and C. Prada, "2-D and 3-D reconstruction algorithms in the Fourier domain for plane-wave imaging in nondestructive testing," <i>IEEE TUFFC</i> 66(4), 772–788, 2019. <b>Figs. 6–8</b> (2-D images, echodynamic curves, close-ups), <b>Fig. 9</b> (computation time against pixel count), <b>Figs. 16–17</b> (experimental 3-D). <a href="https://doi.org/10.1109/TUFFC.2019.2895995">doi:10.1109/TUFFC.2019.2895995</a></p>
+    <p>Side-drilled hole pairs 2 mm apart in steel imaged by Stolt, Lu and time-domain plane-wave imaging (PWI): the three agree in image quality under the aperture (outside it Stolt blurs and Lu is damped at high angles, Figs. 7–8), which is the "same physics, different bookkeeping" of Section 24.5 in a different medium. Fig. 9 is the cost argument: the Fourier methods scale as N log N. The text reports, for 1000 × 1000 pixels in MATLAB, Lu 2.05 s, Stolt 3.8 s and PWI 41.4 s, and for a 3-D volume of 100 × 100 × 490 voxels with 25 plane waves, Lu 129.6 s, Stolt 136.8 s, PWI 1 h 18 min (plotted below). In the experimental 3-D case PWI took 38 times longer than Lu, against a predicted factor of 36.</p>
+    <div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Re-plotted from the timings published in the text of Merabet et al. (2019): their MATLAB code and hardware, not re-measured here.</span><canvas id="m24-lit-1" aria-label="Published computation times of Lu, Stolt and PWI in 2-D and 3-D"></canvas></div>
+  </div>
+  <div class="litfig">
+    <h4>Matrix imaging: what lies beyond the confocal f-k image</h4>
+    <p class="cite">W. Lambert, L. A. Cobus, T. Frappart, M. Fink and A. Aubry, "Distortion matrix approach for ultrasound imaging of random scattering media," <i>PNAS</i> 117(26), 14645–14656, 2020; preprint arXiv:1912.05417. <b>Fig. 2</b> (numbering checked in the arXiv version). <a href="https://doi.org/10.1073/pnas.1921533117">doi:10.1073/pnas.1921533117</a> · <a href="https://doi.org/10.48550/arXiv.1912.05417">arXiv</a></p>
+    <p>A reflection matrix acquired through a plexiglass layer over a tissue-mimicking phantom: the original confocal image, the image after multiple reflections are removed, and the image after matrix aberration correction, each with a map of the Strehl ratio. The confocal image is what Section 24.4 forms; the correction uses the off-confocal terms that f-k throws away (Section 24.6), which is why matrix methods are the natural next step for aberration correction.</p>
+  </div>
+
+  <!-- ===================== 24.14 Go deeper ===================== -->
+  <h2><span class="sec">24.14</span>Go deeper</h2>
+  <ul class="refs">
+    <li>R. H. Stolt, "Migration by Fourier transform," <i>Geophysics</i> 43(1), 23–48, 1978. <a href="https://doi.org/10.1190/1.1440826">doi:10.1190/1.1440826</a>. The change of variables \(f \to k_z\) and the interpolation it requires.</li>
+    <li>J. Gazdag, "Wave equation migration with the phase-shift method," <i>Geophysics</i> 43(7), 1342–1351, 1978. <a href="https://doi.org/10.1190/1.1440899">doi:10.1190/1.1440899</a>. Depth stepping in the angular spectrum; the layered extension.</li>
+    <li>D. Loewenthal, L. Lu, R. Roberson and J. Sherwood, "The wave equation applied to migration," <i>Geophysical Prospecting</i> 24, 1976. The exploding-reflector model.</li>
+    <li>J. F. Claerbout, <i>Imaging the Earth's Interior</i>, Blackwell, 1985. Migration from first principles.</li>
+    <li>P. L. Stoffa, J. T. Fokkema, R. M. de Luna Freire and W. P. Kessinger, "Split-step Fourier migration," <i>Geophysics</i> 55(4), 1990. Mild lateral velocity variation in the Fourier domain.</li>
+    <li>D. Garcia, L. Le Tarnec, S. Muth, E. Montagnon, J. Porée and G. Cloutier, "Stolt's f-k migration for plane wave ultrasound imaging," <i>IEEE TUFFC</i> 60(9), 1853–1867, 2013. <a href="https://doi.org/10.1109/TUFFC.2013.2771">doi:10.1109/TUFFC.2013.2771</a>. The ERM fit derived in Section 24.3.</li>
+    <li>J. Cheng and J.-y. Lu, "Extended high-frame rate imaging method with limited-diffraction beams," <i>IEEE TUFFC</i> 53(5), 880–899, 2006 (<a href="https://doi.org/10.1109/TUFFC.2006.1632680">doi</a>); J.-y. Lu, "2D and 3D high frame rate imaging with limited diffraction beams," <i>IEEE TUFFC</i> 44(4), 1997. Fourier-domain plane-wave and limited-diffraction-beam imaging.</li>
+    <li>L. Merabet, S. Robert and C. Prada, <i>IEEE TUFFC</i> 66(4), 772–788, 2019 (<a href="https://doi.org/10.1109/TUFFC.2019.2895995">doi</a>). Stolt and Lu in 2-D and 3-D, with complexity analysis.</li>
+    <li>A. C. Kak and M. Slaney, <i>Principles of Computerized Tomographic Imaging</i>, IEEE Press, 1988, chapter 6. The Fourier diffraction theorem behind the Ewald-circle map.</li>
+    <li>G. Montaldo, M. Tanter, J. Bercoff, N. Benech and M. Fink, "Coherent plane-wave compounding for very high frame rate ultrasonography and transient elastography," <i>IEEE TUFFC</i> 56(3), 489–506, 2009. <a href="https://doi.org/10.1109/TUFFC.2009.1067">doi:10.1109/TUFFC.2009.1067</a>.</li>
+    <li>N. Bottenus, "Recovery of the complete data set from focused transmit beams," <i>IEEE TUFFC</i> 65(1), 30–38, 2018 (REFoCUS). <a href="https://doi.org/10.1109/TUFFC.2017.2773495">doi:10.1109/TUFFC.2017.2773495</a>.</li>
+    <li>W. Lambert, L. A. Cobus, T. Frappart, M. Fink and A. Aubry, "Distortion matrix approach for ultrasound imaging of random scattering media," <i>PNAS</i> 117(26), 14645–14656, 2020. <a href="https://doi.org/10.1073/pnas.1921533117">doi:10.1073/pnas.1921533117</a>.</li>
+    <li>T. Chernyakova and Y. C. Eldar, "Fourier-domain beamforming: the path to compressed ultrasound imaging," <i>IEEE TUFFC</i> 61(8), 2014; preprint <a href="https://doi.org/10.48550/arXiv.1307.6345">arXiv:1307.6345</a>. The other meaning of the term.</li>
+    <li>J. A. Jensen, S. I. Nikolov, K. L. Gammelmark and M. H. Pedersen, "Synthetic aperture ultrasound imaging," <i>Ultrasonics</i> 44, 2006. Time-domain synthetic aperture for comparison.</li>
+  </ul>
+  <div class="next"><a href="#m23">← 23 Beams, k-space, compounding</a><a href="#m25">25 Adaptive &amp; coherence BF →</a></div>
+</section>
+
+<style>
+#m24 .m24-note { font-size: 0.85rem; color: var(--muted); }
+#m24 .stack-fig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 12px; margin: 18px 0; }
+#m24 .stack-fig .fh { font-size: 0.9rem; margin-bottom: 6px; }
+#m24 .stack-fig .fh .prov, #m24 .prov-legend .prov, #m24 .rule-fig .prov, #m24 .litfig .rule-fig .prov { margin-left: 0; }
+#m24 .stack-fig .mx-scroll > svg { min-width: 560px; display: block; width: 100%; height: auto; }
+#m24 .stack-fig .mx-scroll text { font: 12px var(--f-mono); fill: var(--ink); }
+#m24 .stack-fig .mx-scroll text.m { fill: var(--muted); }
+#m24 .stack-fig .mx-scroll text.s { font-size: 11px; fill: var(--muted); }
+#m24 .stack-fig .mx-scroll text.t { font-weight: 600; font-size: 12.5px; }
+#m24 .demo-head .prov-note { flex-basis: 100%; }
+</style>
+
+<script>
+(function () {
+  /* ================= shared numerics for Module 24 ================= */
+  const $ = id => document.getElementById(id), PI = Math.PI, TAU = 2 * Math.PI;
+  const C = 1.54, F0 = 5, FS = 20, LAM = C / F0;                       // mm/us, MHz, MHz, mm
+  const sigFof = b => b * F0 / (2 * Math.sqrt(2 * Math.LN2));         // Gaussian spectrum std (MHz)
+  const SIGF = sigFof(0.6), SIGT = 1 / (2 * PI * SIGF);               // 1.27 MHz, 0.125 us
+  const dB = (v, lo) => Math.max(lo, 20 * Math.log10(Math.abs(v) + 1e-30));
+  const fmt = (v, d) => { const s = Math.abs(v).toFixed(d); return (v < 0 && +s !== 0 ? '−' : '') + s; };
+
+  /* IQ channel data: scatterers sc = [{x, z, ar, ai}], plane wave at th (rad) or zero-offset (zo). Column e*nt + n. */
+  function simIQ(o) {
+    const nt = o.nt, nel = o.nel, p = o.pitch, x0e = -(nel - 1) / 2 * p;
+    const re = new Float32Array(nt * nel), im = new Float32Array(nt * nel);
+    const K = Math.ceil(4 * SIGT * FS), i2s = 1 / (2 * SIGT * SIGT), st = Math.sin(o.th || 0), ct = Math.cos(o.th || 0);
+    for (let s = 0; s < o.sc.length; s++) {
+      const S = o.sc[s], tx = o.zo ? 0 : (S.x * st + S.z * ct) / C;
+      for (let e = 0; e < nel; e++) {
+        const dx = x0e + e * p - S.x, r = Math.sqrt(dx * dx + S.z * S.z), tau = o.zo ? 2 * r / C : tx + r / C;
+        const ph = -TAU * F0 * tau, cr = Math.cos(ph), ci = Math.sin(ph), ar = S.ar * cr - S.ai * ci, ai = S.ar * ci + S.ai * cr;
+        const n0 = tau * FS, a = Math.max(0, Math.ceil(n0 - K)), b = Math.min(nt - 1, Math.floor(n0 + K)), base = e * nt;
+        for (let n = a; n <= b; n++) { const d = n / FS - tau, g = Math.exp(-d * d * i2s); re[base + n] += ar * g; im[base + n] += ai * g; }
+      }
+    }
+    return { re, im, nt, nel, pitch: p, x0e };
+  }
+  /* FFT in t (length ntFFT), keep RF band [0.8, 9.2] MHz sorted by frequency, optional time-centring exp(j2 pi f tc). Rows i, columns e. */
+  function bandFFT(d, ntFFT, tc) {
+    const Df = FS / ntFFT, kmin = Math.ceil((0.8 - F0) / Df), kmax = Math.floor((9.2 - F0) / Df), nB = kmax - kmin + 1, nel = d.nel;
+    const Rr = new Float64Array(nB * nel), Ri = new Float64Array(nB * nel), br = new Float64Array(ntFFT), bi = new Float64Array(ntFFT);
+    const cr = new Float64Array(nB), ci = new Float64Array(nB);
+    for (let i = 0; i < nB; i++) { const ph = TAU * (F0 + (kmin + i) * Df) * (tc || 0); cr[i] = Math.cos(ph); ci[i] = Math.sin(ph); }
+    const n = Math.min(d.nt, ntFFT);
+    for (let e = 0; e < nel; e++) {
+      br.fill(0); bi.fill(0);
+      for (let k = 0; k < n; k++) { br[k] = d.re[e * d.nt + k]; bi[k] = d.im[e * d.nt + k]; }
+      Lab.fft(br, bi, false);
+      for (let i = 0; i < nB; i++) { let k = kmin + i; if (k < 0) k += ntFFT; const vr = br[k], vi = bi[k];
+        Rr[i * nel + e] = vr * cr[i] - vi * ci[i]; Ri[i * nel + e] = vr * ci[i] + vi * cr[i]; }
+    }
+    return { nB, f0: F0 + kmin * Df, Df, Rr, Ri, nel };
+  }
+  /* FFT in x (nxp), receive fan |kx| <= m f sin(a)/c, U-fold lateral upsampling, steering compensation exp(j2 pi f x sin th / c). */
+  function lateralFFT(sp, pitch, o) {
+    const nel = sp.nel, nxp = o.nxp, U = o.U || 1, nxf = nxp * U, dxf = pitch / U, cA = o.cA || C;
+    const Dr = new Float64Array(sp.nB * nxf), Di = new Float64Array(sp.nB * nxf);
+    const ar = new Float64Array(nxp), ai = new Float64Array(nxp), br = new Float64Array(nxf), bi = new Float64Array(nxf);
+    const st = Math.sin(o.th || 0), steer = !o.zo && Math.abs(st) > 1e-12;
+    for (let i = 0; i < sp.nB; i++) {
+      const f = sp.f0 + i * sp.Df; ar.fill(0); ai.fill(0);
+      for (let e = 0; e < nel; e++) { ar[e] = sp.Rr[i * nel + e]; ai[e] = sp.Ri[i * nel + e]; }
+      Lab.fft(ar, ai, false);
+      const kf = o.fanS ? (o.zo ? 2 : 1) * f * o.fanS / cA : 1e9;
+      br.fill(0); bi.fill(0);
+      for (let k = 0; k < nxp; k++) { const kk = k < nxp / 2 ? k : k - nxp; if (Math.abs(kk / (nxp * pitch)) > kf) continue;
+        const j = kk >= 0 ? kk : kk + nxf; br[j] = ar[k]; bi[j] = ai[k]; }
+      if (steer) {
+        Lab.fft(br, bi, true);
+        for (let m = 0; m < nxf; m++) { const ph = TAU * f * (o.x0e + m * dxf) * st / cA, c = Math.cos(ph), s = Math.sin(ph), t = br[m] * c - bi[m] * s; bi[m] = br[m] * s + bi[m] * c; br[m] = t; }
+        Lab.fft(br, bi, false);
+      }
+      Dr.set(br, i * nxf); Di.set(bi, i * nxf);
+    }
+    return { Dr, Di, nxf, dxf, nB: sp.nB, f0: sp.f0, Df: sp.Df };
+  }
+  /* Stolt-type mapping onto (Kz = iz dKz, Kx) with one interpolation along f per column. map: 'zo' | 'erm' | 'exact'. */
+  function stoltMap(L, o) {
+    const nxf = L.nxf, NZ = o.NZ, Ir = new Float64Array(NZ * nxf), Ii = new Float64Array(NZ * nxf);
+    const th = o.th || 0, st = Math.sin(th), ct = Math.cos(th), c = o.cA || C, nearest = o.interp === 'nearest', jac = o.jac !== false;
+    let vh = 0, be = 1, ga = 0;
+    if (o.map === 'erm') { vh = c / Math.sqrt(1 + ct + st * st); be = Math.pow(1 + ct, 1.5) / (1 + ct + st * st); ga = st / (2 - ct); }
+    for (let ik = 0; ik < nxf; ik++) {
+      const kk = ik < nxf / 2 ? ik : ik - nxf, Kx = kk / (nxf * L.dxf);
+      for (let iz = 1; iz < NZ; iz++) {
+        const Kz = iz * o.dKz; let F, J;
+        if (o.map === 'zo') { const r = Math.sqrt(Kx * Kx + Kz * Kz); F = o.v * r; J = o.v * Kz / r; }
+        else if (o.map === 'erm') { const kh = (Kz - ga * Kx) / be; if (kh <= 0) continue; const r = Math.sqrt(Kx * Kx + kh * kh); F = vh * r; J = vh * kh / (be * r); }
+        else { const M = Kx * st + Kz * ct; if (M <= 0) continue; const N2 = Kx * Kx + Kz * Kz; F = c * N2 / (2 * M); if (Kz - F * ct / c < 0) continue; J = Math.abs(c * (2 * Kz * M - N2 * ct) / (2 * M * M)); }
+        const q = (F - L.f0) / L.Df; let i0, w;
+        if (nearest) { i0 = Math.round(q); w = 0; if (i0 < 0 || i0 > L.nB - 1) continue; }
+        else { i0 = Math.floor(q); w = q - i0; if (i0 < 0 || i0 >= L.nB - 1) continue; }
+        const a = i0 * nxf + ik, b = nearest ? a : a + nxf;
+        let vr = (1 - w) * L.Dr[a] + w * L.Dr[b], vi = (1 - w) * L.Di[a] + w * L.Di[b];
+        if (o.tc) { const ph = -TAU * F * o.tc, cc = Math.cos(ph), ss = Math.sin(ph), t = vr * cc - vi * ss; vi = vr * ss + vi * cc; vr = t; }
+        const g = jac ? J : 1; Ir[iz * nxf + ik] = vr * g; Ii[iz * nxf + ik] = vi * g;
+      }
+    }
+    return { Ir, Ii, NZ, nxf };
+  }
+  /* inverse 2D FFT, keeping rows iz0..iz1 and columns ix0..ix1 */
+  function ifft2Crop(S, cr) {
+    const NZ = S.NZ, nxf = S.nxf, colR = new Float64Array(NZ), colI = new Float64Array(NZ);
+    const Tr = new Float64Array(NZ * nxf), Ti = new Float64Array(NZ * nxf);
+    for (let ik = 0; ik < nxf; ik++) {
+      let any = false; for (let iz = 0; iz < NZ; iz++) { colR[iz] = S.Ir[iz * nxf + ik]; colI[iz] = S.Ii[iz * nxf + ik]; if (colR[iz] || colI[iz]) any = true; }
+      if (!any) continue;
+      Lab.fft(colR, colI, true);
+      for (let iz = cr.iz0; iz <= cr.iz1; iz++) { Tr[iz * nxf + ik] = colR[iz]; Ti[iz * nxf + ik] = colI[iz]; }
+    }
+    const nz = cr.iz1 - cr.iz0 + 1, nx = cr.ix1 - cr.ix0 + 1, re = new Float64Array(nz * nx), im = new Float64Array(nz * nx);
+    const rr = new Float64Array(nxf), ri = new Float64Array(nxf);
+    for (let iz = cr.iz0; iz <= cr.iz1; iz++) {
+      for (let k = 0; k < nxf; k++) { rr[k] = Tr[iz * nxf + k]; ri[k] = Ti[iz * nxf + k]; }
+      Lab.fft(rr, ri, true);
+      const o = (iz - cr.iz0) * nx; for (let k = cr.ix0; k <= cr.ix1; k++) { re[o + k - cr.ix0] = rr[k]; im[o + k - cr.ix0] = ri[k]; }
+    }
+    return { re, im, nz, nx };
+  }
+  /* DAS for plane waves on the f-k pixel grid (x = x0e + g pitch/U), receive window z/F#, unit-sum weights */
+  function das(d, o) {
+    const nel = d.nel, p = d.pitch, nt = d.nt, U = o.U, hx = p / U, c = o.cA, st = Math.sin(o.th), ct = Math.cos(o.th);
+    const nx = o.nx, nz = o.zs.length, re = new Float64Array(nz * nx), im = new Float64Array(nz * nx);
+    const Mmax = Math.ceil(o.zs[nz - 1] / (2 * o.Fnum) / hx) + 2;
+    const rT = new Float64Array(2 * Mmax + 1), cR = new Float64Array(2 * Mmax + 1), sR = new Float64Array(2 * Mmax + 1);
+    for (let iz = 0; iz < nz; iz++) {
+      const z = o.zs[iz], mh = Math.floor(z / (2 * o.Fnum) / hx);
+      for (let m = -mh; m <= mh; m++) { const dx = m * hx, t = Math.sqrt(dx * dx + z * z) / c; rT[m + Mmax] = t; cR[m + Mmax] = Math.cos(TAU * F0 * t); sR[m + Mmax] = Math.sin(TAU * F0 * t); }
+      for (let ix = 0; ix < nx; ix++) {
+        const g = o.ix0 + ix, x = d.x0e + g * hx, tx = (x * st + z * ct) / c;
+        const e0 = Math.max(0, Math.ceil((g - mh) / U)), e1 = Math.min(nel - 1, Math.floor((g + mh) / U));
+        let sr = 0, si = 0, cnt = 0;
+        for (let e = e0; e <= e1; e++) {
+          const m = U * e - g + Mmax, q = (tx + rT[m]) * FS, n = Math.floor(q), w = q - n; if (n < 0 || n >= nt - 1) continue;
+          const k = e * nt + n, vr = d.re[k] + w * (d.re[k + 1] - d.re[k]), vi = d.im[k] + w * (d.im[k + 1] - d.im[k]);
+          sr += vr * cR[m] - vi * sR[m]; si += vr * sR[m] + vi * cR[m]; cnt++;
+        }
+        if (cnt) { const ph = TAU * F0 * tx, cc = Math.cos(ph), ss = Math.sin(ph); re[iz * nx + ix] = (sr * cc - si * ss) / cnt; im[iz * nx + ix] = (sr * ss + si * cc) / cnt; }
+      }
+    }
+    return { re, im, nz, nx };
+  }
+
+  /* ================= drawing helpers ================= */
+  /* image into data-coordinate extent ext = {x0, x1, y0, y1} (y0 drawn at top of the image), clipped to the axes box */
+  function imgAt(ctx, ax, arr, rows, cols, ext, vmin, vmax, cmap) {
+    const xa = ax.X(ext.x0), xb = ax.X(ext.x1), ya = ax.Y(ext.y0), yb = ax.Y(ext.y1);
+    ax.clip(); Lab.image(ctx, arr, rows, cols, { x: Math.min(xa, xb), y: Math.min(ya, yb), w: Math.abs(xb - xa), h: Math.abs(yb - ya) }, vmin, vmax, cmap); ax.unclip();
+  }
+  function frame(ctx, box, col, wpx) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = wpx || 2.5; ctx.strokeRect(box.x - 3, box.y - 3, box.w + 6, box.h + 6); ctx.restore(); }
+  function ring(ctx, ax, x, y, col, r) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ax.X(x), ax.Y(y), r || 6, 0, TAU); ctx.stroke(); ctx.restore(); }
+  function cols(w, n, gap, l, r) { const bw = (w - l - r - gap * (n - 1)) / n; return Array.from({ length: n }, (_, i) => l + i * (bw + gap)).map(x => ({ x, w: bw })); }
+
+  /* ================= Demo 24.1: channel data and spectrum ================= */
+  const KSP = [0.075, 0.15, 0.2, 0.3, 0.4];
+  let ksCache = {};
+  function ksDraw() {
+    const mode = $('m24-ks-mode').value, p = KSP[+$('m24-ks-p').value], z0 = +$('m24-ks-z').value, thd = +$('m24-ks-th').value, comp = $('m24-ks-comp').checked && mode === 'pw';
+    $('m24-ks-p-o').textContent = p.toFixed(p < 0.1 ? 3 : 2) + ' mm (' + (p / LAM).toFixed(2) + ' λ)'; $('m24-ks-z-o').textContent = z0 + ' mm'; $('m24-ks-th-o').textContent = thd + '°';
+    const key = [mode, p, z0, mode === 'pw' ? thd : 0].join('|');
+    if (!ksCache[key]) {
+      if (Object.keys(ksCache).length > 40) ksCache = {};
+      const nel = Math.round(19.2 / p), th = mode === 'pw' ? thd * PI / 180 : 0;
+      const d = simIQ({ nt: 1024, nel, pitch: p, sc: [{ x: 0, z: z0, ar: 1, ai: 0 }, { x: -3, z: z0 + 5, ar: 0.7, ai: 0 }], th, zo: mode === 'zo' });
+      ksCache[key] = { d, sp: bandFFT(d, 1024, 0) };
+    }
+    const { d, sp } = ksCache[key], nel = d.nel, nxp = Math.max(128, Lab.nextPow2(2 * nel)), nB = sp.nB;
+    // spectrum with optional steering compensation (applied at the native pitch, so it can wrap)
+    const spec = new Float32Array(nB * nxp), ar = new Float64Array(nxp), ai = new Float64Array(nxp), st = Math.sin(thd * PI / 180);
+    let mx = 1e-30;
+    for (let i = 0; i < nB; i++) {
+      const f = sp.f0 + i * sp.Df; ar.fill(0); ai.fill(0);
+      for (let e = 0; e < nel; e++) { let vr = sp.Rr[i * nel + e], vi = sp.Ri[i * nel + e];
+        if (comp) { const ph = TAU * f * (d.x0e + e * p) * st / C, c = Math.cos(ph), s = Math.sin(ph), t = vr * c - vi * s; vi = vr * s + vi * c; vr = t; }
+        ar[e] = vr; ai[e] = vi; }
+      Lab.fft(ar, ai, false);
+      const row = nB - 1 - i;                              // high f at the top
+      for (let k = 0; k < nxp; k++) { const j = (k + nxp / 2) % nxp, v = ar[k] * ar[k] + ai[k] * ai[k]; spec[row * nxp + j] = v; if (v > mx) mx = v; }
+    }
+    for (let k = 0; k < spec.length; k++) spec[k] = Math.max(-50, 10 * Math.log10(spec[k] / mx + 1e-30));
+    // canvas layout
+    const c = Lab.colors(), cv = $('m24-ks-cv'), W = cv.clientWidth || 600, wide = W >= 560;
+    const { ctx, w, h } = Lab.canvas(cv, wide ? 310 : 560);
+    const B1 = wide ? { x: 50, y: 22, w: w * 0.36 - 60, h: h - 58 } : { x: 50, y: 22, w: w - 62, h: 220 };
+    const B2 = wide ? { x: w * 0.36 + 48, y: 22, w: w * 0.64 - 60, h: h - 58 } : { x: 50, y: 300, w: w - 62, h: 220 };
+    // panel 1: real part of IQ, x vs t
+    const nt = d.nt, tmax = 51.2, rows = 512, dat = new Float32Array(rows * nel); let m1 = 1e-30;
+    for (let r = 0; r < rows; r++) for (let e = 0; e < nel; e++) { const v = d.re[e * nt + 2 * r]; dat[r * nel + e] = v; if (Math.abs(v) > m1) m1 = Math.abs(v); }
+    const xa = d.x0e - p / 2, xb = -d.x0e + p / 2;
+    const ax1 = Lab.axes(ctx, B1, [xa, xb], [tmax, 0], { xlabel: 'element x (mm)', ylabel: 't (µs)', title: 'Re{IQ} channel data', grid: false });
+    imgAt(ctx, ax1, dat, rows, nel, { x0: xa, x1: xb, y0: 0, y1: tmax }, -0.6 * m1, 0.6 * m1, 'gray');
+    Lab.axes(ctx, B1, [xa, xb], [tmax, 0], { grid: false, noXLabels: true, noYLabels: true });
+    // panel 2: |D(kx, f)| in dB
+    const kN = 1 / (2 * p), KR = 7.2;
+    const ax2 = Lab.axes(ctx, B2, [-KR, KR], [0.8, 9.2], { xlabel: 'kx (cycles/mm)', ylabel: 'f (MHz)', title: '|D(kx, f)| (dB, 50 dB range)' + (comp ? ' after compensation' : ''), grid: false });
+    imgAt(ctx, ax2, spec, nB, nxp, { x0: -kN, x1: kN - 1 / (nxp * p), y0: sp.f0 + (nB - 1) * sp.Df, y1: sp.f0 }, -50, 0, 'heat');
+    const m = mode === 'zo' ? 2 : 1, sh = comp ? st : 0;
+    ax2.clip();
+    const L = (pts, col, dash, wd) => Lab.line(ctx, ax2, pts.map(q => q[0]), pts.map(q => q[1]), col, wd || 1.6, dash);
+    const fs = [0.8, 9.2];
+    [-1, 1].forEach(sg => L(fs.map(f => [f * (sh + sg * m) / C, f]), c.accent, null, 2));
+    [-1, 1].forEach(sg => [-1, 1].forEach(sh2 => L(fs.map(f => [f * (sh + sg * m) / C + sh2 / p, f]), c.bad, [5, 4], 1.4)));
+    [-kN, kN].forEach(k => L([[k, 0.8], [k, 9.2]], c.sig3, [3, 3], 1.4));
+    ax2.unclip();
+    Lab.axes(ctx, B2, [-KR, KR], [0.8, 9.2], { grid: false, noXLabels: true, noYLabels: true });
+    // readout
+    const fN = C / (2 * m * p), sa = C / (2 * m * p * F0), aAl = sa < 1 ? Math.asin(sa) * 180 / PI : 90;
+    let nb = 0; for (let e = 0; e < nel; e++) { const dx = d.x0e + e * p, s = Math.abs(dx) / Math.hypot(dx, z0); if (s > sa) nb++; }
+    $('m24-ks-read').innerHTML = 'k<sub>x</sub> Nyquist 1/(2p) = <b>' + kN.toFixed(2) + '</b> /mm<br>cone meets Nyquist at f = <b>' + fN.toFixed(2) + '</b> MHz<br>alias angle at 5 MHz: <b>' + (sa < 1 ? aAl.toFixed(1) + '°' : 'none') + '</b><br>elements beyond it (target 1): <b>' + nb + ' / ' + nel + '</b>' + (comp ? '<br>shear at 9 MHz: <b>' + (9 * st / C).toFixed(2) + '</b> /mm' : '');
+  }
+  ['m24-ks-mode', 'm24-ks-p', 'm24-ks-z', 'm24-ks-th', 'm24-ks-comp'].forEach(id => $(id).addEventListener('input', ksDraw));
+  Lab.onShow('m24', ksDraw);
+
+  /* ================= Demo 24.2: Stolt step-through (zero-offset) ================= */
+  const ST = { nel: 256, p: 0.075, nt: 1024, NZ: 512, tg: [[0, 8], [-4, 14], [4, 14], [0, 20]] };
+  ST.dKz = 2 * (FS / 1024) / C; ST.dz = 1 / (ST.NZ * ST.dKz); ST.x0e = -(ST.nel - 1) / 2 * ST.p;
+  ST.crop = { iz0: Math.ceil(4 / ST.dz), iz1: Math.floor(30 / ST.dz), ix0: Math.ceil((-9 - ST.x0e) / ST.p), ix1: Math.floor((9 - ST.x0e) / ST.p) };
+  let stData = null, stLat = {}, stRef = null, stLast = null;
+  const STEPS = ['', '1 · FFT', '2 · map', '3 · weight', '4 · IFFT'];
+  function stRun(vf, interp, pad, tcOn, jac) {
+    if (!stData) stData = simIQ({ nt: ST.nt, nel: ST.nel, pitch: ST.p, sc: ST.tg.map(q => ({ x: q[0], z: q[1], ar: 1, ai: 0 })), zo: true });
+    const tc = tcOn ? ST.nt / (2 * FS) : 0, lk = pad + '|' + tc;
+    if (!stLat[lk]) stLat[lk] = lateralFFT(bandFFT(stData, ST.nt * pad, tc), ST.p, { nxp: 512, U: 1, fanS: Math.sin(Math.atan(0.5)), zo: true, x0e: ST.x0e });
+    const L = stLat[lk], S = stoltMap(L, { map: 'zo', v: vf * C, NZ: ST.NZ, dKz: ST.dKz, interp, tc, jac });
+    return { L, S, img: ifft2Crop(S, ST.crop) };
+  }
+  function stPeak(img, zc) {
+    const { nz, nx } = img; let best = 0, bi = 0, bj = 0;
+    for (let i = 0; i < nz; i++) { const z = (ST.crop.iz0 + i) * ST.dz; if (Math.abs(z - zc) > 3) continue;
+      for (let j = 0; j < nx; j++) { const x = ST.x0e + (ST.crop.ix0 + j) * ST.p; if (Math.abs(x) > 2) continue; const v = Math.hypot(img.re[i * nx + j], img.im[i * nx + j]); if (v > best) { best = v; bi = i; bj = j; } } }
+    let wpx = 0; if (best > 0) { const row = j => Math.hypot(img.re[bi * nx + j], img.im[bi * nx + j]); let a = bj, b = bj; while (a > 0 && row(a) > best / 2) a--; while (b < nx - 1 && row(b) > best / 2) b++;
+      const fa = (row(a + 1) - best / 2) / (row(a + 1) - row(a) + 1e-30), fb = (row(b - 1) - best / 2) / (row(b - 1) - row(b) + 1e-30); wpx = (b - a - 2) + fa + fb; }
+    return { best, z: (ST.crop.iz0 + bi) * ST.dz, x: ST.x0e + (ST.crop.ix0 + bj) * ST.p, w: wpx * ST.p };
+  }
+  let stTimer = 0;
+  function stCompute() {
+    const vf = +$('m24-st-v').value, interp = $('m24-st-int').value, pad = +$('m24-st-pad').value, tcOn = $('m24-st-tc').checked, jac = $('m24-st-jac').checked;
+    if (!stRef) { const r = stRun(0.5, 'linear', 2, true, true); stRef = stPeak(r.img, 20); }
+    stLast = Object.assign(stRun(vf, interp, pad, tcOn, jac), { vf, interp, pad, tcOn, jac });
+    stDraw();
+  }
+  function stDraw() {
+    if (!stLast) { stCompute(); return; }
+    const step = +$('m24-st-step').value, kzp = +$('m24-st-kz').value, { L, S, img, vf } = stLast;
+    $('m24-st-step-o').textContent = STEPS[step]; $('m24-st-kz-o').textContent = kzp.toFixed(1) + ' /mm'; $('m24-st-v-o').textContent = vf.toFixed(2);
+    const c = Lab.colors(), cv = $('m24-st-cv'), W = cv.clientWidth || 600, wide = W >= 560;
+    const { ctx, w, h } = Lab.canvas(cv, wide ? 560 : 1000);
+    const ph = wide ? (h - 40) / 2 : (h - 20) / 4, cs = wide ? cols(w, 2, 62, 48, 12) : cols(w, 1, 0, 48, 12);
+    const box = k => { const cI = wide ? k % 2 : 0, rI = wide ? Math.floor(k / 2) : k; return { x: cs[cI].x, y: 22 + rI * ph, w: cs[cI].w, h: ph - 58 }; };
+    const B = [box(0), box(1), box(2), box(3)];
+    const KR = 1 / (2 * ST.p), nxf = L.nxf, nB = L.nB;
+    // P1 data
+    const d = stData, rows = 512, dat = new Float32Array(rows * ST.nel); let m1 = 1e-30;
+    for (let r = 0; r < rows; r++) for (let e = 0; e < ST.nel; e++) { const v = d.re[e * d.nt + 2 * r]; dat[r * ST.nel + e] = v; if (Math.abs(v) > m1) m1 = Math.abs(v); }
+    const xa = d.x0e, xb = -d.x0e;
+    let ax = Lab.axes(ctx, B[0], [xa, xb], [51.2, 0], { xlabel: 'element x (mm)', ylabel: 't (µs)', title: 'zero-offset data, Re{IQ}', grid: false });
+    imgAt(ctx, ax, dat, rows, ST.nel, { x0: xa, x1: xb, y0: 0, y1: 51.2 }, -0.6 * m1, 0.6 * m1, 'gray');
+    // P2 |D(kx,f)|
+    const sp2 = new Float32Array(nB * nxf); let mx = 1e-30;
+    for (let i = 0; i < nB; i++) for (let k = 0; k < nxf; k++) { const v = L.Dr[i * nxf + k] ** 2 + L.Di[i * nxf + k] ** 2; sp2[(nB - 1 - i) * nxf + (k + nxf / 2) % nxf] = v; if (v > mx) mx = v; }
+    for (let k = 0; k < sp2.length; k++) sp2[k] = Math.max(-50, 10 * Math.log10(sp2[k] / mx + 1e-30));
+    const ax2 = Lab.axes(ctx, B[1], [-KR, KR], [0.8, 9.2], { xlabel: 'kx (cycles/mm)', ylabel: 'f (MHz)', title: 'D(kx, f), fan F# 1 (dB)', grid: false });
+    imgAt(ctx, ax2, sp2, nB, nxf, { x0: -KR, x1: KR, y0: L.f0 + (nB - 1) * L.Df, y1: L.f0 }, -50, 0, 'heat');
+    if (step === 2 || step === 3) { ax2.clip(); const xs = [], ys = []; for (let i = 0; i <= 200; i++) { const kx = -KR + 2 * KR * i / 200; xs.push(kx); ys.push(vf * C * Math.hypot(kx, kzp)); } Lab.line(ctx, ax2, xs, ys, c.accent, 2.2); ax2.unclip(); }
+    // P3 |R(Kx,Kz)|
+    const NZ = S.NZ, sp3 = new Float32Array(NZ * nxf); mx = 1e-30;
+    for (let iz = 0; iz < NZ; iz++) for (let k = 0; k < nxf; k++) { const v = S.Ir[iz * nxf + k] ** 2 + S.Ii[iz * nxf + k] ** 2; sp3[(NZ - 1 - iz) * nxf + (k + nxf / 2) % nxf] = v; if (v > mx) mx = v; }
+    for (let k = 0; k < sp3.length; k++) sp3[k] = Math.max(-50, 10 * Math.log10(sp3[k] / mx + 1e-30));
+    const KzM = (NZ - 1) * ST.dKz;
+    const ax3 = Lab.axes(ctx, B[2], [-KR, KR], [0, KzM], { xlabel: 'Kx (cycles/mm)', ylabel: 'Kz (cycles/mm)', title: 'R(Kx, Kz) after mapping' + (stLast.jac ? ' × Jacobian' : '') + ' (dB)', grid: false });
+    imgAt(ctx, ax3, sp3, NZ, nxf, { x0: -KR, x1: KR, y0: KzM, y1: 0 }, -50, 0, 'heat');
+    if (step === 2 || step === 3) { ax3.clip(); Lab.line(ctx, ax3, [-KR, KR], [kzp, kzp], c.accent, 2.2); ax3.unclip(); }
+    // P4 image
+    const { nz, nx } = img, im4 = new Float32Array(nz * nx); mx = 1e-30;
+    for (let k = 0; k < nz * nx; k++) { const v = Math.hypot(img.re[k], img.im[k]); im4[k] = v; if (v > mx) mx = v; }
+    for (let k = 0; k < im4.length; k++) im4[k] = Math.max(-45, 20 * Math.log10(im4[k] / mx + 1e-30));
+    const z0i = ST.crop.iz0 * ST.dz, z1i = ST.crop.iz1 * ST.dz, x0i = ST.x0e + ST.crop.ix0 * ST.p, x1i = ST.x0e + ST.crop.ix1 * ST.p;
+    const ax4 = Lab.axes(ctx, B[3], [x0i, x1i], [z1i, z0i], { xlabel: 'x (mm)', ylabel: 'z (mm)', title: 'image |r(x, z)| (dB, 45 dB range)', grid: false });
+    imgAt(ctx, ax4, im4, nz, nx, { x0: x0i, x1: x1i, y0: z0i, y1: z1i }, -45, 0, 'gray');
+    ST.tg.forEach(q => ring(ctx, ax4, q[0], q[1], c.sig4, 12));
+    const hl = { 1: [1], 2: [1, 2], 3: [2], 4: [3] }[step]; hl.forEach(k => frame(ctx, B[k], c.accent));
+    // readout
+    const pk = stPeak(img, Math.min(28, 20 * 2 * vf));
+    const zExp = 20 * 2 * vf, txt = { 1: 'FFT in t and x; fan filter |k<sub>x</sub>| ≤ 2f sin α/c (F# 1).', 2: 'Output row K<sub>z</sub> = ' + kzp.toFixed(1) + ' reads D along f = v√(k<sub>x</sub>² + K<sub>z</sub>²) (curve), f = ' + (vf * C * kzp).toFixed(2) + ' MHz at k<sub>x</sub> = 0.', 3: 'Multiply by v K<sub>z</sub>/√(K<sub>x</sub>² + K<sub>z</sub>²) (cos of the propagation angle)' + (stLast.jac ? '.' : ': off.'), 4: 'Inverse 2D FFT; |r| is the envelope.' }[step];
+    $('m24-st-read').innerHTML = txt + '<br>target (0, 20 mm): expected at z = 20 · 2v/c = <b>' + zExp.toFixed(2) + '</b> mm' + (zExp > 30 ? ' (outside the window)' : '<br>peak at x = <b>' + pk.x.toFixed(2) + '</b>, z = <b>' + pk.z.toFixed(2) + '</b> mm, −6 dB width <b>' + pk.w.toFixed(3) + '</b> mm<br>peak ' + fmt(20 * Math.log10(pk.best / stRef.best), 1) + ' dB re v = c/2, linear, 2×') + '<br>D grid: ' + nB + ' f bins, Δf = ' + (L.Df * 1e3).toFixed(2) + ' kHz';
+  }
+  const stQueue = () => { clearTimeout(stTimer); stTimer = setTimeout(stCompute, 40); };
+  ['m24-st-v', 'm24-st-int', 'm24-st-pad', 'm24-st-tc', 'm24-st-jac'].forEach(id => $(id).addEventListener('input', () => { if (id === 'm24-st-v') $('m24-st-v-o').textContent = (+$(id).value).toFixed(2); stQueue(); }));
+  ['m24-st-step', 'm24-st-kz'].forEach(id => $(id).addEventListener('input', stDraw));
+  Lab.onShow('m24', stDraw);
+
+  /* ================= Demo 24.3: ERM fit ================= */
+  function ermPars(th) { const ct = Math.cos(th), st = Math.sin(th), D = 1 + ct + st * st; return { v: C / Math.sqrt(D), be: Math.pow(1 + ct, 1.5) / D, ga: st / (2 - ct) }; }
+  function ermErr(th, z0, a) {                           // path error (mm) at receive angle a, after steering compensation
+    const q = ermPars(th), u = z0 * Math.tan(a);
+    const tt = (z0 * Math.cos(th) - u * Math.sin(th) + Math.hypot(u, z0)) / C, te = Math.hypot(u - q.ga * z0, q.be * z0) / q.v;
+    return (te - tt) * C;
+  }
+  function ermDraw() {
+    const thd = +$('m24-erm-th').value, z0 = +$('m24-erm-z').value, f = +$('m24-erm-f').value, Fn = +$('m24-erm-F').value, lam = C / f, th = thd * PI / 180;
+    $('m24-erm-th-o').textContent = thd + '°'; $('m24-erm-z-o').textContent = z0 + ' mm'; $('m24-erm-f-o').textContent = f.toFixed(1) + ' MHz';
+    const c = Lab.colors(), cv = $('m24-erm-cv'), W = cv.clientWidth || 600, wide = W >= 560;
+    const { ctx, w, h } = Lab.canvas(cv, wide ? 280 : 520);
+    const B1 = wide ? { x: 52, y: 22, w: w / 2 - 70, h: h - 58 } : { x: 52, y: 22, w: w - 64, h: 200 };
+    const B2 = wide ? { x: w / 2 + 46, y: 22, w: w / 2 - 58, h: h - 58 } : { x: 52, y: 282, w: w - 64, h: 200 };
+    const q = ermPars(th), um = z0 * Math.tan(40 * PI / 180), N = 240;
+    const us = [], tt = [], te = [];
+    for (let i = 0; i <= N; i++) { const u = -um + 2 * um * i / N; us.push(u); tt.push((z0 * Math.cos(th) - u * Math.sin(th) + Math.hypot(u, z0)) / C); te.push(Math.hypot(u - q.ga * z0, q.be * z0) / q.v); }
+    const tmin = Math.min(...tt, ...te), tmax = Math.max(...tt, ...te);
+    const ax1 = Lab.axes(ctx, B1, [-um, um], [tmin - 0.02 * (tmax - tmin), tmax], { xlabel: 'u = x − x₀ (mm)', ylabel: 'τ′ (µs)', title: 'travel time after steering compensation' });
+    const ap = z0 / (2 * Fn); ax1.clip(); Lab.line(ctx, ax1, [-ap, -ap], [tmin - 1, tmax + 1], c.muted, 1, [3, 3]); Lab.line(ctx, ax1, [ap, ap], [tmin - 1, tmax + 1], c.muted, 1, [3, 3]); ax1.unclip();
+    Lab.line(ctx, ax1, us, tt, c.accent, 2.4); Lab.line(ctx, ax1, us, te, c.sig2, 1.6, [6, 4]);
+    // error versus receive angle
+    const as = [], e1 = [], e0 = []; let emax = lam / 2;
+    for (let i = 0; i <= N; i++) { const a = (-40 + 80 * i / N) * PI / 180; as.push(a * 180 / PI); const v = ermErr(th, z0, a) / lam, v0 = ermErr(0, z0, a) / lam; e1.push(v); e0.push(v0); }
+    const yr = 1.5;
+    const ax2 = Lab.axes(ctx, B2, [-40, 40], [-yr, yr], { xlabel: 'receive angle α (deg)', ylabel: 'path error (λ)', title: 'ERM error, λ = ' + lam.toFixed(3) + ' mm' });
+    ax2.clip();
+    const aF = Math.atan(1 / (2 * Fn)) * 180 / PI;
+    Lab.line(ctx, ax2, [-40, 40], [0.25, 0.25], c.bad, 1, [4, 3]); Lab.line(ctx, ax2, [-40, 40], [-0.25, -0.25], c.bad, 1, [4, 3]);
+    Lab.line(ctx, ax2, [-aF, -aF], [-yr, yr], c.muted, 1, [3, 3]); Lab.line(ctx, ax2, [aF, aF], [-yr, yr], c.muted, 1, [3, 3]);
+    Lab.line(ctx, ax2, as, e0, c.muted, 1.4, [5, 4]); Lab.line(ctx, ax2, as, e1, c.sig2, 2.2); Lab.line(ctx, ax2, [-40, 40], [0, 0], c.accent, 1.2);
+    ax2.unclip();
+    // minimum F# that keeps |error| <= lambda/4
+    let aOK = 0; for (let k = 1; k <= 890; k++) { const a = k * 0.1 * PI / 180; if (Math.abs(ermErr(th, z0, a)) > lam / 4 || Math.abs(ermErr(th, z0, -a)) > lam / 4) break; aOK = a; }
+    const Fmin = aOK > 0 ? 1 / (2 * Math.tan(aOK)) : Infinity, aR = Math.atan(1 / (2 * Fn));
+    const ep = ermErr(th, z0, aR) * 1e3, em = ermErr(th, z0, -aR) * 1e3;
+    $('m24-erm-read').innerHTML = 'v̂/c = <b>' + (q.v / C).toFixed(4) + '</b>, β = <b>' + q.be.toFixed(4) + '</b>, γ = <b>' + q.ga.toFixed(4) + '</b><br>error at α = ±' + (aR * 180 / PI).toFixed(1) + '°: <b>' + fmt(ep, 1) + '</b> / <b>' + fmt(em, 1) + '</b> µm (λ/4 = ' + (lam / 4 * 1e3).toFixed(0) + ' µm)' +
+      (thd === 0 ? '<br>leading term z tan⁴α/16 = <b>' + (z0 * Math.pow(Math.tan(aR), 4) / 16 * 1e3).toFixed(1) + '</b> µm' : '') +
+      '<br>minimum F# for |error| ≤ λ/4: <b>' + (isFinite(Fmin) ? Fmin.toFixed(2) : '–') + '</b>' + (thd === 0 ? ' (formula (z/64λ)<sup>1/4</sup> = ' + Math.pow(z0 / (64 * lam), 0.25).toFixed(2) + ')' : '');
+  }
+  ['m24-erm-th', 'm24-erm-z', 'm24-erm-f', 'm24-erm-F'].forEach(id => $(id).addEventListener('input', ermDraw));
+  Lab.onShow('m24', ermDraw);
+
+  /* ================= Demo 24.4: k-space coverage and PSF ================= */
+  const KC = { n: 256, kxr: 8, kzr: 15 };
+  function kcDraw() {
+    const N = +$('m24-kc-n').value, span = +$('m24-kc-span').value, Fn = +$('m24-kc-F').value, fbw = +$('m24-kc-b').value, showE = $('m24-kc-erm').checked;
+    $('m24-kc-n-o').textContent = N; $('m24-kc-span-o').textContent = span + '°'; $('m24-kc-F-o').textContent = Fn.toFixed(2); $('m24-kc-b-o').textContent = Math.round(fbw * 100) + ' %';
+    const n = KC.n, dKx = 2 * KC.kxr / n, dKz = KC.kzr / n, sf = sigFof(fbw), sa = Math.sin(Math.atan(1 / (2 * Fn)));
+    const thetas = N === 1 ? [0] : Array.from({ length: N }, (_, i) => (-span + 2 * span * i / (N - 1)) * PI / 180);
+    const re = new Float64Array(n * n), im = new Float64Array(n * n);
+    for (const th of thetas) { const st = Math.sin(th), ct = Math.cos(th);
+      for (let iz = 1; iz < n; iz++) { const Kz = iz * dKz;
+        for (let ik = 0; ik < n; ik++) { const Kx = (ik < n / 2 ? ik : ik - n) * dKx, M = Kx * st + Kz * ct; if (M <= 0) continue;
+          const f = C * (Kx * Kx + Kz * Kz) / (2 * M), kf = f / C; if (Kz - kf * ct < 0) continue; if (Math.abs(Kx - kf * st) > kf * sa) continue;
+          re[iz * n + ik] += Math.exp(-((f - F0) ** 2) / (2 * sf * sf)); } } }
+    const cov = new Float32Array(re);                        // keep the coverage before the FFT
+    for (let iz = 0; iz < n; iz++) { const rr = re.subarray(iz * n, iz * n + n), ii = im.subarray(iz * n, iz * n + n); Lab.fft(rr, ii, true); }
+    const cr = new Float64Array(n), ci = new Float64Array(n);
+    for (let ik = 0; ik < n; ik++) { for (let iz = 0; iz < n; iz++) { cr[iz] = re[iz * n + ik]; ci[iz] = im[iz * n + ik]; } Lab.fft(cr, ci, true); for (let iz = 0; iz < n; iz++) { re[iz * n + ik] = cr[iz]; im[iz * n + ik] = ci[iz]; } }
+    const dx = 1 / (n * dKx), dz = 1 / (n * dKz);           // PSF sampling (mm)
+    const P = (iz, ix) => { const a = ((iz % n) + n) % n, b = ((ix % n) + n) % n; return Math.hypot(re[a * n + b], im[a * n + b]); };
+    const p0 = P(0, 0);
+    // display arrays
+    const c = Lab.colors(), cv = $('m24-kc-cv'), W = cv.clientWidth || 600, wide = W >= 560;
+    const { ctx, w, h } = Lab.canvas(cv, wide ? 340 : 760);
+    const B1 = wide ? { x: 50, y: 22, w: w * 0.5 - 62, h: h - 58 } : { x: 50, y: 22, w: w - 62, h: 260 };
+    const B2 = wide ? { x: w * 0.5 + 44, y: 22, w: w * 0.5 - 56, h: (h - 58) * 0.5 - 18 } : { x: 50, y: 340, w: w - 62, h: 150 };
+    const B3 = wide ? { x: w * 0.5 + 44, y: 22 + (h - 58) * 0.5 + 36, w: w * 0.5 - 56, h: (h - 58) * 0.5 - 18 } : { x: 50, y: 550, w: w - 62, h: 160 };
+    const KX = 6, KZ = 14, ix0 = Math.round(-KX / dKx), ix1 = Math.round(KX / dKx), iz1 = Math.round(KZ / dKz), nc = ix1 - ix0 + 1, nr = iz1 + 1;
+    const cvA = new Float32Array(nr * nc); let cm = 1e-30;
+    for (let r = 0; r < nr; r++) for (let k = 0; k < nc; k++) { const iz = iz1 - r, ik = ((ix0 + k) % n + n) % n, v = cov[iz * n + ik]; cvA[r * nc + k] = v; if (v > cm) cm = v; }
+    const ax1 = Lab.axes(ctx, B1, [-KX, KX], [0, KZ], { xlabel: 'Kx (cycles/mm)', ylabel: 'Kz (cycles/mm)', title: 'k-space coverage, ' + N + ' angle' + (N > 1 ? 's' : ''), grid: false });
+    imgAt(ctx, ax1, cvA, nr, nc, { x0: ix0 * dKx, x1: ix1 * dKx, y0: KZ, y1: 0 }, 0, cm, 'heat');
+    const thM = (N === 1 ? 0 : span) * PI / 180, k0 = F0 / C, xsE = [], ysE = [];
+    for (let i = 0; i <= 180; i++) { const a = (-90 + i) * PI / 180; xsE.push(k0 * (Math.sin(thM) + Math.sin(a))); ysE.push(k0 * (Math.cos(thM) + Math.cos(a))); }
+    ax1.clip(); Lab.line(ctx, ax1, xsE, ysE, c.accent, 1.8);
+    if (showE) { const q = ermPars(thM), xs = [], ys = []; for (let i = 0; i <= 200; i++) { const Kx = k0 * (Math.sin(thM) - 1 + 2 * i / 200), r = (F0 / q.v) ** 2 - Kx * Kx; if (r < 0) continue; xs.push(Kx); ys.push(q.ga * Kx + q.be * Math.sqrt(r)); } Lab.line(ctx, ax1, xs, ys, c.sig2, 1.6, [6, 4]); }
+    ax1.unclip();
+    // PSF image (dB)
+    const XR = 2.5, ZR = 1.5, nxP = Math.round(XR / dx), nzP = Math.round(ZR / dz), ps = new Float32Array((2 * nzP + 1) * (2 * nxP + 1));
+    for (let a = -nzP; a <= nzP; a++) for (let b = -nxP; b <= nxP; b++) ps[(a + nzP) * (2 * nxP + 1) + b + nxP] = dB(P(a, b) / p0, -50);
+    const ax2 = Lab.axes(ctx, B2, [-XR, XR], [ZR, -ZR], { ylabel: 'z (mm)', title: 'PSF = |IFFT₂ coverage| (dB)', grid: false });
+    imgAt(ctx, ax2, ps, 2 * nzP + 1, 2 * nxP + 1, { x0: -nxP * dx, x1: nxP * dx, y0: -nzP * dz, y1: nzP * dz }, -50, 0, 'gray');
+    // lateral profile and metrics
+    const XP = 4, nxL = Math.round(XP / dx), xs = [], ys = [];
+    for (let b = -nxL; b <= nxL; b++) { xs.push(b * dx); ys.push(dB(P(0, b) / p0, -60)); }
+    const ax3 = Lab.axes(ctx, B3, [-XP, XP], [-60, 0], { xlabel: 'x (mm)', ylabel: 'dB', title: 'lateral profile at the peak' });
+    Lab.line(ctx, ax3, xs, ys, c.sig3, 2);
+    const wid = sel => { let b = 0; while (sel(b + 1) > 0.5 && b < n / 2) b++; const v0 = sel(b), v1 = sel(b + 1); return 2 * (b + (v0 - 0.5) / (v0 - v1 + 1e-30)); };
+    const wl = wid(b => P(0, b) / p0) * dx, wa = wid(a => P(a, 0) / p0) * dz;
+    let b = 1; while (b < nxL && P(0, b + 1) < P(0, b)) b++; let psl = -99; for (let k = b; k <= nxL; k++) psl = Math.max(psl, dB(P(0, k) / p0, -99));
+    const kxa = k0 * (Math.sin(-thM) - sa), kxb = k0 * (Math.sin(thM) + sa);
+    $('m24-kc-read').innerHTML = 'K<sub>x</sub> at f<sub>0</sub>: <b>' + kxa.toFixed(2) + '</b> to <b>' + kxb.toFixed(2) + '</b> /mm<br>lateral −6 dB: <b>' + wl.toFixed(3) + '</b> mm, axial: <b>' + wa.toFixed(3) + '</b> mm<br>lateral PSL: <b>' + fmt(psl, 1) + '</b> dB' + (N > 1 && span > 0 ? '<br>step ' + (2 * span / (N - 1)).toFixed(1) + '°, replica λ/Δ(sin θ) ≈ <b>' + (LAM / (Math.sin(thetas[1]) - Math.sin(thetas[0]))).toFixed(1) + '</b> mm<br>transmit F# 1/(2 tan θ<sub>max</sub>) = <b>' + (1 / (2 * Math.tan(thM))).toFixed(2) + '</b>' : '');
+  }
+  ['m24-kc-n', 'm24-kc-span', 'm24-kc-F', 'm24-kc-b', 'm24-kc-erm'].forEach(id => $(id).addEventListener('input', kcDraw));
+  Lab.onShow('m24', kcDraw);
+
+  /* ================= Demo 24.5: f-k against DAS ================= */
+  const FD = { nt: 1024, nel: 128, p: 0.3, nxp: 256, U: 2, NZ: 512 };
+  FD.dKz = 2 * (FS / 1024) / C; FD.dz = 1 / (FD.NZ * FD.dKz); FD.x0e = -(FD.nel - 1) / 2 * FD.p; FD.hx = FD.p / FD.U;
+  FD.crop = { iz0: Math.ceil(8 / FD.dz), iz1: Math.floor(33 / FD.dz), ix0: Math.ceil((-10 - FD.x0e) / FD.hx), ix1: Math.floor((10 - FD.x0e) / FD.hx) };
+  FD.nz = FD.crop.iz1 - FD.crop.iz0 + 1; FD.nx = FD.crop.ix1 - FD.crop.ix0 + 1;
+  FD.zs = Float64Array.from({ length: FD.nz }, (_, i) => (FD.crop.iz0 + i) * FD.dz);
+  FD.xs = Float64Array.from({ length: FD.nx }, (_, j) => FD.x0e + (FD.crop.ix0 + j) * FD.hx);
+  (function () { const R = Lab.rng(1515), sc = [[-6, 12], [0, 12], [6, 12]].map(q => ({ x: q[0], z: q[1], ar: 3, ai: 0 }));
+    const n = Math.round(20 * 14 * 14); for (let i = 0; i < n; i++) { const x = -7 + 14 * R.u(), z = 17 + 14 * R.u(); if (x * x + (z - 24) ** 2 <= 9) continue; const g = R.cg(); sc.push({ x, z, ar: g.re, ai: g.im }); }
+    FD.sc = sc; })();
+  let fdD = {}, fdF = {}, fdA = {}, fdRes = null, fdTimer = 0;
+  function fdData(thd) { if (!fdD[thd]) fdD[thd] = simIQ({ nt: FD.nt, nel: FD.nel, pitch: FD.p, sc: FD.sc, th: thd * PI / 180 }); return fdD[thd]; }
+  function fdFK(thd, map, interp, pad, cent, Fn, cA) {
+    const key = [thd, map, interp, pad, cent, Fn, cA].join('|'); if (fdF[key]) return fdF[key];
+    if (Object.keys(fdF).length > 28) fdF = {};
+    const d = fdData(thd), t0 = performance.now(), th = thd * PI / 180, tc = cent ? FD.nt / (2 * FS) : 0;
+    const L = lateralFFT(bandFFT(d, FD.nt * pad, tc), FD.p, { nxp: FD.nxp, U: FD.U, fanS: Math.sin(Math.atan(1 / (2 * Fn))), th, cA, x0e: FD.x0e });
+    const im = ifft2Crop(stoltMap(L, { map, th, cA, NZ: FD.NZ, dKz: FD.dKz, interp, tc }), FD.crop);
+    im.ms = performance.now() - t0; fdF[key] = im; return im;
+  }
+  function fdDAS(thd, Fn, cA) {
+    const key = [thd, Fn, cA].join('|'); if (fdA[key]) return fdA[key];
+    if (Object.keys(fdA).length > 28) fdA = {};
+    const d = fdData(thd), t0 = performance.now();
+    const im = das(d, { th: thd * PI / 180, Fnum: Fn, cA, U: FD.U, ix0: FD.crop.ix0, nx: FD.nx, zs: FD.zs });
+    im.ms = performance.now() - t0; fdA[key] = im; return im;
+  }
+  function fdMetrics(E) {                                   // E: envelope array (nz x nx), already normalized
+    const { nz, nx } = FD; let pk = 0, pi = 0, pj = 0;
+    for (let i = 0; i < nz; i++) { if (Math.abs(FD.zs[i] - 12.3) > 1.3) continue; for (let j = 0; j < nx; j++) { if (Math.abs(FD.xs[j]) > 1) continue; const v = E[i * nx + j]; if (v > pk) { pk = v; pi = i; pj = j; } } }
+    const row = j => E[pi * nx + j]; let a = pj, b = pj; while (a > 0 && row(a) > pk / 2) a--; while (b < nx - 1 && row(b) > pk / 2) b++;
+    const wl = ((b - a - 2) + (row(a + 1) - pk / 2) / (row(a + 1) - row(a) + 1e-30) + (row(b - 1) - pk / 2) / (row(b - 1) - row(b) + 1e-30)) * FD.hx;
+    const l = row(pj - 1), m = row(pj), r = row(pj + 1), off = 0.5 * (l - r) / (l - 2 * m + r) * FD.hx + FD.xs[pj];
+    let psl = 0; const zp = FD.zs[pi];
+    for (let i = 0; i < nz; i++) { const dz = FD.zs[i] - zp; if (Math.abs(dz) > 2) continue; for (let j = 0; j < nx; j++) { const dx = FD.xs[j] - FD.xs[pj]; if (Math.abs(dx) > 3) continue; if (Math.abs(dx) <= 0.9 && Math.abs(dz) <= 0.45) continue; psl = Math.max(psl, E[i * nx + j]); } }
+    let si = 0, ni = 0, so = 0, no = 0;
+    for (let i = 0; i < nz; i++) for (let j = 0; j < nx; j++) { const rr = Math.hypot(FD.xs[j], FD.zs[i] - 24), v = E[i * nx + j] ** 2; if (rr <= 2.5) { si += v; ni++; } else if (rr >= 4 && rr <= 6.5 && FD.zs[i] < 30.5 && Math.abs(FD.xs[j]) < 6.5) { so += v; no++; } }
+    return { pk, pi, pj, wl, off, psl: 20 * Math.log10(psl / pk), con: 10 * Math.log10((si / ni) / (so / no)) };
+  }
+  function fdCompute() {
+    const map = $('m24-fd-map').value, nSel = $('m24-fd-n').value, ip = $('m24-fd-int').value.split('-'), Fn = +$('m24-fd-F').value, cA = +$('m24-fd-c').value / 1000;
+    const angs = nSel === 's' ? [9] : { 1: [0], 3: [-3, 0, 3], 5: [-6, -3, 0, 3, 6], 7: [-9, -6, -3, 0, 3, 6, 9] }[nSel];
+    const nn = FD.nz * FD.nx, fr = new Float64Array(nn), fi = new Float64Array(nn), dr = new Float64Array(nn), di = new Float64Array(nn);
+    let tF = 0, tD = 0;
+    angs.forEach(a => { const F = fdFK(a, map, ip[0], +ip[1], ip[2] === '1', Fn, cA), A = fdDAS(a, Fn, cA); tF += F.ms; tD += A.ms;
+      for (let k = 0; k < nn; k++) { fr[k] += F.re[k]; fi[k] += F.im[k]; dr[k] += A.re[k]; di[k] += A.im[k]; } });
+    const EF = new Float64Array(nn), ED = new Float64Array(nn);
+    for (let k = 0; k < nn; k++) { EF[k] = Math.hypot(fr[k], fi[k]); ED[k] = Math.hypot(dr[k], di[k]); }
+    const mF = fdMetrics(EF), mD = fdMetrics(ED);
+    for (let k = 0; k < nn; k++) { EF[k] /= mF.pk; ED[k] /= mD.pk; }
+    let sd = 0, nd = 0; for (let k = 0; k < nn; k++) { if (ED[k] > 0.01 && EF[k] > 0.01) { sd += Math.abs(20 * Math.log10((EF[k] + 1e-9) / (ED[k] + 1e-9))); nd++; } }
+    fdRes = { EF, ED, mF, mD, tF: tF / angs.length, tD: tD / angs.length, dd: sd / nd, n: angs.length };
+    fdDraw();
+  }
+  function fdDraw() {
+    if (!fdRes) { const cv = $('m24-fd-cv'), { ctx, w } = Lab.canvas(cv, 120), c = Lab.colors(); ctx.fillStyle = c.muted; ctx.font = '13px ' + c.mono; ctx.fillText('simulating channel data and beamforming…', 16, 60); Lab.canvas($('m24-fd-pr'), 60).ctx.fillText('', 0, 0); clearTimeout(fdTimer); fdTimer = setTimeout(fdCompute, 30); return; }
+    const DR = +$('m24-fd-dr').value; $('m24-fd-dr-o').textContent = DR + ' dB'; $('m24-fd-c-o').textContent = $('m24-fd-c').value + ' m/s';
+    const { EF, ED, mF, mD } = fdRes, { nz, nx } = FD, c = Lab.colors();
+    const cv = $('m24-fd-cv'), W = cv.clientWidth || 600, wide = W >= 480;
+    const pw = wide ? (W - 50 - 2 * 44 - 10) / 3 : W - 62, phh = pw * 25 / 20;
+    const { ctx, w, h } = Lab.canvas(cv, wide ? phh + 58 : 3 * (phh + 58));
+    const boxes = [0, 1, 2].map(k => wide ? { x: 50 + k * (pw + 44), y: 22, w: pw, h: phh } : { x: 50, y: 22 + k * (phh + 58), w: pw, h: phh });
+    const x0 = FD.xs[0], x1 = FD.xs[nx - 1], z0 = FD.zs[0], z1 = FD.zs[nz - 1];
+    const toDB = E => { const o = new Float32Array(E.length); for (let k = 0; k < E.length; k++) o[k] = dB(E[k], -DR); return o; };
+    const titles = ['DAS (dB)', 'f-k ' + ($('m24-fd-map').value === 'erm' ? 'ERM' : 'exact') + ' (dB)', 'f-k − DAS envelope (±6 dB)'];
+    const diff = new Float32Array(nz * nx); for (let k = 0; k < diff.length; k++) diff[k] = (ED[k] > Math.pow(10, -DR / 20) || EF[k] > Math.pow(10, -DR / 20)) ? Math.max(-6, Math.min(6, 20 * Math.log10((EF[k] + 1e-9) / (ED[k] + 1e-9)))) : 0;
+    [toDB(ED), toDB(EF), diff].forEach((arr, k) => { const ax = Lab.axes(ctx, boxes[k], [x0, x1], [z1, z0], { xlabel: 'x (mm)', ylabel: k === 0 || !wide ? 'z (mm)' : '', title: titles[k], grid: false });
+      imgAt(ctx, ax, arr, nz, nx, { x0, x1, y0: z0, y1: z1 }, k < 2 ? -DR : -6, k < 2 ? 0 : 6, k < 2 ? 'gray' : 'diverge'); });
+    // lateral profiles through each method's peak row
+    const pv = $('m24-fd-pr'), P = Lab.canvas(pv, 170), axp = Lab.axes(P.ctx, { x: 50, y: 20, w: P.w - 62, h: 116 }, [x0, x1], [-60, 0], { xlabel: 'x (mm) at the point-target row', ylabel: 'dB' });
+    const xs = Array.from(FD.xs), rD = xs.map((_, j) => dB(ED[mD.pi * nx + j], -60)), rF = xs.map((_, j) => dB(EF[mF.pi * nx + j], -60));
+    Lab.line(P.ctx, axp, xs, rD, c.muted, 2.4); Lab.line(P.ctx, axp, xs, rF, c.accent, 1.5);
+    const R = fdRes;
+    const pF = FD.NZ * FD.nxp * FD.U, pD = FD.nz * FD.nx;
+    $('m24-fd-read').innerHTML = 'time / angle: f-k <b>' + R.tF.toFixed(0) + '</b> ms · DAS <b>' + R.tD.toFixed(0) + '</b> ms<br>per output pixel: f-k <b>' + (1e3 * R.tF / pF).toFixed(2) + '</b> µs · DAS <b>' + (1e3 * R.tD / pD).toFixed(2) + '</b> µs<br>lateral −6 dB at (0, 12): DAS <b>' + mD.wl.toFixed(3) + '</b> · f-k <b>' + mF.wl.toFixed(3) + '</b> mm<br>PSL: DAS <b>' + fmt(mD.psl, 1) + '</b> · f-k <b>' + fmt(mF.psl, 1) + '</b> dB<br>peak x: DAS <b>' + fmt(mD.off * 1e3, 0) + '</b> · f-k <b>' + fmt(mF.off * 1e3, 0) + '</b> µm<br>peak z: DAS <b>' + FD.zs[mD.pi].toFixed(2) + '</b> · f-k <b>' + FD.zs[mF.pi].toFixed(2) + '</b> mm<br>cyst contrast: DAS <b>' + fmt(mD.con, 1) + '</b> · f-k <b>' + fmt(mF.con, 1) + '</b> dB<br>mean |ΔdB| (both &gt; −40 dB): <b>' + R.dd.toFixed(2) + '</b> dB<br><span class="m24-note">DAS on ' + (FD.nz * FD.nx / 1000).toFixed(0) + ' k pixels; f-k on the full ' + FD.NZ + ' × ' + FD.nxp * FD.U + ' grid; pixels ' + FD.hx.toFixed(2) + ' × ' + FD.dz.toFixed(3) + ' mm</span>';
+  }
+  const fdQueue = () => { clearTimeout(fdTimer); fdTimer = setTimeout(fdCompute, 30); };
+  ['m24-fd-map', 'm24-fd-n', 'm24-fd-int', 'm24-fd-F'].forEach(id => $(id).addEventListener('change', fdQueue));
+  $('m24-fd-c').addEventListener('input', () => { $('m24-fd-c-o').textContent = $('m24-fd-c').value + ' m/s'; });
+  $('m24-fd-c').addEventListener('change', fdQueue);
+  $('m24-fd-dr').addEventListener('input', () => { if (fdRes) fdDraw(); });
+  Lab.onShow('m24', fdDraw);
+
+  /* ================= mini figures: theory grid, visual summary, rule cards ================= */
+  const M = Lab.mini, col = M.col;
+  const one = (cv, h) => { h = h || 140; const { x, w } = M.size(cv, h); return { x, w, B: { x: 6, y: 16, w: w - 12, h: h - 36 } }; };
+  const poly = (x, m, pts, colr, o) => { o = o || {}; x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.beginPath();
+    pts.forEach((p, i) => { const X = m.X(p[0]), Y = m.Y(p[1]); i ? x.lineTo(X, Y) : x.moveTo(X, Y); }); x.strokeStyle = colr; x.lineWidth = o.w || 1.6; if (o.dash) x.setLineDash(o.dash); x.stroke(); x.restore(); };
+  const vl = (x, m, v, colr, dash) => poly(x, m, [[v, m.yr[0]], [v, m.yr[1]]], colr, { dash: dash || [3, 3], w: 1 });
+  const dot = (x, m, a, b, colr, r) => { x.save(); x.fillStyle = colr; x.beginPath(); x.arc(m.X(a), m.Y(b), r || 3.2, 0, 7); x.fill(); x.restore(); };
+  const lab = (x, m, s, a, b, colr, al) => M.text(x, s, m.X(a), m.Y(b), colr, al);
+  const range = (a, b, n) => Array.from({ length: n + 1 }, (_, i) => a + (b - a) * i / n);
+  const arc = (thd, f, amaxd, n) => { const th = thd * PI / 180, k = f / C; return range(-amaxd, amaxd, n || 60).map(a => { const r = a * PI / 180; return [k * (Math.sin(th) + Math.sin(r)), k * (Math.cos(th) + Math.cos(r))]; }); };
+  const crescent = (x, m, thd, colr, amaxd) => { const aM = amaxd || 18.43, th = thd * PI / 180;
+    range(3.5, 6.5, 12).forEach((f, i) => poly(x, m, arc(thd, f, aM, 40), colr, { w: i === 0 || i === 12 ? 1.8 : 0.6 }));
+    [-aM, aM].forEach(a => { const r = a * PI / 180; poly(x, m, range(3.5, 6.5, 12).map(f => { const k = f / C; return [k * (Math.sin(th) + Math.sin(r)), k * (Math.cos(th) + Math.cos(r))]; }), colr, { w: 1.8 }); }); };
+  const sincN = M.sinc;
+  const width6 = (a, b) => { const p = x => Math.abs(sincN(2 * a * x) * sincN(2 * b * x)); let lo = 0, hi = 0.5 / Math.max(a, b); for (let k = 0; k < 60; k++) { const mid = (lo + hi) / 2; if (p(mid) > 0.5) lo = mid; else hi = mid; } return 2 * lo; };
+  const ermE = (thd, z0, ad) => ermErr(thd * PI / 180, z0, ad * PI / 180);
+  const coh = (ca, Fn) => { const z = 30, za = z * ca / C, half = z / (2 * Fn); let sr = 0, si = 0; const n = 400;
+    for (let i = 0; i <= n; i++) { const x = -half + 2 * half * i / n, dt = Math.hypot(x, za) / ca - Math.hypot(x, z) / C; sr += Math.cos(TAU * F0 * dt); si += Math.sin(TAU * F0 * dt); } return Math.hypot(sr, si) / (n + 1); };
+  const opsDAS = (N, Na) => 14 * Na * N, opsFK = N => 10 * 2 * N * Math.log2(2 * N) + 10 * N;
+  const stoltArrows = (x, m, f, colr) => { const r = 2 * f / C; [-0.85, -0.6, -0.3, 0.3, 0.6, 0.85].forEach(s => { const kx = s * r, y1 = Math.sqrt(r * r - kx * kx); Lab.arrow(x, m.X(kx), m.Y(r), m.X(kx), m.Y(y1), colr, 1.4); }); };
+
+  const BEY = [
+    { q: 'How far does a fat layer shift a single-speed image?', prov: 'model', a: 'By <b>(c<sub>2</sub>/c<sub>1</sub> − 1) d<sub>1</sub></b> for every target below it: 1450 m/s (blue) gives <b>0.497 mm</b> for 8 mm; 1480 m/s (pink) 0.32 mm. Phase-shift migration with the layer speed removes it. Model: vertical rays, flat layer.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [0, 20], [0, 1.4], { lab: 'depth shift (mm) vs layer thickness d₁ (mm)', ticks: [[5, '5'], [8, '8'], [10, '10'], [15, '15'], [20, '20']], hlines: [[0.497, '0.497']] });
+        M.curve(x, m, d => (C / 1.45 - 1) * d, c.a); M.curve(x, m, d => (C / 1.48 - 1) * d, c.b); dot(x, m, 8, 0.497, c.a); } },
+    { q: 'How sharply does focus peak at the true sound speed?', prov: 'model', a: 'Coherence across the receive aperture at 30 mm, 5 MHz: F# 1.5 (blue) loses <b>1.2 dB at 1500 m/s</b>, F# 1.0 (pink) loses <b>6 dB</b>. A focus-versus-c sweep in f-k reuses the data FFTs. Model: one frequency, straight rays, uniform aperture.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [1.45, 1.63], [-14, 0.5], { lab: 'coherence (dB) vs assumed c (mm/µs)', base: -14, ticks: [[1.48, '1.48'], [1.54, '1.54'], [1.60, '1.60']] });
+        M.curve(x, m, ca => 20 * Math.log10(coh(ca, 1.5)), c.a); M.curve(x, m, ca => 20 * Math.log10(coh(ca, 1.0)), c.b); vl(x, m, 1.54, c.mu); } },
+    { q: 'What does a flat interface conserve?', prov: 'exact', a: 'The lateral wavenumber k<sub>x</sub> (Snell). Each slab changes only <b>k<sub>z</sub> = √((f/c)² − k<sub>x</sub>²)</b>: at 5 MHz and k<sub>x</sub> = 2 /mm, k<sub>z</sub> = 2.56 /mm in tissue (blue) and 2.81 /mm in fat at 1450 m/s (pink).',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [-3.6, 3.6], [0, 3.8], { lab: 'kz vs kx (cycles/mm), 5 MHz', ticks: [[-2, '−2'], [0, '0'], [2, '2']] });
+        M.curve(x, m, k => Math.sqrt(Math.max(0, (F0 / C) ** 2 - k * k)), c.a); M.curve(x, m, k => Math.sqrt(Math.max(0, (F0 / 1.45) ** 2 - k * k)), c.b); vl(x, m, 2, c.mu);
+        dot(x, m, 2, Math.sqrt((F0 / C) ** 2 - 4), c.a); dot(x, m, 2, Math.sqrt((F0 / 1.45) ** 2 - 4), c.b); } }
+  ];
+
+  const VIS = [
+    { q: 'Where does channel data live in (k<sub>x</sub>, f)?', prov: 'exact', a: 'Inside <b>|k<sub>x</sub>| ≤ f/c</b> for plane-wave receive (blue) and <b>2f/c</b> for zero-offset (pink dashed). The 0.30 mm Nyquist ±1.67 /mm (gray) cuts the blue cone at <b>2.57 MHz</b>.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [-6.5, 6.5], [0, 9.2], { lab: 'f (MHz) vs kx (cycles/mm)', ticks: [[-6, '−6'], [-1.67, ''], [0, '0'], [1.67, '1.67'], [6, '6']] });
+        poly(x, m, [[-9.2 / C, 9.2], [0, 0], [9.2 / C, 9.2]], c.a, { w: 2 }); poly(x, m, [[-18.4 / C, 9.2], [0, 0], [18.4 / C, 9.2]], c.b, { dash: [5, 4] }); vl(x, m, -1 / 0.6, c.mu); vl(x, m, 1 / 0.6, c.mu); } },
+    { q: 'How fast does an evanescent component die?', prov: 'exact', a: '<b>e<sup>−2πz√(k<sub>x</sub>² − (f/c)²)</sup></b>: at 5 MHz, <b>81 dB per mm</b> at 1.1 f/c and 25 dB per mm at 1.01 f/c. Back-propagated, the same numbers become gains on noise.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [1, 1.5], [-210, 0], { lab: 'decay (dB/mm) vs kx/(f/c), 5 MHz', base: -210, ticks: [[1.1, '1.1'], [1.25, '1.25'], [1.4, '1.4']], hlines: [[-81, '−81']] });
+        M.curve(x, m, r => -8.6859 * TAU * Math.sqrt(r * r - 1) * F0 / C, c.a); vl(x, m, 1.1, c.mu); } },
+    { q: 'Why migrate zero-offset data at c/2?', prov: 'exact', a: 'The two-way delay <b>2r/c</b> (blue) equals the one-way delay of a source at the reflector in a medium of speed <b>c/2</b> (pink dashed, on top). The one-way curve at c (gray) is half as late: migrating with c doubles every depth. Target at 15 mm.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [-20, 20], [0, 34], { lab: 'delay (µs) vs element x (mm)', ticks: [[-15, '−15'], [0, '0'], [15, '15']] });
+        M.curve(x, m, u => 2 * Math.hypot(u, 15) / C, c.a, { w: 3 }); M.curve(x, m, u => Math.hypot(u, 15) / (C / 2), c.b, { dash: [5, 4] }); M.curve(x, m, u => Math.hypot(u, 15) / C, c.mu); } },
+    { q: 'What does Stolt do to one spectral sample?', prov: 'exact', a: 'Moves it straight down its k<sub>x</sub> column, from <b>2f/c</b> to the circle <b>√((2f/c)² − k<sub>x</sub>²)</b>. Flat events (k<sub>x</sub> = 0) stay; steep ones move most. Circles: 3, 5, 7 MHz; arrows at 5 MHz.',
+      draw: cv => { const c = col(), { x, B } = one(cv, 160); const m = M.panel(x, B, [-10, 10], [0, 10], { lab: 'kz vs kx (cycles/mm)', ticks: [[-6.49, '−6.5'], [0, '0'], [6.49, '6.5']] });
+        [3, 5, 7].forEach(f => { const r = 2 * f / C; poly(x, m, range(-90, 90, 90).map(a => [r * Math.sin(a * PI / 180), r * Math.cos(a * PI / 180)]), f === 5 ? c.a : c.mu, { w: f === 5 ? 1.8 : 1 }); });
+        poly(x, m, [[-10, 2 * 5 / C], [10, 2 * 5 / C]], c.b, { dash: [4, 3], w: 1 }); stoltArrows(x, m, 5, c.b); } },
+    { q: 'What does the Jacobian weigh?', prov: 'exact', a: 'The cosine of the propagation angle, <b>v k<sub>z</sub>/√(k<sub>x</sub>² + k<sub>z</sub>²) = v cos φ</b>: −1.2 dB at 30°, −6 dB at 60°. A smooth amplitude weight: it shapes the PSF, never the focus or the √z depth gain.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [0, 90], [0, 1.05], { lab: 'J / v vs propagation angle φ (deg)', ticks: [[0, '0'], [30, '30'], [60, '60'], [90, '90']], hlines: [[0.866, '0.87'], [0.5, '0.5']] });
+        M.curve(x, m, p => Math.cos(p * PI / 180), c.a, { fill: true }); } },
+    { q: 'How finely must the spectrum be sampled for Stolt?', prov: 'model', a: 'Linear interpolation smears each echo by <b>0.037 φ²</b> (blue), with φ = 2πΔf |t − t<sub>c</sub>|; pink: the mean gain loss φ²/12. <b>−30 dB needs φ ≤ 0.92</b>: zero-pad about 3× and centre the time origin. Model: Monte Carlo coefficient, linear interpolation.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [0.1, 3.2], [-50, 0], { lab: 'error (dB re echo) vs φ (rad)', base: -50, ticks: [[0.92, '0.92'], [2, '2'], [3, '3']], hlines: [[-30, '−30 dB']] });
+        M.curve(x, m, p => dB(0.0373 * p * p, -50), c.a); M.curve(x, m, p => dB(p * p / 12, -50), c.b, { dash: [5, 4] }); vl(x, m, 0.92, c.mu); } },
+    { q: 'How do Garcia\'s ERM parameters change with steering?', prov: 'exact', a: 'v̂/c (blue) falls slowly from <b>1/√2</b>, β (pink) from <b>√2</b>; γ = sin θ/(2 − cos θ) (orange) grows almost linearly: <b>0.171 at 10°</b>, 0.323 at 20°.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [0, 30], [0, 1.5], { lab: 'v̂/c, β, γ vs θ (deg)', ticks: [[0, '0'], [10, '10'], [20, '20'], [30, '30']] });
+        M.curve(x, m, t => ermPars(t * PI / 180).v / C, c.a); M.curve(x, m, t => ermPars(t * PI / 180).be, c.b); M.curve(x, m, t => ermPars(t * PI / 180).ga, c.c); } },
+    { q: 'Where does the ERM fit break?', prov: 'exact', a: 'At large receive angles. θ = 0, z = 30 mm, 5 MHz: exact path error (blue) against the leading term <b>z tan⁴α/16</b> (pink dashed). It crosses <b>λ/4 at 25.1°</b>, so F# ≳ 1.07 keeps the phase error below a quarter cycle.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [0, 35], [0, 1.4], { lab: 'path error (λ) vs receive angle (deg)', ticks: [[10, '10'], [18.4, '18.4'], [25.1, '25.1'], [35, '35']], hlines: [[0.25, 'λ/4']] });
+        M.curve(x, m, a => ermE(0, 30, a) / LAM, c.a); M.curve(x, m, a => 30 * Math.pow(Math.tan(a * PI / 180), 4) / 16 / LAM, c.b, { dash: [5, 4] }); } },
+    { q: 'Which object wavenumbers does one frequency of one plane wave measure?', prov: 'exact', a: 'A circle of radius <b>f/c</b> centred on the transmit wavevector <b>(f/c)(sin θ, cos θ)</b>: θ = 0 (blue) and 15° (pink) at 5 MHz. The θ = 0 ERM curve (gray dashed) osculates the blue circle at the top and leaves it at the sides.',
+      draw: cv => { const c = col(), { x, B } = one(cv, 160); const m = M.panel(x, B, [-4.5, 4.5], [0, 7], { lab: 'Kz vs Kx (cycles/mm)', ticks: [[-3.25, '−3.25'], [0, '0'], [3.25, '3.25']] });
+        poly(x, m, arc(0, 5, 90, 90), c.a, { w: 2 }); poly(x, m, arc(15, 5, 90, 90), c.b, { w: 2 }); const k = F0 / C; poly(x, m, range(-k, k, 80).map(K => [K, Math.sqrt(Math.max(0, 4 * k * k - 2 * K * K))]), c.mu, { dash: [5, 4] }); dot(x, m, 0, k, c.a, 2.5); dot(x, m, k * Math.sin(PI / 12), k * Math.cos(PI / 12), c.b, 2.5); } },
+    { q: 'What does a single plane wave cover in k-space?', prov: 'exact', a: 'A crescent: the receive fan (F# 1.5, <b>|α| ≤ 18.4°</b>) swept over the −6 dB band (3.5–6.5 MHz). Its lateral half-width at f<sub>0</sub> is <b>(f/c) sin α = 1.03 /mm</b>: a receive-only PSF.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [-2.6, 2.6], [4, 8.8], { lab: 'Kz vs Kx (cycles/mm), θ = 0', base: 4, ticks: [[-1.03, '−1.03'], [0, '0'], [1.03, '1.03']] });
+        crescent(x, m, 0, c.a); } },
+    { q: 'What does compounding add in k-space?', prov: 'exact', a: 'One crescent per angle, centred on its transmit wavevector: <b>−9°</b> (orange), <b>0°</b> (blue), <b>+9°</b> (pink). The union\'s lateral extent sets resolution; gaps left by a coarse step are the transmit replicas.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [-3.4, 3.4], [4, 8.8], { lab: 'Kz vs Kx (cycles/mm), F# 1.5', base: 4, ticks: [[-2, '−2'], [0, '0'], [2, '2']] });
+        crescent(x, m, -9, c.c); crescent(x, m, 0, c.a); crescent(x, m, 9, c.b); } },
+    { q: 'How fast does lateral width fall with the angle span?', prov: 'model', a: 'Narrowband, 5 MHz, F# 1.5: PSF = sinc(2(f/c) sin θ<sub>max</sub> x) · sinc(2(f/c) sin α x). The −6 dB width falls from <b>0.59 mm</b> (one angle) to <b>0.54 mm at ±9°</b> and 0.47 mm at ±15°. Model: narrowband, continuous angle span, separable PSF.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const k = F0 / C, sa = Math.sin(Math.atan(1 / 3)); const m = M.panel(x, B, [0, 20], [0.35, 0.62], { lab: '−6 dB width (mm) vs span ±θmax (deg)', base: 0.35, ticks: [[0, '0'], [9, '9'], [15, '15'], [20, '20']], hlines: [[0.5878, '0.59']] });
+        M.curve(x, m, t => t < 0.05 ? 1.2067 / (2 * k * sa) : width6(k * Math.sin(t * PI / 180), k * sa), c.a); dot(x, m, 9, width6(k * Math.sin(9 * PI / 180), k * sa), c.a); } },
+    { q: 'How much faster is f-k than DAS?', prov: 'model', a: 'Flop model for the lab grid (63 k pixels): speed-up ≈ <b>14 N<sub>active</sub> / (20 log₂(2N) + 10)</b>. With 54 active elements (128 elements, F# 1.5) it is <b>2.2×</b> (Octave measured 2.1–2.5×); a 500-element matrix aperture gives about 20×. Model: flop counts only, no memory traffic.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const N = 62790, r = Na => opsDAS(N, Na) / opsFK(N); const m = M.panel(x, B, [Math.log10(16), Math.log10(1024)], [0, 42], { lab: 'speed-up vs active elements (log)', ticks: [[Math.log10(16), '16'], [Math.log10(54), '54'], [Math.log10(128), '128'], [Math.log10(500), '500'], [Math.log10(1024), '1024']], hlines: [[1, '1×']] });
+        M.curve(x, m, l => r(Math.pow(10, l)), c.a); dot(x, m, Math.log10(54), r(54), c.a); dot(x, m, Math.log10(500), r(500), c.b); } },
+    { q: 'What pitch avoids spatial aliasing up to angle α?', prov: 'exact', a: 'Plane-wave receive: <b>p ≤ λ/(2 sin α)</b> (blue). Zero-offset: <b>p ≤ λ/(4 sin α)</b> (pink). The dashed line is 0.30 mm at 5 MHz (0.97λ): safe for plane waves only below 31°, for zero-offset below 15°.',
+      draw: cv => { const c = col(), { x, B } = one(cv); const m = M.panel(x, B, [10, 90], [0, 3], { lab: 'p_max / λ vs α (deg)', ticks: [[15, '15'], [31, '31'], [60, '60'], [90, '90']], hlines: [[0.974, '0.30 mm']] });
+        M.curve(x, m, a => 1 / (2 * Math.sin(a * PI / 180)), c.a); M.curve(x, m, a => 1 / (4 * Math.sin(a * PI / 180)), c.b); } }
+  ];
+
+  const RF = {
+    1: cv => { const c = col(), { x, B } = one(cv, 150); const m = M.panel(x, B, [-6.2, 6.2], [0, 9.2], { lab: 'f (MHz) vs kx (cycles/mm): directions α', ticks: [[-5.97, '−f/c'], [0, '0'], [5.97, 'f/c']] });
+      [0, 15, 30, 60].forEach(a => [-1, 1].forEach(s => poly(x, m, [[0, 0], [s * 9.2 * Math.sin(a * PI / 180) / C, 9.2]], c.mu, { w: 1 })));
+      poly(x, m, [[-9.2 / C, 9.2], [0, 0], [9.2 / C, 9.2]], c.a, { w: 2.2 }); [15, 30, 60].forEach(a => lab(x, m, a + '°', 9.0 * Math.sin(a * PI / 180) / C + 0.15, 8.4, c.fg)); lab(x, m, '90°', 9.2 / C - 0.2, 7.2, c.a, 'right'); },
+    2: cv => { const c = col(), { x, B } = one(cv, 140); const m = M.panel(x, B, [1, 1.5], [0, 210], { lab: 'back-propagation gain over 1 mm (dB), 5 MHz', ticks: [[1.01, '1.01'], [1.1, '1.1'], [1.25, '1.25'], [1.45, '1.45 f/c']], hlines: [[81, '81 dB'], [25.1, '25']] });
+      M.curve(x, m, r => 8.6859 * TAU * Math.sqrt(r * r - 1) * F0 / C, c.b, { fill: true }); },
+    3: cv => { const c = col(), { x, B } = one(cv, 140); const al = (p, mm, f) => { const s = C / (2 * mm * p * f); return s >= 1 ? 90 : Math.asin(s) * 180 / PI; };
+      const m = M.panel(x, B, [1, 9], [0, 90], { lab: 'alias angle (deg) vs f (MHz)', ticks: [[2, '2'], [5, '5'], [7.5, '7.5'], [9, '9']], hlines: [[30.9, '']] });
+      M.curve(x, m, f => al(0.15, 1, f), c.c); M.curve(x, m, f => al(0.3, 1, f), c.a, { w: 2.2 }); M.curve(x, m, f => al(0.3, 2, f), c.b, { dash: [5, 4] });
+      lab(x, m, 'PW 0.15 mm', 7.2, 62, c.c, 'left'); lab(x, m, 'PW 0.30 mm', 5.2, 40, c.a, 'left'); lab(x, m, 'ZO 0.30 mm', 2.6, 8, c.b); },
+    4: cv => { const c = col(), { x, B } = one(cv, 140); const m = M.panel(x, B, [0, 30], [0, 60], { lab: 'imaged depth (mm) vs true depth (mm), z′ = 2vz/c', ticks: [[10, '10'], [20, '20'], [30, '30']] });
+      [[0.45, c.mu], [0.5, c.a], [0.55, c.mu], [1.0, c.b]].forEach(([v, k]) => M.curve(x, m, z => 2 * v * z, k, { w: v === 0.5 ? 2.4 : 1.4 })); lab(x, m, 'v = c', 26, 56, c.b, 'right'); lab(x, m, 'v = c/2', 29, 26, c.a, 'right'); dot(x, m, 10, 19.94, c.b); },
+    5: cv => { const c = col(), { x, B } = one(cv, 150); const r = 2 * 4 / C; const m = M.panel(x, B, [-6, 6], [0, 6], { lab: 'kz vs kx (cycles/mm), 4 MHz, v = c/2', ticks: [[-r, '−2f/c'], [0, '0'], [r, '2f/c']] });
+      poly(x, m, range(-90, 90, 90).map(a => [r * Math.sin(a * PI / 180), r * Math.cos(a * PI / 180)]), c.a, { w: 2 }); poly(x, m, [[-6, r], [6, r]], c.mu, { dash: [4, 3], w: 1 }); stoltArrows(x, m, 4, c.b); },
+    6: cv => { const c = col(), { x, B } = one(cv, 130); const m = M.panel(x, B, [0, 85], [-20, 0.5], { lab: 'Jacobian 20 log₁₀ cos φ (dB) vs φ (deg)', base: -20, ticks: [[30, '30'], [60, '60'], [85, '85']], hlines: [[-1.25, '−1.2'], [-6.02, '−6.0']] });
+      M.curve(x, m, p => 20 * Math.log10(Math.cos(p * PI / 180)), c.a); },
+    7: cv => { const c = col(), { x, B } = one(cv, 140); const s = ph => Math.min(0, dB(0.0373 * ph * ph, -60)); const m = M.panel(x, B, [1, 8], [-50, 2], { lab: 'smear at record end (dB) vs FFT length / record', base: -50, ticks: [[1, '1'], [2, '2'], [4, '4'], [8, '8']], hlines: [[-30, '−30 dB']] });
+      M.curve(x, m, P => s(TAU / P), c.b); M.curve(x, m, P => s(PI / P), c.a, { w: 2.2 }); lab(x, m, 'not centred', 4.2, -13, c.b, 'left'); lab(x, m, 'centred', 2.6, -36, c.a, 'left'); },
+    8: cv => { const c = col(), { x, B } = one(cv, 140); const st = Math.sin(15 * PI / 180); const m = M.panel(x, B, [-7.5, 7.5], [0, 9.2], { lab: 'f (MHz) vs kx: cone before (gray) and after a 15° compensation', ticks: [[-5.97, '−f/c'], [0, '0'], [5.97, 'f/c']] });
+      poly(x, m, [[-9.2 / C, 9.2], [0, 0], [9.2 / C, 9.2]], c.mu, { dash: [5, 4] }); poly(x, m, [[9.2 * (st - 1) / C, 9.2], [0, 0], [9.2 * (st + 1) / C, 9.2]], c.a, { w: 2.2 });
+      poly(x, m, [[0, 0], [9.2 * st / C, 9.2]], c.b, { w: 1, dash: [2, 3] }); },
+    9: cv => { const c = col(), { x, B } = one(cv, 130); const m = M.panel(x, B, [0, 30], [0.685, 0.712], { lab: 'v̂ / c vs θ (deg)', base: 0.685, ticks: [[0, '0'], [10, '10'], [20, '20'], [30, '30']], hlines: [[0.7071, '1/√2']] });
+      M.curve(x, m, t => ermPars(t * PI / 180).v / C, c.a, { w: 2.2 }); [0, 10, 20].forEach(t => dot(x, m, t, ermPars(t * PI / 180).v / C, c.a)); },
+    10: cv => { const c = col(), { x, B } = one(cv, 140); const m = M.panel(x, B, [5, 80], [0.5, 2.0], { lab: 'minimum F# (z/64λ)^¼ vs depth (mm)', base: 0.5, ticks: [[20, '20'], [30, '30'], [60, '60'], [80, '80']], hlines: [[1.11, '1.11']] });
+      [[3.5, c.c], [5, c.a], [7.5, c.b]].forEach(([f, k]) => M.curve(x, m, z => Math.pow(z / (64 * C / f), 0.25), k, { w: f === 5 ? 2.2 : 1.4 })); dot(x, m, 30, 1.11, c.a);
+      lab(x, m, '7.5 MHz', 40, 1.62, c.b, 'right'); lab(x, m, '5', 46, 1.42, c.a, 'right'); lab(x, m, '3.5 MHz', 70, 1.08, c.c, 'right'); },
+    11: cv => { const c = col(), { x, B } = one(cv, 160); const k = F0 / C; const m = M.panel(x, B, [-3.8, 3.8], [0, 7], { lab: 'Kz vs Kx (cycles/mm), θ = 0, 5 MHz', ticks: [[-k, '−f/c'], [0, '0'], [k, 'f/c']] });
+      poly(x, m, arc(0, 5, 180, 180), c.mu, { w: 0.8, dash: [2, 3] }); poly(x, m, arc(0, 5, 90, 90), c.a, { w: 2.2 }); poly(x, m, range(-k, k, 80).map(K => [K, Math.sqrt(Math.max(0, 4 * k * k - 2 * K * K))]), c.b, { dash: [6, 4], w: 1.8 }); dot(x, m, 0, k, c.fg, 2.5); },
+    12: cv => { const c = col(), { x, B } = one(cv, 150); const m = M.panel(x, B, [-3.8, 3.8], [4, 8.8], { lab: 'Kz vs Kx: −12°, −6°, 0°, 6°, 12° (F# 1.5)', base: 4, ticks: [[-2, '−2'], [0, '0'], [2, '2']] });
+      [[-12, c.c], [-6, c.d], [0, c.a], [6, c.d], [12, c.b]].forEach(([t, k]) => crescent(x, m, t, k)); },
+    13: cv => { const c = col(), { x, B } = one(cv, 150); const sa = Math.sin(Math.atan(1 / 3)), kN = 1 / 0.6; const m = M.panel(x, B, [-2.4, 2.4], [0, 9.2], { lab: 'f (MHz) vs kx: fan F# 1.5, Nyquist 0.30 mm, folded cone', ticks: [[-kN, '−1.67'], [0, '0'], [kN, '1.67']] });
+      x.save(); x.beginPath(); x.moveTo(m.X(0), m.Y(0)); x.lineTo(m.X(9.2 * sa / C), m.Y(9.2)); x.lineTo(m.X(-9.2 * sa / C), m.Y(9.2)); x.closePath(); x.globalAlpha = 0.16; x.fillStyle = c.a; x.fill(); x.restore();
+      poly(x, m, [[-9.2 * sa / C, 9.2], [0, 0], [9.2 * sa / C, 9.2]], c.a, { w: 2 }); vl(x, m, -kN, c.c); vl(x, m, kN, c.c);
+      poly(x, m, [[-2.4, 2.4 * C], [0, 0], [2.4, 2.4 * C]], c.mu, { w: 1 });
+      poly(x, m, range(kN * C, 3 * kN * C, 20).map(f => [f / C - 2 * kN, f]), c.b, { w: 2 }); poly(x, m, range(kN * C, 3 * kN * C, 20).map(f => [-f / C + 2 * kN, f]), c.b, { w: 2 }); },
+    14: cv => { const c = col(), { x, B } = one(cv, 130); const m = M.panel(x, B, [8, 40], [0.6, 1.8], { lab: 'amplitude re 15 mm: f-k √(z/15) vs unit-sum DAS', base: 0.6, ticks: [[15, '15'], [22, '22'], [30, '30'], [40, '40']], hlines: [[1, '1']] });
+      M.curve(x, m, z => Math.sqrt(z / 15), c.a, { w: 2.2 }); M.curve(x, m, () => 1, c.mu); dot(x, m, 22, 1.20, c.a); dot(x, m, 22, 0.97, c.mu); },
+    15: cv => { const c = col(), { x, B } = one(cv, 140); const m = M.panel(x, B, [3.85, 7.15], [6, 11], { lab: 'log₁₀ flops per angle vs log₁₀ pixels', base: 6, ticks: [[4, '10⁴'], [Math.log10(62790), '63k'], [5.3, '2·10⁵'], [6, '10⁶'], [7, '10⁷']] });
+      M.curve(x, m, l => Math.log10(opsDAS(Math.pow(10, l), 54)), c.a, { w: 2.2 }); M.curve(x, m, l => Math.log10(opsDAS(Math.pow(10, l), 500)), c.a, { dash: [5, 4] }); M.curve(x, m, l => Math.log10(opsFK(Math.pow(10, l))), c.b, { w: 2.2 });
+      lab(x, m, 'DAS, 500 active', 4.0, 8.25, c.a); lab(x, m, 'DAS, 54 active', 4.0, 7.25, c.a); lab(x, m, 'f-k', 4.0, 6.3, c.b); },
+    16: cv => { const c = col(), { x, B } = one(cv, 140); const t = z => 8 / 1.45 + (z - 8) / C, cb = 25 / t(25); const m = M.panel(x, B, [8, 40], [-0.35, 0.65], { lab: 'depth error (mm) vs target depth (mm), 8 mm of 1450 m/s', ticks: [[15, '15'], [25, '25'], [35, '35']], hlines: [[0.197, '0.20']] });
+      M.curve(x, m, () => (C / 1.45 - 1) * 8, c.a, { w: 2.2 }); M.curve(x, m, z => cb * t(z) - z, c.b, { w: 2.2 }); dot(x, m, 25, 0, c.b); lab(x, m, '1540 m/s: +0.497', 9, 0.57, c.a); lab(x, m, '1510 m/s', 9, 0.36, c.b); },
+    17: cv => { const c = col(), { x, B } = one(cv, 140); const m = M.panel(x, B, [2.5, 12], [2, 10], { lab: 'f read (MHz) vs output Kz (cycles/mm), Kx = 2 /mm', base: 2, ticks: [[4, '4'], [6.5, '6.5'], [9, '9'], [12, '12']] });
+      [[1.40, c.c], [1.54, c.a], [1.70, c.b]].forEach(([cc, k]) => M.curve(x, m, Kz => cc * (4 + Kz * Kz) / (2 * Kz), k, { w: cc === 1.54 ? 2.2 : 1.4 })); lab(x, m, '1700 m/s', 9.4, 9.3, c.b, 'right'); lab(x, m, '1400 m/s', 11.9, 7.4, c.c, 'right'); }
+  };
+  function drawRuleFigs() { Object.keys(RF).forEach(k => { const cv = $('m24-rf-' + k); if (cv) { try { RF[k](cv); } catch (e) { console.error(e); } } }); }
+  Lab.cardGrid('m24', 'm24-beyond', BEY);
+  Lab.cardGrid('m24', 'm24-vis', VIS);
+  Lab.onShow('m24', drawRuleFigs);
+  /* Re-plot of the published timings of Merabet, Robert & Prada (IEEE TUFFC 2019), text of Sections III and IV */
+  function drawLit() { const cv = $('m24-lit-1'); if (!cv) return; try {
+    const c = col(), { x, B } = one(cv, 170); const T = [['2-D Lu', 2.05, c.a], ['2-D Stolt', 3.8, c.c], ['2-D PWI', 41.4, c.b], ['3-D Lu', 129.6, c.a], ['3-D Stolt', 136.8, c.c], ['3-D PWI', 4680, c.b]];
+    const m = M.panel(x, B, [-0.5, 4], [0, 6.6], { lab: 'published run time (s, log scale): 2-D 1000×1000 px; 3-D 4.9 M voxels, 25 PW', ticks: [[0, '1'], [1, '10'], [2, '100'], [3, '10³'], [4, '10⁴']] });
+    T.forEach(([n, t, k], i) => { const y0 = 6.1 - i * 1.0, y1 = y0 - 0.62; x.save(); x.fillStyle = k; x.globalAlpha = 0.75; x.fillRect(m.X(-0.5), m.Y(y0), m.X(Math.log10(t)) - m.X(-0.5), m.Y(y1) - m.Y(y0)); x.restore();
+      M.text(x, n + '  ' + (t >= 1000 ? (t / 60).toFixed(0) + ' min' : t + ' s'), m.X(Math.log10(t)) + 4, (m.Y(y0) + m.Y(y1)) / 2, c.fg, 'left'); });
+  } catch (e) { console.error(e); } }
+  Lab.onShow('m24', drawLit);
+})();
+</script>

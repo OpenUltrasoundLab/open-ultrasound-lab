@@ -1,0 +1,1103 @@
+<section class="view" id="m33" data-title="Aberration correction (capstone)" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part V · Module 33</div>
+    <h1>Aberration correction (capstone)</h1>
+    <p class="lede">Aberration is what is left of the sound-speed problem after the beamformer has done its best with one speed: a delay error that changes across the aperture, and usually across the image too. Correcting it is delay estimation (Module 11) on signals whose coherence is set by the van Cittert–Zernike theorem (Module 07), turned into an eigenvector problem by the SVD (Module 06) and into a matrix change of basis by the reflection matrix (Module 05). This capstone builds the phase-screen model, the classical estimators (nearest-neighbour correlation, speckle brightness, time reversal), the isoplanatic patch that limits all of them, correction through a sound-speed map (Module 32), and the reflection and distortion matrices that make the correction local, and closes with transcranial, iterative and learned methods and the metrics that judge them.</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>Model an aberrator as a random delay screen and predict its Strehl ratio, PSF halo and coherence loss from two numbers, the rms delay and the correlation length</li>
+        <li>Derive why nearest-neighbour cross-correlation drifts as a random walk, when multi-lag least squares fixes it, and why a blurred transmit focus biases every speckle-based estimate until you iterate</li>
+        <li>Show that speckle-brightness maximization, time reversal and DORT all return the dominant eigenvector of an aperture covariance, and say what that eigenvector focuses on</li>
+        <li>Compute the isoplanatic patch of a screen at depth \(d\), including the distance beyond which a borrowed correction is worse than none</li>
+        <li>Turn a Module 32 sound-speed map into a space-variant correction and budget its errors (straight rays, blur, speed bias)</li>
+        <li>Build the focused reflection matrix and the distortion matrix of a speckle medium, extract a local aberration law by SVD, iterate it, and read the singular spectrum as a count of isoplanatic modes</li>
+      </ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li>The phase screen as a diagonal matrix and the focused basis (<a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 05, Matrices as operators</a>); SVD, power iteration and the DORT rule (<a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 06, Eigendecomposition &amp; SVD</a>); van Cittert–Zernike (<a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 07, Random vectors, covariance &amp; correlation</a>); delay estimation and jitter (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 11, Correlation &amp; time-delay estimation</a>)</li>
+        <li>CRLB (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 12, Estimation theory &amp; the Cramér–Rao bound</a>), least squares and regularization (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 13, Inverse problems and regularization</a>), autofocus and the Wirtinger aberration-law demo (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 14, Optimization &amp; automatic differentiation</a>), plane-wave compounding (<a href="{{PART4_URL}}" target="_blank" rel="noopener">Module 23, Beam patterns, k-space and compounding</a>), coherence beamformers (<a href="{{PART4_URL}}" target="_blank" rel="noopener">Module 25, Adaptive and coherence-based beamforming</a>), gCNR (<a href="{{PART4_URL}}" target="_blank" rel="noopener">Module 26, Speckle statistics and image-quality metrics</a>)</li>
+        <li>Sound-speed maps and their errors (<a href="#m32">Module 32, Sound-speed estimation</a>); aberration as a bias field in ULM (<a href="#m31">Module 31, ULM end to end</a>)</li>
+      </ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is, or published numbers re-plotted</span><span><span class="prov sim">Simulation</span>solvers that run here in JS: Fraunhofer focal fields, reflection matrices of simulated speckle, power iteration, Monte Carlo</span><span><span class="prov model">Approx. model</span>simplified physics; assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not to scale</span><span>Defaults: \(c_0\) = 1540 m/s, \(f_0\) = 5 MHz (\(\lambda\) = 0.308 mm), pitch 0.3 mm, 128-element linear array (38.4 mm) unless a demo says otherwise.</span></div>
+
+  <!-- ======================= 33.1 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">33.1</span>The phase-screen model: two numbers that predict the damage</h2>
+    <p>Fat, muscle and connective tissue in the body wall have speeds from about 1450 to 1600 m/s and irregular boundaries. After the beamformer has removed the geometric delays for \(c_0\), each element still sees an excess delay \(\tau(x)\) that depends on the path. The simplest model that captures the damage puts all of it in a thin screen against the array: a random delay function of the element position, Gaussian with rms \(\sigma_\tau\) and a correlation length \(\ell\). In matrix language (Module 05) it is a diagonal matrix of phasors applied on transmit and again on receive, and its correction is the conjugate.</p>
+    <div class="eqn key" id="m33-eq1">
+      <div class="eqn-body"><div class="eqn-math">\[ \phi(x) = 2\pi f_0\,\tau(x), \qquad \langle \tau(x)\,\tau(x+\Delta x)\rangle = \sigma_\tau^{2}\,\rho(\Delta x), \qquad \rho(\Delta x) = e^{-\Delta x^{2}/\ell^{2}}, \qquad \sigma_\phi = 2\pi f_0\,\sigma_\tau \]</div><span class="eqn-no">(33.1)</span></div>
+      <dl class="where"><dt>\(\tau(x)\)</dt><dd>residual (aberration) delay at aperture position \(x\) after geometric focusing with \(c_0\), s</dd><dt>\(\phi(x)\)</dt><dd>the same delay as a phase at the centre frequency, rad</dd><dt>\(\sigma_\tau,\ \sigma_\phi\)</dt><dd>rms delay (ns) and rms phase (rad)</dd><dt>\(\rho,\ \ell\)</dt><dd>correlation coefficient of the screen and its correlation length (Gaussian model), mm</dd><dt>\(f_0\)</dt><dd>centre frequency, MHz</dd><dt>\(\langle\cdot\rangle\)</dt><dd>ensemble average over screen realizations</dd><dt>\(\Delta x\)</dt><dd>separation between two aperture positions, mm</dd></dl>
+      <span class="note">At 5 MHz, 10 ns of delay is 0.314 rad. A 40 ns rms screen is 1.26 rad: a fifth of the 200 ns period (72°), enough to remove two thirds of the focal intensity. The model is narrowband (one phase per element) and puts the aberrator at the array, which makes it exactly isoplanatic; Section 33.4 moves it away.</span>
+    </div>
+    <p><strong>Strehl ratio.</strong> The on-axis focal intensity relative to the unaberrated focus is the squared mean phasor across the aperture. For a Gaussian screen its expectation is exact, and it has two simple limits:</p>
+    <div class="eqn key" id="m33-eq2">
+      <div class="eqn-body"><div class="eqn-math">\[ S = \Bigl\lvert \frac{1}{N}\sum_{i=1}^{N} e^{j\phi_i} \Bigr\rvert^{2}, \qquad \mathbb{E}[S] = \frac{1}{N^{2}}\sum_{i,j} e^{-\sigma_\phi^{2}\,[1-\rho(x_i - x_j)]} \;\approx\; \begin{cases} e^{-\sigma_\phi^{2}} & \sigma_\phi \lesssim 1,\ \ell \ll D \\[4pt] \dfrac{\sqrt{\pi}\,\ell}{\sigma_\phi\,D} & \sigma_\phi \gg 1 \end{cases} \]</div><span class="eqn-no">(33.2)</span></div>
+      <dl class="where"><dt>\(S\)</dt><dd>Strehl ratio: on-axis intensity with the screen over intensity without, one way</dd><dt>\(N,\ x_i\)</dt><dd>number of elements and their positions</dd><dt>\(D\)</dt><dd>aperture length \(N p\), mm</dd><dt>\(\mathbb{E}[S]\)</dt><dd>ensemble mean over screen realizations</dd><dt>\(\phi_i\)</dt><dd>aberration phase of element \(i\), rad (\(\phi(x_i)\) of (33.1))</dd><dt>\(\sigma_\phi,\ \rho,\ \ell\)</dt><dd>as in (33.1)</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(i,\ j\)</dt><dd>element indices (in the double sum, \(j\) is an index, not the imaginary unit)</dd></dl>
+      <span class="note">The double sum uses \(\mathbb{E}[e^{j(\phi_i-\phi_j)}] = e^{-\frac12\mathrm{Var}(\phi_i - \phi_j)}\) for Gaussian phases. m33_phase_screen_psf.m (128 elements, \(\ell\) = 4 mm, 400 screens): at 40 ns the Monte Carlo Strehl is 0.311, the double sum 0.315, \(e^{-\sigma_\phi^2}\) only 0.206; at 80 ns 0.078, 0.079 and 0.002, where the large-\(\sigma\) form gives 0.073. Two way (same screen on transmit and receive) the Strehl of a realization is exactly \(S^{2}\); its mean \(\mathbb{E}[S^{2}]\) = 0.131 at 40 ns is above \(\mathbb{E}[S]^{2}\) = 0.099 because \(S\) fluctuates between realizations.</span>
+    </div>
+    <p>Why the Maréchal-type \(e^{-\sigma_\phi^{2}}\) underestimates: elements closer than \(\ell\) share their phase and keep adding coherently, so a large aperture behaves like \(D/\ell\) partly independent cells, and a fraction of order \(\ell/(\sigma_\phi D)\) of the intensity survives in the focus. The intensity that leaves the focus forms a halo. Its width follows from the slope of the screen: the local wavefront tilt has rms \(\sqrt2\,c\,\sigma_\tau/\ell\), so for a strong screen the mean intensity is a Gaussian of rms width \(s\). And on receive the same structure function multiplies the van Cittert–Zernike coherence of speckle (Module 07):</p>
+    <div class="eqn" id="m33-eq3">
+      <div class="eqn-body"><div class="eqn-math">\[ s = \frac{\sqrt2\,c\,\sigma_\tau\,z}{\ell}\ \ (\sigma_\phi \gg 1), \qquad R(m) = R_0(m)\; e^{-\sigma_\phi^{2}\,[1-\rho(m p)]}, \qquad R_0(m) = 1 - \frac{m}{N} \]</div><span class="eqn-no">(33.3)</span></div>
+      <dl class="where"><dt>\(s\)</dt><dd>rms width of the Gaussian halo of the mean focal intensity, mm (−6 dB width 3.33 s)</dd><dt>\(z\)</dt><dd>focal depth, mm</dd><dt>\(R(m),\ R_0(m)\)</dt><dd>receive spatial coherence at lag \(m\) elements with and without the screen (uniform transmit aperture, ideal transmit focus)</dd><dt>\(p\)</dt><dd>element pitch</dd><dt>\(c\)</dt><dd>sound speed, m/s</dd><dt>\(\sigma_\tau,\ \sigma_\phi,\ \rho,\ \ell\)</dt><dd>as in (33.1)</dd><dt>\(m\)</dt><dd>element lag (separation in elements)</dd><dt>\(N\)</dt><dd>number of elements</dd></dl>
+      <span class="note">The −6 dB width of the mean PSF stays at the diffraction value (0.38 mm at F/1, 40 mm) up to about 30 ns, then jumps to 1.4 mm at 40 ns and 3.5–5.6 mm at 60–80 ns, approaching the halo prediction (4.4 and 5.8 mm). Coherence at 40 ns: lag 10 drops from 0.92 to 0.465 (formula 0.467), lag 40 from 0.69 to 0.138 (0.142). A broadened transmit spot lowers \(R_0\) further, which is why coherence is both a symptom and, later, a metric.</span>
+    </div>
+  </div>
+
+  <div class="demo" id="m33-d1">
+    <div class="demo-head"><span class="tag">Demo 33.1</span><h3>Phase screen generator: the screen, the PSF it leaves, and the coherence it removes</h3><span class="prov sim">Simulation</span><span class="prov-note">One Gaussian screen realization <span class="eqref">(33.1)</span> on 128 elements (white noise convolved with a Gaussian kernel, seeded, JS). Focal-plane (Fraunhofer) field of the focused aperture at z = 40 mm, monochromatic; two way = same screen on transmit and receive. The dashed mean-intensity curve and the coherence curves are the exact Gaussian-screen expressions <span class="eqref">(33.2)</span>, <span class="eqref">(33.3)</span>. Same model as m33_phase_screen_psf.m.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m33-d1-scr" aria-label="Delay screen across the aperture"></canvas>
+        <canvas id="m33-d1-psf" aria-label="Focal intensity with and without the screen"></canvas>
+        <canvas id="m33-d1-coh" aria-label="Receive coherence versus lag"></canvas>
+        <div class="legend"><span><i style="background:var(--muted)"></i>no screen</span><span><i style="background:var(--accent)"></i>this realization</span><span><i style="background:var(--sig2)"></i>exact ensemble mean (one way)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m33-d1-sig">rms delay σ<sub>τ</sub> <output id="m33-d1-sig-out">40 ns</output></label><input type="range" id="m33-d1-sig" min="0" max="100" step="2" value="40"></div>
+        <div class="ctrl"><label for="m33-d1-ell">Correlation length ℓ <output id="m33-d1-ell-out">4 mm</output></label><input type="range" id="m33-d1-ell" min="1" max="12" step="0.5" value="4"></div>
+        <div class="ctrl"><label for="m33-d1-f">Centre frequency <output id="m33-d1-f-out">5 MHz</output></label><input type="range" id="m33-d1-f" min="2" max="8" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m33-d1-way">Path</label><select id="m33-d1-way"><option value="1">one way</option><option value="2">two way (same screen twice)</option></select></div>
+        <div class="btn-row"><button class="btn" type="button" id="m33-d1-new">New screen</button></div>
+        <div class="readout" id="m33-d1-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> at 40 ns the realization's Strehl scatters around the ensemble value of 0.31, well above e<sup>−σ²</sup> = 0.21. Push σ<sub>τ</sub> to 100 ns: the core collapses into a halo whose width grows as σ<sub>τ</sub>/ℓ <span class="eqref">(33.3)</span>. Halve ℓ at fixed σ<sub>τ</sub>: the Strehl falls and the halo widens, because the slopes double. Lower the frequency to 2.5 MHz: the same delays cost a quarter of the phase variance. Two way squares the loss.</div>
+  </div>
+  <div class="tbl-wrap"><table><thead><tr><th>Family</th><th>What it estimates</th><th>Guide</th><th>Valid over</th><th>Where in this module</th></tr></thead><tbody>
+    <tr><td>Nearest-neighbour cross-correlation (Flax and O'Donnell, 1988)</td><td>element-to-element delay differences, integrated</td><td>point target or speckle</td><td>one isoplanatic patch</td><td>33.2, Demo 33.2</td></tr>
+    <tr><td>Speckle brightness maximization (Nock, Trahey and Smith, 1989)</td><td>the law that maximizes the energy of a region</td><td>speckle</td><td>one patch, one beam</td><td>33.3, Demo 33.3</td></tr>
+    <tr><td>Time reversal and DORT (Prada and Fink)</td><td>eigenvectors of the time-reversal operator</td><td>point scatterers, or a speckle covariance</td><td>one patch per eigenvector</td><td>33.3</td></tr>
+    <tr><td>Sound-speed map (Module 32)</td><td>delays integrated through an estimated map</td><td>the map</td><td>everywhere the map is right</td><td>33.5, Demo 33.5</td></tr>
+    <tr><td>Reflection and distortion matrices (Lambert, Aubry and coworkers)</td><td>local laws from the SVD of re-centred focused data</td><td>virtual guide stars in speckle</td><td>many patches, transmit and receive separately</td><td>33.6, Demo 33.6</td></tr>
+  </tbody></table></div>
+  <!-- ======================= 33.2 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">33.2</span>Estimating the law from echoes: nearest-neighbour correlation, drift and least squares</h2>
+    <p>Flax and O'Donnell (IEEE Trans. Ultrason. Ferroelectr. Freq. Control, 1988) made the screen measurable without a guide star. Adjacent elements look at the same focal region through almost the same patch of screen, so their echoes are highly correlated, for a point reflector and, by van Cittert–Zernike, for speckle (Module 07: lag-one coherence \(1 - 1/N\) for an ideal focus). Cross-correlate each element with its neighbour (Module 11), read the delay difference, and integrate:</p>
+    <div class="eqn" id="m33-eq4">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat d_i = \tau_{i+1} - \tau_i + \varepsilon_i, \qquad \hat\tau_k = \sum_{i=1}^{k-1}\hat d_i, \qquad \mathrm{Var}(\hat\tau_k - \tau_k) = (k-1)\,\sigma_\varepsilon^{2}, \qquad \overline{e^{2}}\,\Big\rvert_{\text{mean, ramp removed}} \approx \frac{N}{15}\,\sigma_\varepsilon^{2} \]</div><span class="eqn-no">(33.4)</span></div>
+      <dl class="where"><dt>\(\hat d_i\)</dt><dd>measured delay difference between elements \(i+1\) and \(i\), s</dd><dt>\(\varepsilon_i,\ \sigma_\varepsilon\)</dt><dd>its error and the error standard deviation (independent pairs)</dd><dt>\(\hat\tau_k\)</dt><dd>integrated estimate at element \(k\), defined up to a constant</dd><dt>\(\overline{e^{2}}\)</dt><dd>mean square error across the aperture after the mean and the linear ramp are removed</dd><dt>\(\tau_i,\ \tau_k\)</dt><dd>true aberration delay of element \(i\) or \(k\), s</dd><dt>\(i,\ k\)</dt><dd>element indices</dd><dt>\(\mathrm{Var}\)</dt><dd>variance</dd><dt>\(N\)</dt><dd>number of elements</dd></dl>
+      <span class="note">The integration turns independent errors into a random walk: the raw error grows as \(\sqrt{k}\), and even after removing the best line (which only steers the beam, and which speckle cannot determine anyway) the rms error is \(\sigma_\varepsilon\sqrt{N/15}\) = 2.9 \(\sigma_\varepsilon\) for 128 elements (checked by Monte Carlo: \(N/15\) to 0.1 %). If instead the error is element noise, each noise sample enters two adjacent differences with opposite signs and the sum telescopes: no drift at all. Real data sit between the two.</span>
+    </div>
+    <p>Using more pairs breaks the random walk. Every pair \((i, j)\) up to a lag \(L\) gives a measured difference \(\hat d_{ij}\) of known reliability, and the profile is the weighted least-squares solution of an overdetermined system (Module 13) whose unknowns sit on the nodes of a graph and whose data sit on its edges, with one extra row to fix the constant:</p>
+    <div class="eqn" id="m33-eq5">
+      <div class="eqn-body"><div class="eqn-math">\[ \hat{\mathbf{t}} = \arg\min_{\mathbf{t}} \sum_{1 \le j - i \le L} w_{ij}\,\bigl(\tau_j - \tau_i - \hat d_{ij}\bigr)^{2} + \bigl(\mathbf{1}^{T}\mathbf{t}\bigr)^{2} = \bigl(\mathbf{A}^{T}\mathbf{W}\mathbf{A} + \mathbf{1}\mathbf{1}^{T}\bigr)^{-1}\mathbf{A}^{T}\mathbf{W}\,\hat{\mathbf{d}}, \qquad w_{ij} = \frac{\lvert\rho_{ij}\rvert^{2}}{1 - \lvert\rho_{ij}\rvert^{2}} \]</div><span class="eqn-no">(33.5)</span></div>
+      <dl class="where"><dt>\(\mathbf{t}\)</dt><dd>vector of element delays \(\tau_i\), s</dd><dt>\(\mathbf{A}\)</dt><dd>difference operator: one row per pair, −1 at \(i\), +1 at \(j\)</dd><dt>\(\mathbf{W}\)</dt><dd>diagonal weights; \(w_{ij}\) is proportional to the inverse variance of a correlation phase (Module 11, Section 32.4)</dd><dt>\(\rho_{ij}\)</dt><dd>measured correlation coefficient of the pair</dd><dt>\(L\)</dt><dd>maximum lag used</dd><dt>\(\hat{\mathbf{t}},\ \hat{\mathbf{d}}\)</dt><dd>estimated delay vector and vector of measured pair differences \(\hat d_{ij}\), s</dd><dt>\(\tau_i,\ \tau_j\)</dt><dd>delays of elements \(i\) and \(j\), s</dd><dt>\(w_{ij}\)</dt><dd>weight of pair \((i,j)\), dimensionless</dd><dt>\(\mathbf{1}\)</dt><dd>vector of ones (the term pins the mean delay to zero)</dd><dt>\((\cdot)^{T},\ (\cdot)^{-1}\)</dt><dd>transpose, matrix inverse</dd><dt>\(\arg\min\)</dt><dd>minimizing argument</dd></dl>
+      <span class="note">\(\mathbf{A}^{T}\mathbf{W}\mathbf{A}\) is a weighted graph Laplacian whose only null vector is the constant; the \(\mathbf{1}\mathbf{1}^{T}\) term removes it. With \(L = 1\) the solution is the integrated nearest-neighbour estimate; each added lag adds a path between distant elements that does not accumulate the intermediate errors.</span>
+    </div>
+    <p>m33_nn_crosscorr_correction.m synthesizes speckle channel data (128 elements, 60 % bandwidth, dynamic receive focus) through a 40 ns, 4 mm screen applied on transmit and receive, and finds two regimes. <strong>Noiseless speckle</strong>: the adjacent-element correlation is 0.992, the pair jitter only 0.68 ns, yet the residual after correction is 5.7 ns rms, three times the random-walk prediction, and least squares does not reduce it. That residual is a <em>bias</em>: the aberrated transmit beam insonifies a broad, irregular spot, and the echoes estimate the law that focuses on that spot, not on the intended point. Transmitting again with the pass-1 estimate narrows the spot and halves the residual (2.6 ns, Strehl 0.992). <strong>0 dB channel SNR</strong>: correlation 0.50, jitter 4.5 ns, and now the drift dominates: after the transmit iteration the nearest-neighbour residual is 8.3 ns (Strehl 0.93) and least squares over 8 lags gives 4.0 ns (Strehl 0.98). The random-walk bound \(\sigma_\varepsilon\sqrt{N/15}\) = 13.1 ns overestimates because part of the error is element noise, which telescopes.</p>
+  </div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Judging an aberration estimator by its pair jitter. Sub-nanosecond jitter is easy in bright speckle; the error that matters is the bias from the blurred transmit focus, which no amount of averaging or least squares removes. Iterate the transmit (Måsøy, Varslot and Angelsen reported near-ideal correction after two to three transmit iterations, J. Acoust. Soc. Am., 2005), or estimate where the focus is already good.</p></div>
+
+  <div class="demo" id="m33-d2">
+    <div class="demo-head"><span class="tag">Demo 33.2</span><h3>Nearest-neighbour integration drifts; multi-lag least squares does not</h3><span class="prov model">Approx. model</span><span class="prov-note">Error model only, no channel data: each pair estimate \(\hat d_{ij}\) = true difference + Gaussian error with the interferometric standard deviation \(\sqrt{1-\rho_m^{2}}/(\rho_m\sqrt{2N_k})/(2\pi f_0)\), \(N_k\) = 32 independent samples per kernel, \(\rho_m = \rho_1^{\,m}\) (exponential decorrelation with lag, assumed), independent across pairs; or, with the second error type, element phase noise that enters both members of a pair. 128 elements, 5 MHz, 150 Monte Carlo trials, LS by Cholesky <span class="eqref">(33.5)</span>. Bias from the transmit focus is not modelled (see m33_nn_crosscorr_correction.m).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m33-d2-err" aria-label="Error versus element index"></canvas>
+        <canvas id="m33-d2-law" aria-label="True and estimated aberration profiles"></canvas>
+        <div class="legend"><span><i style="background:var(--sig2)"></i>nearest neighbour, integrated</span><span><i style="background:var(--accent)"></i>least squares, lags 1…L</span><span><i style="background:var(--muted)"></i>true screen / σ<sub>ε</sub>√(N/15)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m33-d2-rho">Lag-one correlation ρ<sub>1</sub> <output id="m33-d2-rho-out">0.90</output></label><input type="range" id="m33-d2-rho" min="0.5" max="0.995" step="0.005" value="0.9"></div>
+        <div class="ctrl"><label for="m33-d2-L">Maximum lag L <output id="m33-d2-L-out">8</output></label><input type="range" id="m33-d2-L" min="1" max="24" step="1" value="8"></div>
+        <div class="ctrl"><label for="m33-d2-typ">Error type</label><select id="m33-d2-typ"><option value="pair">independent per pair (speckle decorrelation)</option><option value="elem">element noise (shared by pairs)</option></select></div>
+        <div class="btn-row"><button class="btn" type="button" id="m33-d2-new">New trials</button></div>
+        <div class="readout" id="m33-d2-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> with independent pair errors the nearest-neighbour error (L = 1) is largest at the two ends of the aperture (about 4 σ<sub>ε</sub>) with a hump in the middle, and averages σ<sub>ε</sub>√(N/15) over the elements. Raise L: least squares flattens it, quickly at first and then slowly, because the long lags are noisier (ρ<sub>m</sub> = ρ<sub>1</sub><sup>m</sup>). Lower ρ<sub>1</sub> to 0.6: long lags become useless and the optimum L shrinks. Switch to element noise: the integrated estimate no longer drifts, and LS gains little; the hump was a property of the error correlations, not of integration as such.</div>
+  </div>
+
+  <!-- ======================= 33.3 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">33.3</span>Speckle brightness, time reversal and DORT: one beam, one eigenvector</h2>
+    <p>Nock, Trahey and Smith (J. Acoust. Soc. Am., 1989) replaced the correlation by a figure of merit: adjust the element delays to maximize the brightness of a speckle region, which is largest when the beam is focused. Zhao and Trahey (1991) compared such quality factors for diffuse and point targets. Brightness has a structure worth seeing. Let \(\mathbf{s}\) be the vector of focused channel signals of a pixel and \(\mathbf{w}\) the receive weights; the beamformed output is \(\mathbf{w}^{H}\mathbf{s}\) and its mean energy is a quadratic form in the aperture covariance:</p>
+    <div class="eqn key" id="m33-eq6">
+      <div class="eqn-body"><div class="eqn-math">\[ B(\mathbf{w}) = \mathbb{E}\bigl\lvert \mathbf{w}^{H}\mathbf{s}\bigr\rvert^{2} = \mathbf{w}^{H}\mathbf{C}\,\mathbf{w}, \qquad \mathbf{C} = \mathbb{E}\bigl[\mathbf{s}\mathbf{s}^{H}\bigr] = \mathbf{\Phi}\,\mathbf{C}_0\,\mathbf{\Phi}^{H}, \qquad \mathbf{\Phi} = \mathrm{diag}\bigl(e^{j\phi_i}\bigr), \qquad \max_{\lVert\mathbf{w}\rVert^{2} = N} B \;\Rightarrow\; \mathbf{w} \propto \mathbf{u}_1(\mathbf{C}) = \mathbf{\Phi}\,\mathbf{u}_1(\mathbf{C}_0) \]</div><span class="eqn-no">(33.6)</span></div>
+      <dl class="where"><dt>\(B\)</dt><dd>mean speckle brightness of the beamformed pixel</dd><dt>\(\mathbf{s}\)</dt><dd>focused (geometrically delayed) channel signals, one per element</dd><dt>\(\mathbf{C},\ \mathbf{C}_0\)</dt><dd>aperture covariance with and without the screen; \(\mathbf{C}_0\) is the van Cittert–Zernike matrix of the transmit focal intensity</dd><dt>\(\mathbf{\Phi}\)</dt><dd>diagonal screen matrix at the array (Module 05)</dd><dt>\(\mathbf{u}_1\)</dt><dd>eigenvector of the largest eigenvalue</dd><dt>\(\mathbf{w}\)</dt><dd>receive weight vector, \(N\) elements</dd><dt>\(\mathbb{E}\)</dt><dd>expectation over speckle</dd><dt>\((\cdot)^{H}\)</dt><dd>conjugate transpose</dd><dt>\(\mathrm{diag}\)</dt><dd>diagonal matrix of the listed entries</dd><dt>\(\phi_i,\ j\)</dt><dd>screen phase of element \(i\) (rad) and imaginary unit</dd><dt>\(\propto\)</dt><dd>proportional to</dd><dt>\(\max,\ \lVert\cdot\rVert\)</dt><dd>maximize, subject to fixed weight norm</dd></dl>
+      <span class="note">The unconstrained maximizer is the dominant eigenvector (Varslot, Mo, Angelsen and Krogstad, J. Acoust. Soc. Am., 2004, showed that the brightness-maximizing filter focuses on the regions of high insonification of the aberrated transmit beam). Its phase is the screen phase plus the phase of \(\mathbf{u}_1(\mathbf{C}_0)\), which is flat (up to a ramp from the spot's centroid) only when the insonified spot is compact and symmetric. A phase-only search (\(\lvert w_i\rvert = 1\)) is solved by coordinate ascent, \(w_i \leftarrow e^{j\arg(\mathbf{C}\mathbf{w})_i}\), which never decreases \(B\).</span>
+    </div>
+    <p>Mallart and Fink (J. Acoust. Soc. Am., 1991; the aberration and focusing-criterion paper followed in 1994) gave the van Cittert–Zernike reading: the speckle behind a focused transmit radiates like an incoherent source shaped like the transmit focal intensity, so \(\mathbf{C}\) is the covariance a real source of that shape would produce through the screen. A point-like source gives a rank-one \(\mathbf{C}\) and a perfect estimate; an aberrated, broad source spreads the eigenvalues, and an asymmetric one biases the eigenvector beyond a removable ramp. That is the bias of Section 33.2 again, and the same remedy applies: transmit with the estimate, re-measure, repeat.</p>
+    <p><strong>Time reversal and DORT.</strong> With discrete scatterers the inter-element response matrix is \(\mathbf{K} = \mathbf{H}\,\mathrm{diag}(a)\,\mathbf{H}^{T}\) (monochromatic, single scattering, \(\mathbf{H}\) the element-to-scatterer Green's matrix including the aberrator). One time-reversal round trip (emit \(\mathbf{e}\), receive \(\mathbf{K}\mathbf{e}\), phase-conjugate, re-emit) returns \(\mathbf{K}\mathbf{K}^{*}\mathbf{e}^{*}\); two round trips apply \(\mathbf{K}^{*}\mathbf{K}\) (the time-reversal operator, equal to \(\mathbf{K}^{H}\mathbf{K}\) since \(\mathbf{K}\) is symmetric), and iterating is power iteration, which converges to the brightest scatterer. Prada and Fink (Wave Motion, 1994) decomposed the time-reversal operator instead:</p>
+    <div class="eqn" id="m33-eq7">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathbf{K}^{H}\mathbf{K}\,\mathbf{v}_s = \lambda_s\,\mathbf{v}_s, \qquad \mathbf{v}_s \propto \mathbf{h}_s^{*}, \qquad \lambda_s = \lvert a_s\rvert^{2}\,\lVert\mathbf{h}_s\rVert^{4} \quad \text{(well-resolved scatterers: } \mathbf{h}_s^{H}\mathbf{h}_{s'} \approx 0) \]</div><span class="eqn-no">(33.7)</span></div>
+      <dl class="where"><dt>\(\mathbf{K}\)</dt><dd>inter-element response matrix at one frequency (transmit on column, receive on row)</dd><dt>\(\mathbf{h}_s\)</dt><dd>Green's vector from scatterer \(s\) to the elements, aberrator included</dd><dt>\(a_s\)</dt><dd>reflectivity of scatterer \(s\)</dd><dt>\(\mathbf{v}_s,\ \lambda_s\)</dt><dd>eigenvectors and eigenvalues of the time-reversal operator</dd><dt>\(\lambda_s\)</dt><dd>eigenvalue belonging to scatterer \(s\) (listed with \(\mathbf{v}_s\))</dd><dt>\((\cdot)^{H},\ (\cdot)^{*}\)</dt><dd>conjugate transpose, complex conjugate</dd><dt>\(\lVert\cdot\rVert,\ \lvert\cdot\rvert\)</dt><dd>vector norm, magnitude</dd><dt>\(\propto\)</dt><dd>proportional to</dd></dl>
+      <span class="note">One significant eigenvalue per resolved scatterer (Module 06), and each eigenvector is the conjugate of that scatterer's Green's vector, aberration included: emitting it focuses through the screen. In speckle there are no resolved scatterers, and \(\mathbf{K}^{H}\mathbf{K}\) has a slowly decaying spectrum; the distortion matrix of Section 33.6 is the trick that makes the speckle look like one virtual point.</span>
+    </div>
+  </div>
+
+  <div class="demo" id="m33-d3">
+    <div class="demo-head"><span class="tag">Demo 33.3</span><h3>Speckle brightness and the dominant eigenvector: the estimate follows the transmit spot</h3><span class="prov sim">Simulation</span><span class="prov-note">64 elements (19.2 mm), focus 30 mm, 5 MHz, monochromatic Fraunhofer model; Gaussian screen at the array on transmit and receive. Expected speckle covariance \(\mathbf{C} = \sum_s I_{\mathrm{tx}}(x_s)\,\mathbf{h}_s\mathbf{h}_s^{H}\) over a dense grid of focal-plane positions (infinite speckle averaging), \(I_{\mathrm{tx}}\) the transmit intensity with the current correction. Dominant eigenvector by power iteration; phase-only brightness by coordinate ascent. Mean and ramp removed before comparing laws.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m33-d3-tx" aria-label="Transmit focal intensity"></canvas>
+        <canvas id="m33-d3-law" aria-label="True and estimated aberration laws"></canvas>
+        <div class="legend"><span><i style="background:var(--muted)"></i>ideal transmit / true law</span><span><i style="background:var(--sig2)"></i>transmit used in this pass</span><span><i style="background:var(--accent)"></i>eigenvector estimate</span><span><i style="background:var(--sig4)"></i>phase-only brightness</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m33-d3-sig">rms delay σ<sub>τ</sub> <output id="m33-d3-sig-out">40 ns</output></label><input type="range" id="m33-d3-sig" min="5" max="90" step="5" value="40"></div>
+        <div class="ctrl"><label for="m33-d3-ell">Correlation length ℓ <output id="m33-d3-ell-out">3 mm</output></label><input type="range" id="m33-d3-ell" min="1" max="8" step="0.5" value="3"></div>
+        <div class="btn-row"><button class="btn solid" type="button" id="m33-d3-it">Transmit with estimate</button><button class="btn" type="button" id="m33-d3-reset">Reset</button><button class="btn" type="button" id="m33-d3-new">New screen</button></div>
+        <div class="readout" id="m33-d3-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> set σ<sub>τ</sub> = 60 ns (ℓ = 3 mm, first screen). Pass 0 transmits through the screen: the spot is broad and asymmetric, λ<sub>2</sub>/λ<sub>1</sub> = 0.74, and the eigenvector misses the law by 0.28 rad rms; the brightness is only 0.39 of the ideal because the transmit half of the focus is still aberrated. Press "Transmit with estimate": 0.017 rad and B/B<sub>ideal</sub> = 0.93; once more: 0.001 rad, 1.000, and λ<sub>2</sub>/λ<sub>1</sub> settles at 0.30, the value for an unaberrated sinc² spot. At 40 ns the first pass is already within 0.04 rad: in this idealized model (infinite speckle averaging, one depth, one frequency) only asymmetric spots bias the eigenvector, while the broadband, finite-speckle simulation of Section 33.2 kept a 0.18 rad (5.7 ns) first-pass bias. The phase-only brightness search tracks the eigenvector throughout.</div>
+  </div>
+  <!-- ======================= 33.4 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">33.4</span>Distributed aberration and the isoplanatic patch</h2>
+    <p>A screen against the array is a diagonal matrix: one law corrects every point of the image. Real aberrators are thick and sit millimetres to centimetres from the probe, so rays to different image points cross different parts of them. Keep a thin screen but move it to depth \(d\). The straight ray from element \(x_u\) to a point \((x_p, z)\) crosses the screen at \(x_u(1 - d/z) + x_p\,d/z\), so moving the point laterally by \(\Delta x\) slides the footprint of the whole aperture across the screen by \(\delta = \Delta x\,d/z\). A law measured on one point and borrowed for another leaves the residual \(\phi(a_u + \delta) - \phi(a_u)\):</p>
+    <div class="eqn key" id="m33-eq8">
+      <div class="eqn-body"><div class="eqn-math">\[ \delta = \Delta x\,\frac{d}{z}, \qquad S(\Delta x) \approx e^{-2\sigma_\phi^{2}\,[1 - \rho(\delta)]}, \qquad \Delta x_{\times} = \frac{\ell\,z\sqrt{\ln 2}}{d}, \qquad \Delta x_{1/2} = \frac{\ell\,z}{d}\sqrt{-\ln\!\left(1 - \frac{\ln 2}{2\sigma_\phi^{2}}\right)} \]</div><span class="eqn-no">(33.8)</span></div>
+      <dl class="where"><dt>\(d,\ z\)</dt><dd>depth of the screen and of the image points, mm</dd><dt>\(\Delta x,\ \delta\)</dt><dd>lateral distance from the guide point, and the resulting slide of the aperture footprint on the screen, mm</dd><dt>\(S(\Delta x)\)</dt><dd>Strehl ratio at \(\Delta x\) with the law of the guide point (large aperture, \(\ell \ll D\))</dd><dt>\(\Delta x_\times\)</dt><dd>distance at which the borrowed correction is no better than no correction (\(\rho = 1/2\))</dd><dt>\(\Delta x_{1/2}\)</dt><dd>isoplanatic half-width at \(S = 1/2\) (defined for \(\sigma_\phi^{2} &gt; \ln 2/2\))</dd><dt>\(\sigma_\phi,\ \rho,\ \ell\)</dt><dd>as in (33.1)</dd><dt>\(\ln\)</dt><dd>natural logarithm</dd><dt>\(e\)</dt><dd>Euler’s number</dd></dl>
+      <span class="note">The residual of a borrowed law has variance \(2\sigma_\phi^{2}(1-\rho)\), which exceeds the uncorrected \(\sigma_\phi^{2}\) once \(\rho &lt; 1/2\): outside the patch, a correction is worse than none. m33_isoplanatic_patch.m (40 ns, \(\ell\) = 4 mm, z = 40 mm, 128 elements, finite-aperture exact formula and Monte Carlo): half-widths at \(S = 1/2\) of 16.5, 8.3 and 4.3 mm for d = 5, 10 and 20 mm; the large-aperture form gives 8.0 mm at 10 mm. The borrowed law falls to the uncorrected level at 22.5, 11.0 and 5.1 mm, against \(\Delta x_\times\) = 26.6, 13.3 and 6.7 mm (the finite aperture keeps the uncorrected Strehl above \(e^{-\sigma_\phi^{2}}\)). The exponential in <span class=\"eqref\">(33.8)</span> is not a small-phase expansion: like \(e^{-\sigma_\phi^{2}}\) in <span class=\"eqref\">(33.2)</span>, it is the exact Gaussian average in the limit \(\ell \ll D\). At finite aperture, elements closer than \(\ell\) add the floor of Section 33.1, which lifts the uncorrected Strehl (0.349 at d = 10 mm, against 0.206) more than the borrowed one (0.349 against 0.304 at 11 mm) and so moves the crossing inward.</span>
+    </div>
+    <p>Three consequences shape every modern method. First, the patch scales as \(z\ell/d\): a shallow, coarse aberrator is benign, a deep or fine one is not, which is why the skull (thick, so its far side sits at a sizeable fraction of the target depth, finely structured, and with a phase error of several radians, which shrinks \(\Delta x_{1/2}\) further as about \(1/\sigma_\phi\)) is the hardest case. Second, in depth the footprint also changes, so patches are finite axially too. Third, the patch is a property of the screen statistics, not of the estimator: no single-law method, however accurate at its guide point, beats \(\Delta x_\times\). Methods that work over the whole field must either estimate many local laws (Section 33.6) or model the medium between the probe and the image (Section 33.5).</p>
+  </div>
+  <div class="m33-fig">
+    <div class="fh"><span class="prov schem">Schematic</span> A screen at depth d: rays to two image points cross it at footprints shifted by δ = Δx·d/z. Not to scale.</div>
+    <div class="mx-scroll"><svg viewBox="0 0 780 260" role="img" aria-label="Linear array at the top, a phase screen at depth d, two image points at depth z separated by delta x, with ray fans from the array crossing the screen at shifted footprints">
+      <rect x="140" y="20" width="500" height="10" style="fill:var(--muted)"/>
+      <text x="650" y="29" class="m">array, aperture D</text>
+      <path d="M 60 92 C 140 80, 200 108, 280 92 S 420 78, 500 96 S 640 108, 720 90" style="fill:none;stroke:var(--sig3);stroke-width:5;stroke-opacity:0.55"/>
+      <text x="590" y="128" class="m">screen at depth d</text><text x="590" y="144" class="s">φ(x): rms σ, corr. length ℓ</text>
+      <line x1="140" y1="30" x2="360" y2="230" style="stroke:var(--accent);stroke-width:1.6"/>
+      <line x1="640" y1="30" x2="360" y2="230" style="stroke:var(--accent);stroke-width:1.6"/>
+      <line x1="390" y1="30" x2="360" y2="230" style="stroke:var(--accent);stroke-width:1.2;stroke-dasharray:4 3"/>
+      <line x1="140" y1="30" x2="470" y2="230" style="stroke:var(--sig2);stroke-width:1.6"/>
+      <line x1="640" y1="30" x2="470" y2="230" style="stroke:var(--sig2);stroke-width:1.6"/>
+      <line x1="390" y1="30" x2="470" y2="230" style="stroke:var(--sig2);stroke-width:1.2;stroke-dasharray:4 3"/>
+      <circle cx="360" cy="230" r="5" style="fill:var(--accent)"/><circle cx="470" cy="230" r="5" style="fill:var(--sig2)"/>
+      <text x="300" y="250" class="m">guide point</text><text x="478" y="250" class="m">x + Δx</text>
+      <line x1="220" y1="100" x2="236" y2="100" style="stroke:var(--ink);stroke-width:2"/>
+      <text x="196" y="122" class="s">footprints shift by δ = Δx d/z</text>
+      <line x1="40" y1="30" x2="40" y2="92" style="stroke:var(--ink)"/><text x="18" y="66" class="s">d</text>
+      <line x1="40" y1="30" x2="40" y2="230" style="stroke:var(--muted);stroke-dasharray:2 3"/><text x="18" y="200" class="s">z</text>
+    </svg></div>
+  </div>
+
+  <div class="demo" id="m33-d4">
+    <div class="demo-head"><span class="tag">Demo 33.4</span><h3>How far does one law reach? The isoplanatic patch versus screen depth</h3><span class="prov exact">Exact formula</span><span class="prov-note">Exact mean Strehl of a Gaussian screen at depth d for a 128-element aperture (the finite-aperture double sum written in m33_isoplanatic_patch.m, evaluated by lags), with its large-aperture limit <span class="eqref">(33.8)</span> dashed. Straight rays, thin screen, monochromatic, image points at one depth. The Monte Carlo check is in the script.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m33-d4-cv" aria-label="Strehl ratio versus distance from the guide point"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>borrowed law, exact</span><span><i style="background:var(--sig4)"></i>large-aperture limit</span><span><i style="background:var(--muted)"></i>no correction</span><span><i style="background:var(--sig2)"></i>Δx<sub>×</sub>, Δx<sub>1/2</sub></span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m33-d4-d">Screen depth d <output id="m33-d4-d-out">10 mm</output></label><input type="range" id="m33-d4-d" min="1" max="30" step="1" value="10"></div>
+        <div class="ctrl"><label for="m33-d4-sig">rms delay σ<sub>τ</sub> <output id="m33-d4-sig-out">40 ns</output></label><input type="range" id="m33-d4-sig" min="10" max="100" step="5" value="40"></div>
+        <div class="ctrl"><label for="m33-d4-ell">Correlation length ℓ <output id="m33-d4-ell-out">4 mm</output></label><input type="range" id="m33-d4-ell" min="1" max="12" step="0.5" value="4"></div>
+        <div class="ctrl"><label for="m33-d4-z">Image depth z <output id="m33-d4-z-out">40 mm</output></label><input type="range" id="m33-d4-z" min="20" max="120" step="5" value="40"></div>
+        <div class="readout" id="m33-d4-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> the defaults reproduce the script's 10 mm row: S = 0.95 at 2 mm, 0.52 at 8 mm, the uncorrected level at 11.0 mm. Slide d to 1 mm: the screen is almost at the array and one law covers the whole image (S = 0.99 at 8 mm). Slide d to 30 mm: the half-width shrinks to 3.4 mm and the borrowed law loses to no correction beyond 2.9 mm; the uncorrected Strehl rises to 0.58 because the aperture's footprint on a deep screen is smaller and spans fewer correlation lengths. Go deeper (z = 120 mm, d = 10 mm): the half-width grows to 25 mm, as z/d predicts; shallow targets under a near-field aberrator are the patch-limited ones.</div>
+  </div>
+
+  <!-- ======================= 33.5 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">33.5</span>Correction from a sound-speed map: the Module 32 route</h2>
+    <p>Module 32 estimated the slowness field \(s(\mathbf r) = 1/c(\mathbf r)\). Once a map exists, aberration correction is a forward computation: integrate the slowness along the path from each element to each pixel and beamform with those times. The correction is space-variant by construction, so the isoplanatic patch disappears as a concept; what remains is the accuracy of the map and of the path model:</p>
+    <div class="eqn" id="m33-eq9">
+      <div class="eqn-body"><div class="eqn-math">\[ T_u(\mathbf r) = \int_{\Gamma^{\star}_u(\mathbf r)} s\,dl, \qquad \hat T_u(\mathbf r) = \int_{\Gamma_u(\mathbf r)} \hat s\,dl, \qquad T_u - \hat T_u = \underbrace{\int_{\Gamma_u} (s - \hat s)\,dl}_{\text{map error}} \; + \; \underbrace{\Bigl(\int_{\Gamma^{\star}_u} s\,dl - \int_{\Gamma_u} s\,dl\Bigr)}_{\text{path error}\ \le\ 0} \]</div><span class="eqn-no">(33.9)</span></div>
+      <dl class="where"><dt>\(T_u(\mathbf r)\)</dt><dd>true one-way travel time from element \(u\) to pixel \(\mathbf r\), s</dd><dt>\(\Gamma^{\star}_u\)</dt><dd>the true (Fermat, refracted) ray; \(\Gamma_u\) the path used by the beamformer, usually straight</dd><dt>\(\hat s\)</dt><dd>estimated slowness map, s/m</dd><dt>\(\mathbf r\)</dt><dd>pixel position, mm</dd><dt>\(u\)</dt><dd>element index</dd><dt>\(s\)</dt><dd>true slowness map, s/m</dd><dt>\(dl\)</dt><dd>path length element, m</dd><dt>\(\hat T_u(\mathbf r)\)</dt><dd>travel time predicted from \(\hat s\) along \(\Gamma_u\), s</dd></dl>
+      <span class="note">The path error is never positive: Fermat's ray is the fastest, so straight rays always overestimate the time. Its size grows with the speed contrast and the interface slope. A Module 32 map has limited resolution (its resolution matrix, Section 32.5), so the map term is a low-pass version of the truth minus the truth, plus any bias in the mean (CUTE's blind spot).</span>
+    </div>
+    <p>m33_sos_map_correction.m puts a wavy fat layer (1450 m/s, interface at 12 ± 1.5 mm, period 15 mm) over 1540 m/s tissue and compares, at 25 points 40 mm deep across ±12 mm: no correction (45 ns rms, mean Strehl 0.08), one law measured at the centre (30 ns, 0.43; it keeps S ≥ 0.8 only within ±3 mm), straight rays through the true map (5.2 ns, 0.97), straight rays through a map blurred to 3 mm resolution (8.2 ns, 0.93) and through a map whose fat speed is 10 m/s too high (7.3 ns, 0.95). The straight-ray residual (3.4 ns at the centre, 11 ns at −12 mm) is the path error alone. Ali et al. (IEEE Trans. Ultrason. Ferroelectr. Freq. Control, 2022) developed this tomographic route to distributed aberration correction on measured data.</p>
+  </div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Map-based correction and matrix correction answer different questions. The map predicts delays everywhere but inherits its own resolution, bias and path model; the matrix measures the delays that actually focus, but only where there is enough signal and only per patch. Using the map as the starting law and the matrix to measure the residual combines their strengths, and the residual itself is a datum for refining the map (Module 32's tomography with a better forward model).</p></div>
+
+  <div class="demo" id="m33-d5">
+    <div class="demo-head"><span class="tag">Demo 33.5</span><h3>One measured law versus a sound-speed map: straight rays, blur and bias</h3><span class="prov model">Approx. model</span><span class="prov-note">Fat layer from the skin to h(x) = h₀ + A sin(2πx/P) over 1540 m/s. True times by Fermat with one refracting interface (coarse search plus golden-section refinement per element and point, JS). Map corrections by straight rays (analytic fat length); the blurred map is the true map convolved with a 2D Gaussian of the set FWHM (vertical part in closed form, lateral part by 7-point Gauss–Hermite quadrature), as in m33_sos_map_correction.m. 128 elements, 5 MHz, points at 40 mm; residuals with mean and ramp removed.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m33-d5-map" aria-label="Sound-speed map with rays to the selected point"></canvas>
+        <canvas id="m33-d5-s" aria-label="Strehl after correction versus lateral position"></canvas>
+        <div class="legend"><span><i style="background:var(--muted)"></i>none</span><span><i style="background:var(--sig2)"></i>one law (x = 0)</span><span><i style="background:var(--accent)"></i>straight-ray map</span><span><i style="background:var(--sig4)"></i>blurred map</span><span><i style="background:var(--sig3)"></i>biased fat speed</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m33-d5-amp">Interface amplitude A <output id="m33-d5-amp-out">1.5 mm</output></label><input type="range" id="m33-d5-amp" min="0" max="2" step="0.25" value="1.5"></div>
+        <div class="ctrl"><label for="m33-d5-per">Period P <output id="m33-d5-per-out">15 mm</output></label><input type="range" id="m33-d5-per" min="12" max="40" step="1" value="15"></div>
+        <div class="ctrl"><label for="m33-d5-cf">Fat speed <output id="m33-d5-cf-out">1450 m/s</output></label><input type="range" id="m33-d5-cf" min="1400" max="1530" step="10" value="1450"></div>
+        <div class="ctrl"><label for="m33-d5-bl">Map blur (FWHM) <output id="m33-d5-bl-out">3 mm</output></label><input type="range" id="m33-d5-bl" min="0.5" max="8" step="0.5" value="3"></div>
+        <div class="ctrl"><label for="m33-d5-bi">Fat speed bias <output id="m33-d5-bi-out">10 m/s</output></label><input type="range" id="m33-d5-bi" min="-30" max="30" step="5" value="10"></div>
+        <div class="ctrl"><label for="m33-d5-xp">Point position x<sub>p</sub> <output id="m33-d5-xp-out">−6 mm</output></label><input type="range" id="m33-d5-xp" min="-12" max="12" step="1" value="-6"></div>
+        <div class="readout" id="m33-d5-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> with the defaults the one-law curve is a narrow bump around x = 0 while all three map curves stay at or above 0.85 across ±12 mm. Raise the amplitude to 2 mm: the straight-ray Strehl at −12 mm falls to 0.72 (19.5 ns), the path error growing with the interface slope, while at the centre it stays at 0.97. Shorten the period to 12 mm and widen the blur to 6 mm: the blurred map misses the wiggles (28 ns mean) while the sharp straight-ray map still gives 8.7 ns. Set the bias to −30 m/s: a smooth, nearly quadratic error (18 ns mean), a defocus that a global sound-speed tweak (Module 32) would absorb. The sliders stop at slopes where a straight ray could cross the interface twice, which this model does not handle. The geometry sliders recompute when released.</div>
+  </div>
+  <!-- ======================= 33.6 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">33.6</span>The reflection matrix and the distortion matrix: local laws from speckle</h2>
+    <p>Everything so far used one beam, or one guide point, at a time. Matrix imaging records the full set of responses between every transmit and every receive channel, the <strong>reflection matrix</strong>, and then changes basis in software (Module 05). The acquisition can be synthetic aperture (one element at a time, \(\mathbf{K}\) directly) or plane waves (Module 23), which are related to the element basis by a unitary-like transform at each frequency. Lambert, Cobus, Couade, Fink and Aubry (Phys. Rev. X, 2020) projected it onto a <em>focused basis</em> at each depth, focusing in post-processing on transmit at \(x_{\mathrm{in}}\) and on receive at \(x_{\mathrm{out}}\):</p>
+    <div class="eqn" id="m33-eq10">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathbf{R}_{xx}(z) = \mathbf{G}_0^{H}\,\mathbf{K}\,\mathbf{G}_0^{*}, \qquad G_0(u, x) = e^{-jk\sqrt{(x_u - x)^{2} + z^{2}}}, \qquad I(\Delta x) = \bigl\langle \lvert R_{xx}(x_{\mathrm{in}} + \Delta x,\, x_{\mathrm{in}})\rvert^{2} \bigr\rangle_{x_{\mathrm{in}}} \;\propto\; \int \lvert P_{\mathrm{out}}(y - \Delta x)\rvert^{2}\,\lvert P_{\mathrm{in}}(y)\rvert^{2}\,dy \]</div><span class="eqn-no">(33.10)</span></div>
+      <dl class="where"><dt>\(\mathbf{K}\)</dt><dd>reflection matrix in the element basis at one frequency (or one time gate), \(N_e \times N_e\)</dd><dt>\(\mathbf{G}_0\)</dt><dd>free-space propagator from the elements to the focal points at depth \(z\) for the assumed \(c_0\), \(N_e \times N_x\)</dd><dt>\(\mathbf{R}_{xx}\)</dt><dd>focused reflection matrix: responses between virtual transducers at \(x_{\mathrm{in}}\) and \(x_{\mathrm{out}}\)</dd><dt>\(I(\Delta x)\)</dt><dd>common-midpoint intensity profile, averaged over a region</dd><dt>\(P_{\mathrm{in}},\ P_{\mathrm{out}}\)</dt><dd>transmit and receive point-spread functions</dd><dt>\(j,\ k\)</dt><dd>imaginary unit and wavenumber \(\omega/c_0\), rad/m</dd><dt>\(u,\ x,\ x_u\)</dt><dd>element index, focal-point position and element position, m</dd><dt>\(x_{\mathrm{in}},\ x_{\mathrm{out}}\)</dt><dd>transmit-side and receive-side virtual transducer positions, m</dd><dt>\(G_0(u, x)\)</dt><dd>entry of \(\mathbf{G}_0\)</dd><dt>\((\cdot)^{H},\ (\cdot)^{*}\)</dt><dd>conjugate transpose, complex conjugate</dd><dt>\(\langle\cdot\rangle\)</dt><dd>average over \(x_{\mathrm{in}}\)</dd><dt>\(y\)</dt><dd>integration variable (lateral position), m</dd></dl>
+      <span class="note">The diagonal of \(\mathbf{R}_{xx}\) is the confocal image. In speckle (single scattering), the off-diagonal intensity is the cross-correlation of the transmit and receive PSF intensities, so the width of \(I(\Delta x)\) measures the local focusing quality without any guide star. Lambert et al. defined the focusing criterion \(F = w_0/w\), the ratio of the diffraction-limited width to the measured width of this profile, and used it to choose the sound speed that maximizes focusing, layer by layer (their Fig. 2).</span>
+    </div>
+    <p>The <strong>distortion matrix</strong> (Lambert, Cobus, Frappart, Fink and Aubry, PNAS, 2020; generalized to many patches in their two-part "Ultrasound matrix imaging" papers, IEEE Trans. Med. Imaging, 2022) keeps the focused transmit and expresses the receive side in an aperture basis: the plane-wave (far-field) basis in the PNAS paper, the transducer basis in Part II and here, either one for a screen near the probe. Each column is the wavefront received from one virtual source at \(x_{\mathrm{in}}\). Removing the geometric wavefront the source would produce in a homogeneous medium (multiplying by its conjugate) leaves only the distortion:</p>
+    <div class="eqn key" id="m33-eq11">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathbf{R}_{ux} = \mathbf{K}\,\mathbf{G}_0^{*}, \qquad \mathbf{D} = \mathbf{R}_{ux} \circ \mathbf{G}_0^{*}, \qquad \mathbf{C} = \mathbf{D}\mathbf{D}^{H} = \mathbf{U}\,\mathbf{\Sigma}^{2}\,\mathbf{U}^{H} \;\approx\; \mathbf{\Phi}\,\mathbf{C}_{\mathrm{vr}}\,\mathbf{\Phi}^{H}, \qquad \hat\phi_u = \arg U_{u1} \]</div><span class="eqn-no">(33.11)</span></div>
+      <dl class="where"><dt>\(\mathbf{R}_{ux}\)</dt><dd>reflection matrix with focused transmit (columns \(x_{\mathrm{in}}\)) and element receive (rows \(u\))</dd><dt>\(\circ\)</dt><dd>Hadamard (element-wise) product</dd><dt>\(\mathbf{D}\)</dt><dd>distortion matrix: each column is a received wavefront re-centred on its own focal point</dd><dt>\(\mathbf{C},\ \mathbf{U},\ \mathbf{\Sigma}\)</dt><dd>its correlation matrix, left singular vectors and singular values</dd><dt>\(\mathbf{C}_{\mathrm{vr}}\)</dt><dd>van Cittert–Zernike covariance of a <em>virtual reflector</em> shaped like the transmit focal intensity, common to all columns within a patch</dd><dt>\(\hat\phi_u\)</dt><dd>estimated aberration law (phase of the first singular vector)</dd><dt>\(\mathbf{K},\ \mathbf{G}_0\)</dt><dd>as in (33.10)</dd><dt>\(\mathbf{\Phi}\)</dt><dd>diagonal screen matrix, as in (33.6)</dd><dt>\(U_{u1}\)</dt><dd>entry \(u\) of the first left singular vector \(\mathbf{U}_{\cdot 1}\)</dd><dt>\(\arg\)</dt><dd>phase angle, rad</dd><dt>\((\cdot)^{H}\)</dt><dd>conjugate transpose</dd></dl>
+      <span class="note">Re-centring makes every focal point in an isoplanatic patch look like the same source at the origin, seen through the same screen; averaging the columns over the patch averages over independent speckle realizations (one per resolution cell). This is <span class="eqref">(33.6)</span> with the speckle average done by the matrix. \(\hat\phi\) is the receive-side law; by reciprocity (the same screen on both paths) the script and Demo 33.6 apply it to both sides of \(\mathbf{K}\) and recompute: the corrected transmit shrinks the virtual reflector toward a point and the estimate converges. Lambert et al. instead alternate the correction between the transmit and receive sides and shrink the window at each step.</span>
+    </div>
+    <p>m33_distortion_matrix_svd.m runs this on a simulated speckle layer at 20 mm behind a 40 ns, 2 mm screen (48 elements, 61 focal points over 12 mm, monochromatic). Screen at the array: the residual falls from 0.83 rad (Strehl 0.50) to 0.31, 0.07 and 0.018 rad in three iterations, and the focusing quality \(\Gamma\) (defined below) from 0.48 to 0.87, 0.99 and 1.00. Screen at 8 mm (anisoplanatic over the field): one global law raises \(\Gamma\) only from 0.48 to 0.69 and dims a bright point at the centre by 7.6 dB, while three 4 mm windows reach 0.75, 0.93 and 0.88 (mean 0.86) and brighten the point by 3.1 dB. Two cautions from the same script: the singular spectrum of \(\mathbf{D}\) does not collapse to one value even after perfect correction (\(\sigma_2/\sigma_1\) = 0.52), because the virtual reflector keeps the size of the diffraction-limited spot; and an entrywise-normalized \(\mathbf{C}/\lvert\mathbf{C}\rvert\), which makes the reflector point-like, is no longer positive semidefinite, so its eigenvalues need care when counted.</p>
+    <div class="eqn" id="m33-eq12">
+      <div class="eqn-body"><div class="eqn-math">\[ \Gamma = \frac{I(0)\big/\sum_{\Delta x} I(\Delta x)}{\bigl[I(0)\big/\sum_{\Delta x} I(\Delta x)\bigr]_{\text{no aberration}}}, \qquad F = \frac{w_0}{w}, \qquad \frac{\lvert \mathbf{u}_1^{H}\mathbf{v}^{(n)}\rvert}{\lVert\mathbf{v}^{(n)}\rVert} \to 1\ \text{ with error } \propto \Bigl(\frac{\lambda_2}{\lambda_1}\Bigr)^{n} \]</div><span class="eqn-no">(33.12)</span></div>
+      <dl class="where"><dt>\(\Gamma\)</dt><dd>confocal fraction of the common-midpoint energy, normalized by its aberration-free value; a Strehl-like focusing measure used in this module's demos and scripts</dd><dt>\(F\)</dt><dd>focusing criterion of Lambert et al.: diffraction-limited over measured width of \(I(\Delta x)\)</dd><dt>\(\mathbf{v}^{(n)}\)</dt><dd>power-iteration vector after \(n\) multiplications by \(\mathbf{C}\) (Module 06)</dd><dt>\(\lambda_1,\ \lambda_2\)</dt><dd>the two largest eigenvalues of \(\mathbf{C}\)</dd><dt>\(I(\Delta x)\)</dt><dd>common-midpoint intensity profile, as in (33.10)</dd><dt>\(w_0,\ w\)</dt><dd>diffraction-limited and measured width of \(I(\Delta x)\), mm</dd><dt>\(\mathbf{u}_1\)</dt><dd>dominant eigenvector of \(\mathbf{C}\)</dd><dt>\(\propto\)</dt><dd>proportional to</dd><dt>\(n\)</dt><dd>iteration count</dd></dl>
+      <span class="note">Width-based measures saturate for moderate aberration because the core of the PSF keeps its width while energy moves into a halo (Section 33.1); an energy fraction does not. Neither sees a pure shift of both foci: a residual tilt warps the image without blurring it (Module 31's bias field).</span>
+    </div>
+  </div>
+  <div class="m33-fig">
+    <div class="fh"><span class="prov schem">Schematic</span> One recording, three bases. Element basis (what is measured), focused basis (what is imaged and how well), distortion basis (what is corrected).</div>
+    <div class="mx-scroll"><svg viewBox="0 0 780 240" role="img" aria-label="Three matrices side by side: K in the element basis with a diffuse pattern, R_xx in the focused basis with a bright diagonal and a blurred band, D in the distortion basis whose columns share one wavefront pattern; arrows labelled with the propagators between them">
+      <rect x="20" y="40" width="150" height="150" style="fill:var(--panel);stroke:var(--ink)"/>
+      <rect x="315" y="40" width="150" height="150" style="fill:var(--panel);stroke:var(--ink)"/>
+      <rect x="610" y="40" width="150" height="150" style="fill:var(--panel);stroke:var(--ink)"/>
+      <g style="fill:var(--muted);fill-opacity:0.45"><rect x="30" y="52" width="20" height="14"/><rect x="72" y="70" width="24" height="12"/><rect x="118" y="58" width="18" height="18"/><rect x="40" y="110" width="26" height="16"/><rect x="96" y="128" width="18" height="12"/><rect x="132" y="104" width="22" height="20"/><rect x="58" y="160" width="20" height="14"/><rect x="120" y="160" width="26" height="16"/></g>
+      <path d="M 315 40 L 465 190" style="stroke:var(--accent);stroke-width:4"/>
+      <path d="M 330 40 L 465 175 M 315 55 L 450 190" style="stroke:var(--accent);stroke-width:10;stroke-opacity:0.2"/>
+      <g style="stroke:var(--sig2);stroke-width:2;fill:none">
+        <path d="M 625 60 C 640 80, 650 50, 660 70 S 690 90, 700 60 S 735 75, 745 65"/>
+        <path d="M 625 95 C 640 115, 650 85, 660 105 S 690 125, 700 95 S 735 110, 745 100"/>
+        <path d="M 625 130 C 640 150, 650 120, 660 140 S 690 160, 700 130 S 735 145, 745 135"/>
+        <path d="M 625 165 C 640 185, 650 155, 660 175 S 690 195, 700 165 S 735 180, 745 170"/>
+      </g>
+      <text x="20" y="28" class="t">K: element × element</text>
+      <text x="315" y="28" class="t">R_xx: x_out × x_in</text>
+      <text x="610" y="28" class="t">D: element × x_in</text>
+      <text x="20" y="210" class="s">measured; no visible structure</text>
+      <text x="315" y="210" class="s">diagonal = image; band width = focus</text>
+      <text x="610" y="210" class="s">rows share exp(jφ_u):</text><text x="610" y="226" class="s">rank ≈ 1 per patch</text>
+      <path d="M 180 115 L 300 115" style="stroke:var(--ink);stroke-width:1.4"/><path d="M 300 115 L 292 110 L 292 120 Z" style="fill:var(--ink)"/>
+      <text x="192" y="106" class="s">G0^H · K · G0*</text>
+      <path d="M 475 115 L 595 115" style="stroke:var(--ink);stroke-width:1.4"/><path d="M 595 115 L 587 110 L 587 120 Z" style="fill:var(--ink)"/>
+      <text x="482" y="106" class="s">(K G0*) ∘ G0*</text>
+    </svg></div>
+  </div>
+
+  <div class="demo" id="m33-d6">
+    <div class="demo-head"><span class="tag">Demo 33.6</span><h3>Reflection matrix, distortion matrix and SVD, computed live on simulated speckle</h3><span class="prov sim">Simulation</span><span class="prov-note">48 elements (pitch 0.3 mm), 5 MHz, monochromatic. 400 complex Gaussian scatterers plus one bright point (amplitude 6) in a thin layer at z = 20 mm (stands in for a time gate). Gaussian screen at depth d; the straight ray from element to scatterer crosses it at \(x_u + (x_s - x_u)d/z\). \(\mathbf{K} = \mathbf{G}\,\mathrm{diag}(a)\,\mathbf{G}^{T}\); 61 focal points over ±6 mm; \(\mathbf{R}_{xx}\), \(\mathbf{D}\), \(\mathbf{C}\) as in <span class="eqref">(33.10)</span>–<span class="eqref">(33.11)</span>; first singular vector by power iteration, the next nine by deflation; correction applied to both sides of \(\mathbf{K}\) in post-processing. Same model as m33_distortion_matrix_svd.m (different random numbers). No attenuation, no multiple scattering, no noise.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m33-d6-rxx" aria-label="Focused reflection matrix before and after correction"></canvas>
+        <canvas id="m33-d6-sv" aria-label="Singular values of the distortion matrix"></canvas>
+        <canvas id="m33-d6-law" aria-label="True and estimated aberration law"></canvas>
+        <canvas id="m33-d6-img" aria-label="Confocal line image before and after"></canvas>
+        <div class="legend"><span><i style="background:var(--muted)"></i>before / true law</span><span><i style="background:var(--accent)"></i>current estimate / after</span><span><i style="background:var(--sig2)"></i>window</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m33-d6-sig">rms delay σ<sub>τ</sub> <output id="m33-d6-sig-out">40 ns</output></label><input type="range" id="m33-d6-sig" min="10" max="80" step="5" value="40"></div>
+        <div class="ctrl"><label for="m33-d6-ell">Correlation length ℓ <output id="m33-d6-ell-out">2 mm</output></label><input type="range" id="m33-d6-ell" min="1" max="6" step="0.5" value="2"></div>
+        <div class="ctrl"><label for="m33-d6-d">Screen depth d <output id="m33-d6-d-out">0 mm</output></label><input type="range" id="m33-d6-d" min="0" max="12" step="1" value="0"></div>
+        <div class="ctrl"><label for="m33-d6-win">Estimation window</label><select id="m33-d6-win"><option value="all">whole field (±6 mm)</option><option value="L">left (−6 to −2 mm)</option><option value="C">centre (−2 to 2 mm)</option><option value="R">right (2 to 6 mm)</option></select></div>
+        <div class="btn-row"><button class="btn solid" type="button" id="m33-d6-it">Iterate (SVD + correct)</button><button class="btn" type="button" id="m33-d6-reset">Reset</button><button class="btn" type="button" id="m33-d6-new">New medium</button></div>
+        <div class="readout" id="m33-d6-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> with the screen at the array (d = 0), press Iterate three times: the band around the diagonal of R<sub>xx</sub> collapses to a line, Γ goes from 0.40 to 1.00, the residual from 0.80 to 0.03 rad, and the bright point at x = 0 rises by 4.3 dB. Then set d = 8 mm: four iterations on the whole field stall at Γ = 0.63, while four in the centre window reach 0.91 there (the whole field only 0.60) and lift the bright point by 4 dB. Compare the laws estimated in the left, centre and right windows: those are the isoplanatic modes. At 80 ns one iteration already removes most of the error (0.39 rad, Γ 0.84) and four reach 0.02 rad. Watch σ<sub>2</sub>/σ<sub>1</sub>: it falls but stops near 0.5, the size of the diffraction-limited virtual reflector, not zero. The screen sliders rebuild the medium when released.</div>
+  </div>
+  <!-- ======================= 33.7 ======================= -->
+  <div class="prose">
+    <h2><span class="sec">33.7</span>Frontiers and judgement: iterative matrix methods, the skull, learned correction and the metrics</h2>
+    <p><strong>Iterative, alternating, shrinking.</strong> The full matrix pipeline of Lambert et al. (IEEE Trans. Med. Imaging, 2022, Part II) alternates the correction between the transmit and receive sides, works in either the plane-wave or the transducer basis, and shrinks the local window at each step (from 12 × 16 mm to 6.2 × 8.1 mm in their in vivo example, each window holding of the order of 5000 independent virtual sources). On a gallbladder in a volunteer they report the transverse −3 dB resolution going from 1.69 to 0.50 mm and their focusing factor rising from 0.31 to 0.48 over four steps. The structure echoes CLASS from optics (closed-loop accumulation of single scattering; Kang et al., Nat. Commun., 2017): in a reflection matrix expressed in the angular (pupil) basis, find the input and the output phase corrections that maximize the total confocal (single-scattering) intensity, updating one side while holding the other, and iterate. "CLASS-like" in ultrasound usually means exactly that alternating, energy-maximizing update; CLASS itself searches the phase channel by channel and uses no SVD. The distortion-matrix SVD can stand in for each half-step: with a receive law \(\mathbf{w}\) the confocal energy of a patch is \(\mathbf{w}^{H}\mathbf{C}\,\mathbf{w}\), CLASS maximizes it over unit-modulus laws, and \(\mathbf{u}_1\) maximizes it when the amplitudes are left free (this is the module's reading, not a statement from either paper).</p>
+    <p><strong>Through the skull.</strong> Bone is roughly twice as fast as soft tissue, strongly attenuating and variable in thickness, and it sits against the probe. The thin-screen picture then fails three ways: amplitude varies as much as phase, the aberrator is thick (the patch is finite in depth too), and for shallow targets \(d/z\) is large, so patches are small <span class="eqref">(33.8)</span>. Three strategies coexist. Priors: CT-derived speed and density maps give the delays, as in transskull therapy focusing (Aubry and coworkers, J. Acoust. Soc. Am., 2003); this is the Section 33.5 route with a better map. Guide stars: in transcranial ULM, Demené et al. (Nat. Biomed. Eng., 2021) corrected skull aberration and brain motion by adaptive speckle tracking before localizing, and the same group then estimated phase-aberration laws from the microbubble echoes in several isoplanatic patches (Robin et al., arXiv:2210.02774, 2022); Module 31 showed why this is necessary: an uncorrected tilt displaces every bubble. Matrices: 2D-array matrix imaging (Bureau et al., Nat. Commun., 2023) estimates the transmission matrix voxel by voxel in 3D, with transcranial imaging as the target.</p>
+    <p><strong>Learned correction.</strong> Networks trained on simulated channel data can output aberration laws, corrected delays or corrected images directly. They inherit the Module 32 caveat: the forward model moves into the training distribution, so skull, abdominal-wall and probe-lens mismatches become domain gaps. Physics-anchored designs (unrolled matrix or autofocus iterations, differentiable beamformers, Module 14) keep the measured data in the loop and are the safer path to deployment.</p>
+  </div>
+  <div class="rf-grid" id="m33-g7"></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Metric</th><th>What it measures</th><th>Blind spot</th><th>Link</th></tr></thead><tbody>
+    <tr><td>Coherence factor, lag-one coherence, SLSC</td><td>phase alignment across the aperture; for unit amplitudes CF of a point is the receive Strehl</td><td>lowered by noise and clutter as well as aberration; blind to a pure shift</td><td>Modules 07, 25</td></tr>
+    <tr><td>Strehl, Γ (energy fraction)</td><td>energy in the focus relative to ideal</td><td>needs a reference; blind to a common shift of both foci</td><td>33.1, 33.6</td></tr>
+    <tr><td>FWHM of a point, \(F = w_0/w\)</td><td>core width</td><td>saturates: the core keeps its width while energy moves to the halo (0.38 → 0.40 mm at 20 ns, Strehl already 0.73)</td><td>33.1</td></tr>
+    <tr><td>Contrast, CNR, gCNR</td><td>lesion detectability</td><td>dynamic range and compression (contrast, CNR); gCNR biased upward for small regions</td><td>Module 26</td></tr>
+    <tr><td>Speckle brightness</td><td>focus quality of a region</td><td>confounded by gain, attenuation and TGC changes</td><td>33.3</td></tr>
+    <tr><td>Geometric fidelity (target positions)</td><td>tilts and image warping</td><td>invisible to every focus metric above; needs known targets or registration</td><td>Module 31</td></tr>
+  </tbody></table></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Reporting an aberration-correction gain with a coherence-weighted image (CF or SLSC) and a dB scale chosen after the fact. CF and SLSC improve when the law improves, but also when noise drops, so they double-count; and contrast in dB depends on the display range. Report Strehl-like or Γ-like focus measures, gCNR with the region sizes, and target positions, each before and after.</p></div>
+  <!-- ======================= 33.8 Visual summary ======================= -->
+  <h2><span class="sec">33.8</span>Visual summary</h2>
+  <div class="prose"><p>Twelve questions an aberration-correction expert answers in five seconds. Each figure is computed from the formula, model or simulation named in its badge.</p></div>
+  <div class="rf-grid" id="m33-vis"></div>
+
+  <!-- ======================= 33.9 Rules ======================= -->
+  <h2><span class="sec">33.9</span>How experts think about it</h2>
+  <div class="prose"><p>An aberration expert asks four questions in order. How big is the delay error in fractions of a period, and on what spatial scale does it vary (\(\sigma_\phi\), \(\ell\))? Where is the aberrator relative to the probe and the target, which sets the isoplanatic patch (\(z\ell/d\))? What guide does the estimator use (a point, a speckle spot, a virtual reflector, a map), and how big and how symmetric is that guide, which sets the bias? And which metric would reveal a failure, given that width metrics saturate and no focus metric sees a shift? Estimation precision is rarely the limit; bias, locality and the forward model are.</p></div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">Aberration is a delay measured in fractions of a period: 10 ns is 0.31 rad at 5 MHz.</div>
+      <div class="keynum"><span>σ<sub>φ</sub> = 2πf₀σ<sub>τ</sub></span><span>40 ns → 1.26 rad at 5 MHz</span><span>0.63 rad at 2.5 MHz</span></div>
+      <div class="why"><p>What destroys the coherent sum is the phase spread, and the same delay is twice the phase at twice the frequency. With \(S \approx e^{-\sigma_\phi^{2}}\), halving \(f_0\) quarters the exponent: a 40 ns screen leaves 0.67 at 2.5 MHz and 0.21 at 5 MHz (large aperture). High-frequency probes need correction most.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m33-rf-1" aria-label="Phase rms versus delay rms"></canvas></div></div>
+      <div class="limits">Narrowband; a broadband pulse averages the phase over its band, and delays beyond half a period make phase-only reasoning ambiguous.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Strehl is e<sup>−σ²</sup> for a weak screen, never much below √π ℓ/(σD) for a strong one, and squared for two-way paths.</div>
+      <div class="keynum"><span>40 ns: 0.315 exact vs 0.206</span><span>80 ns: 0.079 vs 0.073</span><span>two way E[S²] = 0.131 at 40 ns</span></div>
+      <div class="why"><p>\(\mathbb{E}[S] = N^{-2}\sum_{ij} e^{-\sigma_\phi^{2}(1-\rho_{ij})}\) <span class="eqref">(33.2)</span>: element pairs closer than \(\ell\) keep adding in phase, so a fraction of order \(\ell/(\sigma_\phi D)\) survives. 128 elements, \(\ell\) = 4 mm (m33_phase_screen_psf.m). Transmit and receive through the same screen multiply their focal amplitudes, so the two-way Strehl of a realization is \(S^{2}\) (mean 0.131 at 40 ns, against \(\mathbb{E}[S]^{2}\) = 0.099).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m33-rf-2" aria-label="Mean Strehl versus delay rms with its two limits"></canvas></div></div>
+      <div class="limits">Gaussian statistics and correlation; real body walls are layered, non-Gaussian and also modulate amplitude.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The PSF keeps its width and loses its energy, until the halo takes over.</div>
+      <div class="keynum"><span>20 ns: −6 dB width 0.40 mm, S 0.73</span><span>40 ns: 1.4 mm</span><span>halo rms s = √2 c σ<sub>τ</sub> z/ℓ</span></div>
+      <div class="why"><p>For \(\sigma_\phi &lt; 1\) the lost energy spreads into a broad, low halo while the core keeps the diffraction width (0.38 mm at F/1, 40 mm). For \(\sigma_\phi \gg 1\) the core is gone and the mean intensity is the Gaussian halo set by the rms wavefront tilt \(\sqrt2\,c\sigma_\tau/\ell\) <span class="eqref">(33.3)</span>: −6 dB width 3.33 s = 5.8 mm at 80 ns against 5.5 mm exact.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Re-plotted from the m33_phase_screen_psf.m output (Monte Carlo, 400 screens).</span><canvas id="m33-rf-3" aria-label="PSF width versus delay rms with the halo prediction"></canvas></div></div>
+      <div class="limits">Mean PSF; a single realization is a lumpy speckle-like spot, and its peak can sit off axis.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Aberration multiplies the van Cittert–Zernike curve by e<sup>−σ²(1−ρ)</sup>.</div>
+      <div class="keynum"><span>lag 10: 0.92 → 0.47</span><span>long lags → e<sup>−σ²</sup> R₀</span></div>
+      <div class="why"><p>The channel signal is \(e^{j\phi_i}u_i\) with \(u\) the speckle of Module 07; for a Gaussian screen \(\mathbb{E}[e^{j(\phi_i-\phi_j)}] = e^{-\sigma_\phi^{2}(1-\rho)}\) multiplies the triangle <span class="eqref">(33.3)</span>. At 40 ns, \(\ell\) = 4 mm: lag 10 is 0.465 by Monte Carlo against 0.467, lag 40 is 0.138 against 0.142. This is why coherence is a focus metric (Module 32) and an aberration detector.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m33-rf-4" aria-label="Coherence versus lag with and without the screen"></canvas></div></div>
+      <div class="limits">Screen on receive with an ideal transmit; an aberrated transmit narrows \(R_0\) as well, and noise lowers every lag above zero.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Nearest-neighbour integration is a random walk: σ<sub>ε</sub>√(N/15) after detrending.</div>
+      <div class="keynum"><span>raw error ∝ √k</span><span>128 elements: 2.9 σ<sub>ε</sub></span><span>element noise telescopes</span></div>
+      <div class="why"><p>Summing \(N-1\) independent differences <span class="eqref">(33.4)</span> gives a walk; Brownian motion minus its least-squares line has mean square \(T/15\) (Monte Carlo: \(N/15\) to 0.1 %). At 0 dB channel SNR the pair jitter was 4.5 ns, bound 13 ns, measured 8.3 ns: element noise enters adjacent pairs with opposite signs and partly cancels.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m33-rf-5" aria-label="Random-walk error versus number of elements"></canvas></div></div>
+      <div class="limits">Independent pair errors; a smooth bias does not drift but does not average out either.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Least squares over many lags breaks the walk; nothing breaks a bias.</div>
+      <div class="keynum"><span>0 dB: NN 8.3 → LS 4.0 ns</span><span>noiseless: 5.7 vs 6.3 ns</span></div>
+      <div class="why"><p>Extra lags give paths between distant elements that skip the intermediate errors <span class="eqref">(33.5)</span>. With noise (m33_nn_crosscorr_correction.m, pass 2) LS halves the residual and lifts the Strehl from 0.93 to 0.98. Without noise the residual is a bias common to all lags (the blurred transmit spot), and LS changes nothing.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Re-plotted from the m33_nn_crosscorr_correction.m output (16 screens, 128 elements).</span><canvas id="m33-rf-6" aria-label="Residuals of nearest-neighbour and least-squares estimates"></canvas></div></div>
+      <div class="limits">Weights need the pair correlations; very long lags decorrelate and add little.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Every speckle estimator measures the law of the spot it insonifies, so iterate the transmit.</div>
+      <div class="keynum"><span>broadband sim: 5.7 → 2.6 ns</span><span>Demo 33.3: 0.28 → 0.017 → 0.001 rad</span><span>2–3 iterations (Måsøy 2005)</span></div>
+      <div class="why"><p>\(\mathbf{C} = \mathbf{\Phi}\mathbf{C}_{\mathrm{vr}}\mathbf{\Phi}^{H}\), so the eigenvector phase is the screen plus the phase of the virtual reflector's own eigenvector <span class="eqref">(33.6)</span>, flat only for a compact, symmetric spot. Each transmit with a better law shrinks the spot. Måsøy, Varslot and Angelsen reported near-ideal correction after two to three transmit iterations.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Demo 33.3 readouts, 60 ns, ℓ = 3 mm, first screen.</span><canvas id="m33-rf-7" aria-label="Residual and eigenvalue ratio versus transmit iteration"></canvas></div></div>
+      <div class="limits">Strong aberration can lock the first pass onto a side lump of the spot; the transmit must see the same patch.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Brightness, time reversal and DORT all return the top eigenvector of a covariance.</div>
+      <div class="keynum"><span>B = w<sup>H</sup>Cw</span><span>one eigenvalue per resolved scatterer</span></div>
+      <div class="why"><p>Mean brightness is a quadratic form in the aperture covariance <span class="eqref">(33.6)</span>; iterative time reversal is power iteration on \(\mathbf{K}^{H}\mathbf{K}\); DORT diagonalizes it <span class="eqref">(33.7)</span>. Prada and Fink found four significant eigenvalues out of 96 for four wires. The figure: three points behind a 40 ns screen, 64 elements, three eigenvalues.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Monochromatic K of three point scatterers (30 mm, 3 mm apart, reflectivities 1, 0.7, 0.4) behind a screen; eigenvalues by power iteration with deflation, JS.</span><canvas id="m33-rf-8" aria-label="Eigenvalues of the time-reversal operator for three scatterers"></canvas></div></div>
+      <div class="limits">Resolved point scatterers; in speckle the spectrum decays slowly and the size of the virtual reflector decides the bias.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Outside the isoplanatic patch a correction is worse than none.</div>
+      <div class="keynum"><span>residual variance 2σ²(1 − ρ)</span><span>crossover at ρ = 1/2</span><span>Δx<sub>×</sub> = ℓz√ln2/d</span></div>
+      <div class="why"><p>A borrowed law leaves \(\phi(a+\delta) - \phi(a)\), of variance \(2\sigma_\phi^{2}(1-\rho(\delta))\), which exceeds \(\sigma_\phi^{2}\) once \(\rho &lt; 1/2\) <span class="eqref">(33.8)</span>. For d = 10 mm, \(\ell\) = 4 mm, z = 40 mm: 13.3 mm in the large-aperture limit, 11.0 mm with the finite aperture (m33_isoplanatic_patch.m).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m33-rf-9" aria-label="Strehl with a borrowed law versus screen correlation"></canvas></div></div>
+      <div class="limits">Thin Gaussian screen; thick aberrators decorrelate in depth as well.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The isoplanatic patch scales as zℓ/d.</div>
+      <div class="keynum"><span>Δx<sub>½</sub> = 16.5, 8.3, 4.3 mm</span><span>d = 5, 10, 20 mm</span><span>40 ns, ℓ 4 mm, z 40 mm</span></div>
+      <div class="why"><p>Moving the point by \(\Delta x\) slides the aperture footprint on the screen by \(\Delta x\,d/z\) <span class="eqref">(33.8)</span>, so the patch is the correlation length magnified by \(z/d\). Shallow targets under a thick near-field aberrator (the skull, for cortical vessels) are the worst case; deep targets under a thin wall are the best.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m33-rf-10" aria-label="Isoplanatic half-width versus screen depth"></canvas></div></div>
+      <div class="limits">Straight rays and one target depth; refraction and finite screen thickness change the factor.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Straight rays always overestimate the travel time.</div>
+      <div class="keynum"><span>path error ≤ 0</span><span>3.4 ns at the centre, 11 ns at −12 mm</span></div>
+      <div class="why"><p>Fermat's ray is the fastest path, so any other path, including the straight one, takes longer <span class="eqref">(33.9)</span>. With the exact map, straight-ray delays left 3.4 ns rms at the centre and 11 ns at −12 mm behind the wavy fat layer (m33_sos_map_correction.m): the forward-model error of Module 32 reappears as residual aberration.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Demo 33.5 geometry at x<sub>p</sub> = −12 mm: straight-ray minus Fermat delay across the aperture.</span><canvas id="m33-rf-11" aria-label="Straight-ray minus Fermat delay across the aperture"></canvas></div></div>
+      <div class="limits">First arrivals in smooth media; caustics and multiple arrivals need full-wave models.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A map corrects everywhere it is right; a measured law corrects exactly, but only in its patch.</div>
+      <div class="keynum"><span>mean Strehl: one law 0.43</span><span>straight-ray map 0.97</span><span>blurred map 0.93</span></div>
+      <div class="why"><p>Across ±12 mm behind the wavy layer: no correction 0.08, one law 0.43 (S ≥ 0.8 only within ±3 mm), the true map with straight rays 0.97, a 3 mm-resolution map 0.93, a 10 m/s speed bias 0.95. Each route fails differently: the law by locality, the map by resolution, bias and path model.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Re-plotted from the m33_sos_map_correction.m output.</span><canvas id="m33-rf-12" aria-label="Mean Strehl for five correction strategies"></canvas></div></div>
+      <div class="limits">One geometry; the balance shifts with aberrator depth, contrast and map quality.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The diagonal of R<sub>xx</sub> is the image; the width of its off-diagonal band is the focus.</div>
+      <div class="keynum"><span>I(Δx) = |P<sub>in</sub>|² ⋆ |P<sub>out</sub>|²</span><span>F = w₀/w (Lambert 2020)</span></div>
+      <div class="why"><p>In speckle, the mean intensity at offset \(\Delta x\) from the diagonal is the cross-correlation of the transmit and receive PSF intensities <span class="eqref">(33.10)</span>, so the focus can be measured anywhere without a guide star. The figure uses the exact mean PSF of a 30 ns and a 60 ns screen.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m33-rf-13" aria-label="Common-midpoint profile with and without aberration"></canvas></div></div>
+      <div class="limits">Single scattering; multiple scattering adds a broad off-diagonal background, which Lambert et al. used to map it.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Re-centre, correlate, take the first singular vector: the distortion matrix turns speckle into a guide star.</div>
+      <div class="keynum"><span>0.83 → 0.31 → 0.07 → 0.018 rad</span><span>Γ 0.48 → 1.00</span></div>
+      <div class="why"><p>Removing each focal point's geometric wavefront makes all points of a patch look like one virtual source <span class="eqref">(33.11)</span>; the correlation over columns averages speckle; the first singular vector carries the law; correcting the input shrinks the virtual source; repeat. Numbers from m33_distortion_matrix_svd.m, screen at the array.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Re-plotted from the m33_distortion_matrix_svd.m output (d = 0).</span><canvas id="m33-rf-14" aria-label="Residual phase and focusing quality versus iteration"></canvas></div></div>
+      <div class="limits">Needs many independent resolution cells per window and one patch per window; noise and multiple scattering bias the correlation.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Once the field spans several patches, local windows beat one global law.</div>
+      <div class="keynum"><span>Γ: global 0.69, local mean 0.86</span><span>bright point −7.6 dB vs +3.1 dB</span></div>
+      <div class="why"><p>With the screen at 8 mm (patch about 5 mm at 20 mm depth), one law for the 12 mm field is a compromise that defocuses part of it; three 4 mm windows each find their own mode (m33_distortion_matrix_svd.m). The window size is a trade: smaller is more local, larger averages more speckle.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Re-plotted from the m33_distortion_matrix_svd.m output (d = 8 mm).</span><canvas id="m33-rf-15" aria-label="Focusing quality for global and local laws"></canvas></div></div>
+      <div class="limits">Patch boundaries are not known in advance; the singular spectrum and the focus maps guide the choice.</div>
+    </div>
+    <div class="rule">
+      <div class="say">The singular spectrum of D counts patches only after you account for the virtual reflector.</div>
+      <div class="keynum"><span>σ₂/σ₁: 0.68 → 0.52 after correction</span><span>C/|C| is not positive semidefinite</span></div>
+      <div class="why"><p>Even a perfectly corrected isoplanatic window has a virtual reflector the size of the diffraction-limited spot, whose van Cittert–Zernike covariance has several significant eigenvalues (Demo 33.3 settles at \(\lambda_2/\lambda_1\) = 0.30 for a sinc² spot). Lambert et al. normalized \(\mathbf{C}\) entrywise to make the reflector point-like and counted three patches from the entropy of its eigenvalues (\(H \approx 2.85\)); that normalized matrix can have negative eigenvalues.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Re-plotted from the m33_distortion_matrix_svd.m output.</span><canvas id="m33-rf-16" aria-label="Second-to-first singular value ratio before and after correction"></canvas></div></div>
+      <div class="limits">Counting also depends on window size, noise and the frequency band used.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Width metrics saturate, energy metrics do not, and no focus metric sees a common shift.</div>
+      <div class="keynum"><span>w₀/w = 0.93 at 20 ns, 0.81 at 30 ns</span><span>E[S] = 0.73 and 0.50</span></div>
+      <div class="why"><p>The figure shows, for the exact mean PSF of a 128-element aperture, the width ratio and the Strehl versus \(\sigma_\tau\): at 30 ns the width ratio is still 0.81 while half the focal energy is gone; at 40 ns it drops to 0.27 as the core breaks up. A residual linear phase moves both foci together, warping the image without blurring it (Module 31's bias field); only known targets or registration reveal it.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m33-rf-17" aria-label="Width ratio and Strehl versus delay rms"></canvas></div></div>
+      <div class="limits">Mean-PSF statements; single realizations and point targets fluctuate.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A learned aberration corrector inherits its simulator.</div>
+      <div class="keynum"><span>forward model → training set</span><span>keep the data in the loop</span></div>
+      <div class="why"><p>A network trained on simulated screens learns the statistics of those screens: Gaussian thin screens are not an abdominal wall, a skull or a lens mismatch. Unrolled or differentiable versions of the iterations in this module (Module 14) keep the measured matrix in the loop, so a domain gap shows up as slower convergence instead of a confident wrong law.</p></div>
+      <div class="limits">A statement about generalization, not capacity.</div>
+    </div>
+  </div>
+
+  <!-- ======================= 33.10 Cheat sheet ======================= -->
+  <h2><span class="sec">33.10</span>Cheat sheet</h2>
+  <div class="tbl-wrap"><table><thead><tr><th>Concept</th><th>Formula</th><th>Ultrasound use</th></tr></thead><tbody>
+    <tr><td>Screen phase</td><td>\(\sigma_\phi = 2\pi f_0\sigma_\tau\)</td><td>0.314 rad per 10 ns at 5 MHz</td></tr>
+    <tr><td>Mean Strehl (Gaussian screen)</td><td>\(N^{-2}\sum_{ij}e^{-\sigma_\phi^{2}(1-\rho_{ij})}\)</td><td>0.315 at 40 ns, \(\ell\) 4 mm, 128 el.</td></tr>
+    <tr><td>Weak and strong limits</td><td>\(e^{-\sigma_\phi^{2}}\); \(\sqrt\pi\,\ell/(\sigma_\phi D)\)</td><td>two way ≈ \(S^{2}\)</td></tr>
+    <tr><td>Halo of a strong screen</td><td>\(s = \sqrt2\,c\sigma_\tau z/\ell\)</td><td>−6 dB width 3.33 s</td></tr>
+    <tr><td>Coherence under aberration</td><td>\(R(m) = R_0(m)\,e^{-\sigma_\phi^{2}(1-\rho(mp))}\)</td><td>lag 10: 0.92 → 0.47 at 40 ns</td></tr>
+    <tr><td>Nearest-neighbour drift</td><td>\(\sigma_\varepsilon\sqrt{N/15}\) (detrended)</td><td>2.9 \(\sigma_\varepsilon\) for 128 elements</td></tr>
+    <tr><td>Multi-lag least squares</td><td>\((\mathbf{A}^{T}\mathbf{W}\mathbf{A} + \mathbf{1}\mathbf{1}^{T})^{-1}\mathbf{A}^{T}\mathbf{W}\hat{\mathbf{d}}\)</td><td>halves the noisy residual (8.3 → 4.0 ns)</td></tr>
+    <tr><td>Brightness</td><td>\(B = \mathbf{w}^{H}\mathbf{C}\mathbf{w}\), max at \(\mathbf{u}_1\)</td><td>speckle-brightness and eigenvector laws coincide</td></tr>
+    <tr><td>DORT</td><td>\(\mathbf{K}^{H}\mathbf{K}\mathbf{v} = \lambda\mathbf{v}\), \(\mathbf{v}_s \propto \mathbf{h}_s^{*}\)</td><td>one eigenvalue per resolved scatterer</td></tr>
+    <tr><td>Footprint shift</td><td>\(\delta = \Delta x\,d/z\)</td><td>patch ∝ \(z\ell/d\)</td></tr>
+    <tr><td>Borrowed-law Strehl</td><td>\(e^{-2\sigma_\phi^{2}(1-\rho(\delta))}\)</td><td>worse than none when \(\rho &lt; 1/2\)</td></tr>
+    <tr><td>Crossover distance</td><td>\(\Delta x_\times = \ell z\sqrt{\ln 2}/d\)</td><td>13.3 mm (d 10, \(\ell\) 4, z 40 mm)</td></tr>
+    <tr><td>Map-based delays</td><td>\(T = \int_{\Gamma}\hat s\,dl\)</td><td>straight rays overestimate (path error ≤ 0)</td></tr>
+    <tr><td>Focused reflection matrix</td><td>\(\mathbf{R}_{xx} = \mathbf{G}_0^{H}\mathbf{K}\mathbf{G}_0^{*}\)</td><td>diagonal = image, band = focus</td></tr>
+    <tr><td>Distortion matrix</td><td>\(\mathbf{D} = (\mathbf{K}\mathbf{G}_0^{*}) \circ \mathbf{G}_0^{*}\), law = \(\arg\mathbf{u}_1\)</td><td>0.83 → 0.018 rad in 3 iterations</td></tr>
+    <tr><td>Power iteration</td><td>error \(\propto (\lambda_2/\lambda_1)^{n}\)</td><td>10 iterations for \(10^{-3}\) at ratio 0.5</td></tr>
+  </tbody></table></div>
+
+  <!-- ======================= 33.11 Interview ======================= -->
+  <h2><span class="sec">33.11</span>Interview and qualifying-exam questions</h2>
+  <details class="quiz"><summary><span class="q">I1</span><span>Model an abdominal-wall aberrator in two numbers and predict the focal loss at 5 MHz for 40 ns rms. <span class="muted">· screen</span></span></summary><div class="a"><p>A thin delay screen at the array: rms \(\sigma_\tau\) and correlation length \(\ell\) (Gaussian). \(\sigma_\phi = 2\pi f_0\sigma_\tau\) = 1.26 rad. Infinite-aperture Strehl \(e^{-1.58}\) = 0.21; with 128 elements and \(\ell\) = 4 mm the exact mean is 0.315 because nearby elements stay in phase; two way about 0.1. The −6 dB width hardly changes until about 30 ns, then the halo takes over. Follow-up: what if the frequency halves? \(\sigma_\phi\) halves and the exponent quarters: about 0.67.</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>Why does nearest-neighbour cross-correlation drift, and how do you fix it? <span class="muted">· screen</span></span></summary><div class="a"><p>Integrating \(N-1\) independent differences is a random walk: error \(\propto\sqrt{k}\), \(\sigma_\varepsilon\sqrt{N/15}\) after removing the mean and ramp. Fixes: weighted least squares over many lags (graph Laplacian plus a constant constraint), better SNR, longer kernels. Element noise telescopes and does not drift. Follow-up: in bright speckle the jitter is sub-ns but the residual is 5.7 ns; why? A bias from the blurred transmit spot, removed by transmitting with the estimate and re-measuring.</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>Show that speckle-brightness maximization and DORT give the same aberration law. <span class="muted">· onsite</span></span></summary><div class="a"><p>Brightness of the beamformed pixel is \(\mathbf{w}^{H}\mathbf{C}\mathbf{w}\) with \(\mathbf{C}\) the aperture covariance, maximized over \(\lVert\mathbf{w}\rVert^{2} = N\) by the dominant eigenvector. Iterative time reversal is power iteration on \(\mathbf{K}^{H}\mathbf{K}\), and DORT diagonalizes it; for speckle behind a focused transmit, \(\mathbf{C} = \mathbf{\Phi}\mathbf{C}_{\mathrm{vr}}\mathbf{\Phi}^{H}\), so the eigenvector is the screen times the eigenvector of the virtual reflector. Follow-up: when is that second factor flat? When the insonified spot is compact and symmetric, which is why you iterate.</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>Derive the isoplanatic patch for a thin screen at depth d. When is a correction worse than none? <span class="muted">· onsite</span></span></summary><div class="a"><p>The straight ray from \(x_u\) to \((x_p, z)\) crosses the screen at \(x_u(1-d/z) + x_p d/z\); moving the point by \(\Delta x\) shifts the footprint by \(\delta = \Delta x\,d/z\). The borrowed law leaves a residual of variance \(2\sigma_\phi^{2}(1-\rho(\delta))\): Strehl \(e^{-2\sigma_\phi^{2}(1-\rho)}\), worse than uncorrected when \(\rho &lt; 1/2\), at \(\Delta x_\times = \ell z\sqrt{\ln 2}/d\) = 13.3 mm for \(\ell\) 4, z 40, d 10 mm. Follow-up: finite aperture? The crossover moves in (11.0 mm) because the uncorrected Strehl is higher than \(e^{-\sigma_\phi^{2}}\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>You have a CUTE sound-speed map from Module 32. Turn it into an aberration correction and write its error budget. <span class="muted">· onsite</span></span></summary><div class="a"><p>Integrate slowness from every element to every pixel (straight rays or eikonal) and beamform with those times. Errors: map resolution (a low-pass truth: 3 mm blur cost 8.2 against 5.2 ns rms in m33_sos_map_correction.m), map bias (a 10 m/s error in the fat speed: 7.3 ns, mostly defocus), path model (straight rays always overestimate times: 3–11 ns behind a wavy fat layer), and the mean speed CUTE cannot see. Follow-up: how would you check it in vivo? Measure the residual law with a matrix method; a large smooth residual points to the mean or the path model.</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>What is the focused reflection matrix, and how does it measure focusing without a point target? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(\mathbf{R}_{xx} = \mathbf{G}_0^{H}\mathbf{K}\mathbf{G}_0^{*}\): responses between virtual transducers at \(x_{\mathrm{in}}\) and \(x_{\mathrm{out}}\) after focusing in software. The diagonal is the confocal image; in speckle the mean intensity versus offset is the cross-correlation of transmit and receive PSF intensities, so its width (Lambert et al.'s \(F = w_0/w\)) or its confocal energy fraction measures the local focus anywhere. Follow-up: what spoils it? Multiple scattering adds a broad background (useful in itself) and noise adds a floor.</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>Walk through distortion-matrix correction. Why re-centre, why SVD, why iterate, and how big should the window be? <span class="muted">· research</span></span></summary><div class="a"><p>Focus on transmit, keep element receive, multiply each column by the conjugate geometric wavefront of its focal point: every point of a patch now looks like one virtual source at the origin through the same screen. \(\mathbf{D}\mathbf{D}^{H}\) averages the speckle over the columns; its first singular vector is screen × virtual-reflector eigenvector. Correcting the input shrinks the reflector, so iterate (0.83 → 0.018 rad in three steps in the script). Window: many resolution cells for averaging, smaller than a patch; Lambert et al. shrank it from 12 × 16 to 6.2 × 8.1 mm. Follow-up: transmit vs receive laws with plane-wave transmits? Estimate both, alternating sides.</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>Your speckle-based estimator converges, but the image is shifted relative to CT. What happened? <span class="muted">· research</span></span></summary><div class="a"><p>A residual linear phase (tilt) is unobservable from speckle: it moves both foci together, so focus metrics (Γ, F, CF) look perfect while every point is displaced, a bias field as in Module 31's transcranial ULM. Remedies: anchor the tilt with known targets, a sound-speed map, or bubbles as guide stars with known geometry; in matrix methods watch for linear ramps removed during the estimation. Follow-up: how big? 10 ns across 10 mm at 50 mm depth moves a point by 77 µm (Module 31).</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>What breaks when you move from abdominal wall to transcranial imaging, and what do you do instead? <span class="muted">· research</span></span></summary><div class="a"><p>Bone is about twice as fast, attenuating and variable in thickness, so amplitude matters as much as phase, the aberrator is thick (finite patches in depth) and \(d/z\) is large for shallow targets (small patches). Options: CT-based priors (map route), guide stars (Robin et al. 2022 derived one aberration law per isoplanatic patch from microbubble echoes; Demené et al. 2021 used adaptive speckle tracking), 3D matrix imaging with 2D arrays (Bureau et al. 2023). Follow-up: what is the cheapest first step? Lower frequency: the same delays cost a quarter of the phase variance at half the frequency.</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>Which metrics would you report for a new aberration-correction method, and which would you avoid? <span class="muted">· research</span></span></summary><div class="a"><p>A Strehl-like or energy-fraction focus measure (Γ or the confocal energy), point-target FWHM where available, gCNR with region sizes (Module 26), and target positions for geometric fidelity; all before and after, at several depths and lateral positions to show the patch. Avoid CF or SLSC images as the main evidence (they reward noise suppression too) and contrast in dB on a display range chosen afterwards. Follow-up: why not FWHM alone? It saturates: 0.38 → 0.40 mm at 20 ns while the Strehl is already 0.73.</p></div></details>
+  <details class="quiz"><summary><span class="q">I11</span><span>Propose a method that combines a sound-speed map and a matrix estimate. What does each contribute? <span class="muted">· research</span></span></summary><div class="a"><p>Use the map (Module 32) to compute space-variant starting delays, so the residual aberration is small and the patch large; then estimate the residual laws with local distortion matrices, which converge fast because the virtual reflector is already compact. Feed the residual delays back as tomographic data with the correct (bent-ray) forward model to update the map, and iterate. The map supplies locality and the tilt/mean anchor; the matrix supplies the measured truth where the map's resolution, bias or path model fail. Follow-up: what would you validate first? On a phantom with a known aberrator, compare map-only, matrix-only and combined Γ maps and target positions.</p></div></details>
+
+  <!-- ======================= 33.12 MATLAB ======================= -->
+  <h2><span class="sec">33.12</span>MATLAB lab</h2>
+  <div class="prose"><p class="code-note">Base MATLAB only (no toolboxes); each script runs as-is in MATLAB R2019b+ and GNU Octave 8. Paste into the editor and press Run. The numbers below are the Octave output.</p></div>
+  <details class="code">
+    <summary><span class="fname">m33_phase_screen_psf.m</span><button class="copy" type="button">Copy</button><span class="what">Gaussian screen on 128 elements: Monte Carlo Strehl against the exact mean and both limits, mean PSF width against the halo, receive coherence against <span class="eqref">(33.3)</span> · change sig_list, ell, f0, z · runtime ≈ 5 s</span></summary>
+    <pre><code data-file="matlab/m33_phase_screen_psf.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> Strehl (Monte Carlo / exact / \(e^{-\sigma_\phi^{2}}\)) 0.920/0.922/0.906 at 10 ns, 0.730/0.727/0.674 at 20 ns, 0.311/0.315/0.206 at 40 ns, 0.078/0.079/0.002 at 80 ns, where the asymptote gives 0.073; two way 0.131 at 40 ns. The −6 dB width of the mean PSF: 0.380 mm without the screen, 0.400 at 20 ns, 1.38 at 40 ns, 5.58 at 80 ns (halo prediction 5.80). Coherence at 40 ns: lag 10 0.465 (formula 0.467), lag 40 0.138 (0.142).</p></div>
+  <details class="code">
+    <summary><span class="fname">m33_nn_crosscorr_correction.m</span><button class="copy" type="button">Copy</button><span class="what">Broadband speckle channel data through a 40 ns screen: nearest-neighbour integration versus multi-lag least squares, one transmit iteration, noiseless and 0 dB SNR · change sig_tau, ell, Lmax, snr_list · runtime ≈ 10 s</span></summary>
+    <pre><code data-file="matlab/m33_nn_crosscorr_correction.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> detrended screen 33.3 ns, Strehl 0.304. Noiseless: adjacent correlation 0.992, pair jitter 0.68 ns, residual 5.74 ns (NN) and 6.34 ns (LS), Strehl 0.965/0.956; after one transmit iteration 2.62/2.67 ns, Strehl 0.992. At 0 dB SNR: correlation 0.50, jitter 4.5–4.6 ns; pass 1 NN 10.5 and LS 7.9 ns; pass 2 NN 8.31 and LS 3.98 ns (Strehl 0.932 and 0.984), against a random-walk bound of 13.1 ns.</p></div>
+  <details class="code">
+    <summary><span class="fname">m33_distortion_matrix_svd.m</span><button class="copy" type="button">Copy</button><span class="what">Reflection, focused and distortion matrices of a simulated speckle layer behind a screen; first singular vector, iteration, Γ, global versus local windows · change sig_tau, ell, d_scr, n_iter · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m33_distortion_matrix_svd.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> screen at the array: residual 0.827, 0.314, 0.070, 0.018 rad (Strehl 0.495 → 1.000) and Γ 0.48, 0.87, 0.99, 1.00 over iterations 0–3; σ₂/σ₁ from 0.677 to 0.515; the bright point gains 2.8 dB. Screen at 8 mm: global Γ 0.48 → 0.69, windows 0.41 → 0.75, 0.65 → 0.93, 0.42 → 0.88 (mean 0.86); the bright point loses 7.6 dB with the global law and gains 3.1 dB with its local law.</p></div>
+  <details class="code">
+    <summary><span class="fname">m33_isoplanatic_patch.m</span><button class="copy" type="button">Copy</button><span class="what">One law applied across the field for a screen at 5, 10 and 20 mm: Monte Carlo against the exact finite-aperture formula, patch widths and the crossover · change sig_tau, ell, d_list, z · runtime ≈ 25 s</span></summary>
+    <pre><code data-file="matlab/m33_isoplanatic_patch.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> uncorrected Strehl 0.315 (screen at the array). At d = 10 mm the Monte Carlo Strehl at 2, 4 and 8 mm is 0.952, 0.827, 0.517 against 0.953, 0.831, 0.522 exact; half-widths 16.52, 8.32 and 4.31 mm for d = 5, 10, 20 mm; crossovers 22.5, 11.0 and 5.1 mm against \(\Delta x_\times\) = 26.6, 13.3 and 6.7 mm; large-aperture half-width 7.96 mm at d = 10 mm.</p></div>
+  <details class="code">
+    <summary><span class="fname">m33_sos_map_correction.m</span><button class="copy" type="button">Copy</button><span class="what">Wavy fat layer: Fermat travel times against one measured law, straight rays through the true, a blurred and a biased map · change c_fat, amp, per, blur_mm, dc_bias · runtime ≈ 4 s</span></summary>
+    <pre><code data-file="matlab/m33_sos_map_correction.m"></code></pre>
+  </details>
+  <div class="prose"><p><strong>What to look for:</strong> mean over ±12 mm: none 45.0 ns (Strehl 0.08), one law 30.3 ns (0.43; S ≥ 0.8 only within ±3 mm), straight-ray map 5.2 ns (0.97), blurred map 8.2 ns (0.93), biased fat speed 7.3 ns (0.95). The straight-ray residual is 3.4 ns at the centre and 11.1 ns at −12 mm: the path error alone.</p></div>
+
+  <!-- ======================= 33.13 Self-check ======================= -->
+  <h2><span class="sec">33.13</span>Self-check</h2>
+  <details class="quiz"><summary><span class="q">Q1</span><span>A 25 ns rms screen at 7.5 MHz. σ<sub>φ</sub> and the large-aperture Strehl?</span></summary><div class="a"><p>\(\sigma_\phi = 2\pi \times 7.5\times10^{6} \times 25\times10^{-9}\) = 1.18 rad; \(e^{-1.388}\) = 0.25 (higher with a finite aperture).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>Nearest-neighbour pair jitter 2 ns on a 192-element array, independent pairs. rms error after removing mean and ramp?</span></summary><div class="a"><p>\(2\sqrt{192/15}\) = 7.2 ns.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>Screen at 15 mm, ℓ = 5 mm, target depth 60 mm. Beyond what lateral distance is a borrowed law worse than none (large aperture)?</span></summary><div class="a"><p>\(\Delta x_\times = \ell z\sqrt{\ln 2}/d\) = 5 × 60 × 0.833 / 15 = 16.7 mm.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>Same geometry, σ<sub>φ</sub> = 1.5 rad. Isoplanatic half-width at S = 1/2?</span></summary><div class="a"><p>\(\ln 2/(2 \times 2.25)\) = 0.154; \(\sqrt{-\ln(1 - 0.154)}\) = 0.409; × \(z\ell/d\) = 20 mm gives 8.2 mm.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>Power iteration on a correlation matrix with λ<sub>2</sub>/λ<sub>1</sub> = 0.5. Iterations to reach an error of 10<sup>−3</sup>?</span></summary><div class="a"><p>\(n = \ln 10^{-3}/\ln 0.5\) = 10.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>30 ns rms at 5 MHz, the same screen on transmit and receive. Large-aperture two-way Strehl?</span></summary><div class="a"><p>One way \(e^{-0.888}\) = 0.41; two way about \(0.41^{2}\) = 0.17.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>60 ns, ℓ = 4 mm, focus at 40 mm. Predicted −6 dB width of the mean PSF?</span></summary><div class="a"><p>\(s = \sqrt2 \times 1540 \times 60\times10^{-9} \times 0.04/0.004\) = 1.31 mm; 3.33 s = 4.35 mm (the script measures 3.50 mm by Monte Carlo and 3.62 mm exact: at σ<sub>φ</sub> = 1.9 rad a remnant of the core still narrows the −6 dB width).</p></div></details>
+
+  <!-- ======================= 33.14 Literature ======================= -->
+  <h2><span class="sec">33.14</span>Figures from the literature</h2>
+  <div class="prose"><p>Measured data behind the models of this module. Figure numbers follow the published versions (checked against arXiv 1912.05417v2, 1911.03147 and 2103.02036v3, which match them); links only, no images reproduced.</p></div>
+  <div class="litfig"><h4>The distortion matrix on a phantom behind a plexiglass aberrator</h4>
+    <p class="cite">W. Lambert, L. A. Cobus, T. Frappart, M. Fink and A. Aubry, "Distortion matrix approach for ultrasound imaging of human soft tissues," Proc. Natl. Acad. Sci. U.S.A. 117(26), 14645–14656 (2020); preprint arXiv:1912.05417 (under the title "… of random scattering media"). <a href="https://doi.org/10.1073/pnas.1921533117" target="_blank" rel="noopener">doi:10.1073/pnas.1921533117</a></p>
+    <p><b>Look at Fig. 4</b> (time-reversal reading of D: each focused input gives a tilted wavefront in the far field, removing the tilt gives D, its correlation matrix acts as a virtual reflector shaped like the focal spot, and normalization makes it point-like), <b>Fig. 5</b> (normalized eigenvalues of the correlation matrix, phases of the first three eigenvectors, entropy versus model speed, and confocal and Strehl maps corrected with each of the three eigenvectors) and <b>Supplementary Fig. S2</b> (phases of the reflection matrix, of the free-space propagation matrix and of the distortion matrix at 30 mm: the hidden correlations appear only in D), with <b>Fig. 2</b> for the images and Strehl maps before and after. <b>Why:</b> it is Demo 33.6 on measured data, in the plane-wave receive basis: 15 mm of plexiglass (about 2750 m/s) on a 1542 m/s phantom, entropy H ≈ 2.85 hence three isoplanatic modes, a full-field Strehl of about 0.4 and a 14 dB contrast gain; Fig. 6 repeats it in vivo on a calf.</p></div>
+  <div class="litfig"><h4>The focused reflection matrix: focusing criterion, sound speed and multiple scattering</h4>
+    <p class="cite">W. Lambert, L. A. Cobus, M. Couade, M. Fink and A. Aubry, "Reflection matrix approach for quantitative imaging of scattering media," Phys. Rev. X 10, 021048 (2020); preprint arXiv:1911.03147. <a href="https://doi.org/10.1103/PhysRevX.10.021048" target="_blank" rel="noopener">doi:10.1103/PhysRevX.10.021048</a></p>
+    <p><b>Look at Fig. 2</b> (R<sub>xx</sub> at 18 and 30 mm under bovine tissue, the focusing criterion F versus the assumed speed, and the optimized speeds of 1573 and 1546 m/s), <b>Fig. 3</b> (maps of F for the homogeneous and the two-layer models) and <b>Fig. 6</b> (in vivo liver with a four-layer speed model and a map of the multiple-scattering ratio). <b>Why:</b> Fig. 2 is <span class="eqref">(33.10)</span> on real data and the link to Module 32: the same matrix measures focus, speed and multiple scattering.</p></div>
+  <div class="litfig"><h4>Local laws over many patches, in vivo</h4>
+    <p class="cite">W. Lambert, L. A. Cobus, J. Robin, M. Fink and A. Aubry, "Ultrasound matrix imaging. Part II: The distortion matrix for aberration correction over multiple isoplanatic patches," IEEE Trans. Med. Imaging (2022). <a href="https://doi.org/10.1109/TMI.2022.3199483" target="_blank" rel="noopener">doi:10.1109/TMI.2022.3199483</a>; preprint <a href="https://arxiv.org/abs/2103.02036" target="_blank" rel="noopener">arXiv:2103.02036</a></p>
+    <p><b>Look at Fig. 1</b> (R<sub>xx</sub> of a gallbladder at 39 mm: original, after the confocal filter, after the first and the fourth correction), <b>Fig. 6</b> (the correlation matrix over one area, its normalized eigenvalues, the first two eigenvectors and the phase law before and after ramp removal), <b>Fig. 7</b> (focusing factor versus depth for several correction schemes) and <b>Fig. 8</b> (numerical validation with true and estimated laws). <b>Why:</b> Fig. 6 shows the ramp ambiguity of Section 33.6 explicitly, and Fig. 7 shows where the correction saturates with depth.</p></div>
+  <div class="litfig"><h4>DORT: one eigenvalue per scatterer, one focusing law per eigenvector</h4>
+    <p class="cite">C. Prada and M. Fink, "Eigenmodes of the time reversal operator: a solution to selective focusing in multiple-target media," Wave Motion 20, 151–163 (1994). <a href="https://pontlevis.institut-langevin.espci.fr/IMG/pdf/PradaFink_WaveMotion_1994.pdf" target="_blank" rel="noopener">author PDF (Institut Langevin)</a></p>
+    <p><b>Look at Fig. 10</b> (the 96 eigenvalues of the time-reversal operator for four wires: four significant) and <b>Fig. 11</b> (phase laws of the first four eigenvectors and the fields they produce, each focused on one wire); <b>Figs. 14–16</b> repeat it for two spheres. <b>Why:</b> the measured version of <span class="eqref">(33.7)</span> and of Module 06's DORT rule.</p></div>
+  <div class="litfig"><h4>Per-patch aberration laws from microbubbles, through the human skull</h4>
+    <p class="cite">C. Demené, J. Robin, A. Dizeux, B. Heiles, M. Pernot, M. Tanter and F. Perren, "Transcranial ultrafast ultrasound localization microscopy of brain vasculature in patients," Nat. Biomed. Eng. 5, 219–228 (2021). <a href="https://doi.org/10.1038/s41551-021-00697-x" target="_blank" rel="noopener">doi:10.1038/s41551-021-00697-x</a></p>
+    <p><b>Look at</b> the aberration-correction comparison in the Methods and Supplementary Information (ULM with and without correction, with the microbubble echoes used to derive the laws); the supplementary figure number could not be verified for this entry, so none is quoted. <b>Why:</b> the isoplanatic patch of Section 33.4 and the guide-star logic of Section 33.3, applied in patients, and the reason Module 31 corrects before localizing.</p></div>
+
+  <!-- ======================= 33.15 Go deeper ======================= -->
+  <h2><span class="sec">33.15</span>Go deeper</h2>
+  <ul class="refs">
+    <li>S. W. Flax and M. O'Donnell, "Phase-aberration correction using signals from point reflectors and diffuse scatterers: basic principles," IEEE Trans. Ultrason. Ferroelectr. Freq. Control (1988). <a href="https://doi.org/10.1109/58.9333" target="_blank" rel="noopener">doi:10.1109/58.9333</a>; and the companion "…: measurements" by M. O'Donnell and S. W. Flax (1988), <a href="https://doi.org/10.1109/58.9334" target="_blank" rel="noopener">doi:10.1109/58.9334</a>. Nearest-neighbour correlation (Section 33.2).</li>
+    <li>L. Nock, G. E. Trahey and S. W. Smith, "Phase aberration correction in medical ultrasound using speckle brightness as a quality factor," J. Acoust. Soc. Am. 85(5), 1819–1833 (1989). <a href="https://doi.org/10.1121/1.397889" target="_blank" rel="noopener">doi:10.1121/1.397889</a>. D. Zhao and G. E. Trahey, "Comparisons of image quality factors for phase aberration correction with diffuse and point targets: theory and experiments," IEEE Trans. Ultrason. Ferroelectr. Freq. Control 38(2), 125–132 (1991). <a href="https://doi.org/10.1109/58.68469" target="_blank" rel="noopener">doi:10.1109/58.68469</a>.</li>
+    <li>R. Mallart and M. Fink, "The van Cittert–Zernike theorem in pulse echo measurements," J. Acoust. Soc. Am. 90(5), 2718–2727 (1991), and "Adaptive focusing in scattering media through sound-speed inhomogeneities: the van Cittert Zernike approach and focusing criterion," J. Acoust. Soc. Am. 96(6), 3721–3732 (1994). The virtual-source reading of speckle covariance and the coherence-based focusing criterion (Section 33.3).</li>
+    <li>T. Varslot, E. Mo, B. Angelsen and H. Krogstad, "Eigenfunction analysis of stochastic backscatter for characterization of acoustic aberration in medical ultrasound imaging," J. Acoust. Soc. Am. 115(6), 3068–3076 (2004); S.-E. Måsøy, T. Varslot and B. Angelsen, "Iteration of transmit-beam aberration correction in medical ultrasound imaging," J. Acoust. Soc. Am. 117(1), 450–461 (2005): close to ideal correction after two to three transmit-beam iterations for all eight aberrators tested.</li>
+    <li>S. Kang et al., "High-resolution adaptive optical imaging within thick scattering media using closed-loop accumulation of single scattering," Nat. Commun. 8 (2017). <a href="https://doi.org/10.1038/s41467-017-02117-8" target="_blank" rel="noopener">doi:10.1038/s41467-017-02117-8</a>. CLASS, the optical ancestor of alternating input/output correction.</li>
+    <li>F. Bureau, J. Robin, A. Le Ber, W. Lambert, M. Fink and A. Aubry, "Three-dimensional ultrasound matrix imaging," Nat. Commun. 14 (2023). <a href="https://doi.org/10.1038/s41467-023-42338-8" target="_blank" rel="noopener">doi:10.1038/s41467-023-42338-8</a>.</li>
+    <li>R. Ali, T. Brevett, D. Hyun, L. L. Brickson and J. J. Dahl, "Distributed aberration correction techniques based on tomographic sound speed estimates," IEEE Trans. Ultrason. Ferroelectr. Freq. Control 69(5), 1714–1726 (2022). <a href="https://doi.org/10.1109/TUFFC.2022.3162836" target="_blank" rel="noopener">doi:10.1109/TUFFC.2022.3162836</a>. The map route of Section 33.5.</li>
+    <li>Lab cross-links: phase screen as a diagonal matrix, focused basis (<a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 05</a>); SVD, power iteration, DORT (<a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 06</a>); van Cittert–Zernike (<a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 07</a>); delay estimation (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 11</a>); CRLB (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 12</a>); least squares and regularization (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 13</a>); autofocus, Wirtinger gradients, cycle skipping (<a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 14</a>); gCNR (<a href="{{PART4_URL}}" target="_blank" rel="noopener">Module 26</a>); plane-wave compounding (<a href="{{PART4_URL}}" target="_blank" rel="noopener">Module 23</a>); CF, SLSC (<a href="{{PART4_URL}}" target="_blank" rel="noopener">Module 25</a>); full-wave simulators for validation (<a href="{{PART3_URL}}" target="_blank" rel="noopener">Module 21</a>); refraction (<a href="{{PART3_URL}}" target="_blank" rel="noopener">Module 15</a>); ULM bias field and transcranial ULM (<a href="#m31">Module 31</a>); sound-speed maps (<a href="#m32">Module 32</a>).</li>
+  </ul>
+<!-- @@SECTION-END -->
+
+
+
+
+
+  <div class="next"><a href="#m32">← 32 Sound-speed estimation</a><a href="#home">Part V home →</a></div>
+</section>
+
+<style>
+#m33 .prov-legend .prov, #m33 .rule-fig .prov, #m33 .m33-fig .fh .prov { margin-left: 0; }
+#m33 .demo-head .prov-note { flex-basis: 100%; }
+#m33 .rule-fig .prov-note { margin: 0 0 4px; }
+#m33 .m33-fig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 12px; margin: 18px 0; }
+#m33 .m33-fig .fh { font-size: 0.9rem; margin-bottom: 6px; }
+#m33 .m33-fig .mx-scroll > svg { display: block; width: 100%; height: auto; min-width: 640px; }
+#m33 .m33-fig text { font: 12px var(--f-mono); fill: var(--ink); }
+#m33 .m33-fig text.m { fill: var(--muted); }
+#m33 .m33-fig text.s { font-size: 11px; fill: var(--muted); }
+#m33 .m33-fig text.t { font-weight: 600; font-size: 12.5px; }
+#m33 .litfig h4 { margin: 0 0 4px; font-size: 0.98rem; }
+#m33 .litfig p { margin: 4px 0; }
+#m33 .stage canvas + canvas { margin-top: 8px; }
+#m33 .controls select { width: 100%; }
+</style>
+<script>
+(function () {
+const $ = id => document.getElementById(id);
+const PI = Math.PI, TAU = 2 * PI, C0 = 1540, PITCH = 0.3e-3;
+const Mm = () => Lab.mini;
+const fmt = (v, d) => Lab.fmt(v, d);
+const L10 = Math.log10;
+
+/* ---------- shared helpers ---------- */
+function fig(cv, h, xr, yr, o) { const M = Mm(); const S = M.size(cv, h); const m = M.panel(S.x, { x: 8, y: 16, w: S.w - 16, h: h - 36 }, xr, yr, Object.assign({ base: yr[0], yaxis: false }, o || {})); return { x: S.x, m, w: S.w, h }; }
+function poly(x, m, xs, ys, col, o) { o = o || {}; x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.beginPath();
+  for (let i = 0; i < xs.length; i++) { const px = m.X(xs[i]), py = m.Y(ys[i]); i ? x.lineTo(px, py) : x.moveTo(px, py); } x.strokeStyle = col; x.lineWidth = o.w || 1.7; if (o.dash) x.setLineDash(o.dash); x.stroke(); x.restore(); }
+function dot(x, m, X, Y, col, r) { x.save(); x.fillStyle = col; x.beginPath(); x.arc(m.X(X), m.Y(Y), r || 3, 0, 7); x.fill(); x.restore(); }
+function vline(x, m, X, col, lab, dy) { x.save(); x.strokeStyle = col; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(m.X(X) + 0.5, m.b.y); x.lineTo(m.X(X) + 0.5, m.b.y + m.b.h); x.stroke(); x.restore(); if (lab) Mm().text(x, lab, m.X(X) + 3, m.b.y + 6 + (dy || 0), col); }
+function hl(ctx, ax, y, col, dash) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.setLineDash(dash || [4, 3]); ctx.beginPath(); ctx.moveTo(ax.box.x, ax.Y(y)); ctx.lineTo(ax.box.x + ax.box.w, ax.Y(y)); ctx.stroke(); ctx.restore(); }
+function vl(ctx, ax, X, col, dash) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.setLineDash(dash || [4, 3]); ctx.beginPath(); ctx.moveTo(ax.X(X), ax.box.y); ctx.lineTo(ax.X(X), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
+function label(ctx, s, x, y, col) { const c = Lab.colors(); ctx.save(); ctx.font = '11px ' + c.mono; ctx.fillStyle = col || c.fg; ctx.fillText(s, x, y); ctx.restore(); }
+const H = 132, RH = 120;
+const elems = (n, p) => { const a = new Float64Array(n); for (let i = 0; i < n; i++) a[i] = (i - (n - 1) / 2) * p; return a; };
+/* Gaussian random screen: white noise on a grid convolved with exp(-2x^2/l^2) (autocorrelation exp(-dx^2/l^2)), unit variance */
+function makeScreen(seed, ell, x0, x1) {
+  const r = Lab.rng(seed), dx = Math.min(ell / 8, 0.1e-3), a = x0 - 3 * ell, n = Math.ceil((x1 + 3 * ell - a) / dx) + 1, w = new Float64Array(n);
+  for (let i = 0; i < n; i++) w[i] = r.g();
+  const K = Math.ceil(2.6 * ell / dx); let e = 0; for (let k = -K; k <= K; k++) { const g = Math.exp(-2 * (k * dx / ell) ** 2); e += g * g; } const nrm = 1 / Math.sqrt(e);
+  return x => { const c = (x - a) / dx, i0 = Math.max(0, Math.ceil(c - K)), i1 = Math.min(n - 1, Math.floor(c + K)); let s = 0; for (let i = i0; i <= i1; i++) { const u = (i - c) * dx / ell; s += w[i] * Math.exp(-2 * u * u); } return s * nrm; };
+}
+function detrend(v, xs) { const n = v.length; let sx = 0, sy = 0, sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { sx += xs[i]; sy += v[i]; sxx += xs[i] * xs[i]; sxy += xs[i] * v[i]; }
+  const b = (n * sxy - sx * sy) / (n * sxx - sx * sx), a0 = (sy - b * sx) / n; const o = new Float64Array(n); for (let i = 0; i < n; i++) o[i] = v[i] - a0 - b * xs[i]; return o; }
+function unwrapArr(v) { const o = Float64Array.from(v); for (let i = 1; i < o.length; i++) { let d = o[i] - o[i - 1]; d -= TAU * Math.round(d / TAU); o[i] = o[i - 1] + d; } return o; }
+const rmsOf = v => { let s = 0; for (const a of v) s += a * a; return Math.sqrt(s / v.length); };
+const strehlOf = ph => { let r = 0, i = 0; for (const a of ph) { r += Math.cos(a); i += Math.sin(a); } return (r * r + i * i) / (ph.length * ph.length); };
+/* exact mean Strehl of a Gaussian screen on N elements at pitch p (lag form of (33.2)) */
+function meanStrehl(N, p, sp, ell) { let s = N; for (let m = 1; m < N; m++) s += 2 * (N - m) * Math.exp(-sp * sp * (1 - Math.exp(-((m * p / ell) ** 2)))); return s / (N * N); }
+
+/* ================= Demo 33.1 ================= */
+(function () {
+  let seed = 11;
+  const N = 128, xe = elems(N, PITCH), Z = 0.04;
+  function draw() {
+    const c = Lab.colors();
+    const sigNs = +$('m33-d1-sig').value, ell = +$('m33-d1-ell').value * 1e-3, f0 = +$('m33-d1-f').value * 1e6, way = +$('m33-d1-way').value;
+    $('m33-d1-sig-out').textContent = sigNs + ' ns'; $('m33-d1-ell-out').textContent = fmt(ell * 1e3) + ' mm'; $('m33-d1-f-out').textContent = fmt(f0 / 1e6) + ' MHz';
+    const k = TAU * f0 / C0, sp = TAU * f0 * sigNs * 1e-9;
+    const scr = makeScreen(seed, ell, xe[0], xe[N - 1]); const tau = Array.from(xe, x => scr(x) * sigNs); const ph = tau.map(t => TAU * f0 * t * 1e-9);
+    /* screen panel */
+    let g = Lab.canvas($('m33-d1-scr'), 170); const tmax = Math.max(20, ...tau.map(Math.abs)) * 1.1;
+    let ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [-19.2, 19.2], [-tmax, tmax], { xlabel: 'element position x (mm)', ylabel: 'τ (ns)' });
+    ax.clip(); Lab.line(g.ctx, ax, Array.from(xe, v => v * 1e3), tau, c.accent, 2); hl(g.ctx, ax, sigNs, c.muted); hl(g.ctx, ax, -sigNs, c.muted);
+    const cyc = 1e9 / f0; hl(g.ctx, ax, cyc / 2, c.sig3, [2, 3]); hl(g.ctx, ax, -cyc / 2, c.sig3, [2, 3]); ax.unclip();
+    label(g.ctx, '±σ', ax.box.x + 4, ax.Y(sigNs) - 3, c.muted); label(g.ctx, '±T/2', ax.box.x + ax.box.w - 40, ax.Y(cyc / 2) - 3, c.sig3);
+    /* PSF panel */
+    const nx = 321, xs = [], I0 = [], I1 = [], Im = []; let pk1 = 0;
+    for (let q = 0; q < nx; q++) { const x = -4e-3 + 8e-3 * q / (nx - 1); xs.push(x * 1e3); let ar = 0, ai = 0, br = 0, bi = 0;
+      for (let i = 0; i < N; i++) { const a = -k * xe[i] * x / Z; br += Math.cos(a); bi += Math.sin(a); ar += Math.cos(a + ph[i]); ai += Math.sin(a + ph[i]); }
+      let i0 = (br * br + bi * bi) / (N * N), i1 = (ar * ar + ai * ai) / (N * N); if (way === 2) { i0 *= i0; i1 *= i1; } I0.push(i0); I1.push(i1);
+      let s = N; for (let m = 1; m < N; m++) s += 2 * (N - m) * Math.exp(-sp * sp * (1 - Math.exp(-((m * PITCH / ell) ** 2)))) * Math.cos(k * m * PITCH * x / Z); Im.push(s / (N * N)); }
+    const dB = v => Math.max(-45, 10 * L10(v + 1e-12));
+    g = Lab.canvas($('m33-d1-psf'), 200);
+    ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [-4, 4], [-45, 0], { xlabel: 'lateral position at 40 mm (mm)', ylabel: way === 2 ? 'two-way intensity (dB)' : 'intensity (dB)' });
+    ax.clip(); Lab.line(g.ctx, ax, xs, I0.map(dB), c.muted, 1.3); if (way === 1) Lab.line(g.ctx, ax, xs, Im.map(dB), c.sig2, 1.6, [5, 3]); Lab.line(g.ctx, ax, xs, I1.map(dB), c.accent, 1.8); ax.unclip();
+    /* coherence panel */
+    const ms = [], R0 = [], R1 = []; for (let m = 0; m < N; m += 1) { ms.push(m); R0.push(1 - m / N); R1.push((1 - m / N) * Math.exp(-sp * sp * (1 - Math.exp(-((m * PITCH / ell) ** 2))))); }
+    g = Lab.canvas($('m33-d1-coh'), 170);
+    ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [0, 127], [0, 1.02], { xlabel: 'receive lag m (elements)', ylabel: 'coherence' });
+    ax.clip(); Lab.line(g.ctx, ax, ms, R0, c.muted, 1.3); Lab.line(g.ctx, ax, ms, R1, c.sig2, 2); ax.unclip();
+    /* readouts */
+    const S1 = strehlOf(ph), ES = meanStrehl(N, PITCH, sp, ell);
+    const w6 = arr => width6(xs, Array.from(arr));   /* -6 dB (intensity 1/4) width, mm, interpolated at the crossings */
+    $('m33-d1-read').innerHTML = 'σ<sub>φ</sub> = <b>' + sp.toFixed(2) + '</b> rad (' + fmt(sigNs * f0 / 1e9 * 360, 0) + '° of a period)' +
+      '<br>Strehl, this screen: <b>' + (way === 2 ? (S1 * S1).toFixed(3) + '</b> (two way)' : S1.toFixed(3) + '</b>') +
+      '<br>E[S] one way, exact <span class="eqref">(33.2)</span>: <b>' + ES.toFixed(3) + '</b>; e<sup>−σ²</sup> = ' + Math.exp(-sp * sp).toFixed(3) + '; √π ℓ/(σ<sub>φ</sub>D) = ' + (sp > 0 ? (Math.sqrt(PI) * ell / (sp * N * PITCH)).toFixed(3) : '∞') +
+      '<br>−6 dB width: ' + fmt(w6(I0), 2) + ' mm without, <b>' + fmt(w6(I1), 2) + ' mm</b> with this screen' + (way === 1 ? '; mean PSF ' + fmt(w6(Im), 2) + ' mm' : '') +
+      '<br>halo prediction 3.33 s = ' + fmt(3.33 * Math.SQRT2 * C0 * sigNs * 1e-9 * Z / ell * 1e3, 2) + ' mm (valid for σ<sub>φ</sub> ≫ 1)';
+  }
+  ['sig', 'ell', 'f', 'way'].forEach(k => $('m33-d1-' + k).addEventListener('input', draw));
+  $('m33-d1-new').addEventListener('click', () => { seed++; draw(); });
+  Lab.onShow('m33', draw);
+})();
+
+/* ---------- small dense SPD solver (Cholesky) ---------- */
+function cholFactor(M, n) { const L = new Float64Array(n * n);
+  for (let j = 0; j < n; j++) { let s = M[j * n + j]; for (let k = 0; k < j; k++) s -= L[j * n + k] * L[j * n + k]; const d = Math.sqrt(Math.max(s, 1e-300)); L[j * n + j] = d;
+    for (let i = j + 1; i < n; i++) { let t = M[i * n + j]; for (let k = 0; k < j; k++) t -= L[i * n + k] * L[j * n + k]; L[i * n + j] = t / d; } }
+  return L; }
+function cholSolve(L, n, b) { const y = new Float64Array(n); for (let i = 0; i < n; i++) { let t = b[i]; for (let k = 0; k < i; k++) t -= L[i * n + k] * y[k]; y[i] = t / L[i * n + i]; }
+  const x = new Float64Array(n); for (let i = n - 1; i >= 0; i--) { let t = y[i]; for (let k = i + 1; k < n; k++) t -= L[k * n + i] * x[k]; x[i] = t / L[i * n + i]; } return x; }
+
+/* ================= Demo 33.2 ================= */
+(function () {
+  let seed = 21;
+  const N = 128, xe = elems(N, PITCH), F0 = 5e6, NK = 32, TR = 150;
+  const truth = (() => { const s = makeScreen(5, 4e-3, xe[0], xe[N - 1]); return Float64Array.from(xe, x => 40e-9 * s(x)); })();
+  function draw() {
+    const c = Lab.colors();
+    const r1 = +$('m33-d2-rho').value, L = +$('m33-d2-L').value, typ = $('m33-d2-typ').value;
+    $('m33-d2-rho-out').textContent = r1.toFixed(3).replace(/0$/, ''); $('m33-d2-L-out').textContent = L;
+    const sgm = m => { const r = Math.pow(r1, m); return Math.sqrt(1 - r * r) / (r * Math.sqrt(2 * NK)) / (TAU * F0); };
+    const s1 = sgm(1);
+    const pairs = []; for (let m = 1; m <= L; m++) { const sm = sgm(m), w = 1 / (sm * sm); for (let i = 0; i + m < N; i++) pairs.push([i, i + m, sm, w]); }
+    const M = new Float64Array(N * N).fill(1);
+    pairs.forEach(([i, j, sm, w]) => { const ws = w * s1 * s1; M[i * N + i] += ws; M[j * N + j] += ws; M[i * N + j] -= ws; M[j * N + i] -= ws; });
+    const Lc = cholFactor(M, N);
+    const r = Lab.rng(seed), eN = new Float64Array(N), eL = new Float64Array(N); let lastN = null, lastL = null;
+    const sn = s1 / Math.SQRT2;
+    for (let t = 0; t < TR; t++) {
+      const nel = typ === 'elem' ? Float64Array.from({ length: N }, () => sn * r.g()) : null;
+      const b = new Float64Array(N), nn = new Float64Array(N);
+      pairs.forEach(([i, j, sm, w]) => { const d = truth[j] - truth[i] + (nel ? nel[j] - nel[i] : sm * r.g()); const ws = w * s1 * s1; b[j] += ws * d; b[i] -= ws * d; if (j === i + 1) nn[j] = d; });
+      for (let i = 1; i < N; i++) nn[i] += nn[i - 1];
+      const ls = cholSolve(Lc, N, b);
+      const dN = detrend(Float64Array.from(nn, (v, i) => v - truth[i]), xe), dL = detrend(Float64Array.from(ls, (v, i) => v - truth[i]), xe);
+      for (let i = 0; i < N; i++) { eN[i] += dN[i] * dN[i]; eL[i] += dL[i] * dL[i]; }
+      if (t === 0) { lastN = nn; lastL = ls; }
+    }
+    const rN = Array.from(eN, v => Math.sqrt(v / TR) * 1e9), rL = Array.from(eL, v => Math.sqrt(v / TR) * 1e9);
+    const totN = Math.sqrt(eN.reduce((a, v) => a + v, 0) / (TR * N)) * 1e9, totL = Math.sqrt(eL.reduce((a, v) => a + v, 0) / (TR * N)) * 1e9, pred = s1 * Math.sqrt(N / 15) * 1e9;
+    let g = Lab.canvas($('m33-d2-err'), 190); const ym = Math.max(1, ...rN, ...rL, pred) * 1.15;
+    let ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [1, N], [0, ym], { xlabel: 'element index', ylabel: 'rms error (ns)' });
+    const ks = Array.from({ length: N }, (_, i) => i + 1);
+    ax.clip(); hl(g.ctx, ax, pred, c.muted); Lab.line(g.ctx, ax, ks, rN, c.sig2, 2); Lab.line(g.ctx, ax, ks, rL, c.accent, 2); ax.unclip();
+    const tr = detrend(truth, xe), a1 = detrend(lastN, xe), a2 = detrend(lastL, xe);
+    g = Lab.canvas($('m33-d2-law'), 170); const lm = Math.max(...Array.from(tr, Math.abs), ...Array.from(a1, Math.abs)) * 1e9 * 1.1;
+    ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [-19.2, 19.2], [-lm, lm], { xlabel: 'element position (mm), one trial', ylabel: 'delay (ns)' });
+    const xm = Array.from(xe, v => v * 1e3); ax.clip(); Lab.line(g.ctx, ax, xm, Array.from(tr, v => v * 1e9), c.muted, 2.4); Lab.line(g.ctx, ax, xm, Array.from(a1, v => v * 1e9), c.sig2, 1.5); Lab.line(g.ctx, ax, xm, Array.from(a2, v => v * 1e9), c.accent, 1.5, [5, 3]); ax.unclip();
+    const St = e => Math.exp(-((TAU * F0 * e * 1e-9) ** 2));
+    $('m33-d2-read').innerHTML = 'lag-one jitter σ<sub>ε</sub> = <b>' + fmt(s1 * 1e9, 2) + ' ns</b>' + (typ === 'elem' ? ' (element noise ' + fmt(sn * 1e9, 2) + ' ns)' : '') + '; lag-L σ = ' + fmt(sgm(L) * 1e9, 2) + ' ns' +
+      '<br>NN integrated, rms after detrend: <b>' + fmt(totN, 2) + ' ns</b>; σ<sub>ε</sub>√(N/15) = ' + fmt(pred, 2) + ' ns' +
+      '<br>LS, lags 1…' + L + ' (' + pairs.length + ' pairs): <b>' + fmt(totL, 2) + ' ns</b>, ' + fmt(totN / totL, 2) + '× smaller' +
+      '<br>Strehl of the residual at 5 MHz (≈ e<sup>−σ²</sup>): NN ' + St(totN).toFixed(3) + ', LS ' + St(totL).toFixed(3);
+  }
+  ['rho', 'L', 'typ'].forEach(k => $('m33-d2-' + k).addEventListener('input', draw));
+  $('m33-d2-new').addEventListener('click', () => { seed++; draw(); });
+  Lab.onShow('m33', draw);
+})();
+
+/* ================= Demo 33.3 ================= */
+(function () {
+  const N = 64, xe = elems(N, PITCH), Z = 0.03, F0 = 5e6, k = TAU * F0 / C0, NS = 401;
+  const xs = Float64Array.from({ length: NS }, (_, i) => -6e-3 + 12e-3 * i / (NS - 1));
+  let seed = 31, psi = new Float64Array(N), pass = 0, key = '';
+  function txI(ph, ps) { const I = new Float64Array(NS); for (let s = 0; s < NS; s++) { let re = 0, im = 0; for (let i = 0; i < N; i++) { const a = ph[i] - ps[i] - k * xe[i] * xs[s] / Z; re += Math.cos(a); im += Math.sin(a); } I[s] = (re * re + im * im) / (N * N); } return I; }
+  function covariance(ph, I) { /* C_ij = e^{j(phi_i - phi_j)} T(i - j), T(m) = sum_s I_s e^{-j k m p x_s / z} */
+    const Tr = new Float64Array(2 * N - 1), Ti = new Float64Array(2 * N - 1);
+    for (let m = -(N - 1); m < N; m++) { let re = 0, im = 0; for (let s = 0; s < NS; s++) { const a = -k * m * PITCH * xs[s] / Z; re += I[s] * Math.cos(a); im += I[s] * Math.sin(a); } Tr[m + N - 1] = re; Ti[m + N - 1] = im; }
+    const Cr = new Float64Array(N * N), Ci = new Float64Array(N * N);
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const t = i - j + N - 1, a = ph[i] - ph[j], ca = Math.cos(a), sa = Math.sin(a); Cr[i * N + j] = Tr[t] * ca - Ti[t] * sa; Ci[i * N + j] = Tr[t] * sa + Ti[t] * ca; }
+    return [Cr, Ci]; }
+  function matvec(Cr, Ci, vr, vi) { const or = new Float64Array(N), oi = new Float64Array(N); for (let i = 0; i < N; i++) { let a = 0, b = 0; for (let j = 0; j < N; j++) { const cr = Cr[i * N + j], ci = Ci[i * N + j]; a += cr * vr[j] - ci * vi[j]; b += cr * vi[j] + ci * vr[j]; } or[i] = a; oi[i] = b; } return [or, oi]; }
+  function power(Cr, Ci, defl) { let vr = new Float64Array(N).fill(1 / Math.sqrt(N)), vi = new Float64Array(N); if (defl) for (let i = 0; i < N; i++) vi[i] = Math.sin(i) / Math.sqrt(N); let lam = 0;
+    for (let it = 0; it < 120; it++) { let [ar, ai] = matvec(Cr, Ci, vr, vi);
+      if (defl) { const [ur, ui, l1] = defl; let pr = 0, pi = 0; for (let i = 0; i < N; i++) { pr += ur[i] * vr[i] + ui[i] * vi[i]; pi += ur[i] * vi[i] - ui[i] * vr[i]; } for (let i = 0; i < N; i++) { ar[i] -= l1 * (ur[i] * pr - ui[i] * pi); ai[i] -= l1 * (ur[i] * pi + ui[i] * pr); } }
+      let nr = 0; for (let i = 0; i < N; i++) nr += ar[i] * ar[i] + ai[i] * ai[i]; nr = Math.sqrt(nr); lam = nr; vr = ar.map(v => v / nr); vi = ai.map(v => v / nr); }
+    return [vr, vi, lam]; }
+  function draw() {
+    const c = Lab.colors();
+    const sig = +$('m33-d3-sig').value * 1e-9, ell = +$('m33-d3-ell').value * 1e-3;
+    $('m33-d3-sig-out').textContent = fmt(sig * 1e9) + ' ns'; $('m33-d3-ell-out').textContent = fmt(ell * 1e3) + ' mm';
+    const kk = seed + '|' + sig + '|' + ell; if (kk !== key) { key = kk; psi = new Float64Array(N); pass = 0; }
+    const scr = makeScreen(seed, ell, xe[0], xe[N - 1]); const ph = Float64Array.from(xe, x => TAU * F0 * sig * scr(x));
+    const I = txI(ph, psi), I0 = txI(ph, ph);
+    const [Cr, Ci] = covariance(ph, I);
+    const [ur, ui, l1] = power(Cr, Ci); const [, , l2] = power(Cr, Ci, [ur, ui, l1]);
+    /* phase-only brightness by coordinate ascent from w = 1 */
+    let wr = new Float64Array(N).fill(1), wi = new Float64Array(N);
+    for (let sw = 0; sw < 25; sw++) for (let i = 0; i < N; i++) { let a = 0, b = 0; for (let j = 0; j < N; j++) { const cr = Cr[i * N + j], ci = Ci[i * N + j]; a += cr * wr[j] - ci * wi[j]; b += cr * wi[j] + ci * wr[j]; } const r = Math.hypot(a, b) || 1; wr[i] = a / r; wi[i] = b / r; }
+    const Bof = (vr, vi) => { const [ar, ai] = matvec(Cr, Ci, vr, vi); let s = 0; for (let i = 0; i < N; i++) s += vr[i] * ar[i] + vi[i] * ai[i]; return s; };
+    const [C0r, C0i] = covariance(ph, I0); const ones = Float64Array.from(ph, Math.cos), onesI = Float64Array.from(ph, Math.sin);
+    const [a0r, a0i] = matvec(C0r, C0i, ones, onesI); let Bid = 0; for (let i = 0; i < N; i++) Bid += ones[i] * a0r[i] + onesI[i] * a0i[i];
+    const eig = Float64Array.from(ur, (v, i) => Math.atan2(ui[i], v)), bri = Float64Array.from(wr, (v, i) => Math.atan2(wi[i], v));
+    const res = est => detrend(unwrapArr(Float64Array.from(ph, (p, i) => { const d = p - est[i]; return d - TAU * Math.round(d / TAU); })), xe);
+    const rE = res(eig), rB = res(bri);
+    const trueD = detrend(ph, xe);
+    const dB = v => Math.max(-40, 10 * L10(v + 1e-12));
+    const xm = Array.from(xs, v => v * 1e3);
+    let g = Lab.canvas($('m33-d3-tx'), 170);
+    let ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [-6, 6], [-40, 0], { xlabel: 'lateral position at 30 mm (mm)', ylabel: 'transmit intensity (dB)' });
+    ax.clip(); Lab.line(g.ctx, ax, xm, Array.from(I0, dB), c.muted, 1.3); Lab.line(g.ctx, ax, xm, Array.from(I, dB), c.sig2, 2); ax.unclip();
+    label(g.ctx, 'pass ' + pass, ax.box.x + 6, ax.box.y + 14, c.sig2);
+    g = Lab.canvas($('m33-d3-law'), 180);
+    const eD = Float64Array.from(trueD, (v, i) => v - rE[i]), bD = Float64Array.from(trueD, (v, i) => v - rB[i]);
+    const lm = Math.max(1, ...Array.from(trueD, Math.abs), ...Array.from(eD, Math.abs)) * 1.1;
+    ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [-9.6, 9.6], [-lm, lm], { xlabel: 'element position (mm)', ylabel: 'phase (rad), detrended' });
+    const xem = Array.from(xe, v => v * 1e3); ax.clip(); Lab.line(g.ctx, ax, xem, Array.from(trueD), c.muted, 2.6); Lab.line(g.ctx, ax, xem, Array.from(eD), c.accent, 1.8); Lab.line(g.ctx, ax, xem, Array.from(bD), c.sig4, 1.5, [5, 3]); ax.unclip();
+    $('m33-d3-read').innerHTML = 'pass <b>' + pass + '</b>; transmit Strehl ' + strehlOf(res(psi)).toFixed(3) + ' (ramp removed)' +
+      '<br>eigenvector: residual <b>' + rmsOf(rE).toFixed(3) + ' rad</b> rms, Strehl ' + strehlOf(rE).toFixed(3) + '; λ<sub>2</sub>/λ<sub>1</sub> = <b>' + (l2 / l1).toFixed(3) + '</b>' +
+      '<br>phase-only brightness: residual ' + rmsOf(rB).toFixed(3) + ' rad; B/B<sub>ideal</sub> = ' + (Bof(wr, wi) / Bid).toFixed(3) + ' (eigenvector law: ' + (Bof(Float64Array.from(eig, Math.cos), Float64Array.from(eig, Math.sin)) / Bid).toFixed(3) + ')' +
+      '<br>uncorrected screen: ' + rmsOf(trueD).toFixed(3) + ' rad rms (detrended), Strehl ' + strehlOf(trueD).toFixed(3);
+    draw.eig = eig;
+  }
+  ['sig', 'ell'].forEach(k => $('m33-d3-' + k).addEventListener('input', draw));
+  $('m33-d3-it').addEventListener('click', () => { if (draw.eig) { psi = Float64Array.from(draw.eig); pass++; draw(); } });
+  $('m33-d3-reset').addEventListener('click', () => { psi = new Float64Array(N); pass = 0; draw(); });
+  $('m33-d3-new').addEventListener('click', () => { seed++; draw(); });
+  Lab.onShow('m33', draw);
+})();
+
+/* ================= Demo 33.4 ================= */
+(function () {
+  const N = 128;
+  function exactS(dxs, sp, ell, d, z) { const rho = x => Math.exp(-((x / ell) ** 2)); const pa = PITCH * (1 - d / z);
+    return dxs.map(dx => { const del = dx * d / z; let s = 0; for (let m = -(N - 1); m < N; m++) { const da = m * pa; s += (N - Math.abs(m)) * Math.exp(-sp * sp * (2 - 2 * rho(del) - 2 * rho(da) + rho(da + del) + rho(da - del))); } return s / (N * N); }); }
+  function draw() {
+    const c = Lab.colors();
+    const d = +$('m33-d4-d').value * 1e-3, sig = +$('m33-d4-sig').value * 1e-9, ell = +$('m33-d4-ell').value * 1e-3, z = +$('m33-d4-z').value * 1e-3;
+    $('m33-d4-d-out').textContent = fmt(d * 1e3) + ' mm'; $('m33-d4-sig-out').textContent = fmt(sig * 1e9) + ' ns'; $('m33-d4-ell-out').textContent = fmt(ell * 1e3) + ' mm'; $('m33-d4-z-out').textContent = fmt(z * 1e3) + ' mm';
+    const sp = TAU * 5e6 * sig, xmax = Math.min(60e-3, Math.max(10e-3, 2.2 * ell * z * Math.sqrt(Math.LN2) / d));
+    const dxs = Array.from({ length: 161 }, (_, i) => xmax * i / 160), S = exactS(dxs, sp, ell, d, z);
+    const Sl = dxs.map(dx => Math.exp(-2 * sp * sp * (1 - Math.exp(-((dx * d / z / ell) ** 2)))));
+    const S0 = meanStrehl(N, PITCH * (1 - d / z), sp, ell);
+    const xcross = ell * z * Math.sqrt(Math.LN2) / d; let xh = NaN; for (let i = 1; i < S.length; i++) if (S[i - 1] >= 0.5 && S[i] < 0.5) { xh = dxs[i - 1] + (dxs[i] - dxs[i - 1]) * (S[i - 1] - 0.5) / (S[i - 1] - S[i]); break; }
+    let xc = NaN; for (let i = 1; i < S.length; i++) if (S[i - 1] >= S0 && S[i] < S0) { xc = dxs[i - 1] + (dxs[i] - dxs[i - 1]) * (S[i - 1] - S0) / (S[i - 1] - S[i]); break; }
+    const xl = sp * sp > Math.LN2 / 2 ? z * ell / d * Math.sqrt(-Math.log(1 - Math.LN2 / (2 * sp * sp))) : NaN;
+    const g = Lab.canvas($('m33-d4-cv'), 240); const xm = dxs.map(v => v * 1e3);
+    const ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [0, xmax * 1e3], [0, 1.02], { xlabel: 'distance from the guide point Δx (mm)', ylabel: 'Strehl' });
+    ax.clip(); hl(g.ctx, ax, S0, c.muted); Lab.line(g.ctx, ax, xm, Sl, c.sig4, 1.5, [5, 3]); Lab.line(g.ctx, ax, xm, S, c.accent, 2.2);
+    if (xcross < xmax) vl(g.ctx, ax, xcross * 1e3, c.sig2, [2, 3]); if (isFinite(xh)) vl(g.ctx, ax, xh * 1e3, c.sig2); ax.unclip();
+    if (isFinite(xh)) label(g.ctx, 'Δx½', ax.X(xh * 1e3) + 3, ax.box.y + 14, c.sig2); if (xcross < xmax) label(g.ctx, 'Δx×', ax.X(xcross * 1e3) + 3, ax.box.y + 28, c.sig2);
+    $('m33-d4-read').innerHTML = 'σ<sub>φ</sub> = ' + sp.toFixed(2) + ' rad; uncorrected Strehl (finite aperture) <b>' + S0.toFixed(3) + '</b>' +
+      '<br>S at 2, 4, 8 mm: <b>' + exactS([2e-3, 4e-3, 8e-3], sp, ell, d, z).map(v => v.toFixed(3)).join(', ') + '</b>' +
+      '<br>Δx<sub>1/2</sub>: exact <b>' + (isFinite(xh) ? fmt(xh * 1e3, 2) + ' mm' : '> range') + '</b>, large-aperture ' + (isFinite(xl) ? fmt(xl * 1e3, 2) + ' mm' : 'n/a (σ² &lt; ln2/2)') +
+      '<br>borrowed law = no correction at <b>' + (isFinite(xc) ? fmt(xc * 1e3, 2) + ' mm' : '> range') + '</b>; Δx<sub>×</sub> = ℓz√ln2/d = ' + fmt(xcross * 1e3, 2) + ' mm';
+  }
+  ['d', 'sig', 'ell', 'z'].forEach(k => $('m33-d4-' + k).addEventListener('input', draw));
+  Lab.onShow('m33', draw);
+})();
+
+/* ================= Demo 33.5 ================= */
+(function () {
+  const N = 128, xe = elems(N, PITCH), Z = 0.04, F0 = 5e6, XP = Array.from({ length: 25 }, (_, i) => (i - 12) * 1e-3);
+  const GHX = [-2.651961356835233, -1.673551628767471, -0.816287882858965, 0, 0.816287882858965, 1.673551628767471, 2.651961356835233], GHW = [0.000971781245100, 0.054515582819127, 0.425607252610128, 0.810264617556807, 0.425607252610128, 0.054515582819127, 0.000971781245100];
+  const erf = x => { const t = 1 / (1 + 0.3275911 * Math.abs(x)); const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return x >= 0 ? y : -y; };
+  function compute(P) {
+    const { amp, per, cf, sb, bias } = P; const h = x => 12e-3 + amp * Math.sin(TAU * x / per);
+    const fermat = (xu, xp) => { const T = xi => Math.hypot(xi - xu, h(xi)) / cf + Math.hypot(xp - xi, Z - h(xi)) / C0;
+      const a0 = Math.min(xu, xp) - 4e-3, a1 = Math.max(xu, xp) + 4e-3, n = Math.max(24, Math.ceil((a1 - a0) / 0.25e-3)); let bi = 0, bv = Infinity;
+      for (let i = 0; i <= n; i++) { const v = T(a0 + (a1 - a0) * i / n); if (v < bv) { bv = v; bi = i; } }
+      let lo = a0 + (a1 - a0) * Math.max(0, bi - 1) / n, hi = a0 + (a1 - a0) * Math.min(n, bi + 1) / n; const gr = 0.618034;
+      for (let it = 0; it < 22; it++) { const m1 = hi - gr * (hi - lo), m2 = lo + gr * (hi - lo); if (T(m1) < T(m2)) hi = m2; else lo = m1; } return T(0.5 * (lo + hi)); };
+    const cross = (xu, xp) => { let lo = 0, hi = 1; for (let it = 0; it < 40; it++) { const t = 0.5 * (lo + hi); if (Z * t - h(xu + (xp - xu) * t) < 0) lo = t; else hi = t; } return 0.5 * (lo + hi); };
+    const out = XP.map(xp => { const law = new Float64Array(N), st = new Float64Array(N), bl = new Float64Array(N), bs = new Float64Array(N);
+      for (let u = 0; u < N; u++) { const L = Math.hypot(xp - xe[u], Z); law[u] = fermat(xe[u], xp) - L / C0; const t = cross(xe[u], xp);
+        st[u] = t * L * (1 / cf - 1 / C0); bs[u] = t * L * (1 / (cf + bias) - 1 / C0);
+        let acc = 0; const ns = 120; for (let k = 0; k < ns; k++) { const tt = (k + 0.5) / ns, x = xe[u] + (xp - xe[u]) * tt, zz = Z * tt; for (let q = 0; q < 7; q++) acc += GHW[q] * 0.5 * (1 + erf((h(x + Math.SQRT2 * sb * GHX[q]) - zz) / (Math.SQRT2 * sb))); } bl[u] = acc / (ns * Math.sqrt(PI)) * L * (1 / cf - 1 / C0); }
+      return { law, st, bl, bs }; });
+    const law0 = out[12].law;
+    const res = (a, b) => detrend(Float64Array.from(a, (v, i) => v - (b ? b[i] : 0)), xe);
+    const S = v => strehlOf(Float64Array.from(v, t => TAU * F0 * t));
+    return out.map(o => { const r = [res(o.law), res(o.law, law0), res(o.law, o.st), res(o.law, o.bl), res(o.law, o.bs)]; return { S: r.map(S), rms: r.map(rmsOf) }; });
+  }
+  let cacheKey = '', cache = null;
+  function draw() {
+    const c = Lab.colors();
+    const P = { amp: +$('m33-d5-amp').value * 1e-3, per: +$('m33-d5-per').value * 1e-3, cf: +$('m33-d5-cf').value, sb: +$('m33-d5-bl').value * 1e-3 / 2.355, bias: +$('m33-d5-bi').value };
+    const xp = +$('m33-d5-xp').value;
+    $('m33-d5-amp-out').textContent = fmt(P.amp * 1e3) + ' mm'; $('m33-d5-per-out').textContent = fmt(P.per * 1e3) + ' mm'; $('m33-d5-cf-out').textContent = P.cf + ' m/s';
+    $('m33-d5-bl-out').textContent = fmt(+$('m33-d5-bl').value) + ' mm'; $('m33-d5-bi-out').textContent = (P.bias > 0 ? '+' : P.bias < 0 ? '−' : '') + Math.abs(P.bias) + ' m/s'; $('m33-d5-xp-out').textContent = (xp < 0 ? '−' : '') + Math.abs(xp) + ' mm';
+    const key = JSON.stringify(P); if (key !== cacheKey) { cacheKey = key; cache = compute(P); }
+    const h = x => 12e-3 + P.amp * Math.sin(TAU * x / P.per);
+    /* map */
+    let g = Lab.canvas($('m33-d5-map'), 190);
+    let ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [-25, 25], [42, 0], { xlabel: 'x (mm)', ylabel: 'depth (mm)' });
+    const ctx = g.ctx; ax.clip(); ctx.save(); ctx.fillStyle = c.sig3; ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.moveTo(ax.X(-25), ax.Y(0));
+    for (let i = 0; i <= 200; i++) { const x = -25 + 50 * i / 200; ctx.lineTo(ax.X(x), ax.Y(h(x * 1e-3) * 1e3)); } ctx.lineTo(ax.X(25), ax.Y(0)); ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.save(); ctx.strokeStyle = c.accent; ctx.lineWidth = 1; [0, 32, 64, 96, 127].forEach(u => { ctx.beginPath(); ctx.moveTo(ax.X(xe[u] * 1e3), ax.Y(0)); ctx.lineTo(ax.X(xp), ax.Y(40)); ctx.stroke(); }); ctx.restore();
+    ctx.save(); ctx.fillStyle = c.muted; ctx.fillRect(ax.X(-19.2), ax.Y(0) - 2, ax.X(19.2) - ax.X(-19.2), 4); ctx.fillStyle = c.sig2; ctx.beginPath(); ctx.arc(ax.X(xp), ax.Y(40), 4, 0, 7); ctx.fill(); ctx.restore(); ax.unclip();
+    label(ctx, 'fat ' + P.cf + ' m/s', ax.box.x + 6, ax.Y(5), c.fg); label(ctx, 'tissue 1540 m/s', ax.box.x + 6, ax.Y(30), c.muted);
+    /* Strehl curves */
+    g = Lab.canvas($('m33-d5-s'), 210);
+    ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [-12, 12], [0, 1.02], { xlabel: 'lateral position of the point x_p (mm)', ylabel: 'Strehl after correction' });
+    const xs = XP.map(v => v * 1e3), cols = [c.muted, c.sig2, c.accent, c.sig4, c.sig3];
+    ax.clip(); for (let m = 0; m < 5; m++) Lab.line(g.ctx, ax, xs, cache.map(o => o.S[m]), cols[m], m === 2 ? 2.2 : 1.8, m === 3 ? [5, 3] : null); vl(g.ctx, ax, xp, c.fg, [1, 3]); ax.unclip();
+    const o = cache[xp + 12], mean = m => cache.reduce((a, q) => a + q.rms[m], 0) / cache.length * 1e9, meanS = m => cache.reduce((a, q) => a + q.S[m], 0) / cache.length;
+    const names = ['none', 'one law (x = 0)', 'straight-ray map', 'blurred map', 'biased fat speed'];
+    $('m33-d5-read').innerHTML = 'at x<sub>p</sub> = ' + xp + ' mm (rms ns / Strehl):<br>' + names.map((n, m) => n + ' <b>' + fmt(o.rms[m] * 1e9, 1) + '</b> / ' + o.S[m].toFixed(2)).join('<br>') +
+      '<br>mean over ±12 mm: ' + names.map((n, m) => fmt(mean(m), 1)).join(', ') + ' ns';
+  }
+  const lab5 = { amp: v => fmt(+v) + ' mm', per: v => fmt(+v) + ' mm', cf: v => v + ' m/s', bl: v => fmt(+v) + ' mm', bi: v => (+v > 0 ? '+' : +v < 0 ? '−' : '') + Math.abs(+v) + ' m/s' };
+  Object.keys(lab5).forEach(k => { const e = $('m33-d5-' + k); e.addEventListener('input', () => { $('m33-d5-' + k + '-out').textContent = lab5[k](e.value); }); e.addEventListener('change', draw); });
+  $('m33-d5-xp').addEventListener('input', draw);
+  Lab.onShow('m33', draw);
+})();
+
+/* ================= Demo 33.6: reflection and distortion matrices ================= */
+(function () {
+  const NE = 48, xe = elems(NE, PITCH), Z = 0.02, F0 = 5e6, k = TAU * F0 / C0, NS = 400;
+  const NX = 61, xin = Float64Array.from({ length: NX }, (_, i) => -6e-3 + 0.2e-3 * i);
+  const WIN = { all: [0, NX - 1], L: [0, 20], C: [20, 40], R: [40, 60] };
+  const G0r = new Float64Array(NE * NX), G0i = new Float64Array(NE * NX);
+  for (let u = 0; u < NE; u++) for (let x = 0; x < NX; x++) { const a = -k * Math.hypot(xe[u] - xin[x], Z); G0r[u * NX + x] = Math.cos(a); G0i[u * NX + x] = Math.sin(a); }
+  let medSeed = 41, st = null, key = '';
+  function buildK(sig, ell, d) {
+    const r = Lab.rng(medSeed); const xs = new Float64Array(NS + 1), ar = new Float64Array(NS + 1), ai = new Float64Array(NS + 1);
+    for (let s = 0; s < NS; s++) { xs[s] = (r.u() - 0.5) * 18e-3; const c = r.cg(); ar[s] = c.re; ai[s] = c.im; } xs[NS] = 0; ar[NS] = 6; ai[NS] = 0;
+    const scr = makeScreen(medSeed * 7 + 3, ell, -12e-3, 12e-3), ph0 = TAU * F0 * sig;
+    const mk = withScreen => { const Gr = new Float64Array(NE * (NS + 1)), Gi = new Float64Array(NE * (NS + 1));
+      for (let u = 0; u < NE; u++) for (let s = 0; s <= NS; s++) { const a = -k * Math.hypot(xe[u] - xs[s], Z) + (withScreen ? ph0 * scr(xe[u] + (xs[s] - xe[u]) * d / Z) : 0); Gr[u * (NS + 1) + s] = Math.cos(a); Gi[u * (NS + 1) + s] = Math.sin(a); }
+      const Kr = new Float64Array(NE * NE), Ki = new Float64Array(NE * NE);
+      for (let u = 0; u < NE; u++) for (let v = u; v < NE; v++) { let re = 0, im = 0; for (let s = 0; s <= NS; s++) { const ur = Gr[u * (NS + 1) + s], ui = Gi[u * (NS + 1) + s], vr = Gr[v * (NS + 1) + s], vi = Gi[v * (NS + 1) + s];
+        const pr = ur * vr - ui * vi, pi = ur * vi + ui * vr; re += pr * ar[s] - pi * ai[s]; im += pr * ai[s] + pi * ar[s]; } Kr[u * NE + v] = Kr[v * NE + u] = re; Ki[u * NE + v] = Ki[v * NE + u] = im; }
+      return [Kr, Ki]; };
+    const [Kr, Ki] = mk(true), [Fr, Fi] = mk(false);
+    const lawAt = xp => Float64Array.from(xe, x => ph0 * scr(x + (xp - x) * d / Z));
+    return { Kr, Ki, Fr, Fi, lawAt };
+  }
+  /* corrected K: e^{-j(psi_u + psi_v)} K */
+  function corrK(Kr, Ki, psi) { const Cr = new Float64Array(NE * NE), Ci = new Float64Array(NE * NE);
+    for (let u = 0; u < NE; u++) for (let v = 0; v < NE; v++) { const a = -(psi[u] + psi[v]), c = Math.cos(a), s = Math.sin(a), kr = Kr[u * NE + v], ki = Ki[u * NE + v]; Cr[u * NE + v] = kr * c - ki * s; Ci[u * NE + v] = kr * s + ki * c; }
+    return [Cr, Ci]; }
+  /* Y = Kc conj(G0) : NE x NX (focused transmit, element receive) */
+  function rux(Cr, Ci) { const Yr = new Float64Array(NE * NX), Yi = new Float64Array(NE * NX);
+    for (let u = 0; u < NE; u++) for (let x = 0; x < NX; x++) { let re = 0, im = 0; for (let v = 0; v < NE; v++) { const kr = Cr[u * NE + v], ki = Ci[u * NE + v], gr = G0r[v * NX + x], gi = -G0i[v * NX + x]; re += kr * gr - ki * gi; im += kr * gi + ki * gr; } Yr[u * NX + x] = re; Yi[u * NX + x] = im; }
+    return [Yr, Yi]; }
+  function rxx(Yr, Yi) { const R = new Float64Array(NX * NX); /* |R_xx(out, in)| */
+    for (let o = 0; o < NX; o++) for (let x = 0; x < NX; x++) { let re = 0, im = 0; for (let u = 0; u < NE; u++) { const gr = G0r[u * NX + o], gi = -G0i[u * NX + o], yr = Yr[u * NX + x], yi = Yi[u * NX + x]; re += gr * yr - gi * yi; im += gr * yi + gi * yr; } R[o * NX + x] = Math.hypot(re, im); }
+    return R; }
+  function gammaOf(Yr, Yi, c0, c1) { const nd = 41, I = new Float64Array(nd);
+    for (let q = 0; q < nd; q++) { const dd = -2e-3 + 0.1e-3 * q; let acc = 0; for (let x = c0; x <= c1; x++) { let re = 0, im = 0; for (let u = 0; u < NE; u++) { const a = k * Math.hypot(xe[u] - xin[x] - dd, Z), gr = Math.cos(a), gi = Math.sin(a), yr = Yr[u * NX + x], yi = Yi[u * NX + x]; re += gr * yr - gi * yi; im += gr * yi + gi * yr; } acc += re * re + im * im; } I[q] = acc; }
+    let s = 0; for (const v of I) s += v; return I[20] / s; }
+  function svdD(Yr, Yi, c0, c1) { /* C = D D^H over the window columns */
+    const Cr = new Float64Array(NE * NE), Ci = new Float64Array(NE * NE), Dr = [], Di = [];
+    for (let x = c0; x <= c1; x++) { const dr = new Float64Array(NE), di = new Float64Array(NE); for (let u = 0; u < NE; u++) { const yr = Yr[u * NX + x], yi = Yi[u * NX + x], gr = G0r[u * NX + x], gi = -G0i[u * NX + x]; dr[u] = yr * gr - yi * gi; di[u] = yr * gi + yi * gr; } Dr.push(dr); Di.push(di); }
+    for (let u = 0; u < NE; u++) for (let v = u; v < NE; v++) { let re = 0, im = 0; for (let c = 0; c < Dr.length; c++) { re += Dr[c][u] * Dr[c][v] + Di[c][u] * Di[c][v]; im += Di[c][u] * Dr[c][v] - Dr[c][u] * Di[c][v]; } Cr[u * NE + v] = re; Ci[u * NE + v] = im; Cr[v * NE + u] = re; Ci[v * NE + u] = -im; }
+    const vecs = [], vals = [];
+    for (let m = 0; m < 10; m++) { let vr = Float64Array.from({ length: NE }, (_, i) => 1 + 0.3 * Math.cos(i * (m + 1))), vi = Float64Array.from({ length: NE }, (_, i) => 0.3 * Math.sin(i * (m + 2))), lam = 0;
+      for (let it = 0; it < (m === 0 ? 80 : 40); it++) { let ar = new Float64Array(NE), ai = new Float64Array(NE);
+        for (let i = 0; i < NE; i++) { let a = 0, b = 0; for (let j = 0; j < NE; j++) { const cr = Cr[i * NE + j], ci = Ci[i * NE + j]; a += cr * vr[j] - ci * vi[j]; b += cr * vi[j] + ci * vr[j]; } ar[i] = a; ai[i] = b; }
+        for (let p = 0; p < vecs.length; p++) { const [ur, ui] = vecs[p]; let pr = 0, pi = 0; for (let i = 0; i < NE; i++) { pr += ur[i] * ar[i] + ui[i] * ai[i]; pi += ur[i] * ai[i] - ui[i] * ar[i]; } for (let i = 0; i < NE; i++) { ar[i] -= ur[i] * pr - ui[i] * pi; ai[i] -= ur[i] * pi + ui[i] * pr; } }
+        let n = 0; for (let i = 0; i < NE; i++) n += ar[i] * ar[i] + ai[i] * ai[i]; n = Math.sqrt(n) || 1e-300; lam = n; vr = ar.map(v => v / n); vi = ai.map(v => v / n); }
+      vecs.push([vr, vi]); vals.push(lam); }
+    return { u1: Float64Array.from(vecs[0][0], (v, i) => Math.atan2(vecs[0][1][i], v)), sv: vals.map(v => Math.sqrt(Math.max(v, 0))) };
+  }
+  function evaluate(psi, win) { const [Cr, Ci] = corrK(st.Kr, st.Ki, psi); const [Yr, Yi] = rux(Cr, Ci); const [c0, c1] = WIN[win];
+    const S = svdD(Yr, Yi, c0, c1); return { R: rxx(Yr, Yi), G: gammaOf(Yr, Yi, c0, c1) / st.g0[win], Gall: gammaOf(Yr, Yi, 0, NX - 1) / st.g0.all, S }; }
+  function grayImg(ctx, R, rect, vmax) { const d = new Float64Array(NX * NX); for (let i = 0; i < NX * NX; i++) d[i] = R[i] / vmax; Lab.image(ctx, d, NX, NX, rect, 0, 1, 'gray'); }
+  function draw() {
+    const c = Lab.colors();
+    const sig = +$('m33-d6-sig').value * 1e-9, ell = +$('m33-d6-ell').value * 1e-3, d = +$('m33-d6-d').value * 1e-3, win = $('m33-d6-win').value;
+    $('m33-d6-sig-out').textContent = fmt(sig * 1e9) + ' ns'; $('m33-d6-ell-out').textContent = fmt(ell * 1e3) + ' mm'; $('m33-d6-d-out').textContent = fmt(d * 1e3) + ' mm';
+    const kk = [medSeed, sig, ell, d].join('|');
+    if (kk !== key || !st) { key = kk; st = buildK(sig, ell, d); st.psi = {}; st.iter = {};
+      const [Yr, Yi] = rux(st.Fr, st.Fi); st.g0 = {}; Object.keys(WIN).forEach(w => { st.g0[w] = gammaOf(Yr, Yi, WIN[w][0], WIN[w][1]); });
+      st.before = evaluate(new Float64Array(NE), 'all'); }
+    if (!st.psi[win]) { st.psi[win] = new Float64Array(NE); st.iter[win] = 0; st.gb = st.gb || {}; }
+    const psi = st.psi[win], cur = evaluate(psi, win); st.cur = cur; if (st.iter[win] === 0) st.gb[win] = cur.G;
+    const [c0, c1] = WIN[win], xc = 0.5 * (xin[c0] + xin[c1]);
+    /* R_xx before / after */
+    let g = Lab.canvas($('m33-d6-rxx'), 0.56); const ctx = g.ctx, side = Math.min((g.w - 40) / 2, g.h - 34);
+    const vmax = Math.max(...st.before.R, ...cur.R) * 0.7, y0 = 18;
+    grayImg(ctx, st.before.R, { x: 10, y: y0, w: side, h: side }, vmax); grayImg(ctx, cur.R, { x: g.w - 10 - side, y: y0, w: side, h: side }, vmax);
+    ctx.save(); ctx.strokeStyle = c.sig2; ctx.lineWidth = 1.5; const px = side / NX; ctx.strokeRect(g.w - 10 - side + c0 * px, y0 + c0 * px, (c1 - c0 + 1) * px, (c1 - c0 + 1) * px); ctx.restore();
+    label(ctx, '|R_xx| before', 10, 12, c.muted); label(ctx, '|R_xx| after ' + st.iter[win] + ' iter.', g.w - 10 - side, 12, c.accent);
+    label(ctx, 'x_in →, x_out ↓, ±6 mm', 10, y0 + side + 14, c.muted);
+    /* singular values */
+    g = Lab.canvas($('m33-d6-sv'), 150); let ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [0.5, 10.5], [0, 1.05], { xlabel: 'index i', ylabel: 'σ_i / σ_1', xticks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] });
+    const sv = cur.S.sv, s0 = st.before.S.sv; g.ctx.save();
+    for (let i = 0; i < 10; i++) { const bw = (ax.X(1) - ax.X(0)) * 0.36; g.ctx.fillStyle = c.muted; g.ctx.globalAlpha = 0.55; g.ctx.fillRect(ax.X(i + 1) - bw, ax.Y(s0[i] / s0[0]), bw, ax.Y(0) - ax.Y(s0[i] / s0[0])); g.ctx.globalAlpha = 1; g.ctx.fillStyle = c.accent; g.ctx.fillRect(ax.X(i + 1), ax.Y(sv[i] / sv[0]), bw, ax.Y(0) - ax.Y(sv[i] / sv[0])); }
+    g.ctx.restore();
+    /* law */
+    const truth = detrend(st.lawAt(xc), xe), resid = detrend(unwrapArr(Float64Array.from(truth, (t, i) => { const v = st.lawAt(xc)[i] - psi[i]; return v - TAU * Math.round(v / TAU); })), xe);
+    const est = Float64Array.from(truth, (t, i) => t - resid[i]);
+    g = Lab.canvas($('m33-d6-law'), 160); const lm = Math.max(1, ...Array.from(truth, Math.abs), ...Array.from(est, Math.abs)) * 1.1;
+    ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [-7.2, 7.2], [-lm, lm], { xlabel: 'element position (mm)', ylabel: 'phase (rad)' });
+    const xm = Array.from(xe, v => v * 1e3); ax.clip(); Lab.line(g.ctx, ax, xm, Array.from(truth), c.muted, 2.6); if (st.iter[win] > 0) Lab.line(g.ctx, ax, xm, Array.from(est), c.accent, 1.8, [5, 3]); ax.unclip();
+    label(g.ctx, 'true law at x = ' + fmt(xc * 1e3) + ' mm', ax.box.x + 6, ax.box.y + 14, c.muted);
+    /* confocal line */
+    const dB = v => 20 * L10(v + 1e-12); const diag = R => Array.from({ length: NX }, (_, i) => R[i * NX + i]); const b0 = diag(st.before.R), b1 = diag(cur.R); const mx = Math.max(...b0, ...b1);
+    g = Lab.canvas($('m33-d6-img'), 150); ax = Lab.axes(g.ctx, { x: 52, y: 12, w: g.w - 64, h: g.h - 48 }, [-6, 6], [-30, 0], { xlabel: 'x (mm), confocal image at 20 mm', ylabel: 'dB' });
+    const xs = Array.from(xin, v => v * 1e3); ax.clip(); g.ctx.save(); g.ctx.fillStyle = c.sig2; g.ctx.globalAlpha = 0.1; g.ctx.fillRect(ax.X(xin[c0] * 1e3), ax.box.y, ax.X(xin[c1] * 1e3) - ax.X(xin[c0] * 1e3), ax.box.h); g.ctx.restore();
+    Lab.line(g.ctx, ax, xs, b0.map(v => Math.max(-30, dB(v / mx))), c.muted, 1.4); Lab.line(g.ctx, ax, xs, b1.map(v => Math.max(-30, dB(v / mx))), c.accent, 1.8); ax.unclip();
+    const i0 = 30;
+    $('m33-d6-read').innerHTML = 'iteration <b>' + st.iter[win] + '</b> in window ' + ({ all: 'whole field', L: 'left', C: 'centre', R: 'right' })[win] +
+      '<br>Γ in window <b>' + cur.G.toFixed(2) + '</b> (before ' + st.gb[win].toFixed(2) + '); Γ whole field ' + cur.Gall.toFixed(2) + ' (before ' + st.before.Gall.toFixed(2) + ')' +
+      '<br>σ<sub>2</sub>/σ<sub>1</sub> = <b>' + (sv[1] / sv[0]).toFixed(3) + '</b> (before ' + (s0[1] / s0[0]).toFixed(3) + ')' +
+      (d === 0 ? '<br>residual vs true law: <b>' + rmsOf(resid).toFixed(3) + ' rad</b> rms, Strehl ' + strehlOf(resid).toFixed(3) : '<br>d &gt; 0: judge by Γ (a window law can focus well on slightly displaced points); residual vs the law at the window centre ' + rmsOf(resid).toFixed(2) + ' rad') +
+      '<br>bright point at x = 0: ' + fmt(dB(b1[i0] / b0[i0]), 1) + ' dB vs before';
+  }
+  const lab6 = { sig: v => fmt(+v) + ' ns', ell: v => fmt(+v) + ' mm', d: v => fmt(+v) + ' mm' };
+  Object.keys(lab6).forEach(k => { const e = $('m33-d6-' + k); e.addEventListener('input', () => { $('m33-d6-' + k + '-out').textContent = lab6[k](e.value); }); e.addEventListener('change', draw); });
+  $('m33-d6-win').addEventListener('input', draw);
+  $('m33-d6-it').addEventListener('click', () => { if (!st || !st.cur) return; const win = $('m33-d6-win').value; const upd = detrend(unwrapArr(st.cur.S.u1), xe); const psi = st.psi[win]; for (let i = 0; i < NE; i++) psi[i] += upd[i]; st.iter[win]++; draw(); });
+  $('m33-d6-reset').addEventListener('click', () => { if (st) { st.psi = {}; st.iter = {}; st.gb = {}; } draw(); });
+  $('m33-d6-new').addEventListener('click', () => { medSeed++; draw(); });
+  Lab.onShow('m33', draw);
+})();
+
+/* ================= shared closed forms for cards and rule figures ================= */
+const N128 = 128, Z40 = 0.04, K5 = TAU * 5e6 / C0;
+function meanPSF(sp, ell, xs) { return xs.map(x => { let s = N128; for (let m = 1; m < N128; m++) s += 2 * (N128 - m) * Math.exp(-sp * sp * (1 - Math.exp(-((m * PITCH / ell) ** 2)))) * Math.cos(K5 * m * PITCH * x / Z40); return s / (N128 * N128); }); }
+function width6(xs, I) { const t = Math.max(...I) / 4; let lo = -1, hi = -1; I.forEach((v, i) => { if (v >= t) { if (lo < 0) lo = i; hi = i; } }); if (lo < 1 || hi > I.length - 2) return xs[hi] - xs[lo];
+  const xl = xs[lo - 1] + (xs[lo] - xs[lo - 1]) * (t - I[lo - 1]) / (I[lo] - I[lo - 1]), xh = xs[hi] + (xs[hi + 1] - xs[hi]) * (I[hi] - t) / (I[hi] - I[hi + 1]); return xh - xl; }
+let _mw = null;
+function metricCurves() { if (_mw) return _mw; const xs = Array.from({ length: 481 }, (_, i) => -6e-3 + 12e-3 * i / 480), sg = [], wr = [], es = []; const w0 = width6(xs, meanPSF(0, 4e-3, xs));
+  for (let s = 0; s <= 80; s += 4) { const sp = TAU * 5e6 * s * 1e-9; sg.push(s); wr.push(w0 / width6(xs, meanPSF(sp, 4e-3, xs))); es.push(meanStrehl(N128, PITCH, sp, 4e-3)); } _mw = { sg, wr, es }; return _mw; }
+const cohC = (sp, ell, m) => (1 - m / N128) * Math.exp(-sp * sp * (1 - Math.exp(-((m * PITCH / ell) ** 2))));
+function cmpProfile(sp, dxs) { const xs = Array.from({ length: 481 }, (_, i) => -6e-3 + 12e-3 * i / 480), I = meanPSF(sp, 4e-3, xs), dx = xs[1] - xs[0];
+  return dxs.map(d => { const sh = Math.round(d / dx); let s = 0; for (let i = 0; i < xs.length; i++) { const j = i + sh; if (j >= 0 && j < xs.length) s += I[i] * I[j]; } return s; }); }
+function fatPathError(xp) { const amp = 1.5e-3, per = 15e-3, cf = 1450, h = x => 12e-3 + amp * Math.sin(TAU * x / per), xe = elems(N128, PITCH);
+  return Array.from(xe, xu => { const T = xi => Math.hypot(xi - xu, h(xi)) / cf + Math.hypot(xp - xi, Z40 - h(xi)) / C0; let bv = Infinity, bx = 0; const a0 = Math.min(xu, xp) - 4e-3, a1 = Math.max(xu, xp) + 4e-3;
+    for (let i = 0; i <= 400; i++) { const x = a0 + (a1 - a0) * i / 400, v = T(x); if (v < bv) { bv = v; bx = x; } } let lo = bx - (a1 - a0) / 400, hi = bx + (a1 - a0) / 400; for (let it = 0; it < 30; it++) { const m1 = hi - 0.618 * (hi - lo), m2 = lo + 0.618 * (hi - lo); if (T(m1) < T(m2)) hi = m2; else lo = m1; }
+    const tf = T(0.5 * (lo + hi)); let a = 0, b = 1; for (let it = 0; it < 50; it++) { const t = 0.5 * (a + b); if (Z40 * t - h(xu + (xp - xu) * t) < 0) a = t; else b = t; } const t = 0.5 * (a + b), L = Math.hypot(xp - xu, Z40);
+    return (t * L / cf + (1 - t) * L / C0 - tf) * 1e9; }); }
+let _dort = null;
+function dortEig() { if (_dort) return _dort; const N = 64, xe = elems(N, PITCH), z = 0.03, k = K5, scr = makeScreen(77, 3e-3, -10e-3, 10e-3), sig = 40e-9;
+  const pts = [[-3e-3, 1], [0, 0.7], [3e-3, 0.4]]; const Hr = [], Hi = []; pts.forEach(([xp]) => { Hr.push(Float64Array.from(xe, x => Math.cos(-k * Math.hypot(x - xp, z) + TAU * 5e6 * sig * scr(x)))); Hi.push(Float64Array.from(xe, x => Math.sin(-k * Math.hypot(x - xp, z) + TAU * 5e6 * sig * scr(x)))); });
+  /* T = K^H K with K = H diag(a) H^T: use T = conj(H) A^* (H^H H)^* ... compute K explicitly */
+  const Kr = new Float64Array(N * N), Ki = new Float64Array(N * N);
+  for (let u = 0; u < N; u++) for (let v = 0; v < N; v++) { let re = 0, im = 0; pts.forEach(([, a], s) => { re += a * (Hr[s][u] * Hr[s][v] - Hi[s][u] * Hi[s][v]); im += a * (Hr[s][u] * Hi[s][v] + Hi[s][u] * Hr[s][v]); }); Kr[u * N + v] = re; Ki[u * N + v] = im; }
+  const Tr = new Float64Array(N * N), Ti = new Float64Array(N * N);
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { let re = 0, im = 0; for (let u = 0; u < N; u++) { const ar = Kr[u * N + i], ai = -Ki[u * N + i], br = Kr[u * N + j], bi = Ki[u * N + j]; re += ar * br - ai * bi; im += ar * bi + ai * br; } Tr[i * N + j] = re; Ti[i * N + j] = im; }
+  const vecs = [], vals = [];
+  for (let m = 0; m < 8; m++) { let vr = Float64Array.from({ length: N }, (_, i) => Math.cos(0.7 * i * (m + 1))), vi = Float64Array.from({ length: N }, (_, i) => Math.sin(0.3 * i * (m + 2))), lam = 0;
+    for (let it = 0; it < 200; it++) { const ar = new Float64Array(N), ai = new Float64Array(N); for (let i = 0; i < N; i++) { let a = 0, b = 0; for (let j = 0; j < N; j++) { a += Tr[i * N + j] * vr[j] - Ti[i * N + j] * vi[j]; b += Tr[i * N + j] * vi[j] + Ti[i * N + j] * vr[j]; } ar[i] = a; ai[i] = b; }
+      vecs.forEach(([ur, ui]) => { let pr = 0, pi = 0; for (let i = 0; i < N; i++) { pr += ur[i] * ar[i] + ui[i] * ai[i]; pi += ur[i] * ai[i] - ui[i] * ar[i]; } for (let i = 0; i < N; i++) { ar[i] -= ur[i] * pr - ui[i] * pi; ai[i] -= ur[i] * pi + ui[i] * pr; } });
+      let n = 0; for (let i = 0; i < N; i++) n += ar[i] * ar[i] + ai[i] * ai[i]; n = Math.sqrt(n) || 1e-300; lam = n; vr = ar.map(v => v / n); vi = ai.map(v => v / n); }
+    vecs.push([vr, vi]); vals.push(lam); }
+  _dort = vals.map(v => v / vals[0]); return _dort; }
+let _lsg = null;
+function lsGain() { if (_lsg) return _lsg; const N = 64, xe = elems(N, PITCH), r1 = 0.9, NK = 32; const sg = m => { const r = Math.pow(r1, m); return Math.sqrt(1 - r * r) / (r * Math.sqrt(2 * NK)); };
+  /* projector removing mean and ramp */
+  const P = new Float64Array(N * N); { let sx = 0, sxx = 0; for (const x of xe) { sx += x; sxx += x * x; } for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) P[i * N + j] = (i === j ? 1 : 0) - 1 / N - xe[i] * xe[j] / sxx; }
+  const out = [];
+  for (let L = 1; L <= 12; L++) { const M = new Float64Array(N * N).fill(1), A = new Float64Array(N * N);
+    for (let m = 1; m <= L; m++) { const w = (sg(1) / sg(m)) ** 2; for (let i = 0; i + m < N; i++) { const j = i + m; M[i * N + i] += w; M[j * N + j] += w; M[i * N + j] -= w; M[j * N + i] -= w; A[i * N + i] += w; A[j * N + j] += w; A[i * N + j] -= w; A[j * N + i] -= w; } }
+    const Lc = cholFactor(M, N); const Minv = []; for (let c = 0; c < N; c++) { const e = new Float64Array(N); e[c] = 1; Minv.push(cholSolve(Lc, N, e)); }
+    /* cov = Minv A Minv (in units of sg(1)^2); detrended mean square = trace(P cov P)/N = trace(P cov)/N */
+    const MA = new Float64Array(N * N); for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { let s = 0; for (let q = 0; q < N; q++) s += Minv[q][i] * A[q * N + j]; MA[i * N + j] = s; }
+    let tr = 0; for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { let cij = 0; for (let q = 0; q < N; q++) cij += MA[i * N + q] * Minv[j][q]; tr += P[j * N + i] * cij; }
+    out.push(Math.sqrt(tr / N)); }
+  _lsg = out.map(v => v / out[0]); return _lsg; }
+
+/* ================= card grid 33.7 ================= */
+const G7 = [
+  { prov: 'exact', q: 'Which metric notices a 20–30 ns screen?', a: 'Exact mean PSF, 128 elements, ℓ 4 mm: the <b>Strehl falls to 0.50 by 30 ns</b> while the width ratio w₀/w is still 0.81; the width collapses only once the core is gone (0.27 at 40 ns).',
+    draw: cv => { const c = Mm().col(), M = metricCurves(); const { x, m } = fig(cv, H, [0, 80], [0, 1.05], { lab: 'E[S] (solid), w₀/w (dashed) vs σ_τ (ns)', ticks: [[20, '20'], [40, '40'], [60, '60'], [80, '80']] });
+      poly(x, m, M.sg, M.es, c.a, { w: 2 }); poly(x, m, M.sg, M.wr, c.b, { w: 1.8, dash: [5, 3] }); } },
+  { prov: 'exact', q: 'How many power iterations?', a: 'The error falls as <b>(λ₂/λ₁)ⁿ</b>: 6 iterations at 0.3, 10 at 0.5, 25 at 0.76 for 10⁻³. A barely corrected distortion matrix converges slowest.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 30], [-4, 0], { lab: 'log₁₀ error vs iteration n', ticks: [[0, '0'], [10, '10'], [20, '20'], [30, '30']], base: -4, hlines: [[-3, '10⁻³']] });
+      [[0.3, c.d], [0.5, c.a], [0.76, c.b]].forEach(([r, col]) => { Mm().curve(x, m, n => n * L10(r), col, { w: 2 }); Mm().text(x, String(r), m.X(Math.min(27, -3.6 / L10(r))) + 3, m.Y(-3.6) , col); }); } },
+  { prov: 'exact', q: 'When does a borrowed law lose to no law?', a: 'Residual variance <b>2σ²(1 − ρ)</b> against σ² uncorrected: the crossover is at <b>ρ = 1/2</b> whatever σ. At σ<sub>φ</sub> = 1.26 rad the borrowed law gives 0.94 at ρ = 0.98 and 0.21 at ρ = 0.5.',
+    draw: cv => { const c = Mm().col(), sp = 1.257; const { x, m } = fig(cv, H, [0, 1], [0, 1.05], { lab: 'Strehl vs screen correlation ρ(δ)', ticks: [[0, '0'], [0.5, '1/2'], [1, '1']], hlines: [[Math.exp(-sp * sp), 'none']] });
+      Mm().curve(x, m, r => Math.exp(-2 * sp * sp * (1 - r)), c.a, { w: 2 }); vline(x, m, 0.5, c.b); } }
+];
+Lab.cardGrid('m33', 'm33-g7', G7);
+
+/* ================= visual summary ================= */
+const VIS = [
+  { prov: 'exact', q: 'What does a 40 ns screen cost?', a: 'Exact mean Strehl, 128 elements, ℓ 4 mm: <b>0.32 at 5 MHz</b>, 0.73 at 2.5 MHz, 0.13 at 7.5 MHz. The same delay is more phase at higher frequency.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 80], [0, 1.05], { lab: 'E[S] vs σ_τ (ns)', ticks: [[20, '20'], [40, '40'], [60, '60'], [80, '80']] });
+      [[2.5e6, c.d], [5e6, c.a], [7.5e6, c.b]].forEach(([f, col]) => Mm().curve(x, m, s => meanStrehl(N128, PITCH, TAU * f * s * 1e-9, 4e-3), col, { w: 2 })); dot(x, m, 40, meanStrehl(N128, PITCH, TAU * 5e6 * 40e-9, 4e-3), c.a); } },
+  { prov: 'exact', q: 'Why does e<sup>−σ²</sup> underestimate?', a: 'Elements within ℓ stay in phase, so the strong-screen Strehl tends to <b>√π ℓ/(σ<sub>φ</sub>D)</b>, not to zero: 0.079 at 80 ns against e<sup>−σ²</sup> = 0.002.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 3], [-3, 0], { lab: 'log₁₀ E[S] vs σ_φ (rad)', ticks: [[1, '1'], [2, '2'], [3, '3']], base: -3 });
+      Mm().curve(x, m, s => L10(meanStrehl(N128, PITCH, s, 4e-3)), c.a, { w: 2 }); Mm().curve(x, m, s => L10(Math.exp(-s * s)), c.mu, { dash: [4, 3] }); Mm().curve(x, m, s => L10(Math.min(1, Math.sqrt(PI) * 4e-3 / (s * N128 * PITCH))), c.b, { dash: [5, 3] }); } },
+  { prov: 'exact', q: 'What does aberration do to coherence?', a: 'It multiplies the VCZ triangle by <b>e<sup>−σ²(1−ρ(mp))</sup></b>: a fast drop over the correlation length, then a plateau at e<sup>−σ²</sup>. 20, 40, 60 ns shown.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 127], [0, 1.05], { lab: 'coherence vs lag (elements)', ticks: [[0, '0'], [40, '40'], [80, '80'], [127, '127']] });
+      Mm().curve(x, m, l => 1 - l / N128, c.mu, { w: 1.3 }); [[20, c.d], [40, c.a], [60, c.b]].forEach(([s, col]) => Mm().curve(x, m, l => cohC(TAU * 5e6 * s * 1e-9, 4e-3, l), col, { w: 2 })); } },
+  { prov: 'exact', q: 'Why does integration drift?', a: 'Summed independent differences: raw rms error <b>σ<sub>ε</sub>√k</b>; after removing mean and ramp, <b>σ<sub>ε</sub>√(N/15)</b> = 2.9 σ<sub>ε</sub> for 128 elements.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [1, 128], [0, 12], { lab: 'error / σ_ε vs element k', ticks: [[1, '1'], [64, '64'], [128, '128']], hlines: [[Math.sqrt(128 / 15), '√(N/15)']] });
+      Mm().curve(x, m, k => Math.sqrt(k - 1), c.b, { w: 2 }); } },
+  { prov: 'model', q: 'How much do extra lags buy?', a: 'Detrended LS error relative to nearest neighbour, 64 elements, ρ<sub>m</sub> = 0.9<sup>m</sup>, independent pair errors: <b>0.62 at L = 2, 0.40 at L = 4, 0.27 at L = 12</b>; diminishing returns because long lags are noisier.',
+    draw: cv => { const c = Mm().col(), g = lsGain(); const { x, m } = fig(cv, H, [1, 12], [0, 1.05], { lab: 'rms(LS) / rms(NN) vs max lag L', ticks: [[1, '1'], [4, '4'], [8, '8'], [12, '12']] });
+      poly(x, m, g.map((_, i) => i + 1), g, c.a, { w: 2 }); g.forEach((v, i) => dot(x, m, i + 1, v, c.a, 2.5)); } },
+  { prov: 'sim', q: 'What does a speckle estimator focus on?', a: 'On the spot its transmit insonifies: through a 60 ns screen the <b>spot is broad and asymmetric</b> (pink) against the diffraction-limited one (grey); its eigenvector carries that shape.',
+    draw: cv => { const c = Mm().col(), N = 64, xe = elems(N, PITCH), scr = makeScreen(31, 3e-3, xe[0], xe[N - 1]), ph = Array.from(xe, v => TAU * 5e6 * 60e-9 * scr(v));
+      const I = (p, xx) => { let re = 0, im = 0; for (let i = 0; i < N; i++) { const a = p[i] - K5 * xe[i] * xx / 0.03; re += Math.cos(a); im += Math.sin(a); } return (re * re + im * im) / (N * N); };
+      const { x, m } = fig(cv, H, [-4, 4], [0, 1.05], { lab: 'transmit intensity at 30 mm vs x (mm)', ticks: [[-4, '−4'], [0, '0'], [4, '4']] });
+      Mm().curve(x, m, v => I(new Array(N).fill(0), v * 1e-3), c.mu, { w: 1.4 }); Mm().curve(x, m, v => I(ph, v * 1e-3), c.b, { w: 2 }); } },
+  { prov: 'exact', q: 'How far does one law reach?', a: 'Large-aperture <b>e<sup>−2σ²(1−ρ(Δx d/z))</sup></b>, 40 ns, ℓ 4 mm, z 40 mm, for a screen at 5, 10, 20 mm; dotted line: no correction.',
+    draw: cv => { const c = Mm().col(), sp = 1.257; const { x, m } = fig(cv, H, [0, 25], [0, 1.05], { lab: 'Strehl vs Δx (mm)', ticks: [[0, '0'], [5, '5'], [10, '10'], [20, '20']], hlines: [[Math.exp(-sp * sp), 'none']] });
+      [[5, c.d], [10, c.a], [20, c.b]].forEach(([d, col]) => Mm().curve(x, m, dx => Math.exp(-2 * sp * sp * (1 - Math.exp(-((dx * d / 40 / 4) ** 2)))), col, { w: 2 })); } },
+  { prov: 'exact', q: 'How does the patch scale?', a: '<b>Δx<sub>½</sub> = (zℓ/d)√(−ln(1 − ln2/2σ²))</b>: inversely with screen depth; 8.0 mm at d = 10 mm for 40 ns (large aperture). 30, 40, 60 ns shown.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [2, 30], [0, 30], { lab: 'Δx½ (mm) vs d (mm), z 40, ℓ 4', ticks: [[5, '5'], [10, '10'], [20, '20'], [30, '30']] });
+      [[30, c.d], [40, c.a], [60, c.b]].forEach(([s, col]) => { const sp = TAU * 5e6 * s * 1e-9; Mm().curve(x, m, d => 40 * 4 / d * Math.sqrt(-Math.log(1 - Math.LN2 / (2 * sp * sp))), col, { w: 2 }); }); } },
+  { prov: 'model', q: 'Which way does the straight-ray error go?', a: 'Straight minus Fermat time behind the wavy fat layer of Demo 33.5, point at −12 mm: <b>never negative</b>, largest where the straight ray meets the interface most obliquely.',
+    draw: cv => { const c = Mm().col(), e = fatPathError(-12e-3), xe = Array.from(elems(N128, PITCH), v => v * 1e3); const { x, m } = fig(cv, H, [-19.2, 19.2], [0, Math.max(5, ...e) * 1.15], { lab: 'straight − Fermat (ns) vs element (mm)', ticks: [[-19.2, '−19'], [0, '0'], [19.2, '19']] });
+      poly(x, m, xe, e, c.a, { w: 2 }); } },
+  { prov: 'exact', q: 'How does R<sub>xx</sub> measure focus?', a: 'Its mean intensity versus offset from the diagonal is the <b>autocorrelation of the PSF intensity</b>: exact mean PSFs for 0, 30, 60 ns, normalized to equal area.',
+    draw: cv => { const c = Mm().col(), dxs = Array.from({ length: 121 }, (_, i) => -3e-3 + 6e-3 * i / 120); const { x, m } = fig(cv, H, [-3, 3], [0, 1.05], { lab: 'I(Δx), peak-normalized to 0 ns', ticks: [[-3, '−3'], [0, '0'], [3, '3 mm']] });
+      const base = cmpProfile(0, dxs), b0 = base.reduce((a, v) => a + v, 0), pk = Math.max(...base); [[0, c.mu], [30, c.a], [60, c.b]].forEach(([s, col]) => { const p = cmpProfile(TAU * 5e6 * s * 1e-9, dxs), sm = p.reduce((a, v) => a + v, 0); poly(x, m, dxs.map(v => v * 1e3), p.map(v => v / sm * b0 / pk), col, { w: 2 }); }); } },
+  { prov: 'sim', q: 'How many distortion-matrix iterations?', a: 'm33_distortion_matrix_svd.m, screen at the array: residual <b>0.83 → 0.31 → 0.07 → 0.018 rad</b>, Γ 0.48 → 1.00. The first step is the biased one.',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 4], [0, 1.05], { lab: 'residual (rad), Γ vs iteration', ticks: [[0, '0'], [1, '1'], [2, '2'], [3, '3'], [4, '4']] });
+      const r = [0.827, 0.314, 0.070, 0.018, 0.015], g = [0.48, 0.87, 0.99, 1.0, 1.0]; poly(x, m, [0, 1, 2, 3, 4], r, c.b, { w: 2 }); poly(x, m, [0, 1, 2, 3, 4], g, c.a, { w: 2 }); r.forEach((v, i) => { dot(x, m, i, v, c.b); dot(x, m, i, g[i], c.a); }); } },
+  { prov: 'sim', q: 'Global law or local laws?', a: 'Screen at 8 mm, 12 mm field: one global law reaches <b>Γ = 0.69</b>; three 4 mm windows reach <b>0.75, 0.93, 0.88</b> (m33_distortion_matrix_svd.m).',
+    draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 5], [0, 1.05], { lab: 'Γ: before (grey) and after', ticks: [[1, 'global'], [2, 'left'], [3, 'centre'], [4, 'right']] });
+      [[1, 0.48, 0.69], [2, 0.41, 0.75], [3, 0.65, 0.93], [4, 0.42, 0.88]].forEach(([p, b, a]) => { x.save(); x.fillStyle = c.mu; x.globalAlpha = 0.5; x.fillRect(m.X(p - 0.32), m.Y(b), m.X(0.3) - m.X(0), m.Y(0) - m.Y(b)); x.globalAlpha = 0.85; x.fillStyle = c.a; x.fillRect(m.X(p), m.Y(a), m.X(0.3) - m.X(0), m.Y(0) - m.Y(a)); x.restore(); }); } }
+];
+Lab.cardGrid('m33', 'm33-vis', VIS);
+
+/* ================= rule figures ================= */
+function drawRules() {
+  const c = Mm().col(), q = id => $(id), bars = (F, data, ymax) => data.forEach(([p, v, col]) => { F.x.save(); F.x.fillStyle = col; F.x.globalAlpha = 0.8; F.x.fillRect(F.m.X(p - 0.3), F.m.Y(v), F.m.X(0.6) - F.m.X(0), F.m.Y(0) - F.m.Y(v)); F.x.restore(); Mm().text(F.x, fmt(v, v < 1 ? 2 : 1), F.m.X(p), F.m.Y(v) - 7, c.fg, 'center'); });
+  let F = fig(q('m33-rf-1'), RH, [0, 80], [0, 4], { lab: 'σ_φ (rad) vs σ_τ (ns)', ticks: [[20, '20'], [40, '40'], [60, '60'], [80, '80']] });
+  [[2.5e6, c.d, '2.5'], [5e6, c.a, '5'], [7.5e6, c.b, '7.5 MHz']].forEach(([f, col, lab]) => { Mm().curve(F.x, F.m, s => TAU * f * s * 1e-9, col, { w: 2 }); Mm().text(F.x, lab, F.m.X(62), F.m.Y(TAU * f * 62e-9) - 8, col); }); dot(F.x, F.m, 40, 1.257, c.a);
+  F = fig(q('m33-rf-2'), RH, [0, 80], [-3, 0], { lab: 'log₁₀ S vs σ_τ (ns), 5 MHz', ticks: [[20, '20'], [40, '40'], [60, '60'], [80, '80']], base: -3 });
+  Mm().curve(F.x, F.m, s => L10(meanStrehl(N128, PITCH, TAU * 5e6 * s * 1e-9, 4e-3)), c.a, { w: 2 }); Mm().curve(F.x, F.m, s => L10(Math.exp(-((TAU * 5e6 * s * 1e-9) ** 2))), c.mu, { dash: [4, 3] });
+  Mm().curve(F.x, F.m, s => 2 * L10(meanStrehl(N128, PITCH, TAU * 5e6 * s * 1e-9, 4e-3)), c.b, { w: 1.6, dash: [5, 3] }); dot(F.x, F.m, 40, L10(0.315), c.a); dot(F.x, F.m, 40, L10(0.131), c.b);
+  Mm().text(F.x, 'one way', F.m.X(48), F.m.Y(L10(0.2)) - 8, c.a); Mm().text(F.x, 'E[S]² (dot: E[S²])', F.m.X(44), F.m.Y(L10(0.03)) - 2, c.b);
+  F = fig(q('m33-rf-3'), RH, [0, 85], [0, 7], { lab: '−6 dB width of mean PSF (mm) vs σ_τ (ns)', ticks: [[10, '10'], [30, '30'], [60, '60'], [80, '80']] });
+  { const sg = [0, 10, 20, 30, 40, 60, 80], w = [0.38, 0.38, 0.40, 0.48, 1.38, 3.50, 5.58]; Mm().curve(F.x, F.m, s => 3.33 * Math.SQRT2 * C0 * s * 1e-9 * 0.04 / 0.004 * 1e3, c.mu, { dash: [4, 3] }); poly(F.x, F.m, sg, w, c.a, { w: 2 }); sg.forEach((s, i) => dot(F.x, F.m, s, w[i], c.a)); Mm().text(F.x, 'halo 3.33 s', F.m.X(24), F.m.Y(3.2), c.mu); }
+  F = fig(q('m33-rf-4'), RH, [0, 127], [0, 1.05], { lab: 'coherence vs lag, 40 ns, ℓ 4 mm', ticks: [[0, '0'], [10, '10'], [40, '40'], [127, '127']] });
+  Mm().curve(F.x, F.m, l => 1 - l / N128, c.mu, { w: 1.4 }); Mm().curve(F.x, F.m, l => cohC(1.257, 4e-3, l), c.a, { w: 2 }); dot(F.x, F.m, 10, 0.465, c.b); dot(F.x, F.m, 40, 0.138, c.b);
+  F = fig(q('m33-rf-5'), RH, [8, 256], [0, 12], { lab: 'rms error / σ_ε vs N', ticks: [[16, '16'], [64, '64'], [128, '128'], [256, '256']] });
+  Mm().curve(F.x, F.m, n => Math.sqrt(n / 2), c.b, { w: 1.8, dash: [5, 3] }); Mm().curve(F.x, F.m, n => Math.sqrt(n / 15), c.a, { w: 2 }); dot(F.x, F.m, 128, Math.sqrt(128 / 15), c.a);
+  Mm().text(F.x, 'raw, mean over k', F.m.X(120), F.m.Y(9.5), c.b); Mm().text(F.x, 'detrended √(N/15)', F.m.X(140), F.m.Y(2.4), c.a);
+  F = fig(q('m33-rf-6'), RH, [0, 9], [0, 12], { lab: 'residual (ns): noiseless p1, p2 | 0 dB p1, p2', ticks: [[1.5, 'p1'], [3.5, 'p2'], [5.5, 'p1'], [7.5, 'p2']] });
+  bars(F, [[1, 5.74, c.b], [2, 6.34, c.a], [3, 2.62, c.b], [4, 2.67, c.a], [5, 10.49, c.b], [6, 7.88, c.a], [7, 8.31, c.b], [8, 3.98, c.a]]); Mm().text(F.x, 'NN', F.m.X(0.2), F.m.Y(11), c.b); Mm().text(F.x, 'LS', F.m.X(1.4), F.m.Y(11), c.a);
+  F = fig(q('m33-rf-7'), RH, [-0.3, 2.3], [0, 0.8], { lab: 'residual (rad) and λ₂/λ₁ vs transmit pass', ticks: [[0, '0'], [1, '1'], [2, '2']] });
+  poly(F.x, F.m, [0, 1, 2], [0.275, 0.017, 0.001], c.b, { w: 2 }); poly(F.x, F.m, [0, 1, 2], [0.736, 0.308, 0.300], c.a, { w: 2 }); [[0, 0.275, 0.736], [1, 0.017, 0.308], [2, 0.001, 0.300]].forEach(([p, r, l]) => { dot(F.x, F.m, p, r, c.b); dot(F.x, F.m, p, l, c.a); });
+  Mm().text(F.x, 'λ₂/λ₁', F.m.X(1.2), F.m.Y(0.38), c.a); Mm().text(F.x, 'residual', F.m.X(0.15), F.m.Y(0.2), c.b);
+  { const ev = dortEig(); F = fig(q('m33-rf-8'), RH, [0.3, 8.7], [-4, 0.3], { lab: 'log₁₀ λ_i/λ₁ of KᴴK, three scatterers', ticks: [[1, '1'], [2, '2'], [3, '3'], [4, '4'], [6, '6'], [8, '8']], base: -4 });
+    ev.forEach((v, i) => { const y = Math.max(-4, L10(Math.max(v, 1e-8))); F.x.save(); F.x.fillStyle = i < 3 ? c.a : c.mu; F.x.fillRect(F.m.X(i + 1 - 0.3), F.m.Y(y), F.m.X(0.6) - F.m.X(0), F.m.Y(-4) - F.m.Y(y)); F.x.restore(); });
+    Mm().text(F.x, 'expected 1, 0.49, 0.16', F.m.X(3.6), F.m.Y(-0.6), c.fg); }
+  F = fig(q('m33-rf-9'), RH, [0, 1], [0, 1.05], { lab: 'Strehl vs ρ(δ), σ_φ = 1.26 rad', ticks: [[0, '0'], [0.5, '1/2'], [1, '1']], hlines: [[Math.exp(-1.58), 'no correction']] });
+  Mm().curve(F.x, F.m, r => Math.exp(-2 * 1.58 * (1 - r)), c.a, { w: 2 }); vline(F.x, F.m, 0.5, c.b);
+  F = fig(q('m33-rf-10'), RH, [3, 25], [0, 30], { lab: 'Δx½ (mm) vs d (mm), 40 ns, ℓ 4, z 40', ticks: [[5, '5'], [10, '10'], [20, '20']] });
+  Mm().curve(F.x, F.m, d => 160 / d * Math.sqrt(-Math.log(1 - Math.LN2 / (2 * 1.58))), c.a, { w: 2 }); [[5, 16.52], [10, 8.32], [20, 4.31]].forEach(([d, v]) => dot(F.x, F.m, d, v, c.b)); Mm().text(F.x, 'dots: finite aperture (script)', F.m.X(9), F.m.Y(24), c.b);
+  { const e = fatPathError(-12e-3), e0 = fatPathError(0), xe = Array.from(elems(N128, PITCH), v => v * 1e3); F = fig(q('m33-rf-11'), RH, [-19.2, 19.2], [0, Math.max(...e, ...e0) * 1.15], { lab: 'straight − Fermat (ns) vs element (mm)', ticks: [[-19.2, '−19'], [0, '0'], [19.2, '19']] });
+    poly(F.x, F.m, xe, e, c.a, { w: 2 }); poly(F.x, F.m, xe, e0, c.d, { w: 1.6, dash: [5, 3] }); Mm().text(F.x, 'x_p = −12', F.m.X(-17), F.m.Y(Math.max(...e) * 0.9), c.a); Mm().text(F.x, 'x_p = 0', F.m.X(4), F.m.Y(Math.max(...e0) * 1.05) - 6, c.d); }
+  F = fig(q('m33-rf-12'), RH, [0.3, 5.7], [0, 1.15], { lab: 'mean Strehl over ±12 mm', ticks: [[1, 'none'], [2, '1 law'], [3, 'map'], [4, 'blur'], [5, 'bias']] });
+  bars(F, [[1, 0.08, c.mu], [2, 0.43, c.b], [3, 0.97, c.a], [4, 0.93, c.d], [5, 0.95, c.c]]);
+  { const dxs = Array.from({ length: 121 }, (_, i) => -3e-3 + 6e-3 * i / 120), base = cmpProfile(0, dxs), b0 = base.reduce((a, v) => a + v, 0), pk = Math.max(...base);
+    F = fig(q('m33-rf-13'), RH, [-3, 3], [0, 1.05], { lab: 'I(Δx) (equal area), 0 / 30 / 60 ns', ticks: [[-3, '−3'], [0, '0'], [3, '3 mm']] });
+    [[0, c.mu], [30, c.a], [60, c.b]].forEach(([s, col]) => { const p = cmpProfile(TAU * 5e6 * s * 1e-9, dxs), sm = p.reduce((a, v) => a + v, 0); poly(F.x, F.m, dxs.map(v => v * 1e3), p.map(v => v / sm * b0 / pk), col, { w: 2 }); }); }
+  F = fig(q('m33-rf-14'), RH, [-0.2, 4.2], [0, 1.05], { lab: 'residual (rad) and Γ vs iteration', ticks: [[0, '0'], [1, '1'], [2, '2'], [3, '3'], [4, '4']] });
+  { const r = [0.827, 0.314, 0.070, 0.018, 0.015], g = [0.48, 0.87, 0.99, 1.0, 1.0]; poly(F.x, F.m, [0, 1, 2, 3, 4], r, c.b, { w: 2 }); poly(F.x, F.m, [0, 1, 2, 3, 4], g, c.a, { w: 2 }); r.forEach((v, i) => { dot(F.x, F.m, i, v, c.b); dot(F.x, F.m, i, g[i], c.a); }); Mm().text(F.x, 'Γ', F.m.X(0.3), F.m.Y(0.7), c.a); Mm().text(F.x, 'residual', F.m.X(1.2), F.m.Y(0.38), c.b); }
+  F = fig(q('m33-rf-15'), RH, [0.3, 4.7], [0, 1.15], { lab: 'final Γ, screen at 8 mm', ticks: [[1, 'global'], [2, 'left'], [3, 'centre'], [4, 'right']] });
+  bars(F, [[1, 0.69, c.b], [2, 0.75, c.a], [3, 0.93, c.a], [4, 0.88, c.a]]);
+  F = fig(q('m33-rf-16'), RH, [0.3, 4.7], [0, 1.0], { lab: 'σ₂/σ₁: d = 0 before, after | d = 8 before, after', ticks: [[1, 'b'], [2, 'a'], [3, 'b'], [4, 'a']] });
+  bars(F, [[1, 0.677, c.mu], [2, 0.515, c.a], [3, 0.778, c.mu], [4, 0.545, c.a]]);
+  { const M = metricCurves(); F = fig(q('m33-rf-17'), RH, [0, 80], [0, 1.05], { lab: 'E[S] (solid) and w₀/w (dashed) vs σ_τ (ns)', ticks: [[20, '20'], [30, '30'], [40, '40'], [60, '60'], [80, '80']] });
+    poly(F.x, F.m, M.sg, M.es, c.a, { w: 2 }); poly(F.x, F.m, M.sg, M.wr, c.b, { w: 1.8, dash: [5, 3] }); dot(F.x, F.m, 30, meanStrehl(N128, PITCH, TAU * 5e6 * 30e-9, 4e-3), c.a); }
+}
+Lab.onShow('m33', drawRules);
+
+/*@@JS-END*/
+})();
+</script>

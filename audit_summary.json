@@ -1,0 +1,67 @@
+{
+ "audited": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33
+ ],
+ "flags": [
+  {
+   "module": 22,
+   "claim": "C_TIB = 50 mW/cm in TIB = √(P_α I_ta,α)/C_TIB; alternative W_α/4.4 mW",
+   "where": "22.5 note, rule 11 limits, m22_ti_estimates.m",
+   "verdict": "open",
+   "action": "no accessible source found in the 26 Oct 2026 recheck"
+  },
+  {
+   "module": 26,
+   "claim": "Specific figure numbers (gCNR Fig. 1 S-DAS, Figs. 4,5,7–9; PICMUS Figs. 2,3; Oelze Fig. 3)",
+   "where": "26.14",
+   "verdict": "open",
+   "action": "no accessible source found in the 26 Oct 2026 recheck"
+  },
+  {
+   "module": 32,
+   "claim": "Imbault 2017: speeds 1492–1604 m/s, PDFF 2–17 %, cut-offs 1541 (PDFF 5 %) and 1555 m/s (biopsy 10 %)",
+   "where": "32.1, card G1, cheat sheet, demo 32.6 targets",
+   "verdict": "open",
+   "action": "Speeds 1492–1604 m/s, PDFF range and the 1541/1555 m/s cut-offs from Imbault et al. 2017 await a check against the full paper."
+  }
+ ],
+ "recheck": {
+  "confirmed": 32,
+  "corrected": 9,
+  "soften": 12,
+  "unverifiable": 2,
+  "open": 1
+ }
+}

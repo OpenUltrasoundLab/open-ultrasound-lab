@@ -1,0 +1,1312 @@
+<section class="view" id="m16" data-title="Piezoelectric transduction and equivalent circuits" hidden>
+  <header class="module-head">
+    <div class="eyebrow">Part III · Module 16</div>
+    <h1>Piezoelectric transduction and equivalent circuits: Mason, KLM</h1>
+    <p class="lede">Every echo you have ever beamformed passed twice through a piezoelectric plate. This module builds that plate from its constitutive equations up to a transfer-matrix model that predicts the electrical impedance, the pulse-echo spectrum and the impulse response of a real stack, so you can read a probe datasheet, an impedance-analyzer trace or a KLM paper and know where every number comes from.</p>
+    <div class="objectives">
+      <div><h4>You will be able to</h4><ul>
+        <li>Write the constitutive equations in the form that suits a bar, a plate or an array element, and say what \(k_{33}\), \(k_t\), \(k_{31}\) and \(k^2\) mean as energy ratios</li>
+        <li>Choose between PZT, single crystal, 1-3 composite and PVDF with numbers for Z, \(k_t\) and \(\varepsilon\)</li>
+        <li>Extract \(k_t\) from \(f_r\) and \(f_a\) with the IEEE Std 176 relation and know when it fails</li>
+        <li>Draw the Mason and KLM circuits, state every element value and prove they agree</li>
+        <li>Chain ABCD matrices into impedance, transmit, receive and pulse-echo transfer functions, and predict how backing, matching layers, tuning and cables move bandwidth and insertion loss</li>
+      </ul></div>
+      <div><h4>Assumes</h4><ul>
+        <li>Phasors (<a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 01, Complex numbers &amp; phasors</a>) and transfer functions (<a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 03, Convolution, LTI &amp; filters</a>)</li>
+        <li>Pulse spectra, bandwidth and the RF line as pulse ∗ reflectivity (<a href="{{PART1_URL}}" target="_blank" rel="noopener">Module 04, Sampling, Fourier, LTI</a>)</li>
+        <li>Plane-wave reflection and transmission at an impedance step (<a href="#m15">Module 15, Wave physics &amp; harmonics</a>)</li>
+      </ul></div>
+    </div>
+  </header>
+  <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>numerical solution (FFT, Monte Carlo, solver comparison)</span><span><span class="prov model">Approx. model</span>1D KLM/ABCD or effective-medium physics, or representative datasheet ranges; assumptions stated under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition (plate, mode shapes, circuits, stack), not computed</span><span>Every impedance, spectrum and pulse on this page is computed by the KLM/ABCD code below (JS in the page; the same chain in the Octave scripts), which matches an independent Mason nodal solver and the closed-form plate impedance to 10⁻¹² (validation callout in 16.6). No curve is hand-drawn.</span></div>
+
+  <!-- ===================== 16.1 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">16.1</span>The piezoelectric effect and the constitutive equations</h2>
+    <p>A poled ferroelectric ceramic (PZT) or crystal (PMN-PT) carries a remanent polarization along its poling axis, labelled 3. Stress changes that polarization, and the change appears as charge on the electrodes: the <strong>direct effect</strong>, used on receive. A field changes the strain: the <strong>converse effect</strong>, used on transmit. For small signals both are linear and, by thermodynamics, governed by the same coefficient, which is why one device is both the speaker and the microphone and why its transmit and receive responses are linked by reciprocity.</p>
+    <p>Four field variables are in play: stress T (Pa), strain S, electric field E (V/m) and electric displacement D (C/m²). Pick any two as independent and you get one of four equivalent forms. Superscripts say what is held constant: E (short circuit), D (open circuit), T (free), S (clamped).</p>
+  </div>
+  <figure class="stack-fig" id="m16-fig-plate">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 16.0</b> · A poled plate with electrodes: axes, poling, and the two directions of energy flow (thickness exaggerated, not to scale)</div>
+    <div class="mx-scroll"><svg viewBox="0 0 760 322" role="img" aria-label="Cross-section of a poled piezoelectric plate with top and bottom electrodes, poling arrow along axis 3, applied voltage, and insets for the converse and direct effects">
+      <defs><marker id="m16-ah0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" style="fill:var(--ink)"/></marker>
+        <marker id="m16-ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" style="fill:var(--sig2)"/></marker></defs>
+      <text x="20" y="20" class="t">Thickness-mode plate (front face toward the patient)</text>
+      <rect x="70" y="40" width="300" height="34" style="fill:var(--sig4);fill-opacity:.18;stroke:none"/>
+      <text x="220" y="61" class="m" text-anchor="middle">front load Z<tspan baseline-shift="sub" font-size="9">F</tspan> (water / layers)</text>
+      <rect x="70" y="76" width="300" height="6" style="fill:var(--ink)"/>
+      <rect x="70" y="82" width="300" height="100" style="fill:var(--accent);fill-opacity:.35;stroke:var(--accent)"/>
+      <rect x="70" y="182" width="300" height="6" style="fill:var(--ink)"/>
+      <rect x="70" y="190" width="300" height="34" style="fill:var(--muted);fill-opacity:.25;stroke:none"/>
+      <text x="220" y="211" class="m" text-anchor="middle">back load Z<tspan baseline-shift="sub" font-size="9">B</tspan> (backing)</text>
+      <path d="M140 170 V96" style="stroke:var(--sig2);stroke-width:3;fill:none" marker-end="url(#m16-ah1)"/>
+      <text x="150" y="122" style="fill:var(--sig2)">P (poled along 3)</text>
+      <g style="stroke:var(--ink);stroke-width:1;fill:none" marker-end="url(#m16-ah0)"><path d="M250 88 V176"/><path d="M290 88 V176"/><path d="M330 88 V176"/></g>
+      <text x="252" y="140" class="s">E = V/t</text>
+      <path d="M370 79 H420 V110" class="w"/><path d="M370 185 H420 V150" class="w"/>
+      <circle cx="420" cy="130" r="20" class="src"/><text x="420" y="135" text-anchor="middle">V</text>
+      <text x="428" y="80" class="s">ground (front)</text><text x="428" y="196" class="s">signal (back)</text>
+      <g class="dim"><path d="M50 82 V182 M45 82 H55 M45 182 H55"/></g>
+      <text x="44" y="128" class="m" text-anchor="end">t</text>
+      <text x="20" y="292" class="m">t = v<tspan baseline-shift="super" font-size="9">D</tspan>/2f<tspan baseline-shift="sub" font-size="9">a</tspan> = 0.46 mm (PZT-5H, 5 MHz); electrodes Cr/Au 0.1–1 µm or fired Ag 5–10 µm</text>
+      <text x="20" y="312" class="m">pure thickness mode needs width ≳ 10–20 t; a 0.27 mm array element (w/t ≈ 0.6) is a sliver (k₃₃′)</text>
+      <g transform="translate(560,40)">
+        <text x="0" y="0" class="t">Axes</text>
+        <g style="stroke:var(--ink);stroke-width:1.2;fill:none" marker-end="url(#m16-ah0)"><path d="M20 60 V18"/><path d="M20 60 H62"/></g>
+        <circle cx="20" cy="60" r="5" style="fill:none;stroke:var(--ink)"/><circle cx="20" cy="60" r="1.5" style="fill:var(--ink)"/>
+        <text x="26" y="22">3 (z, thickness)</text><text x="66" y="64">1</text><text x="2" y="80" class="s">2 out of page</text>
+      </g>
+      <g transform="translate(470,140)">
+        <text x="0" y="0" class="t">Converse (transmit)</text>
+        <rect x="0" y="14" width="80" height="26" style="fill:var(--accent);fill-opacity:.35;stroke:var(--accent)"/>
+        <rect x="0" y="8" width="80" height="38" style="fill:none;stroke:var(--accent);stroke-dasharray:3 3"/>
+        <text x="90" y="26" class="s">V → E₃ → S₃</text><text x="90" y="42" class="s">plate thickens/thins</text>
+        <text x="0" y="74" class="t">Direct (receive)</text>
+        <rect x="0" y="86" width="80" height="22" style="fill:var(--accent);fill-opacity:.35;stroke:var(--accent)"/>
+        <g style="stroke:var(--sig2);stroke-width:1.2;fill:none" marker-end="url(#m16-ah1)"><path d="M20 78 V84"/><path d="M40 78 V84"/><path d="M60 78 V84"/></g>
+        <text x="90" y="94" class="s">echo p → S₃ → charge</text><text x="90" y="110" class="s">Q on the electrodes</text>
+      </g>
+    </svg></div>
+    <figcaption class="prov-note">Index 3 is the poling direction; 1 and 2 are lateral. The same coefficient (\(d_{33}\) or \(e_{33}\)) governs both directions, which is the reciprocity behind using one element for transmit and receive. In an array the front electrode is the common ground and the back electrode the per-element signal (Figure 16.A).</figcaption>
+  </figure>
+  <div class="eqn" id="m16-eq1">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathbf{S} = \mathbf{s}^{E}\,\mathbf{T} + \mathbf{d}^{t}\,\mathbf{E}, \qquad \mathbf{D} = \mathbf{d}\,\mathbf{T} + \varepsilon^{T}\mathbf{E} \]</div><span class="eqn-no">(16.1)</span></div>
+      <dl class="where"><dt>\(\mathbf{S}\)</dt><dd>strain, dimensionless</dd><dt>\(\mathbf{T}\)</dt><dd>stress, Pa</dd><dt>\(\mathbf{E}\)</dt><dd>electric field, V/m</dd><dt>\(\mathbf{D}\)</dt><dd>electric displacement, C/m²</dd><dt>\(\mathbf{s}^{E}\)</dt><dd>compliance at constant field (short circuit), m²/N</dd><dt>\(\mathbf{d}\)</dt><dd>piezoelectric strain constants, C/N = m/V; superscript \(t\) = transpose</dd><dt>\(\varepsilon^{T}\)</dt><dd>free (constant-stress) permittivity, F/m</dd></dl>
+      <span class="note">Strain-charge (d) form. Natural for a long bar whose lateral faces are free: the \(k_{33}\) bar \((T_1 = T_2 = 0)\) and the \(k_{31}\) bar (only \(T_1 \ne 0\)). \(d_{33}\) in pC/N or pm/V, both meanings are the same number.</span>
+    </div>
+  <div class="eqn" id="m16-eq2">
+      <div class="eqn-body"><div class="eqn-math">\[ \mathbf{T} = \mathbf{c}^{E}\,\mathbf{S} - \mathbf{e}^{t}\,\mathbf{E}, \qquad \mathbf{D} = \mathbf{e}\,\mathbf{S} + \varepsilon^{S}\mathbf{E} \]</div><span class="eqn-no">(16.2)</span></div>
+      <dl class="where"><dt>\(\mathbf{c}^{E}\)</dt><dd>stiffness at constant field, Pa</dd><dt>\(\mathbf{e}\)</dt><dd>piezoelectric stress constants, C/m²</dd><dt>\(\varepsilon^{S}\)</dt><dd>clamped (constant-strain) permittivity, F/m</dd><dt>\(\mathbf{S},\ \mathbf{D}\)</dt><dd>strain and electric displacement, as in (16.1)</dd><dt>\(\mathbf{e}^{t}\)</dt><dd>transpose of \(\mathbf{e}\)</dd></dl>
+      <span class="note">Stress-charge (e) form. Natural for a thin plate, whose lateral extent clamps it \((S_1 = S_2 = 0)\): the thickness mode. \(e = d c^E\).</span>
+    </div>
+  <div class="eqn" id="m16-eq3">
+      <div class="eqn-body"><div class="eqn-math">\[ T_3 = c_{33}^{D} S_3 - h_{33} D_3, \qquad E_3 = -h_{33} S_3 + \frac{D_3}{\varepsilon_{33}^{S}} \]</div><span class="eqn-no">(16.3)</span></div>
+      <dl class="where"><dt>\(c_{33}^{D}\)</dt><dd>open-circuit (stiffened) thickness stiffness, Pa</dd><dt>\(h_{33}\)</dt><dd>piezoelectric constant, V/m</dd><dt>\(\varepsilon_{33}^{S}\)</dt><dd>clamped permittivity, F/m</dd><dt>\(T_3,\ S_3,\ D_3,\ E_3\)</dt><dd>thickness-direction (axis 3, poling axis) components of \(\mathbf{T},\mathbf{S},\mathbf{D},\mathbf{E}\) in (16.1), (16.2)</dd></dl>
+      <span class="note">h form for the thickness mode, with \(h_{33} = e_{33} /\varepsilon_{33}^S\) and \(c_{33}^D = c_{33}^E + e_{33}^2 /\varepsilon_{33}^S\). PZT-5H: \(e_{33} = 23.3\) C/m², \(\varepsilon_{33}^S = 1470 \varepsilon_0 = 13.0\) nF/m, so \(h_{33} = 1.79\times 10^{9}\) V/m and \(c_{33}^D = 15.9\times 10^{10}\) Pa, \(v^D = \sqrt{c^D /\rho } = 4600\) m/s at \(\rho = 7500\) kg/m³.</span>
+    </div>
+  <div class="prose">
+    <p><strong>Why D is the right variable inside a plate.</strong> The electrodes are equipotential and there is no free charge inside the dielectric, so Gauss's law gives \(\partial D_3 /\partial z = 0\): \(D_3\) is uniform through the thickness while the strain varies with z. Two consequences carry the whole module. First, in the wave equation \(\partial T_3 /\partial z = \rho \partial^2 u/\partial t^2\), the uniform \(h_{33} D_{3}\) term drops out, so waves inside the plate travel at the <em>stiffened</em> speed \(v^D\) and the plate is simply an acoustic transmission line. The piezoelectric coupling acts only at the two faces, where the term \(h_{33} D_{3}\) jumps to zero outside the plate. Second, integrating \(E_3\) across the thickness t gives the terminal voltage:</p>
+  </div>
+  <div class="eqn" id="m16-eq4">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} V &= \int_0^t E_3\,dz = \frac{D_3\,t}{\varepsilon^{S}} - h_{33}\,[u(t) - u(0)] \\ \Rightarrow\ V &= \frac{I}{j\omega C_0} - \frac{h_{33}}{j\omega}\,(v_t - v_0), \\ C_0 &= \frac{\varepsilon^{S} A}{t} \end{aligned} \]</div><span class="eqn-no">(16.4)</span></div>
+      <dl class="where"><dt>\(V,\ I\)</dt><dd>terminal voltage (V) and current (A)</dd><dt>\(t\)</dt><dd>plate thickness, m</dd><dt>\(A\)</dt><dd>electrode area, m²</dd><dt>\(u(z)\)</dt><dd>particle displacement, m</dd><dt>\(v_t,\ v_0\)</dt><dd>velocities of the two faces, m/s</dd><dt>\(\omega\)</dt><dd>angular frequency, rad/s</dd><dt>\(C_0\)</dt><dd>clamped capacitance, F</dd><dt>\(z\)</dt><dd>coordinate through the thickness, m</dd><dt>\(D_3,\ E_3\)</dt><dd>thickness components of displacement (C/m²) and field (V/m)</dd><dt>\(\varepsilon^{S},\ h_{33}\)</dt><dd>clamped permittivity and \(h_{33}\), as in (16.3)</dd><dt>\(j\)</dt><dd>imaginary unit</dd></dl>
+      <span class="note">With \(I = j\omega AD_3\) and face velocities \(v = j\omega u\). The electrical port sees the clamped capacitance \(C_0\) in series with a source proportional to the difference of the face velocities. Mason and KLM are two ways of drawing exactly this equation coupled to the acoustic line.</span>
+    </div>
+  <div class="rf-grid" id="m16-g1"></div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 16.1</span><h3>Open versus short circuit: two stiffnesses, two capacitances</h3><span class="prov exact">Exact formula</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m16-k-cv" aria-label="Stress-strain and displacement-field lines for open and short circuit"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>open circuit (c<sup>D</sup>) / free (ε<sup>T</sup>)</span><span><i style="background:var(--sig2)"></i>short circuit (c<sup>E</sup>) / clamped (ε<sup>S</sup>)</span><span><i style="background:var(--sig3)"></i>converted energy</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m16-k-sel">Material and mode</label><select id="m16-k-sel"><option value="0.15">PVDF kt ≈ 0.15</option><option value="0.39">PZT-5H k₃₁ = 0.39</option><option value="0.51" selected>PZT-5H kt = 0.51</option><option value="0.66">1-3 composite kt ≈ 0.66</option><option value="0.75">PZT-5H k₃₃ = 0.75</option><option value="0.92">PMN-PT k₃₃ ≈ 0.92</option></select></div>
+        <div class="ctrl"><label for="m16-k">Coupling k <output id="m16-k-o">0.51</output></label><input type="range" id="m16-k" min="0" max="0.95" step="0.01" value="0.51"></div>
+        <div class="readout" id="m16-k-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> hold a strain with the electrodes open (blue line), then short them: the stress falls to the red line and the triangle between them, a fraction \(k^2\) of the stored energy, leaves as electrical work. The same \(k^2\) sets how much the capacitance drops when the material is clamped.</div>
+  </div>
+  <div class="callout intuit"><span class="label">Intuition</span><p>An open-circuited piezoelectric is stiffer because straining it builds charge whose field pushes back. Shorting the electrodes lets the charge flow away and removes that extra stiffness. The difference between the two stiffnesses <em>is</em> the coupling: \(c^E = c^D (1 - k^2)\). Dually, a clamped plate cannot move, so it stores less charge per volt: \(\varepsilon^S = \varepsilon^T (1 - k^2)\) for that mode.</p></div>
+
+  <!-- ===================== 16.2 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">16.2</span>Coupling coefficients and what k² means</h2>
+    <p>A coupling coefficient is a ratio of energies. Drive the material quasi-statically through one cycle on one port, and \(k^2\) is the fraction of the stored energy that can be taken out on the other port. Equivalently it is the normalized cross term of the energy density, so it depends on the mode, that is, on which stresses and strains the geometry lets be zero.</p>
+  </div>
+  <div class="eqn key" id="m16-eq5">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} k_{33}^2 = \frac{d_{33}^2}{s_{33}^{E}\,\varepsilon_{33}^{T}}, \qquad k_{31}^2 = \frac{d_{31}^2}{s_{11}^{E}\,\varepsilon_{33}^{T}} \\ k_t^2 = \frac{e_{33}^2}{c_{33}^{D}\,\varepsilon_{33}^{S}} = \frac{h_{33}^2\,\varepsilon_{33}^{S}}{c_{33}^{D}} \end{gathered} \]</div><span class="eqn-no">(16.5)</span></div>
+      <dl class="where"><dt>\(k_{33},\ k_{31},\ k_t\)</dt><dd>bar, lateral-bar and thickness (plate) coupling factors, dimensionless</dd><dt>\(d_{33},\ d_{31}\)</dt><dd>piezoelectric strain constants, C/N</dd><dt>\(s_{33}^{E},\ s_{11}^{E}\)</dt><dd>short-circuit compliances, m²/N</dd><dt>\(\varepsilon_{33}^{T},\ \varepsilon_{33}^{S}\)</dt><dd>free and clamped permittivity, F/m</dd><dt>\(e_{33}\)</dt><dd>piezoelectric stress constant, C/m²</dd><dt>\(c_{33}^{D}\)</dt><dd>open-circuit stiffness, Pa</dd><dt>\(h_{33}\)</dt><dd>piezoelectric constant, V/m</dd></dl>
+      <span class="note">PZT-5H datasheet constants (\(d_{33} = 593\) pC/N, \(d_{31} = -274\) pC/N, \(s_{33}^E = 20.7\), \(s_{11}^E = 16.5\) pm²/N, \(\varepsilon_{33}^T = 3400 \varepsilon_0\)) give \(k_{33} = 0.751\) and \(k_{31} = 0.389\); the thickness constants above give \(k_t = 0.513\).</span>
+    </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Mode</th><th>Geometry and boundary condition</th><th>Coupling</th><th class="num">PZT-5H</th><th>Where it appears</th></tr></thead>
+    <tbody>
+      <tr><td>\(k_{31}\)</td><td>Long thin bar poled across its thickness, vibrating along its length; only \(T_1 \ne 0\)</td><td>\(d_{31} /\sqrt{s_{11}^E \varepsilon_{33}^T }\)</td><td class="num">0.39</td><td>Lateral (spurious) modes, bimorphs, PVDF films used in 31 mode</td></tr>
+      <tr><td>\(k_{33}\)</td><td>Long bar poled and vibrating along its length; \(T_1 = T_2 = 0\)</td><td>\(d_{33} /\sqrt{s_{33}^E \varepsilon_{33}^T }\)</td><td class="num">0.75</td><td>Pillars of a 1-3 composite; upper bound for any 33 device</td></tr>
+      <tr><td>\(k_{33}^{\prime}\)</td><td>Array sliver: thin in azimuth \((T_1 = 0)\), long in elevation \((S_2 = 0)\)</td><td>from d, s, \(\varepsilon\) with \(S_2 = 0\)</td><td class="num">0.70</td><td>Sub-diced or narrow array elements (width/thickness ≲ 0.6)</td></tr>
+      <tr><td>\(k_t\)</td><td>Thin plate, lateral size ≫ thickness; \(S_1 = S_2 = 0\)</td><td>\(e_{33} /\sqrt{c_{33}^D \varepsilon_{33}^S }\)</td><td class="num">0.51</td><td>Single-element and wide-element transducers, KLM model</td></tr>
+      <tr><td>\(k_p\)</td><td>Thin disc, radial vibration</td><td>\(\lvert d_{31} \rvert \sqrt{2/((s_{11}^E +s_{12}^E)\varepsilon_{33}^T)}\)</td><td class="num">0.65</td><td>Low-frequency radial resonance of a disc (\(s_{12}^E = -4.78\) pm²/N)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose"><p>The \(k_{33}^{\prime}\) value, 0.70, is computed from the same datasheet constants with \(T_1 = 0\) and \(S_2 = 0\). The ordering \(k_t\) &lt; \(k_{33}^{\prime}\) &lt; \(k_{33}\) is the geometric story of transducer design: the more the geometry clamps the lateral directions, the more the lateral (\(d_{31}\)) contraction fights the thickness motion and the lower the coupling. Two useful identities for a single-mode, one-dimensional description:</p></div>
+  <div class="eqn" id="m16-eq6">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} c^{E} = c^{D}(1 - k^2), \qquad C_{\mathrm{LF}} = \frac{C_0}{1 - k_t^2} \\ k_{\mathrm{eff}}^2 = 1 - \left(\frac{f_r}{f_a}\right)^{2} \end{gathered} \]</div><span class="eqn-no">(16.6)</span></div>
+      <dl class="where"><dt>\(C_{\mathrm{LF}}\)</dt><dd>low-frequency (free) capacitance of the 1D plate, F</dd><dt>\(k_{\mathrm{eff}}\)</dt><dd>effective (lumped) coupling of one resonance, dimensionless</dd><dt>\(f_r,\ f_a\)</dt><dd>resonance and antiresonance frequencies, Hz</dd><dt>\(c^{E},\ c^{D}\)</dt><dd>stiffness at constant field and at constant displacement, Pa</dd><dt>\(k\)</dt><dd>coupling factor of the mode considered, dimensionless</dd><dt>\(C_0,\ k_t\)</dt><dd>as in (16.4) and (16.5)</dd></dl>
+      <span class="note">\(C_{\mathrm{LF}}\) is the low-frequency capacitance of the 1D plate model (a real disc also includes its radial modes). \(k_{\mathrm{eff}}\) is the lumped (Butterworth–Van Dyke) coupling of one resonance; for the distributed thickness mode it is smaller than \(k_t\): 0.47 for \(k_t = 0.51\).</span>
+    </div>
+  <div class="rf-grid" id="m16-g2"></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Quoting \(k_{33} = 0.75\) (or 0.92 for PMN-PT) for an array element is the most common overstatement in transducer talk. A wide element works at \(k_t\), a well-diced sliver approaches \(k_{33}^{\prime}\), and only a pillar reaches \(k_{33}\). Also keep \(k_{\mathrm{eff}}\) (from \(f_r /f_a\) of any resonance) apart from the material constant \(k_t\).</p></div>
+
+  <!-- ===================== 16.3 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">16.3</span>Materials: PZT, single crystals, 1-3 composites, PVDF</h2>
+    <p>Three numbers decide most choices: the acoustic impedance \(Z = \rho v^D\) (how hard it is to get energy into 1.5 MRayl tissue), \(k_t\) (how much of the energy converts, hence bandwidth and sensitivity), and the clamped permittivity \(\varepsilon^S\) (which sets \(C_0\) and therefore the electrical impedance of a small element). The table gives representative ranges; check the datasheet of the actual lot before a design.</p>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Material</th><th class="num"><span class="nt">\(\rho\) (kg/m³)</span></th><th class="num"><span class="nt">\(v^D\) (m/s)</span></th><th class="num"><span class="nt">Z (MRayl)</span></th><th class="num"><span class="nt">\(k_t\)</span></th><th class="num"><span class="nt">\(k_{33}\)</span></th><th class="num"><span class="nt">\(\varepsilon^S /\varepsilon_0\)</span></th><th class="num"><span class="nt">\(\varepsilon^T /\varepsilon_0\)</span></th><th class="num"><span class="nt">\(d_{33}\) (pC/N)</span></th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>PZT-5A (Navy II)</td><td class="num">7750</td><td class="num">≈ 4350</td><td class="num">33–34</td><td class="num">0.47–0.49</td><td class="num">0.70–0.71</td><td class="num">800–920</td><td class="num">1700–1900</td><td class="num">370–400</td><td>High Curie point (≈ 350 °C), stable; lower \(\varepsilon\)</td></tr>
+      <tr><td>PZT-5H (Navy VI)</td><td class="num">7450–7500</td><td class="num">≈ 4550–4600</td><td class="num">33–35</td><td class="num">0.49–0.52</td><td class="num">0.75</td><td class="num">1200–1500</td><td class="num">3200–3400</td><td class="num">590–650</td><td>Workhorse for imaging arrays; Curie ≈ 190–230 °C</td></tr>
+      <tr><td>PMN-PT [001] (28–33 % PT)</td><td class="num">8000–8100</td><td class="num">≈ 4000–4600</td><td class="num">32–37</td><td class="num">0.58–0.63</td><td class="num">0.88–0.94</td><td class="num">700–900</td><td class="num">5000–8000</td><td class="num">1200–2800</td><td>\(T_{\mathrm{rt}} \approx 80\text{–}100\) °C, \(E_c \approx 2.5\) kV/cm: limits on heat and drive</td></tr>
+      <tr><td>PIN-PMN-PT [001]</td><td class="num">≈ 8100</td><td class="num">–</td><td class="num">≈ 32–37</td><td class="num">0.50–0.58</td><td class="num">0.89–0.92</td><td class="num">700–910</td><td class="num">4500–4800</td><td class="num">&gt; 1000</td><td>\(T_{\mathrm{rt}} \approx 100\text{–}125\) °C, \(E_c \approx 4.5\text{–}6\) kV/cm: more robust</td></tr>
+      <tr><td>1-3 PZT/epoxy, \(\nu = 0.3\text{–}0.7\)</td><td class="num">3000–5600</td><td class="num">3500–4000</td><td class="num">10–22</td><td class="num">0.60–0.70</td><td class="num">n/a</td><td class="num">≈ \(\nu \cdot \varepsilon_{\mathrm{cer}}^S\)</td><td class="num">–</td><td class="num">close to ceramic</td><td>Lower Z, higher \(k_t\), suppressed lateral modes; lossier</td></tr>
+      <tr><td>1-3 crystal/epoxy</td><td class="num">–</td><td class="num">–</td><td class="num">≈ 15–22</td><td class="num">0.75–0.85</td><td class="num">n/a</td><td class="num">≈ \(\nu \cdot \varepsilon_{\mathrm{cr}}^S\)</td><td class="num">–</td><td class="num">≈ 1000</td><td>Widest-band, highest-sensitivity option; thermal limits of the crystal remain</td></tr>
+      <tr><td>PVDF film</td><td class="num">1780</td><td class="num">2200–2250</td><td class="num">≈ 4</td><td class="num">0.10–0.20</td><td class="num">n/a</td><td class="num">≈ 8–12</td><td class="num">8–12</td><td class="num">\(\lvert d_{33} \rvert \approx 20\text{–}35\)</td><td>Matches water, very low C and k; \(\tan \delta \approx 0.1\text{–}0.25\) at MHz; hydrophones</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose"><p>Single-crystal values are for [001]-poled rhombohedral crystals (manufacturer data for PMN-28PT and PMN-32PT list \(k_t = 0.60\text{–}0.62\), \(\varepsilon^S /\varepsilon_0 = 700\text{–}895\), \(\varepsilon^T /\varepsilon_0 = 5500\text{–}7000\)); \(d_{33}\) varies strongly with composition and supplier, so read the table as ranges. Composite rows come from the Smith–Auld model below and published 1-3 devices.</p></div>
+  <div class="rf-grid" id="m16-g3"></div>
+  <div class="prose">
+    <p><strong>Why 1-3 composites win.</strong> Thin ceramic pillars in a soft polymer matrix are laterally unclamped, so they work closer to the bar mode \((k_{33} \approx 0.75)\) than to the plate mode (0.51), while the polymer lowers the density and stiffness. Smith and Auld (1991) model a fine-scale composite as an effective homogeneous plate: uniform strain along the thickness, uniform lateral stress, and polymer and ceramic sharing the lateral strain. The result is closed-form expressions for \(\bar{c}_{33}^D\), \(\bar{e}_{33}\), \(\bar{\varepsilon}_{33}^S\) and \(\bar{\rho}\) versus volume fraction \(\nu\). The demo implements them for PZT-5H or PZT-5A in an epoxy.</p>
+  </div>
+  <div class="eqn" id="m16-eq7">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \mathcal{D} &= \nu\,(c_{11}^{p} + c_{12}^{p}) \\ &\quad + (1 - \nu)(c_{11}^{E} + c_{12}^{E}) \\ \bar{c}_{33}^{E} &= \nu\left[c_{33}^{E} - \frac{2(1 - \nu)(c_{13}^{E} - c_{12}^{p})^2}{\mathcal{D}}\right] \\ &\quad + (1 - \nu)\,c_{11}^{p} \\ \bar{e}_{33} &= \nu\left[e_{33} - \frac{2(1 - \nu)\,e_{31}(c_{13}^{E} - c_{12}^{p})}{\mathcal{D}}\right] \\ \bar{\varepsilon}_{33}^{S} &= \nu\left[\varepsilon_{33}^{S} + \frac{2(1 - \nu)\,e_{31}^2}{\mathcal{D}}\right] \\ &\quad + (1 - \nu)\,\varepsilon_{11}^{p} \\ \bar{\rho} &= \nu\rho^{c} + (1 - \nu)\rho^{p} \\ \bar{k}_t^2 & = \frac{\bar{e}_{33}^2}{\bar{c}_{33}^{D}\,\bar{\varepsilon}_{33}^{S}} \end{aligned} \]</div><span class="eqn-no">(16.7)</span></div>
+      <dl class="where"><dt>\(\nu\)</dt><dd>ceramic volume fraction, 0 to 1</dd><dt>\(\mathcal{D}\)</dt><dd>lateral-stiffness denominator, Pa (written D in the original paper; not the electric displacement)</dd><dt>\(c_{ij}^{p},\ \varepsilon_{11}^{p},\ \rho^{p}\)</dt><dd>polymer stiffness (Pa), permittivity (F/m), density (kg/m³)</dd><dt>\(c_{ij}^{E},\ e_{3j},\ \rho^{c}\)</dt><dd>ceramic short-circuit stiffness (Pa), stress constants (C/m²), density (kg/m³)</dd><dt>\(\bar{c}_{33}^{D} = \bar{c}_{33}^{E} + \bar{e}_{33}^2/\bar{\varepsilon}_{33}^{S}\)</dt><dd>effective stiffened stiffness, Pa (overbar: effective composite property)</dd><dt>\(\bar{c}_{33}^{E},\ \bar{e}_{33},\ \bar{\varepsilon}_{33}^{S},\ \bar{\rho},\ \bar{k}_t\)</dt><dd>effective composite stiffness (Pa), stress constant (C/m²), clamped permittivity (F/m), density (kg/m³) and thickness coupling</dd><dt>\(e_{31}\)</dt><dd>lateral piezoelectric stress constant of the ceramic, C/m²</dd></dl>
+      <span class="note">Valid when the pillar period is much smaller than both the thickness and the shear wavelength in the polymer, so lateral modes sit far above the thickness resonance. At \(\nu = 1\) it returns PZT-5H's \(k_t = 0.513\) and \(Z = 34.5\) MRayl.</span>
+    </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 16.2</span><h3>1-3 composite designer (Smith–Auld effective medium)</h3><span class="prov model">Approx. model</span><span class="prov-note">Smith–Auld effective medium: pillar period ≪ thickness and polymer shear wavelength; uniform strain along z, lateral stress shared.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m16-cp-cv" aria-label="Composite kt and impedance versus volume fraction"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>k<sub>t</sub> composite</span><span><i style="background:var(--sig2)"></i>Z (MRayl)</span><span><i style="background:var(--sig4)"></i>v<sup>D</sup>/v<sub>cer</sub><sup>D</sup></span><span><i style="background:var(--muted)"></i>ceramic k<sub>t</sub>, k₃₃</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m16-cp-nu">Ceramic volume fraction ν <output id="m16-cp-nu-o">0.50</output></label><input type="range" id="m16-cp-nu" min="0.05" max="1" step="0.01" value="0.5"></div>
+        <div class="ctrl"><label for="m16-cp-cer">Ceramic</label><select id="m16-cp-cer"><option value="5H" selected>PZT-5H</option><option value="5A">PZT-5A</option></select></div>
+        <div class="ctrl"><label for="m16-cp-pol">Polymer</label><select id="m16-cp-pol"><option value="soft" selected>Soft epoxy (vL 2500, vS 1100 m/s)</option><option value="hard">Hard epoxy (vL 2800, vS 1300 m/s)</option><option value="vsoft">Very soft (vL 1900, vS 600 m/s)</option></select></div>
+        <div class="readout" id="m16-cp-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> find the plateau of \(k_t (\nu \approx 0.4\text{–}0.7)\) and read the impedance there. A softer polymer clamps the pillars less and raises \(k_t\); it also raises the loss and lowers the shear speed, which pulls the lateral modes down toward the thickness resonance.</div>
+  </div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Imaging arrays commonly use either PZT-5H-class ceramic with two or three matching layers, or single crystal (often as a composite), the crystal mainly for wider bandwidth: harmonic imaging and higher penetration at the same resolution. CMUTs (Module 18) reach low impedance by a different route: a thin membrane radiating directly.</p></div>
+
+  <!-- ===================== 16.4 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">16.4</span>Thickness-mode resonance and the impedance of a plate</h2>
+    <p>Solve the 1D wave equation in a plate of thickness t with both faces free (zero stress) and a sinusoidal current, then integrate \(E_3\) for the voltage. The algebra (Kino 1987, ch. 1) gives the classic result:</p>
+  </div>
+  <div class="eqn key" id="m16-eq8">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} Z(f) = \frac{1}{j\omega C_0}\left[1 - k_t^2\,\frac{\tan x}{x}\right] \\ x = \frac{\omega t}{2 v^{D}} = \frac{\pi}{2}\,\frac{f}{f_a}, \qquad f_a = \frac{v^{D}}{2t} \end{gathered} \]</div><span class="eqn-no">(16.8)</span></div>
+      <dl class="where"><dt>\(Z(f)\)</dt><dd>electrical input impedance, Ω</dd><dt>\(C_0\)</dt><dd>clamped capacitance, F</dd><dt>\(k_t\)</dt><dd>thickness coupling factor</dd><dt>\(x\)</dt><dd>half the phase thickness of the plate, rad</dd><dt>\(t\)</dt><dd>plate thickness, m</dd><dt>\(v^{D}\)</dt><dd>stiffened longitudinal speed, m/s</dd><dt>\(f_a\)</dt><dd>antiresonance (half-wave) frequency, Hz</dd><dt>\(\omega,\ f\)</dt><dd>angular frequency (rad/s) and frequency (Hz)</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(\tan\)</dt><dd>tangent (argument in rad)</dd></dl>
+      <span class="note">Free (air-loaded on both sides), lossless plate. Well above resonance (between harmonics) it behaves as the capacitor \(C_0\); well below, \(Z \to (1 - k_t^2)/(j\omega C_0)\), the capacitance \(C_{\mathrm{LF}}\) of <span class="eqref">(16.6)</span>. \(\lvert Z\rvert \to \infty\) at \(x = \pi /2\): the antiresonance \(f_a\), where the plate is a half wavelength thick at the stiffened speed. \(Z = 0\) at the resonance \(f_r\), where \(k_t^2 \tan (x)/x = 1\).</span>
+    </div>
+  <div class="eqn key" id="m16-eq9">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} k_t^2 = \frac{\pi}{2}\,\frac{f_r}{f_a}\,\tan\!\left[\frac{\pi}{2}\,\frac{f_a - f_r}{f_a}\right] = x_r \cot x_r \\ x_r = \frac{\pi}{2}\,\frac{f_r}{f_a} \end{gathered} \]</div><span class="eqn-no">(16.9)</span></div>
+      <dl class="where"><dt>\(f_r\)</dt><dd>resonance (series, \(f_s\)): minimum \(\lvert Z\rvert\), Hz</dd><dt>\(f_a\)</dt><dd>antiresonance (parallel, \(f_p\)): maximum \(\lvert Z\rvert\), Hz</dd><dt>\(x_r\)</dt><dd>normalized resonance frequency, rad</dd><dt>\(k_t\)</dt><dd>thickness coupling factor, as in (16.5)</dd><dt>\(\tan,\ \cot\)</dt><dd>tangent and cotangent (argument in rad)</dd></dl>
+      <span class="note">IEEE Std 176-1987 relation, obtained by setting \(Z = 0\) above \((\tan (\pi /2 - x) = \cot x)\). Strictly \(f_r\), \(f_a\) are the series and parallel frequencies \(f_s\), \(f_p\) (maximum conductance and maximum resistance); for low loss they equal the minimum and maximum of \(\lvert Z\rvert\). Small-gap approximation: \(k_t^2 \approx (\pi^2 /4)(f_a - f_r)/f_a\), 6 % high in \(k_t\) at \(k_t = 0.5\).</span>
+    </div>
+  <div class="prose">
+    <p><strong>Worked example.</strong> PZT-5H, \(v^D = 4600\) m/s, target \(f_a = 5\) MHz: \(t = 4600/(2 \times 5\times 10^{6}) = 0.460\) mm. With \(k_t = 0.51\) the root of \(x \cot x = 0.2601\) is \(x_r = 1.385\), so \(f_r /f_a = 0.882\) and \(f_r = 4.41\) MHz; the frequency constant \(f_r t = 2028\) Hz·m. A 0.3 × 5 mm element area (1.5 mm²) has \(C_0 = 1470 \varepsilon_0 \times 1.5\) mm²/0.46 mm = 42.4 pF, i.e. \(\lvert Z\rvert = 1/(\omega C_0) = 750\) Ω at 5 MHz.</p>
+  </div>
+  <figure class="stack-fig" id="m16-fig-mode">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 16.C</b> · Thickness-mode vibration: the plate breathes, the faces radiate into the loads, and only odd harmonics are driven</div>
+    <div class="mx-scroll"><svg viewBox="0 0 760 270" role="img" aria-label="Free plate vibrating in thickness mode at fa with displacement profile cos(pi z/t), a node at the mid-plane, and mode shapes at fa, 2fa and 3fa">
+      <defs><marker id="m16-ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" style="fill:var(--ink)"/></marker></defs>
+      <text x="20" y="20" class="t">Fundamental at f<tspan baseline-shift="sub" font-size="9">a</tspan> (z runs from back to front)</text>
+      <rect x="40" y="70" width="80" height="150" style="fill:var(--muted);fill-opacity:.25;stroke:none"/>
+      <rect x="320" y="70" width="80" height="150" style="fill:var(--sig4);fill-opacity:.2;stroke:none"/>
+      <rect x="120" y="70" width="200" height="150" style="fill:var(--accent);fill-opacity:.22;stroke:var(--accent)"/>
+      <rect x="106" y="70" width="228" height="150" style="fill:none;stroke:var(--accent);stroke-dasharray:4 3"/>
+      <path d="M220 62 V228" style="stroke:var(--muted);stroke-dasharray:3 3;fill:none"/>
+      <text x="220" y="56" class="m" text-anchor="middle">node (u = 0)</text>
+      <path d="M120.0 97.0 L130.0 97.6 L140.0 99.3 L150.0 102.2 L160.0 106.2 L170.0 111.1 L180.0 116.8 L190.0 123.2 L200.0 130.2 L210.0 137.5 L220.0 145.0 L230.0 152.5 L240.0 159.8 L250.0 166.8 L260.0 173.2 L270.0 178.9 L280.0 183.8 L290.0 187.8 L300.0 190.7 L310.0 192.4 L320.0 193.0" style="fill:none;stroke:var(--ink);stroke-width:2"/>
+      <text x="150" y="88" class="s">u(z) ∝ cos(πz/t)</text>
+      <g style="stroke:var(--ink);stroke-width:1.4;fill:none" marker-end="url(#m16-ah2)"><path d="M116 145 H88"/><path d="M324 145 H352"/></g>
+      <text x="80" y="62" class="m" text-anchor="middle">backing Z<tspan baseline-shift="sub" font-size="9">B</tspan></text>
+      <text x="360" y="62" class="m" text-anchor="middle">load Z<tspan baseline-shift="sub" font-size="9">F</tspan></text>
+      <g class="dim"><path d="M120 240 H320 M120 235 V245 M320 235 V245"/></g>
+      <text x="220" y="258" class="m" text-anchor="middle">t = λ<tspan baseline-shift="super" font-size="9">D</tspan>/2 = 0.46 mm at 5 MHz (λ<tspan baseline-shift="super" font-size="9">D</tspan> = 0.92 mm)</text>
+      <text x="40" y="236" class="s">dashed: faces at peak excursion</text>
+      <text x="440" y="20" class="t">Mode shapes u(z) and face motion</text>
+      <g style="stroke:var(--rule);fill:none"><path d="M470 70 H590 M470 142 H590 M470 214 H590"/></g>
+      <path d="M470.0 48.0 L480.0 48.7 L490.0 50.9 L500.0 54.4 L510.0 59.0 L520.0 64.3 L530.0 70.0 L540.0 75.7 L550.0 81.0 L560.0 85.6 L570.0 89.1 L580.0 91.3 L590.0 92.0" style="fill:none;stroke:var(--accent);stroke-width:2"/>
+      <path d="M470.0 120.0 L480.0 122.9 L490.0 131.0 L500.0 142.0 L510.0 153.0 L520.0 161.1 L530.0 164.0 L540.0 161.1 L550.0 153.0 L560.0 142.0 L570.0 131.0 L580.0 122.9 L590.0 120.0" style="fill:none;stroke:var(--muted);stroke-width:2;stroke-dasharray:4 3"/>
+      <path d="M470.0 192.0 L475.0 193.7 L480.0 198.4 L485.0 205.6 L490.0 214.0 L495.0 222.4 L500.0 229.6 L505.0 234.3 L510.0 236.0 L515.0 234.3 L520.0 229.6 L525.0 222.4 L530.0 214.0 L535.0 205.6 L540.0 198.4 L545.0 193.7 L550.0 192.0 L555.0 193.7 L560.0 198.4 L565.0 205.6 L570.0 214.0 L575.0 222.4 L580.0 229.6 L585.0 234.3 L590.0 236.0" style="fill:none;stroke:var(--sig2);stroke-width:2"/>
+      <text x="456" y="74" text-anchor="end">f<tspan baseline-shift="sub" font-size="9">a</tspan></text><text x="456" y="146" text-anchor="end">2f<tspan baseline-shift="sub" font-size="9">a</tspan></text><text x="456" y="218" text-anchor="end">3f<tspan baseline-shift="sub" font-size="9">a</tspan></text>
+      <text x="604" y="66" class="s">faces opposite:</text><text x="604" y="80" class="s">driven, t = λ/2</text>
+      <text x="604" y="138" class="s">faces together:</text><text x="604" y="152" class="s">u(t) − u(0) = 0, φ = 0</text>
+      <text x="604" y="210" class="s">faces opposite:</text><text x="604" y="224" class="s">driven, φ² = 1/9</text>
+    </svg></div>
+    <figcaption class="prov-note">Curves are the closed-form free-plate mode shapes \(u \propto \cos (n\pi z/t)\) for \(n = 1\), 2, 3; the plate outline and excursion are exaggerated. The electrical drive couples only through the face-velocity difference \(v_t - v_0\) <span class="eqref">(16.4)</span>, which vanishes for even \(n\).</figcaption>
+  </figure>
+  <div class="rf-grid" id="m16-g4"></div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 16.3</span><h3>Impedance explorer: find f<sub>r</sub> and f<sub>a</sub>, extract k<sub>t</sub></h3><span class="prov model">Approx. model</span><span class="prov-note">1D KLM/ABCD: thickness mode only, plane waves at normal incidence, no diffraction, lateral modes or electrode mass; losses as complex constants (\(Q_m\), \(\tan \delta\)). Loads are semi-infinite, so no back-echo.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m16-z-cv" aria-label="Electrical impedance magnitude and phase of a piezoelectric plate"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>|Z| (Ω, log)</span><span><i style="background:var(--sig2)"></i>phase (deg)</span><span><i style="background:var(--muted)"></i>1/(ωC₀)</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m16-z-kt">True k<sub>t</sub> <output id="m16-z-kt-o">0.51</output></label><input type="range" id="m16-z-kt" min="0.05" max="0.85" step="0.01" value="0.51"></div>
+        <div class="ctrl"><label for="m16-z-qm">Mechanical Q<sub>m</sub> <output id="m16-z-qm-o">65</output></label><input type="range" id="m16-z-qm" min="0.7" max="3.3" step="0.001" value="1.813"></div>
+        <div class="ctrl"><label for="m16-z-td">Dielectric loss tan δ <output id="m16-z-td-o">0.020</output></label><input type="range" id="m16-z-td" min="0" max="0.1" step="0.002" value="0.02"></div>
+        <div class="ctrl"><label for="m16-z-zb">Back load Z<sub>B</sub> (MRayl) <output id="m16-z-zb-o">0.0</output></label><input type="range" id="m16-z-zb" min="0" max="20" step="0.1" value="0"></div>
+        <div class="ctrl"><label for="m16-z-zf">Front load Z<sub>F</sub> (MRayl) <output id="m16-z-zf-o">0.0</output></label><input type="range" id="m16-z-zf" min="0" max="10" step="0.1" value="0"></div>
+        <label class="check"><input type="checkbox" id="m16-z-wide"> Wide span (0 to 4 f<sub>a</sub>)</label>
+        <div class="readout" id="m16-z-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> with no load and high Q the IEEE 176 extraction returns the true \(k_t\). Drop \(Q_m\) to 10, then add a 1.5 MRayl front load: the peaks broaden and shift, and the \(k_t\) read off \(\lvert Z\rvert\) drifts. Turn on the wide span to see the third harmonic at \(3f_a\) and no response at \(2f_a\).</div>
+  </div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>IEEE 176 assumes an unloaded, low-loss, laterally infinite plate. Measure \(k_t\) on the bare plate before bonding backing or matching layers, use \(f_s /f_p\) from conductance and resistance maxima when loss is significant (with \(Q_m = 10\) they still give \(k_t = 0.507\) where the \(\lvert Z\rvert\) extrema give 0.563; on a 5 MRayl backing 0.508 versus 0.571, <code>m16_impedance_kt.m</code>), and check that the plate is wide enough (lateral dimension ≳ 10–20 × thickness) that radial or width modes do not sit on top of the thickness resonance.</p></div>
+
+  <!-- ===================== 16.5 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">16.5</span>The Mason and KLM equivalent circuits</h2>
+    <p>Both circuits are three-port networks (one electrical port, two acoustic ports for the back and front faces) that reproduce the plate equations exactly in 1D. In the acoustic ports "voltage" is force F = pA and "current" is particle velocity u, so an acoustic impedance in MRayl becomes a mechanical impedance \(Z = \rho vA\) in kg/s. Mason (1942/1948) puts the coupling at the electrical side with a transformer and a negative capacitance; Krimholtz, Leedom and Matthaei (Electronics Letters, 1970) move it to the middle of the acoustic line.</p>
+  </div>
+  <figure class="stack-fig" id="m16-fig-circ">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 16.D</b> · Mason and KLM circuits of one plate, as the code implements them (values for the reference element: PZT-5H, f<sub>a</sub> = 5 MHz, 1.5 mm²)</div>
+    <div class="mx-scroll"><svg viewBox="0 0 760 470" role="img" aria-label="Mason circuit: C0 shunt, series negative C0, transformer 1:N into the shunt arm of a T network with arms ZT and ZS. KLM circuit: C0 and jX1 in series, transformer 1:phi feeding the centre of an acoustic transmission line split into two halves">
+      <text x="20" y="20" class="t">Mason (1948)</text>
+      <g class="w">
+        <path d="M30 120 H130 M140 120 H444 M30 170 H444"/>
+        <path d="M90 120 V141 M90 149 V170"/>
+                <path d="M300 50 H340 M400 50 H520 M580 50 H640 M300 190 H640"/>
+        <path d="M460 50 V68 M460 108 V120 M460 170 V190"/>
+      </g>
+      <path d="M80 141 H100 M80 149 H100" class="w2"/>
+      <path d="M132 108 V132 M138 108 V132" class="w2"/>
+      <path d="M444 120 q-10 6.25 0 12.5 q-10 6.25 0 12.5 q-10 6.25 0 12.5 q-10 6.25 0 12.5" class="coil"/>
+      <path d="M460 120 q10 6.25 0 12.5 q10 6.25 0 12.5 q10 6.25 0 12.5 q10 6.25 0 12.5" class="coil"/>
+      <circle cx="30" cy="120" r="3.5" class="src"/><circle cx="30" cy="170" r="3.5" class="src"/>
+      <circle cx="300" cy="50" r="3.5" class="src"/><circle cx="300" cy="190" r="3.5" class="src"/><circle cx="640" cy="50" r="3.5" class="src"/><circle cx="640" cy="190" r="3.5" class="src"/>
+      <circle cx="460" cy="50" r="3" style="fill:var(--ink)"/>
+      <rect x="340" y="42" width="60" height="16" class="box"/><text x="370" y="38" text-anchor="middle" class="m">Z<tspan baseline-shift="sub" font-size="9">T</tspan></text>
+      <rect x="520" y="42" width="60" height="16" class="box"/><text x="550" y="38" text-anchor="middle" class="m">Z<tspan baseline-shift="sub" font-size="9">T</tspan></text>
+      <rect x="452" y="68" width="16" height="40" class="box"/><text x="474" y="92" class="m">Z<tspan baseline-shift="sub" font-size="9">S</tspan></text>
+      <text x="102" y="160" class="m">C₀</text><text x="135" y="100" text-anchor="middle" class="m">−C₀</text>
+      <text x="478" y="150" style="fill:var(--sig2)">1 : N</text>
+      <text x="30" y="106" text-anchor="middle" class="m">V, I</text>
+      <text x="300" y="34" text-anchor="middle" class="s">back F₁, u₁</text><text x="640" y="34" text-anchor="middle" class="s">front F₂, u₂</text>
+      <text x="300" y="206" class="s">→ Z<tspan baseline-shift="sub" font-size="9">B</tspan> (backing)</text><text x="640" y="206" text-anchor="end" class="s">→ Z<tspan baseline-shift="sub" font-size="9">F</tspan> (load)</text>
+      <text x="20" y="226" class="s">Z<tspan baseline-shift="sub" font-size="8">T</tspan> = jZ₀ tan(kt/2), Z<tspan baseline-shift="sub" font-size="8">S</tspan> = −jZ₀ csc(kt), Z₀ = ρv<tspan baseline-shift="super" font-size="8">D</tspan>A = 51.8 kg/s, C₀ = 42.4 pF, N = h₃₃C₀ = 0.076 N/V</text>
+
+      <text x="20" y="260" class="t">KLM (Krimholtz, Leedom, Matthaei 1970)</text>
+      <g class="w">
+        <path d="M30 360 H100 M106 360 H200 M240 360 H454 M30 410 H454"/>
+        <path d="M300 290 H330 M440 290 H500 M610 290 H640 M300 430 H640"/>
+        <path d="M470 290 V360 M470 410 V430"/>
+      </g>
+      <path d="M100 348 V372 M106 348 V372" class="w2"/>
+      <path d="M454 360 q-10 6.25 0 12.5 q-10 6.25 0 12.5 q-10 6.25 0 12.5 q-10 6.25 0 12.5" class="coil"/>
+      <path d="M470 360 q10 6.25 0 12.5 q10 6.25 0 12.5 q10 6.25 0 12.5 q10 6.25 0 12.5" class="coil"/>
+      <circle cx="30" cy="360" r="3.5" class="src"/><circle cx="30" cy="410" r="3.5" class="src"/>
+      <circle cx="300" cy="290" r="3.5" class="src"/><circle cx="300" cy="430" r="3.5" class="src"/><circle cx="640" cy="290" r="3.5" class="src"/><circle cx="640" cy="430" r="3.5" class="src"/>
+      <circle cx="470" cy="290" r="3" style="fill:var(--ink)"/>
+      <rect x="200" y="352" width="40" height="16" class="box"/><text x="220" y="344" text-anchor="middle" class="m">jX₁</text>
+      <text x="103" y="340" text-anchor="middle" class="m">C₀</text>
+      <g class="tl"><rect x="330" y="282" width="110" height="16"/><rect x="500" y="282" width="110" height="16"/></g>
+      <text x="385" y="316" text-anchor="middle" class="s">Z₀, t/2 = 0.23 mm</text><text x="555" y="316" text-anchor="middle" class="s">Z₀, t/2 = 0.23 mm</text>
+      <text x="488" y="390" style="fill:var(--sig2)">1 : φ</text>
+      <text x="476" y="276" class="s">centre node</text>
+      <text x="30" y="346" text-anchor="middle" class="m">V, I</text>
+      <text x="300" y="274" text-anchor="middle" class="s">back</text><text x="640" y="274" text-anchor="middle" class="s">front</text>
+      <text x="300" y="446" class="s">→ Z<tspan baseline-shift="sub" font-size="9">B</tspan></text><text x="640" y="446" text-anchor="end" class="s">→ Z<tspan baseline-shift="sub" font-size="9">F</tspan></text>
+      <text x="14" y="464" class="s">X₁ = (k<tspan baseline-shift="sub" font-size="8">t</tspan>²/ωC₀) sinc(f/f<tspan baseline-shift="sub" font-size="8">a</tspan>): 0 at f<tspan baseline-shift="sub" font-size="8">a</tspan>, 29 Ω at f<tspan baseline-shift="sub" font-size="8">r</tspan>;  φ = (2h₃₃/ωZ₀) sin(kt/2) = 2.19 V/N at f<tspan baseline-shift="sub" font-size="8">a</tspan>, 0 at 2f<tspan baseline-shift="sub" font-size="8">a</tspan></text>
+    </svg></div>
+    <figcaption class="prov-note">Acoustic ports use force F (N) as voltage and velocity u (m/s) as current; impedances are MRayl × A. In Mason the transformer secondary sits in series with the shunt arm \(Z_S\) of the exact T-network of the line; in KLM it connects the centre node of the unbroken line to the acoustic return. Element values computed with the page's KLM code (\(h_{33}\) from \(k_t = 0.51\), \(\varepsilon^S = 1470 \varepsilon_0\)). Figure 16.B in 16.6 shows the KLM circuit of a complete stack.</figcaption>
+  </figure>
+  <div class="eqn" id="m16-eq10">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} \text{Mason:}\quad C_0 = \frac{\varepsilon^{S} A}{t}, \qquad N = h_{33} C_0 \\ Z_T = jZ_0 \tan\frac{kt}{2}\ \ (\text{two series arms}) \\ Z_S = -jZ_0 \csc(kt)\ \ (\text{shunt arm}) \\ \text{series } {-C_0} \text{ before the transformer} \end{gathered} \]</div><span class="eqn-no">(16.10)</span></div>
+      <dl class="where"><dt>\(N\)</dt><dd>transformer ratio, N/V</dd><dt>\(Z_0\)</dt><dd>mechanical impedance of the plate \(\rho v^{D} A\), kg/s</dd><dt>\(k\)</dt><dd>wavenumber \(\omega/v^{D}\), rad/m</dd><dt>\(Z_T,\ Z_S\)</dt><dd>T-network arms, kg/s</dd><dt>\(\varepsilon^{S},\ A,\ t\)</dt><dd>as in (16.4)</dd><dt>\(h_{33}\)</dt><dd>as in (16.3)</dd><dt>\(C_0\)</dt><dd>clamped capacitance, F</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(\tan,\ \csc\)</dt><dd>tangent and cosecant (argument in rad)</dd></dl>
+      <span class="note">\(Z_0 = \rho v^D A\), \(k = \omega /v^D\). The T-network (\(Z_T\), \(Z_S\), \(Z_T\)) is the exact lumped equivalent of a line of length t; the transformer couples the electrical branch to the shunt arm.</span>
+    </div>
+  <div class="eqn key" id="m16-eq11">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} \text{KLM:}\quad C_0 \text{ in series with } jX_1 \\ X_1 = \frac{k_t^2}{\omega C_0}\,\operatorname{sinc}\!\left(\frac{f}{f_a}\right) \\ \varphi = k_t\,\sqrt{\frac{\pi}{\omega_0 C_0 Z_0}}\;\operatorname{sinc}\!\left(\frac{f}{2 f_a}\right) \\ \omega_0 = 2\pi f_a \end{gathered} \]</div><span class="eqn-no">(16.11)</span></div>
+      <dl class="where"><dt>\(X_1\)</dt><dd>series reactance, Ω</dd><dt>\(\varphi\)</dt><dd>transformer ratio, V/N (\(V = \varphi F\), \(I = u/\varphi\))</dd><dt>\(\omega_0\)</dt><dd>angular antiresonance frequency, rad/s</dd><dt>\(Z_0\)</dt><dd>plate mechanical impedance \(\rho v^{D} A\), kg/s</dd><dt>\(\operatorname{sinc}(x)\)</dt><dd>\(\sin(\pi x)/(\pi x)\)</dd><dt>\(C_0,\ k_t,\ f_a\)</dt><dd>as in (16.4), (16.5) and (16.8)</dd><dt>\(f\)</dt><dd>frequency, Hz</dd><dt>\(\omega\)</dt><dd>angular frequency, rad/s</dd><dt>\(j\)</dt><dd>imaginary unit</dd></dl>
+      <span class="note">\(\operatorname{sinc} (x) = \sin (\pi x)/(\pi x)\). Equivalently \(X_1 = (h_{33}^2 /\omega^2 Z_0) \sin (kt)\) and \(\varphi = (2h_{33} /\omega Z_0) \sin (kt/2)\) in V/N: \(V = \varphi F\) and \(I = u/\varphi\), so an acoustic impedance Z at the centre node appears at the electrical side as \(\varphi^2 Z\). The plate itself is two line sections of length t/2, impedance \(Z_0\), joined at the transformer.</span>
+    </div>
+  <div class="prose">
+    <p>The schematic shows the form the ABCD code implements: the transformer secondary connects the centre node of the line to the common return, with \(\varphi\) in V/N as above. Published drawings differ in how they draw this connection and in whether the ratio is written 1 : \(\varphi\) or \(\varphi\) : 1, so read element values together with the drawing they come from; the test is always that the free plate reproduces the closed form of 16.4.</p>
+    <p><strong>Proof of agreement in one line.</strong> For a free plate each half line is shorted at its far end, so the centre node sees two impedances \(jZ_0 \tan (kt/2)\) in parallel. The KLM electrical branch then gives \(X_1 + \varphi^2 (Z_0/2)\tan (kt/2)\) \(= (2h^2/\omega^2 Z_0)\,[\sin (kt/2)\cos (kt/2)\) \(+ \sin^{2}(kt/2)\tan (kt/2)]\) \(= (2h^2/\omega^2 Z_0)\tan (kt/2)\). Using \(h^2 /Z_0 = k_t^2 v^D /(C_0 t)\) this is \((k_t^2 /\omega C_0)\tan (x)/x\), which is the free-plate formula of 16.4. The code on this page goes further: it solves the Mason circuit by nodal analysis and the KLM circuit by ABCD matrices, independently, for loaded and lossy plates; the two agree to 10⁻¹² (cards below, and <code>m16_klm_abcd.m</code>).</p>
+  </div>
+  <div class="rf-grid" id="m16-g5"></div>
+  <div class="callout intuit"><span class="label">Why KLM is the working model</span><p>In KLM the acoustic path is an unbroken transmission line, so backing, bond lines, matching layers, a lens and the load just hang off its ends as more line sections. The electromechanical physics sits in two frequency-dependent elements (\(X_1\), \(\varphi\)) at one node. The sinc in \(\varphi\) also tells you at a glance which harmonics are excited: \(\varphi = 0\) at \(f = 2f_a\), \(4f_a\), … because a uniform field across the thickness cannot drive a mode whose strain integrates to zero.</p></div>
+
+  <!-- ===================== 16.6 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">16.6</span>Transfer matrices: impedance, transmit, receive and pulse-echo</h2>
+    <p>Every element of the stack is a two-port with an ABCD matrix that maps (voltage, current) or (force, velocity) at its output to its input. Cascading is matrix multiplication, which is why the transducer, a matching layer, a cable and a tuning inductor can be modelled with one routine (the same algebra as Module 03, with 2 × 2 matrices instead of scalars).</p>
+  </div>
+  <figure class="stack-fig" id="m16-fig-stack">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 16.A</b> · The stack the model describes: a 5 MHz linear-array element (the reference design of this module), in two sections</div>
+    <div class="mx-scroll"><svg viewBox="0 0 760 610" role="img" aria-label="Cross-section of a linear-array transducer stack: lens, two matching layers, electrodes, PZT plate, flex circuit and backing, in azimuth and elevation">
+      <text x="20" y="18" class="t">Azimuth section across five elements (thicknesses exaggerated, not to scale)</text>
+      <text x="180" y="34" class="m" text-anchor="middle">↑ patient / tissue, Z<tspan baseline-shift="sub" font-size="9">L</tspan> ≈ 1.5 MRayl</text>
+      <rect x="30" y="40" width="300" height="32" style="fill:var(--sig4);fill-opacity:.22;stroke:var(--sig4)"/>
+      <defs><g id="m16-el">
+        <rect x="0" y="72" width="54" height="16" style="fill:var(--sig3);fill-opacity:.35;stroke:var(--sig3)"/>
+        <rect x="0" y="88" width="54" height="18" style="fill:var(--sig3);fill-opacity:.7;stroke:var(--sig3)"/>
+        <rect x="0" y="106" width="54" height="3" style="fill:var(--ink)"/>
+        <rect x="0" y="109" width="54" height="56" style="fill:var(--accent);fill-opacity:.55;stroke:var(--accent)"/>
+        <rect x="0" y="165" width="54" height="3" style="fill:var(--ink)"/>
+        <rect x="0" y="168" width="54" height="8" style="fill:var(--sig2);fill-opacity:.6;stroke:var(--sig2)"/>
+      </g></defs>
+      <use href="#m16-el" x="36"/><use href="#m16-el" x="96"/><use href="#m16-el" x="156"/><use href="#m16-el" x="216"/><use href="#m16-el" x="276"/>
+      <rect x="30" y="176" width="300" height="86" style="fill:var(--muted);fill-opacity:.28;stroke:var(--muted)"/>
+      <g style="fill:var(--paper)"><rect x="90" y="176" width="6" height="12"/><rect x="150" y="176" width="6" height="12"/><rect x="210" y="176" width="6" height="12"/><rect x="270" y="176" width="6" height="12"/></g>
+      <text x="180" y="225" class="m" text-anchor="middle">absorbing backing</text>
+      <g class="ld"><path d="M332 56 L346 50"/><path d="M332 80 L346 76"/><path d="M332 97 L346 100"/><path d="M332 107 L346 124"/><path d="M332 137 L346 148"/><path d="M332 166 L346 172"/><path d="M332 172 L346 196"/><path d="M332 225 L346 236"/></g>
+      <text x="350" y="54">Lens: RTV silicone, c ≈ 1000 m/s, 0.3–0.5 mm</text>
+      <text x="350" y="80">ML2: λ/4 at 4.5 MHz, 2.3 MRayl, 2400 m/s: 0.13 mm</text>
+      <text x="350" y="104">ML1: λ/4 at 4.5 MHz, 9.0 MRayl, 2800 m/s: 0.16 mm</text>
+      <text x="350" y="128">Front electrode (ground): Cr/Au, &lt; 1 µm</text>
+      <text x="350" y="152">PZT-5H: t = v<tspan baseline-shift="super" font-size="9">D</tspan>/2f<tspan baseline-shift="sub" font-size="9">a</tspan> = 0.46 mm (f<tspan baseline-shift="sub" font-size="9">a</tspan> = 5 MHz)</text>
+      <text x="350" y="176">Back electrode (signal), &lt; 1 µm</text>
+      <text x="350" y="200">Flex: polyimide 25–50 µm, Cu trace per element</text>
+      <text x="350" y="240">Backing: W-epoxy ≈ 5 MRayl, 5–10 mm thick,</text>
+      <text x="350" y="256">≳ 3 dB/mm: 10 mm puts the rear echo ≥ 60 dB down</text>
+      <g class="dim"><path d="M63 282 H123 M63 277 V287 M123 277 V287"/><path d="M216 282 H270 M216 277 V287 M270 277 V287"/></g>
+      <text x="93" y="300" class="m" text-anchor="middle">pitch d = 0.30 mm ≈ λ</text>
+      <text x="243" y="300" class="m" text-anchor="middle">w = 0.27 mm</text>
+      <text x="20" y="318" class="m">kerf 25–30 µm through layers, plate and flex, 50–100 µm into the backing</text>
+
+      <text x="20" y="352" class="t">Elevation section along one element (H ≈ 6 mm, same layers)</text>
+      <path d="M55 408 L55 388 Q185 362 315 388 L315 408 Z" style="fill:var(--sig4);fill-opacity:.22;stroke:var(--sig4)"/>
+      <rect x="55" y="408" width="260" height="16" style="fill:var(--sig3);fill-opacity:.35;stroke:var(--sig3)"/>
+      <rect x="55" y="424" width="260" height="18" style="fill:var(--sig3);fill-opacity:.7;stroke:var(--sig3)"/>
+      <path d="M55 443 H330 V480" style="fill:none;stroke:var(--ink);stroke-width:3"/>
+      <rect x="55" y="445" width="260" height="56" style="fill:var(--accent);fill-opacity:.55;stroke:var(--accent)"/>
+      <rect x="55" y="501" width="260" height="3" style="fill:var(--ink)"/>
+      <path d="M315 508 H40 V560" style="fill:none;stroke:var(--sig2);stroke-width:7;stroke-opacity:.7"/>
+      <rect x="55" y="512" width="260" height="62" style="fill:var(--muted);fill-opacity:.28;stroke:var(--muted)"/>
+      <g class="dim"><path d="M55 590 H315 M55 585 V595 M315 585 V595"/></g>
+      <text x="185" y="606" class="m" text-anchor="middle">H = 6 mm (model area 0.3 × 5 mm)</text>
+      <text x="185" y="402" class="m" text-anchor="middle">T<tspan baseline-shift="sub" font-size="9">c</tspan> = 0.51 mm</text>
+      <text x="30" y="586" class="m">signal flex</text>
+      <text x="320" y="494" class="m">ground</text>
+      <g class="ld"><path d="M300 392 L346 388"/><path d="M332 470 L346 452"/><path d="M40 540 L346 520"/></g>
+      <text x="350" y="368">Cylindrical lens, slower than tissue, so</text>
+      <text x="350" y="384">thickest at the centre: T(y) = T<tspan baseline-shift="sub" font-size="9">c</tspan> − y²/2R,</text>
+      <text x="350" y="400">R = 21.6 mm, edge 0.30 mm; elevation focus</text>
+      <text x="350" y="416">F = R/(c<tspan baseline-shift="sub" font-size="9">t</tspan>/c<tspan baseline-shift="sub" font-size="9">l</tspan> − 1) = 40 mm (Module 17)</text>
+      <text x="350" y="446">Front electrodes tied to a common ground</text>
+      <text x="350" y="462">foil (Cu ≈ 10 µm) that leaves at one end</text>
+      <text x="350" y="516">Signal flex leaves at the other end, to</text>
+      <text x="350" y="532">the cable (≈ 100 pF/m) or a probe ASIC</text>
+    </svg></div>
+    <figcaption class="prov-note">Dimensions are those of the reference design used by the calculator (Demo 16.4): PZT-5H at \(f_a = 5\) MHz, two Desilets layers \(Z_p^{4/7} Z_L^{3/7}\) and \(Z_p^{1/7} Z_L^{6/7}\) designed at \(f_m = 0.9 f_a\), 5 MRayl backing, 1.5 mm² element. Lens values from Demo 17.5. Real probes add bond lines of a few µm (Module 17), a protective layer and often a third matching layer.</figcaption>
+  </figure>
+
+  <figure class="stack-fig" id="m16-fig-klm">
+    <div class="fh"><span class="prov schem">Schematic</span> <b>Figure 16.B</b> · The same stack as one KLM circuit: what the ABCD product below multiplies, element by element</div>
+    <div class="mx-scroll"><svg viewBox="0 0 830 280" role="img" aria-label="KLM equivalent circuit of the full stack: source, tuning inductor, C0, jX1, transformer, two half-lines of the plate, backing, two matching-layer lines and the tissue load">
+      <g class="w">
+        <path d="M30 70 H70 M110 70 H150 M198 70 H247 M253 70 H300 M340 70 H390 V108"/>
+        <path d="M30 200 H800"/>
+        <path d="M30 70 V115 M30 155 V200"/>
+        <path d="M390 156 V200 M402 156 V200"/>
+        <path d="M402 108 V84 H450 V70"/>
+        <path d="M450 70 H470 M550 70 H575 M655 70 H680 M760 70 H790 V100 M790 170 V200"/>
+        <path d="M450 70 V30 H480 M560 30 H590 M630 30 H650 M650 22 V38 M654 25 V35 M658 28 V32"/>
+      </g>
+      <circle cx="30" cy="135" r="20" class="src"/><text x="30" y="140" text-anchor="middle">V<tspan baseline-shift="sub" font-size="9">s</tspan></text>
+      <rect x="70" y="62" width="40" height="16" class="box"/><text x="90" y="52" text-anchor="middle" class="m">R<tspan baseline-shift="sub" font-size="9">s</tspan> 50 Ω</text>
+      <path d="M150 70 q6 -12 12 0 q6 -12 12 0 q6 -12 12 0 q6 -12 12 0" class="coil"/><text x="174" y="48" text-anchor="middle" class="m">L 29.5 µH</text><text x="174" y="94" text-anchor="middle" class="s">series tuning</text>
+      <path d="M247 58 V82 M253 58 V82" class="w2"/><text x="250" y="48" text-anchor="middle" class="m">C₀ 42.4 pF</text>
+      <rect x="300" y="62" width="40" height="16" class="box"/><text x="320" y="52" text-anchor="middle" class="m">jX₁</text>
+      <path d="M390 108 q-12 6 0 12 q-12 6 0 12 q-12 6 0 12 q-12 6 0 12" class="coil2"/>
+      <path d="M402 108 q12 6 0 12 q12 6 0 12 q12 6 0 12 q12 6 0 12" class="coil2"/>
+      <text x="396" y="178" text-anchor="middle" class="m" style="fill:var(--sig2)">1 : φ</text>
+      <circle cx="450" cy="70" r="3.5" style="fill:var(--ink)"/><text x="458" y="100" class="s">centre node</text>
+      <g class="tl"><rect x="470" y="62" width="80" height="16"/><rect x="575" y="62" width="80" height="16"/><rect x="680" y="62" width="80" height="16"/><rect x="480" y="22" width="80" height="16"/></g>
+      <text x="510" y="56" text-anchor="middle" class="s">plate Z₀, t/2</text><text x="615" y="96" text-anchor="middle" class="s">ML1 9.0, λ/4</text><text x="720" y="56" text-anchor="middle" class="s">ML2 2.35, λ/4</text>
+      <rect x="781" y="100" width="18" height="70" class="box"/><text x="806" y="132" class="m">Z<tspan baseline-shift="sub" font-size="9">L</tspan></text><text x="806" y="148" class="m">1.5</text>
+      <rect x="590" y="20" width="40" height="20" class="box"/>
+      <text x="520" y="14" text-anchor="middle" class="s">back half Z₀, t/2</text><text x="610" y="14" text-anchor="middle" class="s">Z<tspan baseline-shift="sub" font-size="9">B</tspan> 5</text>
+      <text x="668" y="34" class="s">backing</text>
+      <text x="190" y="228" text-anchor="middle" class="m">electrical port (V, I)</text>
+      <text x="420" y="228" class="s">acoustic side: force F ↔ voltage, velocity u ↔ current</text>
+      <text x="420" y="248" class="s">impedances in MRayl × A (A = 1.5 mm²); plate 34.5 MRayl</text>
+      <text x="420" y="268" class="s">each line: [cos kℓ, jZ sin kℓ; j sin kℓ/Z, cos kℓ]</text>
+    </svg></div>
+    <figcaption class="prov-note">Reading left to right is the matrix product \(\mathbf{M} = \mathrm{S}(R_s)\cdot \mathrm{S}(j\omega L)\cdot \mathrm{S}(1/j\omega C_0)\) \(\cdot\, \mathrm{S}(jX_1)\cdot \mathrm{T}(\varphi)\cdot \mathrm{Sh}(1/Z_{\mathrm{back}})\) \(\cdot\, \mathrm{L}(Z_0, kt/2)\cdot \mathrm{L}(\mathrm{ML1})\cdot \mathrm{L}(\mathrm{ML2})\), terminated in \(Z_L\); the back half-line plus backing folds into the shunt \(Z_{\mathrm{back}}\). \(X_1 = (k_t^2 /\omega C_0) \operatorname{sinc} (f/f_a)\), \(\varphi = (2h_{33} /\omega Z_0) \sin (kt/2)\). The transformer is drawn with its secondary between the centre node and the common return, as the code implements it. A cable is one more line on the electrical side; a lens is one more line before \(Z_L\).</figcaption>
+  </figure>
+  <div class="eqn" id="m16-eq12">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} \text{line } (Z, k\ell):\ \begin{bmatrix} \cos k\ell & jZ\sin k\ell \\ j\sin k\ell\,/\,Z & \cos k\ell \end{bmatrix} \\ \text{series } Z:\ \begin{bmatrix} 1 & Z \\ 0 & 1 \end{bmatrix} \qquad \text{shunt } Y:\ \begin{bmatrix} 1 & 0 \\ Y & 1 \end{bmatrix} \\ \text{transformer:}\ \begin{bmatrix} \varphi & 0 \\ 0 & 1/\varphi \end{bmatrix} \end{gathered} \]</div><span class="eqn-no">(16.12)</span></div>
+      <dl class="where"><dt>\(Z,\ Y\)</dt><dd>impedance and admittance of the element (Ω or kg/s, and inverse)</dd><dt>\(k\)</dt><dd>wavenumber in the layer, rad/m</dd><dt>\(\ell\)</dt><dd>layer thickness or line length, m</dd><dt>\(\varphi\)</dt><dd>transformer ratio, as in (16.11)</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(\cos,\ \sin\)</dt><dd>argument \(k\ell\) in rad</dd></dl>
+      <span class="note">Each matrix has determinant 1 (reciprocal network). Lossy media: complex \(k = \omega /v - j\alpha\) and complex Z. Piezo losses enter as \(c^D (1 + j/Q_m)\) and \(\varepsilon^S (1 - j \tan \delta)\).</span>
+    </div>
+  <div class="eqn" id="m16-eq13">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \mathbf{M} = {}& \mathrm{S}(1/j\omega C_0)\cdot \mathrm{S}(jX_1)\cdot \mathrm{T}(\varphi)\cdot \mathrm{Sh}(1/Z_{\mathrm{back}}) \\ & \cdot \mathrm{L}(Z_0, kt/2)\cdot \mathrm{L}(Z_{m1}, k_1\ell_1)\cdot \mathrm{L}(Z_{m2}, k_2\ell_2) \end{aligned} \]</div><span class="eqn-no">(16.13)</span></div>
+      <dl class="where"><dt>\(\mathrm{S},\ \mathrm{Sh},\ \mathrm{T},\ \mathrm{L}\)</dt><dd>series, shunt, transformer and line matrices of (16.12)</dd><dt>\(Z_{\mathrm{back}}\)</dt><dd>input impedance of the rear half line plus backing, kg/s</dd><dt>\(Z_{m1},\ Z_{m2}\)</dt><dd>matching-layer impedances, kg/s</dd><dt>\(k_i\ell_i\)</dt><dd>phase thickness of layer \(i\), rad</dd><dt>\(\mathbf{M}\)</dt><dd>overall chain (ABCD) matrix from the electrical port to the load port</dd><dt>\(\omega,\ C_0,\ X_1,\ \varphi\)</dt><dd>as in (16.4), (16.11)</dd><dt>\(Z_0,\ k,\ t\)</dt><dd>as in (16.10); \(kt/2\) is the phase of half the plate</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(\cdot\)</dt><dd>matrix product, left to right from the electrical port</dd></dl>
+      <span class="note">\(Z_{\mathrm{back}}\) is the input impedance of the rear half line terminated by the backing \(Z_B\): \(Z_0 (Z_B \cos \theta + jZ_0 \sin \theta)/(Z_0 \cos \theta + jZ_B \sin \theta)\), \(\theta = kt/2\). Electrical networks (cable, transformer, inductor) multiply on the left.</span>
+    </div>
+  <div class="eqn key" id="m16-eq14">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} Z_{\mathrm{in}} &= \frac{A Z_L + B}{C Z_L + D} \\ \Delta(R) &= A Z_L + B + R\,(C Z_L + D) \\ \text{transmit:}\quad \frac{F_L}{V_s} &= \frac{Z_L}{\Delta(R_s)} \\ \text{receive:}\quad \frac{V_{\mathrm{out}}}{F_{\mathrm{inc}}} &= \frac{2R_r}{\Delta(R_r)} \\ \text{pulse-echo:}\quad H &= \frac{2 R Z_L}{\Delta(R)^2}\quad (R_s = R_r = R) \end{aligned} \]</div><span class="eqn-no">(16.14)</span></div>
+      <dl class="where"><dt>\(A,\ B,\ C,\ D\)</dt><dd>elements of the chain matrix \(\mathbf{M}\)</dd><dt>\(Z_L\)</dt><dd>load (tissue) mechanical impedance, kg/s</dd><dt>\(R_s,\ R_r\)</dt><dd>source and receiver resistance, Ω</dd><dt>\(F_L,\ F_{\mathrm{inc}}\)</dt><dd>force on the load and incident echo force, N</dd><dt>\(V_s,\ V_{\mathrm{out}}\)</dt><dd>source and received voltage, V</dd><dt>\(H\)</dt><dd>pulse-echo transfer function, dimensionless</dd><dt>\(Z_{\mathrm{in}}\)</dt><dd>impedance seen at the electrical port, Ω</dd><dt>\(\Delta(R)\)</dt><dd>common denominator of the transfer functions for terminating resistance \(R\), Ω</dd><dt>\(R\)</dt><dd>terminating resistance (\(R_s\) or \(R_r\)), Ω</dd></dl>
+      <span class="note">Receive uses a Thevenin acoustic source \(2F_{\mathrm{inc}}\) behind \(Z_L\) and \(\det M = 1\). H assumes a plane wave, normal incidence on a perfect planar reflector, no diffraction or attenuation in the medium. Insertion loss \(\mathrm{IL} = 20 \log_{10} \lvert 2H\rvert\): 0 dB means all the available power came back. The impulse response is the inverse FFT of H.</span>
+    </div>
+
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 16.4</span><h3>KLM / ABCD transducer calculator</h3><span class="prov model">Approx. model</span><span class="prov-note">1D KLM/ABCD: thickness mode only, plane waves at normal incidence, no diffraction, lateral modes or electrode mass; losses as complex constants (\(Q_m\), \(\tan \delta\)). Layers lossless \(\lambda /4\) at \(f_m\), unit planar reflector, ideal inductor; the stack strip is drawn to scale from the computed thicknesses.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m16-c-scv" aria-label="Transducer stack drawn to scale"></canvas>
+        <canvas id="m16-c-zcv" aria-label="Electrical input impedance"></canvas>
+        <canvas id="m16-c-hcv" aria-label="Pulse-echo and transmit spectra"></canvas>
+        <canvas id="m16-c-icv" aria-label="Pulse-echo impulse response"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>|Z<sub>in</sub>|, pulse-echo |H|, impulse response</span><span><i style="background:var(--sig2)"></i>phase, transmit |p/V|</span><span><i style="background:var(--sig3)"></i>envelope, −6 dB band</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m16-c-mat">Piezo material</label><select id="m16-c-mat"><option value="5H" selected>PZT-5H</option><option value="5A">PZT-5A</option><option value="PMN">PMN-PT (representative)</option><option value="CMP">1-3 PZT-5H composite ν ≈ 0.5</option><option value="PVDF">PVDF</option></select></div>
+        <div class="ctrl"><label for="m16-c-fa">Plate f<sub>a</sub> = v<sup>D</sup>/2t (MHz) <output id="m16-c-fa-o">5.0</output></label><input type="range" id="m16-c-fa" min="1" max="15" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m16-c-area">Element area (mm²) <output id="m16-c-area-o">1.5</output></label><input type="range" id="m16-c-area" min="-0.7" max="2.3" step="0.002" value="0.176"></div>
+        <div class="ctrl"><label for="m16-c-zb">Backing Z<sub>B</sub> (MRayl) <output id="m16-c-zb-o">5.0</output></label><input type="range" id="m16-c-zb" min="0" max="35" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m16-c-ml">Matching layers (λ/4)</label><select id="m16-c-ml"><option value="0">None</option><option value="1q">One, Z = √(Zp·ZL)</option><option value="1d">One, Z = Zp^1/3 · ZL^2/3</option><option value="2" selected>Two, Zp^4/7·ZL^3/7 and Zp^1/7·ZL^6/7</option></select></div>
+        <div class="ctrl"><label for="m16-c-fm">Layer design f<sub>m</sub>/f<sub>a</sub> <output id="m16-c-fm-o">0.90</output></label><input type="range" id="m16-c-fm" min="0.7" max="1.1" step="0.01" value="0.9"></div>
+        <div class="ctrl"><label for="m16-c-zl">Load Z<sub>L</sub> (MRayl) <output id="m16-c-zl-o">1.50</output></label><input type="range" id="m16-c-zl" min="1" max="2" step="0.01" value="1.5"></div>
+        <div class="ctrl"><label for="m16-c-tune">Electrical tuning at f<sub>m</sub></label><select id="m16-c-tune"><option value="none">None</option><option value="series" selected>Series L = 1/(ωm²·C₀)</option><option value="shunt">Shunt L = 1/(ωm²·C₀)</option></select></div>
+        <div class="ctrl"><label for="m16-c-r">Source = receiver R (Ω) <output id="m16-c-r-o">50</output></label><input type="range" id="m16-c-r" min="1" max="3" step="0.001" value="1.699"></div>
+        <div class="readout" id="m16-c-read"></div>
+        <div class="readout" id="m16-c-val"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> the defaults are the reference design used throughout this module (PZT-5H, \(f_a = 5\) MHz, 1.5 mm², \(Z_B = 5\) MRayl, two layers at 0.9 \(f_a\), series tuning, 50 Ω). Set matching to None and backing to 0 for a narrowband ringer, then raise the backing. Switch to the composite and watch the band widen at the same backing. Turn tuning off to see what \(C_0\) costs at 50 Ω. The second readout re-runs the validation checks for the current material.</div>
+  </div>
+  <div class="callout us"><span class="label">Validation of the implementation</span><p>Four independent checks, run in the page and in <code>m16_klm_abcd.m</code>: (1) free plate, KLM-ABCD versus the closed form of 16.4: maximum relative difference below 10⁻¹² over 0.2–20 MHz; (2) KLM-ABCD versus the Mason circuit solved by nodal analysis, loaded (\(Z_B = 5\), \(Z_F = 1.5\) MRayl) and lossy (\(Q_m = 30\), \(\tan \delta = 0.02\)): 10⁻¹³; (3) energy: for a lossless chain (layers and inductor included) the real power entering the electrical port equals the power radiated into \(Z_L\) to 10⁻¹³ over 0.05–1.85 \(f_a\) (close to \(2f_a\), where \(\varphi \to 0\), the matrices become ill-conditioned); (4) analytic limits: the IEEE 176 inversion of the simulated \(\lvert Z\rvert\) returns the input \(k_t\) (0.5100 for 0.51), and the open-circuit transmit Q equals \((\pi /2)Z_p /(Z_B + Z_F)\) within 0.2–2 % for \(Z_B \le 5\) MRayl <span class="eqref">(16.15)</span>.</p></div>
+  <div class="prose">
+    <p><strong>Reference design, numbers to remember.</strong> Pulse-echo centre 4.30 MHz, −6 dB fractional bandwidth 67.5 %, insertion loss −10.1 dB at 50 Ω with series tuning (−21.6 dB untuned), envelope widths 0.38 µs at −6 dB, 0.87 µs at −20 dB and 2.2 µs at −40 dB. The centre lands below \(f_a = 5\) MHz for three reasons you can isolate in the calculator: a low-impedance drive pulls the response toward \(f_r\) (4.41 MHz for the bare plate), the matching layers were designed at 4.5 MHz, and the series inductor forms an electrical resonance with \(C_0\).</p>
+  </div>
+
+  <!-- ===================== 16.7 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">16.7</span>Backing and front load: Q, bandwidth and sensitivity</h2>
+    <p>A half-wave plate is an acoustic resonator. Each face reflects with amplitude coefficient \(r = (Z_p - Z)/(Z_p + Z) \approx 1 - 2Z/Z_p\) for \(Z \ll Z_p\). One round trip lasts \(2t/v = 1/f_a\), one period, and loses the energy fraction \(1 - r_B^2 r_F^2 \approx 4(Z_B + Z_F)/Z_p\). Since \(Q = 2\pi \times\) stored/lost per cycle:</p>
+  </div>
+  <div class="eqn key" id="m16-eq15">
+      <div class="eqn-body"><div class="eqn-math">\[ Q_m \approx \frac{\pi}{2}\cdot\frac{Z_p}{Z_B + Z_F} \]</div><span class="eqn-no">(16.15)</span></div>
+      <dl class="where"><dt>\(Q_m\)</dt><dd>mechanical quality factor of the loaded plate</dd><dt>\(Z_p\)</dt><dd>acoustic impedance of the plate, MRayl</dd><dt>\(Z_B,\ Z_F\)</dt><dd>backing and front-load impedance, MRayl</dd></dl>
+      <span class="note">Open-circuit (or high-impedance) plate resonating at \(f_a\); −3 dB fractional bandwidth ≈ 1/Q. PZT-5H (34.5 MRayl) into water with air backing: \(Q = 36\) (KLM, open circuit: 36.1); with \(Z_B = 5\) MRayl: \(Q = 8.3\) (8.2); with 12 MRayl the formula is 10 % high. Valid for \(Z_B + Z_F \ll Z_p\). Under voltage drive (\(R_s \to 0\)) the response peaks near \(f_r\) and the Q is ≈ 20 % lower; a finite source resistance adds electrical damping.</span>
+    </div>
+  <div class="prose"><p>Energy that goes into the backing is absorbed there (a good backing is a lossy tungsten- or alumina-loaded epoxy thick enough that its echo never returns), so backing buys bandwidth by throwing away sensitivity. Matching layers instead transform the 1.5 MRayl load up toward \(Z_p\), so the front face sees a heavier load and the energy leaves forward. The table is the reference design without tuning (lossy PZT-5H, 50 Ω):</p></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th class="num"><span class="nt">\(Z_B\) (MRayl)</span></th><th class="num">No matching: FBW</th><th class="num"><span class="nt">IL (dB)</span></th><th class="num"><span class="nt">−40 dB ring-down (µs)</span></th><th class="num">Two layers: FBW</th><th class="num"><span class="nt">IL (dB)</span></th><th class="num"><span class="nt">−40 dB ring-down (µs)</span></th></tr></thead>
+    <tbody>
+      <tr><td class="num">0 (air)</td><td class="num">7 %</td><td class="num">−5.6</td><td class="num">&gt; 8</td><td class="num">65 %</td><td class="num">−17.2</td><td class="num">1.9</td></tr>
+      <tr><td class="num">5</td><td class="num">19 %</td><td class="num">−22.7</td><td class="num">3.0</td><td class="num">68 %</td><td class="num">−21.6</td><td class="num">1.4</td></tr>
+      <tr><td class="num">10</td><td class="num">30 %</td><td class="num">−31.2</td><td class="num">1.8</td><td class="num">68 %</td><td class="num">−24.5</td><td class="num">1.0</td></tr>
+      <tr><td class="num">20</td><td class="num">58 %</td><td class="num">−41.0</td><td class="num">0.9</td><td class="num">70 %</td><td class="num">−29.0</td><td class="num">1.0</td></tr>
+      <tr><td class="num">34.5 (= \(Z_p\))</td><td class="num">118 %</td><td class="num">−48.1</td><td class="num">0.6</td><td class="num">80 %</td><td class="num">−33.9</td><td class="num">1.0</td></tr>
+    </tbody>
+  </table></div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 16.5</span><h3>Backing trade-off: bandwidth versus insertion loss</h3><span class="prov model">Approx. model</span><span class="prov-note">1D KLM/ABCD: thickness mode only, plane waves at normal incidence, no diffraction, lateral modes or electrode mass; losses as complex constants (\(Q_m\), \(\tan \delta\)). Semi-infinite absorbing backing, no tuning, 50 Ω.</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m16-b-cv" aria-label="Bandwidth and insertion loss versus backing impedance"></canvas>
+        <canvas id="m16-b-scv" aria-label="Pulse-echo spectra for three backings"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>−6 dB FBW (%) / current backing</span><span><i style="background:var(--sig2)"></i>insertion loss (dB) / air backing</span><span><i style="background:var(--sig4)"></i>matched backing Z<sub>B</sub> = Z<sub>p</sub></span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m16-b-zb">Backing Z<sub>B</sub> (MRayl) <output id="m16-b-zb-o">5.0</output></label><input type="range" id="m16-b-zb" min="0" max="34.5" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m16-b-ml">Matching</label><select id="m16-b-ml"><option value="0" selected>None</option><option value="1d">One layer (Zp^1/3 · ZL^2/3)</option><option value="2">Two layers</option></select></div>
+        <div class="ctrl"><label for="m16-b-mat">Piezo</label><select id="m16-b-mat"><option value="5H" selected>PZT-5H</option><option value="CMP">1-3 composite</option><option value="PMN">PMN-PT</option></select></div>
+        <div class="readout" id="m16-b-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> without matching, every gain in bandwidth costs insertion loss: 17 dB for the first 5 MRayl, then about 1 dB per MRayl beyond 10 MRayl. With two layers the bandwidth is already 65 % on air, and backing mainly shortens the −40 dB ring-down. That is why modern arrays use light backing plus two or three layers.</div>
+  </div>
+
+  <!-- ===================== 16.8 ===================== -->
+  <div class="prose">
+    <h2><span class="sec">16.8</span>Electrical tuning, cables and source impedance</h2>
+    <p>A small array element is a high-impedance capacitor (750 Ω at 5 MHz for the reference element) facing a 50 Ω pulser and preamplifier through a cable. The electrical port wastes power by mismatch exactly as an unmatched acoustic face does, and three standard fixes attack different parts of the mismatch:</p>
+    <ul>
+      <li><strong>Series inductor</strong> \(L = 1/(\omega_m^2 C_0)\) cancels the series reactance and leaves the series resistance (346 Ω at 4.5 MHz for the reference element). Right when the source is low impedance.</li>
+      <li><strong>Shunt inductor</strong>, same formula with \(C_0\) (plus the cable capacitance if it sits at the far end), resonates the parallel capacitance. Right when the receiver is high impedance; across a 50 Ω source it changes the reference design by only 0.03 dB because a 50 Ω source already behaves like a voltage source to a 750 Ω element.</li>
+      <li><strong>Transformer</strong> (or an L-network) scales the remaining real part toward 50 Ω. A 1 : 2.5 turns ratio (\(n = 0.4\) system : element, impedance ratio 6.25) on top of the series inductor takes the reference design from −10.1 dB to −2.6 dB.</li>
+    </ul>
+    <p>Cables: coaxial cable of characteristic impedance \(Z_c\) and velocity \(v_c\) has capacitance \(1/(Z_c v_c)\) per metre: 100 pF/m for 50 Ω at 2×10⁸ m/s, so a 2 m probe cable carries 200 pF, about five times \(C_0\). If the system impedance equals \(Z_c\), a lossless cable only adds delay: the source sees the same available power and the mismatch at the element is unchanged, so \(\lvert H\rvert\) does not move. If the receiver is high impedance, the cable capacitance divides the voltage: \(C_0 /(C_0 + C_{\mathrm{cable}}) = -15\) dB for 2 m in the lumped open-circuit limit, −9.6 dB in the full line model with a 1 kΩ receiver. That is the reason for preamplifiers in the probe handle or micro-beamforming ASICs at the element (Module 19).</p>
+  </div>
+  <div class="eqn" id="m16-eq16">
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} L_{\mathrm{tune}} = \frac{1}{\omega_m^2\, C}, \qquad C_{\mathrm{cable}} = \frac{\ell}{Z_c v_c} \\ Z_{\mathrm{seen}} = n^2 Z_{\mathrm{element}} \\ (\text{ideal transformer, system : element} = n) \end{gathered} \]</div><span class="eqn-no">(16.16)</span></div>
+      <dl class="where"><dt>\(\omega_m\)</dt><dd>angular tuning frequency, rad/s</dd><dt>\(C\)</dt><dd>capacitance to be tuned out (\(C_0\), plus cable if at the far end), F</dd><dt>\(\ell\)</dt><dd>cable length, m</dd><dt>\(Z_c,\ v_c\)</dt><dd>cable characteristic impedance (Ω) and wave speed (m/s)</dd><dt>\(n\)</dt><dd>turns ratio, system : element</dd><dt>\(L_{\mathrm{tune}}\)</dt><dd>tuning inductance, H</dd><dt>\(C_{\mathrm{cable}}\)</dt><dd>cable capacitance, F</dd><dt>\(Z_{\mathrm{seen}},\ Z_{\mathrm{element}}\)</dt><dd>impedance seen by the system and impedance of the element, Ω</dd></dl>
+      <span class="note">Reference element: \(C_0 = 42.4\) pF, \(f_m = 4.5\) MHz ⇒ \(L = 29.5\) µH. A 10 mm disc of the same plate has \(C_0 = 2.22\) nF and \(\lvert Z\rvert = 14\) Ω at 5 MHz: large elements need the opposite transformation.</span>
+    </div>
+  <div class="demo">
+    <div class="demo-head"><span class="tag">Demo 16.6</span><h3>Electrical tuning, transformer and cable</h3><span class="prov model">Approx. model</span><span class="prov-note">1D KLM/ABCD: thickness mode only, plane waves at normal incidence, no diffraction, lateral modes or electrode mass; losses as complex constants (\(Q_m\), \(\tan \delta\)). Ideal transformer and inductor, lossless 50 Ω coax (100 pF/m, 2×10⁸ m/s).</span></div>
+    <div class="demo-body">
+      <div class="stage">
+        <canvas id="m16-t-zcv" aria-label="Impedance seen by the system, real and imaginary parts"></canvas>
+        <canvas id="m16-t-hcv" aria-label="Two-way gain spectra, tuned versus untuned"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>Re Z<sub>seen</sub> / tuned spectrum</span><span><i style="background:var(--sig2)"></i>Im Z<sub>seen</sub></span><span><i style="background:var(--muted)"></i>R<sub>s</sub> line / untuned, no cable</span></div>
+      </div>
+      <div class="controls">
+        <div class="ctrl"><label for="m16-t-type">Tuning inductor</label><select id="m16-t-type"><option value="none">None</option><option value="series" selected>Series</option><option value="shunt">Shunt</option></select></div>
+        <div class="ctrl"><label for="m16-t-lm">L / L<sub>opt</sub> <output id="m16-t-lm-o">1.00</output></label><input type="range" id="m16-t-lm" min="0.5" max="2" step="0.01" value="1"></div>
+        <div class="ctrl"><label for="m16-t-n">Transformer n (system : element) <output id="m16-t-n-o">1.00</output></label><input type="range" id="m16-t-n" min="0.25" max="2" step="0.01" value="1"></div>
+        <div class="ctrl"><label for="m16-t-len">Cable length (m, 50 Ω, 100 pF/m) <output id="m16-t-len-o">0.0</output></label><input type="range" id="m16-t-len" min="0" max="3" step="0.1" value="0"></div>
+        <div class="ctrl"><label for="m16-t-rr">Receiver input</label><select id="m16-t-rr"><option value="50" selected>50 Ω (matched)</option><option value="1000">1 kΩ (high-Z preamp)</option></select></div>
+        <label class="check"><input type="checkbox" id="m16-t-cc"> Include cable C in L<sub>opt</sub></label>
+        <div class="readout" id="m16-t-read"></div>
+      </div>
+    </div>
+    <div class="demo-foot"><strong>Try:</strong> series tuning, then lower n to 0.4: the real part seen by the system drops toward 50 Ω and the gain climbs about 7.5 dB. Switch to a 1 kΩ receiver, add 2 m of cable and watch the cable capacitance cost about 10 dB; a shunt inductor sized for \(C_0 + C_{\mathrm{cable}}\) (tick the box) recovers the peak but narrows the band from 66 % to 40 %.</div>
+  </div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>With \(R_s \ne R_r\) the quantity \(20 \log_{10} \lvert 2V_{\mathrm{out}} /V_s \rvert\) is a two-way voltage gain, not an insertion loss, and it can exceed 0 dB into a high-impedance receiver without violating energy conservation. Compare probes by insertion loss at a stated impedance (usually 50 Ω) or by loop sensitivity with a stated pulser and receiver.</p></div>
+
+  <!-- ===================== 16.9 Visual summary ===================== -->
+  <h2><span class="sec">16.9</span>Visual summary</h2>
+  <div class="prose"><p>Fourteen pictures that carry the module, each computed from the formulas and the model on this page (PZT-5H, \(f_a = 5\) MHz, 1.5 mm², water load, 50 Ω unless stated).</p></div>
+  <div class="rf-grid" id="m16-vis"></div>
+
+  <!-- ===================== 16.10 Experts ===================== -->
+  <h2><span class="sec">16.10</span>How experts think about it</h2>
+  <div class="prose"><p>A transducer engineer sees the plate as a half-wave acoustic line whose two faces are driven by the uniform charge, coupled to a capacitor \(C_0\) through a frequency-dependent transformer. Bandwidth comes from how hard the faces are loaded (backing, and the load transformed by matching layers) and from \(k_t\), sensitivity from how much of that load is useful (the front) and from how well \(C_0\) is matched to the electronics. Every number on a datasheet is a consequence of \(Z_p\), \(k_t\), \(\varepsilon^S\), thickness, area and those loads.</p></div>
+  <div class="rules">
+    <div class="rule">
+      <div class="say">\(k^2\) is the fraction of the stored energy that crosses between the electrical and mechanical sides.</div>
+      <div class="keynum"><span>PZT-5H \(k_t^2 = 0.26\)</span><span>PMN-PT \(k_t^2 \approx 0.36\)</span><span>composite ≈ 0.45</span></div>
+      <div class="why"><p>Hold a strain S open-circuited: stored energy \(\tfrac{1}{2}c^D S^2\). Short the electrodes at fixed S: the stress drops to \(c^E S\) and the energy \(\tfrac{1}{2}(c^D - c^E)S^2 = k^2 \cdot \tfrac{1}{2}c^D S^2\) leaves as charge (Demo 16.1). In a resonant, lossless, matched device the conversion can be complete at one frequency, so \(k^2\) is not an efficiency; it sets the \(f_r \text{–}f_a\) gap, \(f_a - f_r \approx (4/\pi^2)k_t^2 f_a\) for small \(k_t\) (exact: 11.8 % of \(f_a\) at \(k_t = 0.51\)), and with it the band over which the plate can be loaded and matched.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m16-rf-1" aria-label="Figure for rule 1"></canvas></div></div>
+      <div class="limits">Quasi-static definition; at resonance the effective coupling of a distributed mode (\(k_{\mathrm{eff}}\)) is lower than \(k_t\), and losses reduce the deliverable fraction further.</div>
+    </div>
+    <div class="rule">
+      <div class="say">\(k_t\) is smaller than \(k_{33}\) because a plate is laterally clamped; dice it into slivers and you climb toward \(k_{33}\).</div>
+      <div class="keynum"><span>\(k_t\) 0.51</span><span>\(k_{33}^{\prime}\) 0.70</span><span>\(k_{33}\) 0.75 (PZT-5H)</span></div>
+      <div class="why"><p>In a wide plate \(S_1 = S_2 = 0\), so the \(d_{31}\) lateral contraction that accompanies thickness expansion is blocked and stores energy that is not converted. A sliver (width/thickness ≲ 0.6) frees one lateral direction \((T_1 = 0)\) and keeps \(S_2 = 0\), giving \(k_{33}^{\prime} = d^{\prime} /\sqrt{s^{\prime} \varepsilon^{\prime} } = 0.70\) from datasheet constants; a pillar frees both \((k_{33} = 0.75)\). 1-3 composites exploit exactly this.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m16-rf-2" aria-label="Figure for rule 2"></canvas></div></div>
+      <div class="limits">The sliver and pillar values assume the lateral modes are far from the operating frequency; at width/thickness near 1 the modes couple and the effective coupling of the wanted mode drops.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A free plate is a half wavelength thick at the stiffened speed: \(f_a = v^D /(2t)\).</div>
+      <div class="keynum"><span>5 MHz PZT-5H: \(t = 0.46\) mm</span><span>7.5 MHz: 0.31 mm</span><span>\(f_r t \approx 2030\) Hz·m</span></div>
+      <div class="why"><p>Inside the plate D is uniform, so waves run at \(v^D = \sqrt{c^D /\rho }\), and with free faces the displacement has antinodes at both faces: the fundamental is \(t = \lambda /2\). Under short-circuit conditions the effective stiffness is softer, so the electrical resonance \(f_r\) sits below \(f_a\) (4.41 MHz for \(k_t = 0.51\)). The frequency constant \(N_t = f_r t\), about 2000 Hz·m for PZT-5H, is what datasheets list.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m16-rf-3" aria-label="Figure for rule 3"></canvas></div></div>
+      <div class="limits">Loading changes the boundary condition: a plate on a backing much heavier than itself behaves like a quarter-wave resonator (a matched backing, \(Z_B = Z_p\), removes the rear reflection and the resonance altogether), and matching layers add mass, both pulling the centre down.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Read \(k_t\) straight off the impedance curve: \(k_t^2 = (\pi/2)(f_r/f_a)\) \(\tan [(\pi/2)(f_a - f_r)/f_a]\).</div>
+      <div class="keynum"><span>\(f_r /f_a = 0.882 \to k_t = 0.51\)</span><span>0.749 → 0.70</span><span>0.962 → 0.30</span></div>
+      <div class="why"><p>Set the free-plate impedance to zero: \(k_t^2 \tan (x)/x = 1\) at \(x = (\pi /2)f_r /f_a\), i.e. \(k_t^2 = x \cot x\), which is the IEEE Std 176 form. The small-gap version \(k_t^2 \approx (\pi^2 /4)(f_a - f_r)/f_a\) is 6 % high at \(k_t = 0.5\) and 12 % high at 0.7. The lumped \(k_{\mathrm{eff}}^2 = 1 - (f_r /f_a)^{2}\) gives 0.47 for the same plate: a different quantity.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m16-rf-4" aria-label="Figure for rule 4"></canvas></div></div>
+      <div class="limits">Unloaded, low-loss, laterally large plate only. Loading, loss and nearby lateral modes shift the extrema; use \(f_s\), \(f_p\) from G and R maxima or fit a lossy model.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Above resonance the element is just \(C_0 = \varepsilon^S A/t\); its impedance sets everything electrical.</div>
+      <div class="keynum"><span>1.5 mm²: 42 pF, 750 Ω at 5 MHz</span><span>10 mm disc: 2.2 nF, 14 Ω</span></div>
+      <div class="why"><p>\(C_0\) uses the clamped permittivity because above the thickness resonance the plate cannot follow the field. Impedance scales as \(t/(\varepsilon^S A \omega)\): halving the element width doubles it, and raising frequency at fixed area lowers it as \(1/f^2\) (\(t \propto 1/f\) and \(\omega \propto f\)). That is why small, high-frequency 2D-array elements (kΩ range) need electronics at the element, while large single elements need a step-up.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">1D KLM/ABCD, thickness mode, normal incidence, semi-infinite loads.</span><canvas id="m16-rf-5" aria-label="Figure for rule 5"></canvas></div></div>
+      <div class="limits">Near resonance the motional branch dominates. Below resonance the 1D plate shows \(C_{\mathrm{LF}} = C_0/(1 - k_t^2)\), and a laterally free plate measured at 1 kHz shows \(\varepsilon^T A/t\), several times \(C_0\) for high-\(\varepsilon^T\) crystals.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Mason and KLM are the same physics drawn two ways; KLM keeps the acoustic path as one transmission line.</div>
+      <div class="keynum"><span>\(\max \lvert \Delta Z\rvert /\lvert Z\rvert \approx 10^{-13}\)</span><span>\(N = h_{33} C_{0}\)</span><span>\(\varphi \propto \operatorname{sinc} (f/2f_a)\)</span></div>
+      <div class="why"><p>Both reproduce \(V = I/(j\omega C_0) - (h/j\omega)(v_t - v_0)\) coupled to an acoustic line. Mason puts a T-network for the line and a transformer plus \(-C_0\) on the electrical side; KLM splits the line at its centre and couples there through \(\varphi\) with a series reactance \(X_1\). Solved independently here (nodal analysis versus ABCD) they agree to round-off for loaded, lossy plates.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">KLM ABCD chain versus Mason nodal analysis (loaded, lossy) and versus the closed form (free plate), both solved in JS on this page.</span><canvas id="m16-rf-6" aria-label="Figure for rule 6"></canvas></div></div>
+      <div class="limits">Both are 1D: no lateral modes, kerf, crosstalk, or edge effects. For those you need finite elements (Module 17).</div>
+    </div>
+    <div class="rule">
+      <div class="say">A thickness transducer radiates at its odd harmonics only; coupling vanishes at \(2f_a\).</div>
+      <div class="keynum"><span>\(\varphi = 0\) at \(2f_a\), \(4f_a\)</span><span>\(\varphi^2 (3f_a)/\varphi^2 (f_a) = 1/9\)</span></div>
+      <div class="why"><p>The uniform field drives the plate through the face terms only; a mode whose two faces move in the same direction (even harmonic) gets no net drive, so \(\varphi = (2h/\omega Z_0)\sin (kt/2)\) is zero there. The odd harmonics remain with transformer power factor \(\varphi^2 \propto \operatorname{sinc} ^{2}(f/2f_a)\): sinc²(1.5)/sinc²(0.5) = 1/9 of the fundamental value at \(3f_a\), because |sin(kt/2)| = 1 at both and \(\varphi \propto 1/\omega\). This third-harmonic passband is what some dual-frequency designs and superharmonic contrast imaging exploit, and what a receive filter removes.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m16-rf-7" aria-label="Figure for rule 7"></canvas></div></div>
+      <div class="limits">Asymmetric electrodes, non-uniform poling or a field gradient break the symmetry and leave weak even harmonics; loaded plates shift the harmonic frequencies off exact multiples.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Mechanical Q of a loaded half-wave plate is about \((\pi /2)\cdot Z_p /(Z_B + Z_F)\).</div>
+      <div class="keynum"><span>air backing, water: \(Q \approx 36\)</span><span>\(Z_B = 5\) MRayl: \(Q \approx 8\)</span><span>\(\mathrm{FBW}_{-3\,\mathrm{dB}} \approx 1/Q\)</span></div>
+      <div class="why"><p>Each round trip (one period at \(f_a\)) loses \(1 - r_B^2 r_F^2 \approx 4(Z_B + Z_F)/Z_p\) of the energy, so \(Q = 2\pi /[4(Z_B + Z_F)/Z_p ]\). The KLM model with an open-circuit electrical port gives \(Q = 36.06\) (formula 36.13) on air and 8.19 (8.34) with 5 MRayl, the dots in the figure. Under voltage drive the peak moves to \(f_r\) and Q falls by ≈ 20 %.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Line: \((\pi /2)Z_p /(Z_B +Z_F)\); dots: 1D KLM/ABCD, thickness mode, normal incidence, semi-infinite loads.</span><canvas id="m16-rf-8" aria-label="Figure for rule 8"></canvas></div></div>
+      <div class="limits">Light loading only \((Z_B + Z_F \lesssim Z_p /3)\); ignores material \(Q_m\) and electrical damping, which add in parallel \((1/Q = \sum 1/Q_i)\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Backing buys bandwidth by throwing energy away: several dB of insertion loss per MRayl when lightly backed.</div>
+      <div class="keynum"><span>\(Z_B 0 \to 5\): FBW 7 → 19 %</span><span>IL −5.6 → −22.7 dB</span><span>no matching layers</span></div>
+      <div class="why"><p>The fraction of acoustic power leaving forward is ≈ \(Z_F /(Z_B + Z_F)\) per face, and the receive path pays it again, so the two-way efficiency of an unmatched plate falls roughly as \([Z_F /(Z_B + Z_F)]^{2}\) while Q falls as \(1/(Z_B + Z_F)\). Reference plate into water: bandwidth 7 %, 19 %, 30 %, 58 % at \(Z_B = 0\), 5, 10, 20 MRayl, insertion loss −5.6, −22.7, −31.2, −41.0 dB (Demo 16.5).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">1D KLM/ABCD, thickness mode, normal incidence, semi-infinite loads.</span><canvas id="m16-rf-9" aria-label="Figure for rule 9"></canvas></div></div>
+      <div class="limits">Assumes a perfectly absorbing (semi-infinite) backing; a finite backing returns echoes that appear as late artefacts in the impulse response.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Matching layers, not backing, are how you get bandwidth without discarding energy.</div>
+      <div class="keynum"><span>air-backed + 2 layers: 65 % FBW</span><span>no layers, \(Z_B = 20\): 58 % at −41 dB</span></div>
+      <div class="why"><p>A \(\lambda /4\) layer of impedance \(Z_m\) presents \(Z_m^2 /Z_L\) to the plate at its design frequency, so the front face sees 12–35 MRayl (22 for the two-layer set) instead of 1.5 and the forward load dominates the damping. With two Desilets-type layers (9.0 and 2.35 MRayl) the untuned reference plate reaches 65 % bandwidth at −17 dB on an air backing, whereas the unmatched plate needs \(Z_B \approx 20\) MRayl and −41 dB for similar bandwidth. Layer design is Module 17.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">1D KLM/ABCD, thickness mode, normal incidence, semi-infinite loads.</span><canvas id="m16-rf-10" aria-label="Figure for rule 10"></canvas></div></div>
+      <div class="limits">Real layers are lossy and have thickness tolerances of a few µm, which matters above ~10 MHz; bond lines act as extra thin layers.</div>
+    </div>
+    <div class="rule">
+      <div class="say">Drive impedance moves the peak: voltage drive peaks near \(f_r\), a high-impedance port near \(f_a\).</div>
+      <div class="keynum"><span>4.41 MHz (short)</span><span>5.00 MHz (open)</span><span>bare plate, \(k_t = 0.51\)</span></div>
+      <div class="why"><p>With the electrical port shorted the plate resonates where its input impedance is zero (\(f_r\)); with it open, where the stiffened line is a half wave (\(f_a\)). A 50 Ω system on a 750 Ω element is close to the short-circuit case on both transmit and receive, so the pulse-echo response centres near \(f_r\); a high-impedance preamplifier pushes the receive response toward \(f_a\). The figure shows the transmitted force per volt of a water-loaded, air-backed plate for \(R_s = 0.01\) Ω and 10 MΩ.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">1D KLM/ABCD, thickness mode, normal incidence, semi-infinite loads.</span><canvas id="m16-rf-11" aria-label="Figure for rule 11"></canvas></div></div>
+      <div class="limits">Matching layers, tuning networks and cables add their own resonances, so in a full stack the centre is a compromise you compute, not one you read off \(f_r\) or \(f_a\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Tune out \(C_0\): \(L = 1/(\omega^2 C_0)\). Series for a low-impedance source, shunt for a high-impedance receiver.</div>
+      <div class="keynum"><span>42.4 pF at 4.5 MHz → 29.5 µH</span><span>IL −21.6 → −10.1 dB</span><span>+ 1:2.5 transformer → −2.6 dB</span></div>
+      <div class="why"><p>The element's series model is \(R + 1/(j\omega C_0)\) with \(R = 346\) Ω at 4.5 MHz; a series inductor cancels the reactance and a transformer with impedance ratio 1/6.25 brings 346 Ω near 50 Ω. A shunt inductor across a 50 Ω source changes almost nothing (0.03 dB here) because the source already pins the element voltage; across a high-impedance preamp it removes the capacitive divider.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">1D KLM/ABCD, thickness mode, normal incidence, semi-infinite loads. Ideal L and transformer.</span><canvas id="m16-rf-12" aria-label="Figure for rule 12"></canvas></div></div>
+      <div class="limits">A tuning resonance has its own Q: it narrows the band if the element is already broadband, and inductor loss (finite coil Q) costs sensitivity.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A matched cable only adds delay; a cable into a high-impedance preamp is a capacitive divider.</div>
+      <div class="keynum"><span>50 Ω coax ≈ 100 pF/m</span><span>2 m = 200 pF ≈ \(5\,C_0\)</span><span>−15 dB lumped, −9.6 dB with 1 kΩ</span></div>
+      <div class="why"><p>\(C^{\prime} = 1/(Z_c v_c) = 1/(50 \times 2\times 10^{8}) = 100\) pF/m. If \(R_s = R_r = Z_c\), the lossless line rotates the impedance seen at the system but leaves the available power and the reflection magnitude unchanged, so \(\lvert H\rvert\) is identical (checked: 0 to 3 m, same IL). Into a high-impedance input the element's charge shares with the cable capacitance: V scales by \(C_0 /(C_0 + C_{\mathrm{cable}})\).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Lossless 50 Ω line in the KLM chain; dashed: lumped \(C_0 /(C_0 + C_{\mathrm{cable}})\).</span><canvas id="m16-rf-13" aria-label="Figure for rule 13"></canvas></div></div>
+      <div class="limits">Real micro-coax has attenuation that grows with frequency and a \(Z_c\) that may not equal the system impedance; then length matters even in a 50 Ω system.</div>
+    </div>
+    <div class="rule">
+      <div class="say">A 1-3 composite trades impedance for coupling: at \(\nu \approx 0.5\) the impedance halves and \(k_t\) climbs toward \(k_{33}\).</div>
+      <div class="keynum"><span>\(\nu = 0.5\): \(k_t\) 0.69, Z 16.4 MRayl</span><span>\(\nu = 0.3\): 0.67, 11.0</span><span>\(\nu = 1\): 0.51, 34.5</span></div>
+      <div class="why"><p>Smith–Auld effective-medium model, PZT-5H pillars in a soft epoxy (\(v_L\) 2500, \(v_S\) 1100 m/s, \(\rho\) 1150). The pillars are laterally free, so their coupling approaches the bar value, while the polymer lowers \(\rho\) and c. \(k_t\) has a broad plateau of 0.67–0.69 for \(\nu = 0.3\text{–}0.7\); Z falls almost linearly with \(\nu\). Lower Z means easier matching and wider bandwidth; \(\varepsilon\) falls ∝ \(\nu\), raising the electrical impedance.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Smith–Auld effective medium (fine-scale 1-3 composite).</span><canvas id="m16-rf-14" aria-label="Figure for rule 14"></canvas></div></div>
+      <div class="limits">Fine-scale limit: pillar period ≪ thickness and ≪ shear wavelength. Coarser composites show lateral (inter-pillar) modes; polymer loss lowers \(Q_m\) and sensitivity; the model gives an upper bound on \(k_t\).</div>
+    </div>
+    <div class="rule">
+      <div class="say">Single crystal buys coupling, paid for in temperature and coercive field.</div>
+      <div class="keynum"><span>\(k_{33} \approx 0.9\) vs 0.75</span><span>\(T_{\mathrm{rt}}\) 80–100 °C (PMN-PT)</span><span>\(E_c \approx 2.5\) vs 4.5–7 kV/cm (PIN)</span></div>
+      <div class="why"><p>[001]-poled PMN-PT reaches \(k_{33} \approx 0.9\) and \(k_t \approx 0.6\), so a crystal stack gives more bandwidth and sensitivity at equal loading. Its rhombohedral-to-tetragonal transition at 80–100 °C caps processing and bonding temperatures, and its low coercive field limits drive under bipolar excitation. PIN-PMN-PT raises \(T_{\mathrm{rt}}\) to ≈ 100–135 °C and \(E_c\) to 4.5–7 kV/cm at slightly lower coupling.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Representative datasheet values; lots and suppliers differ.</span><canvas id="m16-rf-15" aria-label="Figure for rule 15"></canvas></div></div>
+      <div class="limits">Ranges vary by composition and supplier; ternary and doped crystals keep moving the trade-off. Check depoling behaviour for high-duty-cycle modes (shear-wave push, therapy).</div>
+    </div>
+    <div class="rule">
+      <div class="say">The pulse is the inverse FFT of \(H_{\mathrm{tx}} H_{\mathrm{rx}}\); judge a transducer by its −20 and −40 dB envelope lengths, not only the −6 dB width.</div>
+      <div class="keynum"><span>reference: 0.38 µs (−6 dB)</span><span>0.87 µs (−20 dB)</span><span>2.2 µs (−40 dB)</span></div>
+      <div class="why"><p>The −6 dB width is set by the bandwidth (≈ 0.38 µs for 67 % at 4.3 MHz, about 1.6 cycles); the tail is set by the sharpness of the band edges and by residual resonances (series tuning, light backing). A long −40 dB tail becomes clutter behind bright reflectors and limits contrast in harmonic and CEUS modes where 40 dB matters. The figure is the reference design's impulse response after a 2–2.5 \(f_a\) low-pass.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">1D KLM/ABCD, thickness mode, normal incidence, semi-infinite loads. Band-limited at 2–2.5 \(f_a\).</span><canvas id="m16-rf-16" aria-label="Figure for rule 16"></canvas></div></div>
+      <div class="limits">Plane-wave, on-axis, unit reflector; diffraction, attenuation (frequency downshift, Module 08) and the excitation waveform reshape the pulse in a real image.</div>
+    </div>
+  </div>
+
+  <!-- ===================== 16.11 Cheat sheet ===================== -->
+  <h2><span class="sec">16.11</span>Cheat sheet</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Concept</th><th>Formula</th><th>Ultrasound use</th></tr></thead>
+    <tbody>
+      <tr><td>Thickness-mode equations</td><td>\(T = c^D S - hD\),  \(E = -hS + D/\varepsilon^S\),  \(h = e/\varepsilon^S\)</td><td>Basis of Mason and KLM</td></tr>
+      <tr><td>Thickness coupling</td><td>\(k_t^2 = e_{33}^2 /(c_{33}^D \varepsilon_{33}^S)\)</td><td>Bandwidth and sensitivity potential of a plate</td></tr>
+      <tr><td>Bar coupling</td><td>\(k_{33}^2 = d_{33}^2 /(s_{33}^E \varepsilon_{33}^T)\)</td><td>Composite pillars, upper bound</td></tr>
+      <tr><td>Stiffening</td><td>\(c^E = c^D (1 - k^2)\),  \(v^D /v^E = 1/\sqrt{1 - k_t^2 }\)</td><td>Waves inside the plate run at \(v^D\)</td></tr>
+      <tr><td>Clamped capacitance</td><td>\(C_0 = \varepsilon^S A/t\)</td><td>Electrical impedance, tuning, cable loading</td></tr>
+      <tr><td>Antiresonance</td><td>\(f_a = v^D /(2t)\)</td><td>Plate thickness for a target frequency</td></tr>
+      <tr><td>Free-plate impedance</td><td>\(Z = (1/j\omega C_0)[1 - k_t^2 \tan x/x]\),  \(x = (\pi /2)f/f_a\)</td><td>Impedance-analyzer check of a bare plate</td></tr>
+      <tr><td>IEEE Std 176</td><td>\(k_t^2 = (\pi /2)(f_r /f_a)\tan [(\pi /2)(f_a - f_r)/f_a ]\)</td><td>Measuring \(k_t\)</td></tr>
+      <tr><td>KLM elements</td><td>\(X_1 = (k_t^2 /\omega C_0)\operatorname{sinc} (f/f_a)\),  \(\varphi = k_t \sqrt{\pi /\omega_0 C_{0}Z_{0}} \operatorname{sinc} (f/2f_a)\)</td><td>Stack modelling with layers as lines</td></tr>
+      <tr><td>Mason elements</td><td>\(N = h_{33} C_{0}\),  \(Z_T = jZ_0 \tan (kt/2)\),  \(Z_S = -jZ_0 \csc (kt)\)</td><td>Same physics, lumped T-network</td></tr>
+      <tr><td>Line ABCD</td><td>\(\begin{bmatrix} \cos k\ell & jZ\sin k\ell \\ j\sin k\ell/Z & \cos k\ell \end{bmatrix}\)</td><td>Layers, backing, cables</td></tr>
+      <tr><td>Pulse-echo</td><td>\(H = 2RZ_L /[AZ_L + B + R(CZ_L + D)]^{2}\),  \(\mathrm{IL} = 20 \log \lvert 2H\rvert\)</td><td>Bandwidth, insertion loss, impulse response</td></tr>
+      <tr><td>Mechanical Q</td><td>\(Q \approx (\pi /2)Z_p /(Z_B + Z_F)\)</td><td>Backing choice, ring-down</td></tr>
+      <tr><td>Tuning</td><td>\(L = 1/(\omega^2 C_0)\);  \(Z_{\mathrm{seen}} = n^2 Z\)</td><td>Matching an element to 50 Ω</td></tr>
+      <tr><td>Cable</td><td>\(C^{\prime} = 1/(Z_c v_c) \approx 100\) pF/m</td><td>Receive loss into high-Z preamps</td></tr>
+      <tr><td>Composite (Smith–Auld)</td><td>\(\bar{k}_t^2 = \bar{e}_{33}^2 /(\bar{c}_{33}^D \bar{\varepsilon}_{33}^S)\), \(\bar{\rho} = \nu \rho_c + (1 - \nu)\rho_p\)</td><td>Choosing volume fraction</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ===================== 16.12 Interview ===================== -->
+  <h2><span class="sec">16.12</span>Interview and qualifying-exam questions</h2>
+  <details class="quiz"><summary><span class="q">I1</span><span>What does \(k_t^2 = 0.26\) mean physically, and why is it not "26 % efficiency"? <span class="muted">· screen</span></span></summary><div class="a"><p>In a quasi-static cycle, 26 % of the energy stored on one side can be extracted on the other; equivalently \(c^E = 0.74 c^D\) and \(\varepsilon^S = 0.74 \varepsilon^T\) for that mode. It is a coupling, not an efficiency: a lossless transducer converts all the absorbed electrical power to acoustic power at matched conditions; \(k^2\) decides how wide the band over which that can be done is (the \(f_r \text{–}f_a\) gap) and how hard you can load the plate before sensitivity collapses. Follow-up: "So what limits efficiency?" Mismatch at the electrical port, backing absorption, and material losses (\(Q_m\), \(\tan \delta\)).</p></div></details>
+  <details class="quiz"><summary><span class="q">I2</span><span>Why is \(k_t\) of PZT-5H 0.51 when \(k_{33}\) is 0.75? <span class="muted">· screen</span></span></summary><div class="a"><p>Boundary conditions. \(k_{33}\) is for a bar with free lateral faces \((T_1 = T_2 = 0)\), \(k_t\) for a plate clamped laterally by its own extent \((S_1 = S_2 = 0)\). In the plate the \(d_{31}\) lateral contraction is blocked, so the stiffness and permittivity that enter are \(c_{33}^D\) and \(\varepsilon_{33}^S\), and the coupling drops. A sliver frees one direction \((k_{33}^{\prime} \approx 0.70)\), a composite pillar both. Follow-up: "What width-to-thickness ratio does a sliver need?" ≲ 0.6, to push the width mode well above the thickness mode.</p></div></details>
+  <details class="quiz"><summary><span class="q">I3</span><span>An air-loaded PZT-5H plate shows \(\lvert Z\rvert\) minimum at 4.41 MHz and maximum at 5.00 MHz. What are \(k_t\) and the thickness? <span class="muted">· onsite</span></span></summary><div class="a"><p>\(f_r /f_a = 0.882\), \(x_r = (\pi /2)(0.882) = 1.385\), \(k_t^2 = x \cot x = 0.260\), \(k_t = 0.51\). Thickness from the antiresonance: \(t = v^D /(2f_a) = 4600/(10^{7}) = 0.46\) mm. Small-gap shortcut would give \(k_t = 0.54\). Follow-up: "And if the plate were already bonded to a backing?" Then the extrema shift and broaden; the IEEE formula no longer applies, fit a KLM model instead.</p></div></details>
+  <details class="quiz"><summary><span class="q">I4</span><span>Sketch the KLM model and give its element values. Why do transducer designers prefer it to Mason? <span class="muted">· onsite</span></span></summary><div class="a"><p>Electrical port: \(C_0 = \varepsilon^S A/t\) in series with \(jX_1\), \(X_1 = (k_t^2 /\omega C_0)\operatorname{sinc} (f/f_a)\), then a transformer \(\varphi = k_t \sqrt{\pi /(\omega_0 C_{0}Z_{0})}\operatorname{sinc} (f/2f_a)\) feeding the centre of an acoustic line of length t, impedance \(Z_0 = \rho v^D A\), split into two halves to the back and front ports. Preferred because the acoustic path stays a continuous line: backing, bond lines, matching layers and the load attach as more line sections or as ABCD factors, and the frequency dependence of the coupling is explicit. Follow-up: "Show me it agrees with Mason." Free plate: \(X_1 + \varphi^2 (Z_0 /2)\tan (kt/2) = (k_t^2 /\omega C_0)\tan x/x\).</p></div></details>
+  <details class="quiz"><summary><span class="q">I5</span><span>Why does a thickness transducer have a passband near \(3f_0\) but none near \(2f_0\)? <span class="muted">· onsite</span></span></summary><div class="a"><p>The electric field is uniform across the thickness, so it drives the plate only through the face terms h D; an even mode moves both faces in the same direction and its strain integrates to zero, giving no net drive. In KLM, \(\varphi \propto \sin (kt/2)\) is zero at \(2f_a\), and \(\varphi^2\) at \(3f_a\) is sinc²(1.5)/sinc²(0.5) = 1/9 of its value at \(f_a\). Follow-up: "How would you build a dual-band probe?" Stack two plates or use the third harmonic deliberately, or a CMUT; mention superharmonic contrast imaging.</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>An array element shows 750 Ω capacitive at 5 MHz and the system is 50 Ω. What do you do, and what do you gain? <span class="muted">· onsite</span></span></summary><div class="a"><p>Cancel \(C_0\) with a series inductor \(L = 1/(\omega^2 C_0)\) (29.5 µH at 4.5 MHz for 42.4 pF), leaving \(R \approx 346\) Ω, then transform the real part toward 50 Ω (1 : 2.5 turns). In the reference design that is −21.6 → −10.1 → −2.6 dB two-way. A shunt inductor alone does nothing useful against a 50 Ω source. Follow-up: "Cost?" Inductor Q and size in the connector, narrower band if the tuning Q exceeds the acoustic Q, and element-to-element tolerance.</p></div></details>
+  <details class="quiz"><summary><span class="q">I7</span><span>Why does a heavier backing broaden the band and lower sensitivity? Give a formula. <span class="muted">· screen</span></span></summary><div class="a"><p>The plate is a half-wave resonator losing ≈ \(4(Z_B + Z_F)/Z_p\) of its energy per period, so \(Q \approx (\pi /2)Z_p /(Z_B + Z_F)\): 36 air-backed into water, 8.3 at 5 MRayl. The energy that leaves through the back is absorbed, so the forward fraction \(Z_F /(Z_B + Z_F)\) drops and the two-way loss grows about as its square. Follow-up: "Then how do you get 70 % bandwidth at good sensitivity?" Matching layers raise the effective front load; use light backing.</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>Your measured impedance of a kerfed array element shows an extra resonance a little above the thickness resonance that KLM does not predict. What is it, and what do you do? <span class="muted">· research</span></span></summary><div class="a"><p>A lateral (width) mode of the element, or of the kerf-filler/element structure, coupling through \(d_{31}\) when the width-to-thickness ratio is not small enough (≈ 0.6 or less separates them). KLM is 1D and cannot show it. Sub-dice the element, change the kerf filler, or move to a composite; verify with 2D/3D finite elements (Module 17) and a measured impedance sweep of every element. Follow-up: "Why does it hurt imaging?" It narrows and distorts the pulse spectrum, adds ringing, and increases crosstalk.</p></div></details>
+  <details class="quiz"><summary><span class="q">I9</span><span>Why do single-crystal and composite probes have wider bandwidth than PZT probes with the same matching? <span class="muted">· research</span></span></summary><div class="a"><p>Higher \(k_t\) (0.6–0.85 versus 0.5) widens the \(f_r \text{–}f_a\) gap, i.e. the intrinsic electromechanical bandwidth, so the plate can be loaded more heavily for the same sensitivity; composites also lower Z (10–20 MRayl), which makes the transformation to 1.5 MRayl easier with fewer layers. Follow-up: "Any downside?" Crystal: \(T_{\mathrm{rt}}\) and \(E_c\) limits, cost, property spread; composite: polymer loss, lateral modes if not fine enough, and lower \(\varepsilon\) raising the electrical impedance.</p></div></details>
+  <details class="quiz"><summary><span class="q">I10</span><span>How would you build a KLM model of a real, lossy element from measurements? <span class="muted">· research</span></span></summary><div class="a"><p>Measure the bare plate: \(C_0\) well above resonance gives \(\varepsilon^S\); \(f_a\) and t give \(v^D\); \(f_s\), \(f_p\) give \(k_t\) by IEEE 176; peak widths give \(Q_m\) and the off-resonance phase gives \(\tan \delta\) (or fit complex constants to the whole curve, as in Sherrit's method). Then measure each layer's Z and attenuation separately, build the ABCD chain, and compare the predicted electrical impedance of the finished element and the pulse-echo response against measurements, adjusting bond-line thickness last. Follow-up: "What will not fit?" Lateral modes, kerf crosstalk and lens effects: move to FE.</p></div></details>
+  <details class="quiz"><summary><span class="q">I11</span><span>You designed a 5 MHz half-wave plate and the pulse-echo centre is 4.3 MHz. Name the causes and how you would separate them. <span class="muted">· onsite</span></span></summary><div class="a"><p>(1) Low-impedance drive and receive put the response near \(f_r = 0.88 f_a\), not \(f_a\). (2) Matching layers designed below \(f_a\) and their mass load the face. (3) The tuning inductor resonates with \(C_0\). (4) Lens and tissue attenuation downshift further in practice. Separate them with the model: switch off tuning, vary layer design frequency, change the receiver impedance, and compare with the measured impedance curve. Follow-up: "How do you hit 5 MHz?" Thin the plate (raise \(f_a\) to ≈ 5.7 MHz) and re-centre the layers.</p></div></details>
+
+  <!-- ===================== 16.13 MATLAB ===================== -->
+  <h2><span class="sec">16.13</span>MATLAB lab</h2>
+  <div class="prose"><p class="code-note">Base MATLAB only (no toolboxes); each script runs as-is in MATLAB R2019b+ and GNU Octave 8. Paste into the editor and press Run. All four share the same KLM/ABCD conventions as the page, written with the matrices stored as \(N_f \times 4\) arrays [A B C D] so the frequency loop is vectorized.</p></div>
+  <details class="code">
+    <summary><span class="fname">m16_klm_abcd.m</span><button class="copy" type="button">Copy</button><span class="what">KLM plate + backing + two matching layers + tuning: impedance, pulse-echo spectrum, impulse response, with the four validation checks · change materials, \(Z_B\), layers, R · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m16_klm_abcd.m"></code></pre>
+  </details>
+  <div class="prose"><p>What to look for: validation errors of order 10⁻¹² to 10⁻¹³; reference design \(f_c \approx 4.30\) MHz, FBW ≈ 67.5 %, IL ≈ −10.1 dB, −6/−20/−40 dB envelope widths ≈ 0.38/0.87/2.2 µs.</p></div>
+  <details class="code">
+    <summary><span class="fname">m16_impedance_kt.m</span><button class="copy" type="button">Copy</button><span class="what">Free-plate impedance, \(f_r /f_a\) extraction and IEEE 176 versus approximations; bias from loss and loading · change \(k_t\), \(Q_m\), loads · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m16_impedance_kt.m"></code></pre>
+  </details>
+  <div class="prose"><p>What to look for: the \(k_t\) table reproduces 0.10, 0.30, 0.50, 0.70 from \(f_r /f_a = 0.9959\), 0.9621, 0.8870, 0.7487; the small-gap formula overestimates; with a 1.5 MRayl front load the extracted \(k_t\) is visibly off.</p></div>
+  <details class="code">
+    <summary><span class="fname">m16_backing_tradeoff.m</span><button class="copy" type="button">Copy</button><span class="what">Sweep of backing impedance with 0, 1 or 2 matching layers: bandwidth, insertion loss, ring-down, and the Q formula check · change the layer set and material · runtime ≈ 3 s</span></summary>
+    <pre><code data-file="matlab/m16_backing_tradeoff.m"></code></pre>
+  </details>
+  <div class="prose"><p>What to look for: the table in 16.7 (no matching: 7 % → 118 % FBW, −5.6 → −48 dB) and simulated open-circuit Q within 2 % of \((\pi /2)Z_p /(Z_B + Z_F)\) at light backing.</p></div>
+  <details class="code">
+    <summary><span class="fname">m16_electrical_tuning.m</span><button class="copy" type="button">Copy</button><span class="what">Series and shunt inductors, a transformer and a coaxial cable as ABCD factors; 50 Ω versus high-impedance receiver · change n, cable length, receiver · runtime ≈ 2 s</span></summary>
+    <pre><code data-file="matlab/m16_electrical_tuning.m"></code></pre>
+  </details>
+  <div class="prose"><p>What to look for: untuned −21.6 dB, series −10.1 dB, series + \(n = 0.4\) −2.6 dB, shunt within 0.03 dB of untuned at 50 Ω; with a 1 kΩ receiver, 2 m of cable costs ≈ 9.6 dB, and a shunt L sized for \(C_0 + C_{\mathrm{cable}}\) recovers the peak.</p></div>
+
+  <!-- ===================== 16.14 Self-check ===================== -->
+  <h2><span class="sec">16.14</span>Self-check</h2>
+  <details class="quiz"><summary><span class="q">Q1</span><span>What PZT-5H thickness gives \(f_a = 7.5\) MHz, and where will the bare-plate \(f_r\) be?</span></summary><div class="a"><p>\(t = 4600/(2 \times 7.5\times 10^{6}) = 0.307\) mm. \(f_r = 0.882 \times 7.5 = 6.61\) MHz for \(k_t = 0.51\).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q2</span><span>\(C_0\) and \(\lvert Z\rvert\) at 5 MHz for a 10 mm diameter, 0.46 mm thick PZT-5H disc?</span></summary><div class="a"><p>\(A = 78.5\) mm², \(C_0 = 1470 \times 8.854\times 10^{-12} \times 78.5\times 10^{-6}\) \(/\, 0.46\times 10^{-3} = 2.22\) nF, \(\lvert Z\rvert = 1/(2\pi \times 5\times 10^{6} \times 2.22\times 10^{-9}) = 14.3\) Ω: too low for 50 Ω, so a large element wants a step-up transformer (n &gt; 1).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q3</span><span>A crystal plate has \(f_r /f_a = 0.749\). What is \(k_t\), and what does the small-gap formula say?</span></summary><div class="a"><p>\(x = (\pi /2)(0.749) = 1.176\), \(k_t^2 = x \cot x = 0.490\), \(k_t = 0.70\). Small gap: \((\pi^2 /4)(0.251) = 0.620\), \(k_t = 0.79\), 12 % high.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q4</span><span>Estimate Q for a PZT-5H plate (34.5 MRayl) into water with air backing, and with a 5 MRayl backing.</span></summary><div class="a"><p>\((\pi /2)(34.5/1.5) = 36\); \((\pi /2)(34.5/6.5) = 8.3\). Fractional −3 dB bandwidths ≈ 3 % and 12 % (one-way, open circuit).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q5</span><span>Why does a 2 m, 50 Ω cable not change \(\lvert H\rvert\) in a 50 Ω system, yet costs ≈ 10 dB into a 1 kΩ preamp?</span></summary><div class="a"><p>A lossless line terminated at the system end by its own impedance only rotates phase: available power and reflection magnitude at the element are unchanged. Into a high-impedance input the line looks like 200 pF in parallel with the element, dividing its voltage by about \(C_0 /(C_0 + C_{\mathrm{cable}})\) (−15 dB lumped, −9.6 dB with 1 kΩ in the full model).</p></div></details>
+  <details class="quiz"><summary><span class="q">Q6</span><span>A PZT-5H/soft-epoxy composite at \(\nu = 0.3\): \(k_t\) and Z from Smith–Auld? Why is \(\varepsilon\) lower?</span></summary><div class="a"><p>\(k_t \approx 0.67\), \(Z \approx 11.0\) MRayl (\(v^D \approx 3610\) m/s). \(\bar{\varepsilon}^S \approx 457 \varepsilon_0\) because only 30 % of the area is ceramic, so \(C_0\) and the electrical impedance change by ≈ 3× for the same element.</p></div></details>
+  <details class="quiz"><summary><span class="q">Q7</span><span>Which tuning inductor do you use in front of a 50 Ω pulser, and which at the input of a high-impedance preamp at the end of a cable?</span></summary><div class="a"><p>Series \(L = 1/(\omega^2 C_0)\) for the 50 Ω source (cancel the series reactance), then a transformer for the real part. Shunt \(L = 1/(\omega^2 (C_0 + C_{\mathrm{cable}}))\) at the high-impedance input, to resonate the total capacitance.</p></div></details>
+
+  <!-- ===================== 16.15 Literature figures ===================== -->
+  <h2><span class="sec">16.15</span>Figures from the literature</h2>
+  <div class="prose"><p>Measured data to hold the models of this page against. Links only (no images reproduced); each figure number was checked against the published text.</p></div>
+  <div class="litfig">
+    <h4>A measured thickness-mode impedance spectrum of a PZT plate, with a fitted model</h4>
+    <p class="cite">S. Sherrit, B. K. Mukherjee, "Characterization of piezoelectric materials for transducers," arXiv:0711.2657, 2007. <b>Fig. 3(a)</b>. <a href="https://doi.org/10.48550/arXiv.0711.2657">doi:10.48550/arXiv.0711.2657</a></p>
+    <p>Thickness-extensional resonance of CTS 3203HD PZT (\(\rho = 7800\) kg/m³), measured, with a complex-constant fit to the fundamental (solid) and to the next resonance (broken). Look for the \(f_r /f_a\) pair, the peak heights set by loss, and the weaker higher resonance: the same features as Demo 16.3 with finite \(Q_m\) and \(\tan \delta\). Figs. 3(b–e) show the other modes (shear, length, radial) that a 1D model leaves out.</p>
+  </div>
+  <div class="litfig">
+    <h4>Mason and KLM drawn side by side, and shown to coincide</h4>
+    <p class="cite">Same source. <b>Figs. 5, 6 and 9</b>. <a href="https://doi.org/10.48550/arXiv.0711.2657">doi:10.48550/arXiv.0711.2657</a></p>
+    <p>Fig. 5 is Mason's network for the thickness mode, Fig. 6 the KLM circuit, and Fig. 9 the impedance of a plate on stainless-steel and epoxy backings from the analytic solution, Mason and KLM: the three curves overlap. This is the published counterpart of validation checks (1) and (2) in 16.6. Compare the drawing conventions (transformer sense, where \(-C_0\) sits) with Figure 16.D.</p>
+  </div>
+  <div class="litfig">
+    <h4>Measured impedance of a single-crystal (PIN-PMN-PT) transducer</h4>
+    <p class="cite">P. Sun, Q. Zhou, B. Zhu, D. Wu, C. Hu, J. M. Cannata, J. Tian, P. Han, G. Wang, K. K. Shung, "Design and fabrication of PIN-PMN-PT single-crystal high-frequency ultrasound transducers," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em> 56(12), 2760–2763, 2009. <b>Fig. 3</b> (also Figs. 2 and 5). <a href="https://doi.org/10.1109/TUFFC.2009.1367">doi:10.1109/TUFFC.2009.1367</a> (open copy: PMC2849290)</p>
+    <p>Measured \(\lvert Z\rvert\) and phase in air of the 35 MHz transducer; the authors report \(k_t = 0.56\) and ≈ 80 Ω near resonance: an element sized so its impedance sits near 50 Ω, the opposite end of the 750 Ω array element of 16.8. Fig. 2 is the KLM-modelled pulse-echo response and Fig. 5 the measured one: the measured bandwidth comes out slightly below the model, the usual direction (unmodelled loss, bond lines, lateral modes).</p>
+  </div>
+  <div class="litfig">
+    <h4>Equivalent-circuit impedance against measurement, with and without the cable</h4>
+    <p class="cite">Z. Shen, J. Xu, Z. Li, Y. Chen, Y. Cui, X. Jian, "An improved equivalent circuit simulation of high frequency ultrasound transducer," <em>Frontiers in Materials</em> 8, 663109, 2021 (CC BY). <b>Figs. 7, 8 and 9</b>. <a href="https://doi.org/10.3389/fmats.2021.663109">doi:10.3389/fmats.2021.663109</a></p>
+    <p>Three PZT-5H transducers (11.3–19.6 MHz, 100–185 µm plates, one matching layer): simulated versus measured impedance magnitude and phase without cable (Fig. 7), with cable (Fig. 8) and for 0.5, 1.5 and 2.5 m of cable (Fig. 9). Watch how the cable moves and reshapes the resonance seen at the connector, the line-model effect of 16.8 and Demo 16.6; the paper also reports where a KLM-based package missed the centre frequency by more than 10 %.</p>
+  </div>
+  <div class="litfig">
+    <h4>1-3 composite transducer: KLM prediction versus the built device</h4>
+    <p class="cite">J.-M. Zhang, G.-C. Bao, W. Gao, R.-Q. Lin, F. Yang, K.-H. Lam, "Miniature ultrasound transducer incorporating Sm-PMN-PT 1-3 composite," <em>J. Compos. Sci.</em> 8(3), 80, 2024 (CC BY). <b>Fig. 8</b> versus <b>Fig. 10</b>. <a href="https://doi.org/10.3390/jcs8030080">doi:10.3390/jcs8030080</a></p>
+    <p>Fig. 8 is the simulated pulse-echo response and electrical spectrum, Fig. 10 the measured ones: centre frequency 14.3 MHz modelled versus 12.4 MHz measured, −6 dB bandwidth 79 % versus ≈ 70 %, \(k_{\mathrm{eff}} = 0.66\) from \(f_r\), \(f_a\). The authors suggest, as a possible cause, a pillar aspect ratio near the limit where lateral modes appear, the fine-scale condition behind the Smith–Auld model of Demo 16.2.</p>
+  </div>
+
+  <!-- ===================== 16.16 Go deeper ===================== -->
+  <h2><span class="sec">16.16</span>Go deeper</h2>
+  <ul class="refs">
+    <li>W. P. Mason, <em>Electromechanical Transducers and Wave Filters</em>, Van Nostrand, 1942 (2nd ed. 1948). The original equivalent circuit.</li>
+    <li>R. Krimholtz, D. A. Leedom, G. L. Matthaei, "New equivalent circuits for elementary piezoelectric transducers," <em>Electronics Letters</em> 6(13), 398–399, 1970. The KLM model.</li>
+    <li>D. A. Leedom, R. Krimholtz, G. L. Matthaei, "Equivalent circuits for transducers having arbitrary even- or odd-symmetry piezoelectric excitation," <em>IEEE Trans. Sonics Ultrason.</em> SU-18(3), 128–141, 1971.</li>
+    <li><em>IEEE Standard on Piezoelectricity</em>, ANSI/IEEE Std 176-1987. Constitutive equations, coupling factors, resonance measurement of k<sub>t</sub>.</li>
+    <li>G. S. Kino, <em>Acoustic Waves: Devices, Imaging, and Analog Signal Processing</em>, Prentice-Hall, 1987. Chapter 1: plate impedance, Mason model, Q of loaded transducers.</li>
+    <li>C. S. Desilets, J. D. Fraser, G. S. Kino, "The design of efficient broad-band piezoelectric transducers," <em>IEEE Trans. Sonics Ultrason.</em> SU-25(3), 115–125, 1978.</li>
+    <li>W. A. Smith, B. A. Auld, "Modeling 1-3 composite piezoelectrics: thickness-mode oscillations," <em>IEEE Trans. Ultrason. Ferroelectr. Freq. Control</em> 38(1), 40–47, 1991.</li>
+    <li>S. Sherrit, S. P. Leary, B. P. Dolgin, Y. Bar-Cohen, "Comparison of the Mason and KLM equivalent circuits for piezoelectric resonators in the thickness mode," <em>Proc. IEEE Ultrasonics Symposium</em>, 1999.</li>
+    <li>S. Zhang, F. Li, "High performance ferroelectric relaxor-PbTiO₃ single crystals: status and perspective," <em>J. Appl. Phys.</em> 111, 031301, 2012.</li>
+    <li>T. L. Szabo, <em>Diagnostic Ultrasound Imaging: Inside Out</em>, 2nd ed., Academic Press, 2014. Transducer chapter with KLM and ABCD modelling.</li>
+  </ul>
+  <div class="next"><a href="#m15">← 15 Wave physics &amp; harmonics</a><a href="#m17">17 Matching, backing, lens, FEA →</a></div>
+</section>
+
+<style>
+#m16 .demo-head .prov-note { flex-basis: 100%; margin-top: 0; }
+#m16 .rule-fig .prov { margin: 0 0 4px; }
+#m16 .rule-fig .prov-note { margin: 0 0 4px; }
+#m16 .m16-fh { font-size: 0.9rem; color: var(--muted); margin: 10px 0 4px; }
+#m16 .stack-fig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 12px; margin: 18px 0; }
+#m16 .stack-fig .fh { font-size: 0.9rem; margin-bottom: 6px; }
+#m16 .stack-fig .fh .prov, #m16 .m16-fh .prov, #m16 .prov-legend .prov { margin-left: 0; }
+#m16 .stack-fig svg { min-width: 560px; }
+#m16 .stack-fig mjx-container svg { min-width: 0; width: auto; display: inline; }
+#m16 .stack-fig text { font: 12px var(--f-mono); fill: var(--ink); }
+#m16 .stack-fig text.m { fill: var(--muted); }
+#m16 .stack-fig text.s { font-size: 11px; fill: var(--muted); }
+#m16 .stack-fig text.t { font-weight: 600; font-size: 12.5px; }
+#m16 .stack-fig .ld path, #m16 .stack-fig .dim path, #m16 .stack-fig path.dim { stroke: var(--muted); fill: none; stroke-width: 1; }
+#m16 .stack-fig .w, #m16 .stack-fig .w path { stroke: var(--ink); fill: none; stroke-width: 1.4; }
+#m16 .stack-fig .w2 { stroke: var(--ink); stroke-width: 2.2; fill: none; }
+#m16 .stack-fig .box, #m16 .stack-fig .src { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; }
+#m16 .stack-fig .coil, #m16 .stack-fig .coil2 { fill: none; stroke: var(--sig2); stroke-width: 1.6; }
+#m16 .stack-fig .tl rect { fill: var(--paper); stroke: var(--accent); stroke-width: 1.4; }
+#m16 .stack-fig .arr { stroke: var(--muted); stroke-width: 1.2; fill: none; marker-end: url(#m16-ah); }
+#m16 .litfig h4 { margin: 0 0 4px; font-size: 0.98rem; }
+#m16 .litfig p { margin: 4px 0; }
+#m16 th .nt { text-transform: none; letter-spacing: 0.02em; }
+</style>
+
+
+<script>
+(function () {
+  /* m20 core: complex arithmetic, KLM / Mason / ABCD transducer model. Shared by node tests and the page. */
+const K = (function () {
+  const PI = Math.PI, E0 = 8.854187817e-12;
+  const c = (r, i) => ({ r: r, i: i || 0 });
+  const add = (a, b) => ({ r: a.r + b.r, i: a.i + b.i });
+  const sub = (a, b) => ({ r: a.r - b.r, i: a.i - b.i });
+  const mul = (a, b) => ({ r: a.r * b.r - a.i * b.i, i: a.r * b.i + a.i * b.r });
+  const div = (a, b) => { const d = b.r * b.r + b.i * b.i; return { r: (a.r * b.r + a.i * b.i) / d, i: (a.i * b.r - a.r * b.i) / d }; };
+  const sc = (a, s) => ({ r: a.r * s, i: a.i * s });
+  const abs = a => Math.hypot(a.r, a.i);
+  const arg = a => Math.atan2(a.i, a.r);
+  const csin = z => ({ r: Math.sin(z.r) * Math.cosh(z.i), i: Math.cos(z.r) * Math.sinh(z.i) });
+  const ccos = z => ({ r: Math.cos(z.r) * Math.cosh(z.i), i: -Math.sin(z.r) * Math.sinh(z.i) });
+  const csqrt = z => { const m = abs(z); const r = Math.sqrt((m + z.r) / 2); const i = Math.sign(z.i || 1) * Math.sqrt(Math.max(0, (m - z.r) / 2)); return { r, i }; };
+  const J = c(0, 1), ONE = c(1), ZERO = c(0);
+  /* 2x2 ABCD matrices as [A,B,C,D] */
+  const mm = (M, N) => [add(mul(M[0], N[0]), mul(M[1], N[2])), add(mul(M[0], N[1]), mul(M[1], N[3])), add(mul(M[2], N[0]), mul(M[3], N[2])), add(mul(M[2], N[1]), mul(M[3], N[3]))];
+  const ser = Z => [ONE, Z, ZERO, ONE];
+  const shu = Y => [ONE, ZERO, Y, ONE];
+  const xfm = p => [p, ZERO, ZERO, div(ONE, p)];
+  const line = (Z, th) => { const cs = ccos(th), sn = csin(th); return [cs, mul(J, mul(Z, sn)), mul(J, div(sn, Z)), cs]; };
+  const zin = (M, ZL) => div(add(mul(M[0], ZL), M[1]), add(mul(M[2], ZL), M[3]));
+  const det = M => sub(mul(M[0], M[3]), mul(M[1], M[2]));
+  /* Input impedance of a line (Z, th) terminated in ZT */
+  const zline = (Z, th, ZT) => { const cs = ccos(th), sn = csin(th); return mul(Z, div(add(mul(ZT, cs), mul(J, mul(Z, sn))), add(mul(Z, cs), mul(J, mul(ZT, sn))))); };
+
+  /* Piezo plate. P: {v (m/s, v^D), rho, kt, er (eps^S/eps0), Qm, tand, d (m), A (m^2)} */
+  function plate(P, f) {
+    const w = 2 * PI * f;
+    const cD = c(P.rho * P.v * P.v, P.rho * P.v * P.v / (P.Qm || 1e12));
+    const vs = csqrt(sc(cD, 1 / P.rho));
+    const k = div(c(w), vs);
+    const Z0 = sc(vs, P.rho * P.A);
+    const eps = c(P.er * E0, -P.er * E0 * (P.tand || 0));
+    const C0 = sc(eps, P.A / P.d);
+    const e = P.kt * Math.sqrt(P.rho * P.v * P.v * P.er * E0);      // e33 (C/m^2), real
+    const h = div(c(e), eps);                                         // h33 (V/m)
+    const kd = sc(k, P.d), th = sc(k, P.d / 2);
+    const h2 = mul(h, h);
+    const X1 = div(mul(h2, csin(kd)), sc(Z0, w * w));                 // KLM series reactance (ohm), impedance = j*X1
+    const phi = div(sc(mul(h, csin(th)), 2), sc(Z0, w));              // KLM transformer (V/N): V = phi F, I = u / phi
+    return { w, k, Z0, C0, h, th, kd, X1, phi, N: mul(h, C0) };
+  }
+  /* KLM ABCD from electrical port to the plate front face, backing ZB (mechanical, kg/s) folded in as a shunt at the centre node */
+  function klmPlate(P, f, ZB) {
+    const p = plate(P, f);
+    const Zb = zline(p.Z0, p.th, ZB);
+    let M = ser(div(ONE, mul(c(0, p.w), p.C0)));
+    M = mm(M, ser(mul(J, p.X1)));
+    M = mm(M, xfm(p.phi));
+    M = mm(M, shu(div(ONE, Zb)));
+    M = mm(M, line(p.Z0, p.th));
+    return M;
+  }
+  /* Mason model input impedance by nodal analysis (independent of the ABCD code). Z1 = back load, Z2 = front load (kg/s) */
+  function masonZin(P, f, Z1, Z2) {
+    const p = plate(P, f);
+    const ZT = mul(J, mul(p.Z0, div(csin(p.th), ccos(p.th))));
+    const ZS = div(p.Z0, mul(J, csin(p.kd)));
+    const Y = add(div(ONE, add(ZT, Z1)), div(ONE, add(ZT, Z2)));
+    const G = div(Y, add(ONE, mul(ZS, Y)));
+    const N2 = mul(p.N, p.N), jwC = mul(c(0, p.w), p.C0);
+    const Ip = div(mul(N2, G), sub(ONE, div(mul(N2, G), jwC)));     // I_p / V
+    return div(ONE, add(jwC, Ip));
+  }
+  /* Free-plate analytic (lossless): Z = (1/(j w C0)) (1 - kt^2 tan(x)/x), x = kd/2 */
+  function freeAnalytic(P, f) {
+    const w = 2 * PI * f, C0 = P.er * E0 * P.A / P.d, x = w * P.d / (2 * P.v);
+    return div(c(1 - P.kt * P.kt * Math.tan(x) / x), c(0, w * C0));
+  }
+  /* Full system. S: {P, ZBm, ZLm (MRayl), layers:[{Zm (MRayl), v, fq (quarter-wave freq) or t}], R (ohm), cable:{len m, Z0 ohm, vel m/s}, tune:{type:'none'|'shunt'|'series', L (H)}} */
+  function chain(S, f) {
+    const P = S.P, A = P.A;
+    let M = klmPlate(P, f, c(S.ZBm * 1e6 * A));
+    (S.layers || []).forEach(L => { const t = L.t || L.v / (4 * L.fq); const Zl = c(L.Zm * 1e6 * A, 0); const kl = c(2 * PI * f / L.v, -(L.alpha || 0)); M = mm(M, line(Zl, sc(kl, t))); });
+    let E = [ONE, ZERO, ZERO, ONE];
+    const w = 2 * PI * f;
+    if (S.cable && S.cable.len > 0) E = mm(E, line(c(S.cable.Z0), c(w * S.cable.len / S.cable.vel)));
+    if (S.xn && S.xn !== 1) E = mm(E, xfm(c(S.xn)));
+    if (S.tune && S.tune.type === 'shunt') E = mm(E, shu(div(ONE, c(0, w * S.tune.L))));
+    if (S.tune && S.tune.type === 'series') E = mm(E, ser(c(0, w * S.tune.L)));
+    return mm(E, M);
+  }
+  function response(S, f) {
+    const M = chain(S, f), ZL = c(S.ZLm * 1e6 * S.P.A), Rs = c(S.R), Rr = c(S.Rr || S.R);
+    const Dn = R => add(add(mul(M[0], ZL), M[1]), mul(R, add(mul(M[2], ZL), M[3])));
+    const Ds = Dn(Rs), Dr = S.Rr && S.Rr !== S.R ? Dn(Rr) : Ds;
+    const Ftx = div(ZL, Ds);                                          // front force per source volt (N/V)
+    const Hrx = div(sc(Rr, 2), Dr);                                   // receive voltage per incident force (V/N)
+    return { Zin: zin(M, ZL), Hpe: mul(Ftx, Hrx), ptx: sc(Ftx, 1 / S.P.A), Hrx, M };   // Hpe = V_out / V_source, unit planar reflector
+  }
+  /* Ideal transformer (system : element turns ratio n) */
+  /* -6 dB band of |H| around its peak; returns {fpk, fl, fu, fc, fbw} */
+  function band(fs, mag, lvl) {
+    lvl = lvl || 0.5; let ip = 0; for (let i = 1; i < mag.length; i++) if (mag[i] > mag[ip]) ip = i;
+    const t = mag[ip] * lvl; let i = ip; while (i > 0 && mag[i] > t) i--; let j = ip; while (j < mag.length - 1 && mag[j] > t) j++;
+    const it = (a, b) => fs[a] + (t - mag[a]) / (mag[b] - mag[a]) * (fs[b] - fs[a]);
+    const fl = i > 0 || mag[0] <= t ? it(i, i + 1) : fs[0], fu = it(j - 1, j);
+    return { fpk: fs[ip], peak: mag[ip], fl, fu, fc: (fl + fu) / 2, fbw: (fu - fl) / ((fl + fu) / 2) };
+  }
+  /* IEEE Std 176: kt^2 = (pi/2)(fr/fa) tan((pi/2)(fa - fr)/fa) */
+  const kt176 = (fr, fa) => Math.sqrt((PI / 2) * (fr / fa) * Math.tan((PI / 2) * (fa - fr) / fa));
+  /* fr/fa for given kt (lossless free plate): solve x cot x = kt^2, fr/fa = 2x/pi */
+  function frRatio(kt) { let lo = 1e-6, hi = PI / 2 - 1e-12; for (let n = 0; n < 80; n++) { const m = (lo + hi) / 2; (m / Math.tan(m) > kt * kt) ? lo = m : hi = m; } return 2 * ((lo + hi) / 2) / PI; }
+  /* Smith & Auld (1991) 1-3 composite effective thickness-mode properties. cer: ceramic {c11,c12,c13,c33 (E), e31,e33, eS33 (rel), rho}; pol: {c11,c12, er, rho} */
+  function smithAuld(nu, cer, pol) {
+    const D = nu * (pol.c11 + pol.c12) + (1 - nu) * (cer.c11 + cer.c12);
+    const c33E = nu * (cer.c33 - 2 * (1 - nu) * (cer.c13 - pol.c12) ** 2 / D) + (1 - nu) * pol.c11;
+    const e33 = nu * (cer.e33 - 2 * (1 - nu) * cer.e31 * (cer.c13 - pol.c12) / D);
+    const eS = nu * (cer.eS33 * E0 + 2 * (1 - nu) * cer.e31 ** 2 / D) + (1 - nu) * pol.er * E0;
+    const rho = nu * cer.rho + (1 - nu) * pol.rho;
+    const c33D = c33E + e33 * e33 / eS;
+    const v = Math.sqrt(c33D / rho);
+    return { kt: e33 / Math.sqrt(c33D * eS), v, Z: rho * v / 1e6, er: eS / E0, rho };
+  }
+
+  /* Full analysis on a grid scaled to fa: spectrum to fs/2 (fs = 25.6 fa, N = 1024), -6 dB band of the fundamental (f < 2 fa),
+     impulse response after a raised-cosine low-pass from 2 fa to 2.5 fa (removes the 3 fa passband). fft(re, im, inverse) supplied by caller. */
+  function analyze(S, fa, fft, opt) {
+    opt = opt || {}; const N = opt.N || 1024, fsamp = 25.6 * fa, df = fsamp / N, half = N / 2;
+    const f = new Float64Array(half + 1), Hr = new Float64Array(half + 1), Hi = new Float64Array(half + 1), mag = new Float64Array(half + 1), Zr = new Float64Array(half + 1), Zi = new Float64Array(half + 1), Pt = new Float64Array(half + 1);
+    for (let i = 0; i <= half; i++) { const fi = Math.max(i * df, 1e-3 * df); const r = response(S, fi); f[i] = i * df; Hr[i] = r.Hpe.r; Hi[i] = r.Hpe.i; mag[i] = abs(r.Hpe); Zr[i] = r.Zin.r; Zi[i] = r.Zin.i; Pt[i] = abs(r.ptx); }
+    const lim = Math.round(2 * fa / df); const b = band(Array.from(f.slice(1, lim)), Array.from(mag.slice(1, lim)));
+    const re = new Float64Array(N), im = new Float64Array(N);
+    for (let i = 1; i < half; i++) { const x = f[i]; const w = x <= 2 * fa ? 1 : x >= 2.5 * fa ? 0 : 0.5 * (1 + Math.cos(Math.PI * (x - 2 * fa) / (0.5 * fa))); re[i] = 2 * Hr[i] * w; im[i] = 2 * Hi[i] * w; }
+    fft(re, im, true);
+    let ip = 0, pk = 0; const env = new Float64Array(N); for (let n = 0; n < N; n++) { env[n] = Math.hypot(re[n], im[n]); if (env[n] > pk) { pk = env[n]; ip = n; } }
+    const dur = lv => { let a = ip, z = ip; while (a > 0 && env[a] > pk * lv) a--; while (z < N - 1 && env[z] > pk * lv) z++; return (z - a) / fsamp; };
+    return { f, Hr, Hi, mag, Zr, Zi, Pt, band: b, il: 20 * Math.log10(2 * b.peak), ir: re, env, ip, fsamp, N, d6: dur(0.5), d20: dur(0.1), d40: dur(0.01) };
+  }
+  return { analyze, PI, E0, c, add, sub, mul, div, sc, abs, arg, csin, ccos, csqrt, mm, ser, shu, xfm, line, zin, det, zline, plate, klmPlate, masonZin, freeAnalytic, chain, response, band, kt176, frRatio, smithAuld };
+})();
+
+
+  /* ======================= page code ======================= */
+  const $ = id => document.getElementById(id), PI = Math.PI, MI = Lab.mini, c = K.c, abs = K.abs;
+  const fmt = (v, d) => Lab.fmt(v, d);
+  const db20 = v => 20 * Math.log10(Math.max(v, 1e-12));
+  const MAT = {
+    '5H': { name: 'PZT-5H', v: 4600, rho: 7500, kt: 0.51, er: 1470, Qm: 65, tand: 0.02 },
+    '5A': { name: 'PZT-5A', v: 4350, rho: 7750, kt: 0.49, er: 830, Qm: 75, tand: 0.02 },
+    'PMN': { name: 'PMN-PT', v: 4500, rho: 8100, kt: 0.60, er: 800, Qm: 100, tand: 0.01 },
+    'CMP': { name: '1-3 composite', v: 3800, rho: 4300, kt: 0.66, er: 750, Qm: 20, tand: 0.02 },
+    'PVDF': { name: 'PVDF', v: 2250, rho: 1780, kt: 0.15, er: 8, Qm: 10, tand: 0.15 }
+  };
+  const Zp = m => m.rho * m.v / 1e6;
+  const plateP = (m, fa, Amm2, over) => Object.assign({}, m, { d: m.v / (2 * fa), A: Amm2 * 1e-6 }, over || {});
+  const C0of = P => P.er * K.E0 * P.A / P.d;
+  /* matching-layer sets: [Z (MRayl), v (m/s)] */
+  function layersFor(ml, zp, zl, fq) {
+    if (ml === '1q') return [{ Zm: Math.sqrt(zp * zl), v: 2500, fq }];
+    if (ml === '1d') return [{ Zm: Math.pow(zp, 1 / 3) * Math.pow(zl, 2 / 3), v: 2500, fq }];
+    if (ml === '2') return [{ Zm: Math.pow(zp, 4 / 7) * Math.pow(zl, 3 / 7), v: 2800, fq }, { Zm: Math.pow(zp, 1 / 7) * Math.pow(zl, 6 / 7), v: 2400, fq }];
+    return [];
+  }
+  /* o: {mat, fa (Hz), area (mm^2), ZB, ml, fmr, ZL, tune, Lmul, R, Rr, xn, cable (m), ccab (bool), lossless} */
+  function system(o) {
+    const m = MAT[o.mat || '5H'];
+    const P = plateP(m, o.fa || 5e6, o.area || 1.5, o.lossless ? { Qm: Infinity, tand: 0 } : null);
+    const zl = o.ZL || 1.5, fq = (o.fmr || 0.9) * (o.fa || 5e6);
+    const C0 = C0of(P), Ccab = o.cable && o.ccab ? o.cable * 100e-12 : 0;
+    const L = (o.Lmul || 1) / (Math.pow(2 * PI * fq, 2) * (C0 + Ccab));
+    const S = { P, ZBm: o.ZB === undefined ? 5 : o.ZB, ZLm: zl, layers: layersFor(o.ml === undefined ? '2' : o.ml, Zp(m), zl, fq), R: o.R || 50, Rr: o.Rr, xn: o.xn,
+      cable: o.cable ? { len: o.cable, Z0: 50, vel: 2e8 } : null, tune: o.tune && o.tune !== 'none' ? { type: o.tune, L } : null };
+    S.meta = { m, P, C0, L, fq, Ccab };
+    return S;
+  }
+  const RDo = { mat: '5H', fa: 5e6, area: 1.5, ZB: 5, ml: '2', fmr: 0.9, ZL: 1.5, tune: 'series', R: 50 };
+  const analyze = (S, fa) => K.analyze(S, fa, Lab.fft);
+  const cache = {};
+  const memo = (key, fn) => cache[key] || (cache[key] = fn());
+
+  /* ---------------- shared small plotting helpers ---------------- */
+  function bars(x, m, xs, ys, colr, wid) { x.save(); x.fillStyle = colr; xs.forEach((v, i) => { const x0 = m.X(v - wid / 2), x1 = m.X(v + wid / 2); const y0 = m.Y(0), y1 = m.Y(ys[i]); x.fillRect(x0, Math.min(y0, y1), x1 - x0, Math.abs(y1 - y0)); }); x.restore(); }
+  function dots(x, m, pts, colr, r) { x.save(); x.fillStyle = colr; pts.forEach(([u, v]) => { x.beginPath(); x.arc(m.X(u), m.Y(v), r || 3, 0, 2 * PI); x.fill(); }); x.restore(); }
+  function poly(x, m, xs, ys, colr, o) { o = o || {}; x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.beginPath();
+    for (let i = 0; i < xs.length; i++) { const px = m.X(xs[i]), py = m.Y(ys[i]); i ? x.lineTo(px, py) : x.moveTo(px, py); }
+    x.strokeStyle = colr; x.lineWidth = o.w || 1.7; if (o.dash) x.setLineDash(o.dash); x.stroke(); x.restore(); }
+  function vline(x, m, v, colr, dash) { x.save(); x.strokeStyle = colr; x.lineWidth = 1; x.setLineDash(dash || [3, 3]); x.beginPath(); x.moveTo(m.X(v), m.b.y); x.lineTo(m.X(v), m.b.y + m.b.h); x.stroke(); x.restore(); }
+  function sweep(S, f0, f1, n, fn) { const xs = [], ys = []; for (let i = 0; i <= n; i++) { const f = f0 + (f1 - f0) * i / n; xs.push(f); ys.push(fn(K.response(S, Math.max(f, 1)), f)); } return [xs, ys]; }
+  const sinc = MI.sinc;
+
+  /* ---------------- figure library (cards and rule figures) ---------------- */
+  const F = {};
+  F.dS = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 1], [-1.25, 1.25], { lab: 'fields across the thickness at f_a vs z/t', ticks: [[0, '0'], [0.5, '0.5'], [1, '1']] });
+    MI.curve(x, m, () => 0.8, k.a, { w: 2 }); MI.curve(x, m, z => Math.sin(PI * z), k.b); MI.curve(x, m, z => Math.cos(PI * z), k.c, { dash: [4, 3] });
+    MI.text(x, 'D (uniform)', m.X(0.03), m.Y(0.95), k.a); MI.text(x, '|S| ∝ sin πz/t', m.X(0.36), m.Y(1.12), k.b); MI.text(x, 'u ∝ cos πz/t', m.X(0.62), m.Y(-0.85), k.c); };
+  F.vD = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 0.95], [1, 3.4], { lab: 'v^D / v^E = 1/√(1 − k²) vs k', base: 1, ticks: [[0.15, '.15'], [0.51, '.51'], [0.75, '.75'], [0.92, '.92']] });
+    MI.curve(x, m, q => 1 / Math.sqrt(1 - q * q), k.a); dots(x, m, [[0.15, 1.011], [0.51, 1.163], [0.75, 1.512], [0.92, 2.551]], k.b, 3);
+    MI.text(x, 'PZT k_t: +16 %', m.X(0.2), m.Y(1.5), k.fg); MI.text(x, 'k₃₃ bar 0.92: ×2.6', m.X(0.42), m.Y(2.6), k.fg); };
+  F.kenergy = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 1], [0, 1], { lab: 'converted fraction k² vs k', ticks: [[0.25, '.25'], [0.5, '.5'], [0.75, '.75'], [1, '1']] });
+    MI.curve(x, m, q => q * q, k.a, { fill: true });
+    const pts = [[0.15, 'PVDF'], [0.51, 'PZT k_t'], [0.66, 'comp.'], [0.75, 'PZT k₃₃'], [0.92, 'PMN k₃₃']];
+    dots(x, m, pts.map(p => [p[0], p[0] * p[0]]), k.b, 3); pts.forEach((p, i) => MI.text(x, p[1] + ' ' + (p[0] * p[0]).toFixed(2), m.X(p[0]) - (i > 2 ? 64 : 4), m.Y(p[0] * p[0]) - 9 - (i === 2 ? 4 : 0), k.fg, i > 2 ? 'left' : 'right')); };
+  F.frfa = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 0.9], [0.6, 1.02], { lab: 'f_r / f_a vs k_t (free plate)', base: 0.6, ticks: [[0.3, '.3'], [0.51, '.51'], [0.7, '.7']] });
+    MI.curve(x, m, q => K.frRatio(Math.max(q, 1e-3)), k.a); MI.curve(x, m, q => 1 - 4 * q * q / (PI * PI), k.b, { dash: [4, 3] });
+    dots(x, m, [[0.51, K.frRatio(0.51)]], k.a, 3.5); MI.text(x, '0.882 (k_t = 0.51)', m.X(0.53), m.Y(0.9), k.fg); MI.text(x, 'small-gap 1 − 4k²/π²', m.X(0.05), m.Y(0.66), k.b); };
+  F.kt176 = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0.6, 1], [0, 1], { lab: 'k from f_r/f_a', base: 0, ticks: [[0.749, '.749'], [0.882, '.882'], [1, '1']] });
+    MI.curve(x, m, r => K.kt176(r, 1), k.a, { w: 2 }); MI.curve(x, m, r => Math.sqrt(PI * PI / 4 * (1 - r)), k.b, { dash: [4, 3] }); MI.curve(x, m, r => Math.sqrt(1 - r * r), k.c, { dash: [1.5, 2.5] });
+    MI.text(x, 'IEEE 176 k_t', m.X(0.62), m.Y(0.55), k.a); MI.text(x, 'small gap', m.X(0.76), m.Y(0.92), k.b); MI.text(x, 'k_eff', m.X(0.86), m.Y(0.62), k.c); };
+  F.kbars = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150);
+    const L = [['k₃₁', 0.389], ['k_t', 0.513], ['k_p', 0.652], ['k₃₃′', 0.700], ['k₃₃', 0.751]];
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [-0.6, 4.6], [0, 0.9], { lab: 'PZT-5H couplings from datasheet constants', ticks: L.map((l, i) => [i, l[0]]) });
+    bars(x, m, L.map((_, i) => i), L.map(l => l[1]), k.a, 0.55); L.forEach((l, i) => MI.text(x, l[1].toFixed(2), m.X(i), m.Y(l[1]) - 7, k.fg, 'center')); };
+  F.matmap = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 160);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 40], [0, 0.95], { lab: 'k_t vs acoustic impedance Z (MRayl)', ticks: [[1.5, 'tissue'], [10, '10'], [20, '20'], [30, '30'], [40, '40']] });
+    const R = [['PVDF', 3.8, 4.2, 0.1, 0.2, k.c], ['1-3 PZT', 10, 22, 0.6, 0.7, k.d], ['1-3 crystal', 15, 22, 0.75, 0.85, k.d], ['PZT-5A', 33, 34, 0.47, 0.49, k.a], ['PZT-5H', 33, 35, 0.49, 0.52, k.a], ['PMN-PT', 32, 37, 0.58, 0.63, k.b]];
+    x.save(); R.forEach(r => { const x0 = m.X(r[1]), x1 = m.X(r[2]), y0 = m.Y(r[4]), y1 = m.Y(r[3]); x.globalAlpha = 0.25; x.fillStyle = r[5]; x.fillRect(x0, y0, Math.max(3, x1 - x0), y1 - y0); x.globalAlpha = 1; x.strokeStyle = r[5]; x.strokeRect(x0, y0, Math.max(3, x1 - x0), y1 - y0); }); x.restore();
+    MI.text(x, 'PVDF', m.X(5), m.Y(0.15), k.fg); MI.text(x, '1-3 PZT', m.X(12), m.Y(0.55), k.fg); MI.text(x, '1-3 crystal', m.X(12.5), m.Y(0.9), k.fg); MI.text(x, 'PZT', m.X(33.5), m.Y(0.41), k.fg, 'center'); MI.text(x, 'PMN-PT', m.X(34.5), m.Y(0.69), k.fg, 'center');
+    vline(x, m, 1.5, k.mu); };
+  const POLY = { soft: { vL: 2500, vS: 1100, rho: 1150, er: 4 }, hard: { vL: 2800, vS: 1300, rho: 1200, er: 4 }, vsoft: { vL: 1900, vS: 600, rho: 1050, er: 4.5 } };
+  const CER = { '5H': { c11: 12.6e10, c12: 7.95e10, c13: 8.41e10, c33: 11.7e10, e31: -6.5, e33: 23.3, eS33: 1470, rho: 7500, k33: 0.75 },
+    '5A': { c11: 12.1e10, c12: 7.54e10, c13: 7.52e10, c33: 11.1e10, e31: -5.4, e33: 15.8, eS33: 830, rho: 7750, k33: 0.71 } };
+  const polC = p => { const c11 = p.rho * p.vL * p.vL, c44 = p.rho * p.vS * p.vS; return { c11, c12: c11 - 2 * c44, er: p.er, rho: p.rho }; };
+  F.comp = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const cer = CER['5H'], pol = polC(POLY.soft);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0.02, 1], [0, 0.9], { lab: 'k_t (blue) and Z/40 MRayl (red) vs ν', base: 0, ticks: [[0.3, '.3'], [0.5, '.5'], [0.7, '.7'], [1, '1']] });
+    MI.curve(x, m, nu => K.smithAuld(nu, cer, pol).kt, k.a, { w: 2 }); MI.curve(x, m, nu => K.smithAuld(nu, cer, pol).Z / 40, k.b);
+    const s = K.smithAuld(0.5, cer, pol); dots(x, m, [[0.5, s.kt]], k.a, 3.5); dots(x, m, [[0.5, s.Z / 40]], k.b, 3.5);
+    MI.text(x, 'ν=0.5: k_t ' + s.kt.toFixed(2) + ', Z ' + s.Z.toFixed(1), m.X(0.36), m.Y(0.82), k.fg); };
+  F.mode = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 1], [-1.25, 1.25], { lab: 'displacement u(z) of a free plate vs z/t', ticks: [[0.07, 'back'], [0.93, 'front']] });
+    MI.curve(x, m, z => Math.cos(PI * z), k.a, { w: 2 }); MI.curve(x, m, z => Math.cos(3 * PI * z), k.b); MI.curve(x, m, z => Math.cos(2 * PI * z), k.mu, { dash: [3, 3] });
+    MI.text(x, 'f_a: t = λ/2', m.X(0.04), m.Y(-1.08), k.a); MI.text(x, '3f_a', m.X(0.3), m.Y(1.1), k.b); MI.text(x, '2f_a: faces in phase, not driven', m.X(0.38), m.Y(-1.12), k.mu); };
+  function zCurve(P, ZB, ZF, f0, f1, n) { const xs = [], ys = [], ph = []; for (let i = 0; i <= n; i++) { const f = f0 + (f1 - f0) * i / n; const Z = K.zin(K.klmPlate(P, Math.max(f, 1e3), c(ZB * 1e6 * P.A)), c(ZF * 1e6 * P.A)); xs.push(f); ys.push(Math.log10(abs(Z))); ph.push(K.arg(Z) * 180 / PI); } return [xs, ys, ph]; }
+  F.zfree = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const P = plateP(MAT['5H'], 5e6, 1.5); const C0 = C0of(P);
+    const [xs, ys] = memo('zfree', () => zCurve(P, 0, 0, 0.2e6, 11e6, 600));
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 11e6], [1, 5], { lab: 'log₁₀|Z| (Ω) vs f, PZT-5H 1.5 mm², Q_m 65', base: 1, ticks: [[4.41e6, 'f_r'], [5e6, 'f_a'], [10e6, '10 MHz']] });
+    MI.curve(x, m, f => Math.log10(1 / (2 * PI * Math.max(f, 1e4) * C0)), k.mu, { dash: [4, 3] }); poly(x, m, xs, ys, k.a);
+    MI.text(x, '1/ωC₀ (42 pF)', m.X(6.3e6), m.Y(2.85), k.mu); };
+  F.zharm = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const P = plateP(MAT['5H'], 5e6, 1.5);
+    const [xs, ys] = memo('zharm', () => zCurve(P, 0, 0, 0.5e6, 21e6, 900));
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 21e6], [1, 5], { lab: 'log₁₀|Z| (Ω) to 4 f_a: odd harmonics only', base: 1, ticks: [[5e6, 'f_a'], [10e6, '2f_a'], [15e6, '3f_a'], [20e6, '4f_a']] });
+    poly(x, m, xs, ys, k.a); };
+  F.phi = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const s0 = sinc(0.5) ** 2;
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 5.2], [-0.3, 2.6], { lab: 'KLM elements vs f/f_a', ticks: [[1, '1'], [2, '2'], [3, '3'], [4, '4'], [5, '5']] });
+    MI.curve(x, m, r => sinc(r / 2) ** 2 / s0, k.a, { w: 2, fill: true }); MI.curve(x, m, r => sinc(r), k.b, { dash: [4, 3] });
+    MI.text(x, 'φ²/φ²(f_a) (1 at f_a)', m.X(0.75), m.Y(2.1), k.a); MI.text(x, 'X₁ωC₀/k_t² = sinc(f/f_a)', m.X(2.0), m.Y(0.75), k.b); MI.text(x, '1/9 at 3f_a', m.X(3.05), m.Y(0.35), k.fg); };
+  function mkData() { const P = plateP(MAT['5H'], 5e6, 1.5, { Qm: 30, tand: 0.02 }); const ZB = c(5e6 * P.A), ZF = c(1.5e6 * P.A); const PL = plateP(MAT['5H'], 5e6, 1.5, { Qm: Infinity, tand: 0 });
+    const xs = [], zk = [], zm = [], e1 = [], e2 = []; let m1 = 0, m2 = 0;
+    for (let i = 0; i <= 500; i++) { const f = 0.2e6 + i * (19.8e6 / 500) + 1371; const a = K.zin(K.klmPlate(P, f, ZB), ZF), b = K.masonZin(P, f, ZB, ZF);
+      const fr = K.zin(K.klmPlate(PL, f, c(0)), c(0)), an = K.freeAnalytic(PL, f);
+      const r1 = abs(K.sub(a, b)) / abs(b), r2 = abs(K.sub(fr, an)) / abs(an); m1 = Math.max(m1, r1); m2 = Math.max(m2, r2);
+      xs.push(f); zk.push(Math.log10(abs(a))); zm.push(Math.log10(abs(b))); e1.push(Math.log10(r1 + 1e-17)); e2.push(Math.log10(r2 + 1e-17)); }
+    return { xs, zk, zm, e1, e2, m1, m2 }; }
+  F.mk = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const D = memo('mk', mkData);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 20e6], [1.5, 3.6], { lab: 'log₁₀|Z|: KLM (line) vs Mason (dots)', base: 1.5, ticks: [[5e6, '5'], [10e6, '10'], [15e6, '15 MHz']] });
+    poly(x, m, D.xs, D.zk, k.a, { w: 2 }); dots(x, m, D.xs.filter((_, i) => i % 9 === 0).map((f, j) => [f, D.zm[j * 9]]), k.b, 2.2);
+    MI.text(x, 'Z_B 5, Z_F 1.5 MRayl, Q_m 30, tan δ 0.02', m.X(6e6), m.Y(3.45), k.fg); MI.text(x, 'max rel. diff ' + D.m1.toExponential(0), m.X(9e6), m.Y(1.75), k.fg); };
+  F.mkerr = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const D = memo('mk', mkData);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 20e6], [-17, -8], { lab: 'log₁₀ relative difference vs f', base: -17, ticks: [[5e6, '5'], [10e6, '10'], [15e6, '15 MHz']] });
+    poly(x, m, D.xs, D.e1, k.a, { w: 1.2 }); poly(x, m, D.xs, D.e2, k.b, { w: 1.2 });
+    MI.text(x, 'KLM vs Mason (loaded, lossy)', m.X(0.5e6), m.Y(-8.7), k.a); MI.text(x, 'KLM vs closed form (free)', m.X(10.5e6), m.Y(-8.7), k.b); };
+  function qSim() { const P = plateP(MAT['5H'], 5e6, 1.5, { Qm: Infinity, tand: 0 }); return [0, 1.5, 3, 5, 8, 12].map(ZB => {
+    const S = { P, ZBm: ZB, ZLm: 1.5, layers: [], R: 1e7 }; const fs = [], mg = []; for (let i = 0; i <= 1600; i++) { const f = 3e6 + i * 4e6 / 1600; fs.push(f); mg.push(abs(K.response(S, f).ptx)); }
+    const b = K.band(fs, mg, Math.SQRT1_2); return [ZB, b.fpk / (b.fu - b.fl)]; }); }
+  F.Q = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const pts = memo('qsim', qSim); const zp = Zp(MAT['5H']);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 12.5], [0, 40], { lab: 'Q vs backing Z_B (MRayl), water front', base: 0, ticks: [[0, '0'], [1.5, '1.5'], [5, '5'], [10, '10']] });
+    MI.curve(x, m, zb => PI / 2 * zp / (zb + 1.5), k.a, { w: 2 }); dots(x, m, pts, k.b, 3.2);
+    MI.text(x, '(π/2) Z_p/(Z_B + Z_F)', m.X(3), m.Y(30), k.a); MI.text(x, 'KLM, open circuit', m.X(6.5), m.Y(14), k.b); };
+  function backData(ml) { const out = []; for (let zb = 0; zb <= 34.5; zb += 1.5) { const a = analyze(system({ mat: '5H', ZB: zb, ml, tune: 'none' }), 5e6); out.push([zb, a.band.fbw * 100, a.il, a.d40 * 1e6]); } return out; }
+  F.backing = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const D = memo('back0', () => backData('0'));
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 34.5], [0, 120], { lab: 'no matching: FBW % (blue), IL dB (red, right)', base: 0, ticks: [[0, '0'], [5, '5'], [10, '10'], [20, '20'], [30, '30']] });
+    poly(x, m, D.map(d => d[0]), D.map(d => d[1]), k.a, { w: 2 }); poly(x, m, D.map(d => d[0]), D.map(d => 120 + d[2] * 2), k.b, { w: 2 });
+    MI.text(x, '−10', m.X(34.5) - 2, m.Y(100), k.b, 'right'); MI.text(x, '−50 dB', m.X(34.5) - 2, m.Y(20), k.b, 'right'); };
+  function mlData() { return ['0', '1d', '2'].map(ml => { const a = analyze(system({ mat: '5H', ZB: 0, ml, tune: 'none' }), 5e6); return a; }); }
+  F.ml = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const D = memo('ml', mlData);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [1e6, 9e6], [-50, 0], { lab: 'IL (dB) vs f, air backing, untuned', base: -50, ticks: [[3e6, '3'], [5e6, '5'], [7e6, '7 MHz']] });
+    const cols = [k.mu, k.c, k.a]; D.forEach((a, j) => poly(x, m, Array.from(a.f), Array.from(a.mag).map(v => db20(2 * v)), cols[j], { w: j === 2 ? 2 : 1.5 }));
+    MI.text(x, 'none', m.X(4.6e6), m.Y(-2.5), k.mu); MI.text(x, '1 layer', m.X(6.6e6), m.Y(-16), k.c); MI.text(x, '2 layers', m.X(6.9e6), m.Y(-28), k.a); };
+  function driveData() { const P = plateP(MAT['5H'], 5e6, 1.5, { Qm: Infinity, tand: 0 }); return [0.01, 1e7].map(R => { const S = { P, ZBm: 0, ZLm: 1.5, layers: [], R }; const [xs, ys] = sweep(S, 3.6e6, 5.6e6, 500, r => abs(r.ptx)); const mx = Math.max(...ys); return [xs, ys.map(v => v / mx)]; }); }
+  F.drive = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const D = memo('drive', driveData);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [3.6e6, 5.6e6], [0, 1.15], { lab: 'transmitted force per volt (normalized)', base: 0, ticks: [[4.41e6, '4.41'], [5e6, '5.00 MHz']] });
+    poly(x, m, D[0][0], D[0][1], k.a, { w: 2 }); poly(x, m, D[1][0], D[1][1], k.b, { w: 2 });
+    MI.text(x, 'R_s = 0.01 Ω', m.X(3.7e6), m.Y(0.75), k.a); MI.text(x, 'R_s = 10 MΩ', m.X(5.05e6), m.Y(0.95), k.b); };
+  function tuneData() { return [{ tune: 'none' }, { tune: 'series' }, { tune: 'series', xn: 0.4 }].map(o => analyze(system(Object.assign({}, RDo, o)), 5e6)); }
+  F.tune = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const D = memo('tune', tuneData);
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [1e6, 9e6], [-45, 0], { lab: 'two-way gain (dB), reference stack, 50 Ω', base: -45, ticks: [[3e6, '3'], [5e6, '5'], [7e6, '7 MHz']] });
+    const cols = [k.mu, k.a, k.d]; D.forEach((a, j) => poly(x, m, Array.from(a.f), Array.from(a.mag).map(v => db20(2 * v)), cols[j], { w: 1.8 }));
+    MI.text(x, 'untuned ' + D[0].il.toFixed(1), m.X(7.1e6), m.Y(-33), k.mu); MI.text(x, 'series L ' + D[1].il.toFixed(1), m.X(7.1e6), m.Y(-20), k.a); MI.text(x, '+ n = 0.4: ' + D[2].il.toFixed(1), m.X(1.2e6), m.Y(-3.5), k.d); };
+  function cableData() { const pts = []; const ref = analyze(system(Object.assign({}, RDo, { tune: 'none', Rr: 1000 })), 5e6).il;
+    for (let L = 0; L <= 3.001; L += 0.25) { const a = analyze(system(Object.assign({}, RDo, { tune: 'none', Rr: 1000, cable: L })), 5e6); pts.push([L, a.il - ref]); } return pts; }
+  F.cable = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const D = memo('cable', cableData); const C0 = 42.44e-12;
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 3.25], [-20, 2], { lab: 'receive change (dB) vs cable length (m)', ticks: [[1, '1'], [2, '2'], [3, '3']] });
+    MI.curve(x, m, L => db20(C0 / (C0 + L * 100e-12)), k.b, { dash: [4, 3] }); poly(x, m, D.map(d => d[0]), D.map(d => d[1]), k.a, { w: 2 }); MI.curve(x, m, () => 0, k.d, { w: 2 });
+    MI.text(x, '50 Ω system: 0 dB', m.X(1.6), m.Y(1.1), k.d); MI.text(x, '1 kΩ receiver (model)', m.X(1.15), m.Y(-6.5), k.a); MI.text(x, 'C₀/(C₀ + C_cable)', m.X(0.9), m.Y(-17.5), k.b); };
+  F.cryst = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150);
+    const G = [['PZT-5H', 0.51, 0.75, 'T_c ≈ 200 °C'], ['PMN-PT', 0.61, 0.92, 'T_rt ≈ 90 °C'], ['PIN-PMN-PT', 0.53, 0.89, 'T_rt ≈ 110 °C']];
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [-0.6, 2.6], [0, 1.15], { lab: 'k_t (blue) and k₃₃ (red), representative', base: 0, ticks: G.map((g, i) => [i, g[0]]) });
+    bars(x, m, G.map((_, i) => i - 0.14), G.map(g => g[1]), k.a, 0.26); bars(x, m, G.map((_, i) => i + 0.14), G.map(g => g[2]), k.b, 0.26);
+    G.forEach((g, i) => MI.text(x, g[3], m.X(i), m.Y(1.06), k.fg, 'center')); };
+  F.ir = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const a = memo('rd', () => analyze(system(RDo), 5e6));
+    const N = a.N, fs = a.fsamp, xs = [], ys = [], es = []; let mx = 0; for (let n = 0; n < N; n++) mx = Math.max(mx, a.env[n]);
+    for (let j = -40; j <= 260; j++) { const n = (a.ip + j + N) % N; xs.push(j / fs * 1e6); ys.push(a.ir[n] / mx); es.push(a.env[n] / mx); }
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [xs[0], xs[xs.length - 1]], [-1.1, 1.1], { lab: 'pulse-echo impulse response vs t (µs)', ticks: [[0, '0'], [0.5, '0.5'], [1, '1'], [1.5, '1.5'], [2, '2 µs']] });
+    poly(x, m, xs, es, k.c, { w: 1.4 }); poly(x, m, xs, ys, k.a, { w: 1.6 });
+    MI.text(x, '−6 dB ' + (a.d6 * 1e6).toFixed(2) + ' µs, −40 dB ' + (a.d40 * 1e6).toFixed(1) + ' µs', m.X(0.45), m.Y(0.8), k.fg); };
+  F.spec = cv => { const k = MI.col(), { x, w, h } = MI.size(cv, 150); const a = memo('rd', () => analyze(system(RDo), 5e6));
+    const m = MI.panel(x, { x: 6, y: 16, w: w - 12, h: h - 36 }, [0, 17e6], [-60, -5], { lab: 'IL (dB) to 3.4 f_a: fundamental and 3rd harmonic', base: -60, ticks: [[4.3e6, 'f_c'], [10e6, '10'], [15e6, '15 MHz']] });
+    poly(x, m, Array.from(a.f), Array.from(a.mag).map(v => db20(2 * v)), k.a, { w: 1.8 }); vline(x, m, a.band.fl, k.c); vline(x, m, a.band.fu, k.c); };
+
+  /* ---------------- Demo 16.1: two stiffnesses ---------------- */
+  function drawK() {
+    const kk = +$('m16-k').value; $('m16-k-o').textContent = kk.toFixed(2); const k2 = kk * kk; const col = Lab.colors();
+    const cv = $('m16-k-cv'); const wide = (cv.clientWidth || 500) > 520; const { ctx, w, h } = Lab.canvas(cv, wide ? 250 : 440);
+    const pw = wide ? (w - 40) / 2 : w; const ph = wide ? h : h / 2;
+    const draw = (ox, oy, lab, xl, yl, s1, s2, n1, n2, tri) => {
+      const ax = Lab.axes(ctx, { x: ox + 50, y: oy + 22, w: pw - 66, h: ph - 64 }, [0, 1.2], [0, 1.2], { xlabel: xl, ylabel: yl, title: lab, nx: 3, ny: 3 });
+      if (tri) { ctx.save(); ctx.globalAlpha = 0.28; ctx.fillStyle = col.sig3; ctx.beginPath(); ctx.moveTo(ax.X(0), ax.Y(0)); ctx.lineTo(ax.X(1), ax.Y(s1)); ctx.lineTo(ax.X(1), ax.Y(s2)); ctx.closePath(); ctx.fill(); ctx.restore(); }
+      Lab.line(ctx, ax, [0, 1.2], [0, 1.2 * s1], col.accent, 2.2); Lab.line(ctx, ax, [0, 1.2], [0, 1.2 * s2], col.sig2, 2.2);
+      ctx.save(); ctx.font = '11px ' + col.mono; ctx.fillStyle = col.accent; ctx.textAlign = 'right'; ctx.fillText(n1, ax.X(1.18), ax.Y(Math.min(1.12, 1.2 * s1)) - 6); ctx.fillStyle = col.sig2; ctx.fillText(n2, ax.X(1.18), ax.Y(1.2 * s2) + 14); ctx.restore();
+    };
+    draw(0, 0, 'Stress vs strain (c^D = 1)', 'strain S', 'stress T', 1, 1 - k2, 'open: c^D', 'short: c^E = c^D(1−k²)', true);
+    draw(wide ? pw + 40 : 0, wide ? 0 : ph, 'D vs E (ε^T = 1)', 'field E', 'displacement D', 1, 1 - k2, 'free: ε^T', 'clamped: ε^S = ε^T(1−k²)', true);
+    const fr = kk > 0.005 ? K.frRatio(Math.min(kk, 0.99)) : 1;
+    $('m16-k-read').innerHTML = 'k² (converted fraction) = <b>' + k2.toFixed(3) + '</b><br>c<sup>E</sup>/c<sup>D</sup> = ε<sup>S</sup>/ε<sup>T</sup> = <b>' + (1 - k2).toFixed(3) + '</b><br>v<sup>D</sup>/v<sup>E</sup> = <b>' + (1 / Math.sqrt(1 - k2)).toFixed(3) + '</b><br>if this were k<sub>t</sub>: f<sub>r</sub>/f<sub>a</sub> = <b>' + fr.toFixed(3) + '</b>';
+  }
+  $('m16-k').addEventListener('input', drawK);
+  $('m16-k-sel').addEventListener('change', () => { $('m16-k').value = $('m16-k-sel').value; drawK(); });
+
+  /* ---------------- Demo 16.2: composite ---------------- */
+  function drawCP() {
+    const nu = +$('m16-cp-nu').value; $('m16-cp-nu-o').textContent = nu.toFixed(2); const cer = CER[$('m16-cp-cer').value], pol = polC(POLY[$('m16-cp-pol').value]); const col = Lab.colors();
+    const { ctx, w, h } = Lab.canvas($('m16-cp-cv'), 270); const full = K.smithAuld(1, cer, pol);
+    const ax = Lab.axes(ctx, { x: 50, y: 18, w: w - 104, h: h - 58 }, [0, 1], [0, 1], { xlabel: 'ceramic volume fraction ν', ylabel: 'k_t,  v/v_cer', nx: 5, ny: 5 });
+    const xs = [], kt = [], zz = [], vv = []; for (let i = 2; i <= 100; i++) { const n = i / 100; const s = K.smithAuld(n, cer, pol); xs.push(n); kt.push(s.kt); zz.push(s.Z / 40); vv.push(s.v / full.v); }
+    Lab.line(ctx, ax, [0, 1], [cer.k33, cer.k33], col.muted, 1, [5, 4]); Lab.line(ctx, ax, [0, 1], [full.kt, full.kt], col.muted, 1, [2, 3]);
+    Lab.line(ctx, ax, xs, vv, col.sig4, 1.6); Lab.line(ctx, ax, xs, zz, col.sig2, 2); Lab.line(ctx, ax, xs, kt, col.accent, 2.4);
+    ctx.save(); ctx.font = '11px ' + col.mono; ctx.fillStyle = col.muted; ctx.textAlign = 'left'; [0, 10, 20, 30, 40].forEach(z => ctx.fillText(String(z), ax.X(1) + 6, ax.Y(z / 40) + 4));
+    ctx.save(); ctx.translate(ax.X(1) + 40, ax.Y(0.5)); ctx.rotate(PI / 2); ctx.textAlign = 'center'; ctx.fillStyle = col.sig2; ctx.fillText('Z (MRayl)', 0, 0); ctx.restore();
+    ctx.fillStyle = col.muted; ctx.fillText('k₃₃ bar', ax.X(0.02), ax.Y(cer.k33) - 5); ctx.fillText('k_t plate', ax.X(0.02), ax.Y(full.kt) + 13); ctx.restore();
+    const s = K.smithAuld(nu, cer, pol); Lab.dots(ctx, ax, [nu, nu, nu], [s.kt, s.Z / 40, s.v / full.v], col.fg, 3.5);
+    $('m16-cp-read').innerHTML = 'k<sub>t</sub> = <b>' + s.kt.toFixed(3) + '</b> (ceramic ' + full.kt.toFixed(3) + ')<br>Z = <b>' + s.Z.toFixed(1) + '</b> MRayl, ρ = ' + s.rho.toFixed(0) + ' kg/m³<br>v<sup>D</sup> = <b>' + s.v.toFixed(0) + '</b> m/s → t = ' + (s.v / 2 / 5e6 * 1e3).toFixed(3) + ' mm at f<sub>a</sub> = 5 MHz<br>ε<sup>S</sup>/ε₀ = <b>' + s.er.toFixed(0) + '</b> (C₀ × ' + (s.er / cer.eS33 * full.v / s.v).toFixed(2) + ' vs ceramic at same f<sub>a</sub>, area)<br>1-layer match √(Z·1.5) = ' + Math.sqrt(s.Z * 1.5).toFixed(2) + ' MRayl';
+  }
+  ['m16-cp-nu', 'm16-cp-cer', 'm16-cp-pol'].forEach(id => $(id).addEventListener('input', drawCP));
+
+  /* ---------------- Demo 16.3: impedance explorer ---------------- */
+  function drawZ() {
+    const kt = +$('m16-z-kt').value, qs = +$('m16-z-qm').value, td = +$('m16-z-td').value, zb = +$('m16-z-zb').value, zf = +$('m16-z-zf').value, wide = $('m16-z-wide').checked;
+    const Qm = qs >= 3.29 ? Infinity : Math.pow(10, qs); const col = Lab.colors();
+    $('m16-z-kt-o').textContent = kt.toFixed(2); $('m16-z-qm-o').textContent = Qm === Infinity ? '∞' : Qm.toFixed(0); $('m16-z-td-o').textContent = td.toFixed(3); $('m16-z-zb-o').textContent = zb.toFixed(1); $('m16-z-zf-o').textContent = zf.toFixed(1);
+    const P = plateP(MAT['5H'], 5e6, 1.5, { kt, Qm, tand: td }); const C0 = C0of(P);
+    const f0 = wide ? 0.2e6 : 2.4e6, f1 = wide ? 20.5e6 : 6.4e6, n = wide ? 1600 : 1600;
+    const xs = [], lz = [], ph = [], R = [], G = []; for (let i = 0; i <= n; i++) { const f = f0 + (f1 - f0) * i / n; const Z = K.zin(K.klmPlate(P, f, c(zb * 1e6 * P.A)), c(zf * 1e6 * P.A)); const Y = K.div(c(1), Z); xs.push(f / 1e6); lz.push(Math.log10(abs(Z))); ph.push(K.arg(Z) * 180 / PI); R.push(Z.r); G.push(Y.r); }
+    let lo = Math.floor(Math.min(...lz)), hi = Math.ceil(Math.max(...lz)); if (hi - lo < 2) hi = lo + 2; if (hi - lo > 5) lo = hi - 5;
+    const { ctx, w, h } = Lab.canvas($('m16-z-cv'), 380);
+    const ax = Lab.axes(ctx, { x: 52, y: 16, w: w - 104, h: h - 56 }, [f0 / 1e6, f1 / 1e6], [lo, hi], { xlabel: 'frequency (MHz)', ylabel: '|Z| (Ω)', yticks: Array.from({ length: hi - lo + 1 }, (_, i) => lo + i), yfmt: v => '10' + String(v).replace('-', '⁻').replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]) });
+    ax.clip(); const asy = xs.map(f => Math.log10(1 / (2 * PI * f * 1e6 * C0))); Lab.line(ctx, ax, xs, asy, col.muted, 1, [4, 3]);
+    const phY = xs.map((_, i) => lo + (ph[i] + 90) / 180 * (hi - lo)); Lab.line(ctx, ax, xs, phY, col.sig2, 1.3); Lab.line(ctx, ax, xs, lz, col.accent, 2); ax.unclip();
+    ctx.save(); ctx.font = '11px ' + col.mono; ctx.fillStyle = col.sig2; ctx.textAlign = 'left'; [-90, 0, 90].forEach(p => ctx.fillText(p + '°', ax.X(f1 / 1e6) + 6, ax.Y(lo + (p + 90) / 180 * (hi - lo)) + 4)); ctx.restore();
+    /* extrema within 0.6..1.4 fa */
+    let im = -1, iM = -1, iG = -1, iR = -1; for (let i = 0; i <= n; i++) { const f = xs[i]; if (f < 3 || f > 7) continue; if (im < 0 || lz[i] < lz[im]) im = i; if (iM < 0 || lz[i] > lz[iM]) iM = i; if (iG < 0 || G[i] > G[iG]) iG = i; if (iR < 0 || R[i] > R[iR]) iR = i; }
+    const fm = xs[im], fn = xs[iM], fsr = xs[iG], fpr = xs[iR];
+    [[fm, 'f_m'], [fn, 'f_n']].forEach(([f, s]) => { ctx.save(); ctx.strokeStyle = col.sig3; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ax.X(f), ax.box.y); ctx.lineTo(ax.X(f), ax.box.y + ax.box.h); ctx.stroke(); ctx.fillStyle = col.sig3; ctx.font = '11px ' + col.mono; ctx.textAlign = 'center'; ctx.fillText(s, ax.X(f), ax.box.y + 10); ctx.restore(); });
+    const k1 = fm < fn ? K.kt176(fm, fn) : NaN, k2 = fsr < fpr ? K.kt176(fsr, fpr) : NaN, ok = v => isFinite(v) ? v.toFixed(3) : 'n/a';
+    const rr = fm / fn; const sg = Math.sqrt(PI * PI / 4 * (1 - rr));
+    $('m16-z-read').innerHTML = 'C₀ = ' + (C0 * 1e12).toFixed(1) + ' pF; true f<sub>r</sub>/f<sub>a</sub> = ' + K.frRatio(kt).toFixed(4) + '<br>|Z| min f<sub>m</sub> = <b>' + fm.toFixed(3) + '</b>, max f<sub>n</sub> = <b>' + fn.toFixed(3) + '</b> MHz<br>k<sub>t</sub> (176, f<sub>m</sub>/f<sub>n</sub>) = <b>' + ok(k1) + '</b> (' + (isFinite(k1) ? ((k1 / kt - 1) * 100).toFixed(1) : '–') + ' %)<br>G, R maxima f<sub>s</sub> = ' + fsr.toFixed(3) + ', f<sub>p</sub> = ' + fpr.toFixed(3) + ' → k<sub>t</sub> = <b>' + ok(k2) + '</b><br>small-gap: ' + ok(sg) + ', k<sub>eff</sub> = ' + ok(Math.sqrt(Math.max(0, 1 - rr * rr)));
+  }
+  ['m16-z-kt', 'm16-z-qm', 'm16-z-td', 'm16-z-zb', 'm16-z-zf', 'm16-z-wide'].forEach(id => $(id).addEventListener('input', drawZ));
+
+  /* ---------------- Demo 16.4: calculator ---------------- */
+  function calcOpts() { return { mat: $('m16-c-mat').value, fa: +$('m16-c-fa').value * 1e6, area: Math.pow(10, +$('m16-c-area').value), ZB: +$('m16-c-zb').value, ml: $('m16-c-ml').value, fmr: +$('m16-c-fm').value, ZL: +$('m16-c-zl').value, tune: $('m16-c-tune').value, R: Math.pow(10, +$('m16-c-r').value) }; }
+  function logAxis(ctx, box, xr, vals, opts) { let lo = Math.floor(Math.min(...vals)), hi = Math.ceil(Math.max(...vals)); if (hi - lo < 2) hi = lo + 2; if (hi - lo > 6) lo = hi - 6;
+    return [Lab.axes(ctx, box, xr, [lo, hi], Object.assign({ yticks: Array.from({ length: hi - lo + 1 }, (_, i) => lo + i), yfmt: v => '10' + String(v).replace('-', '⁻').replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]) }, opts)), lo, hi]; }
+  function validate(o) {
+    const S = system(Object.assign({}, o, { lossless: true })); const P = S.P, PL = system(o).P; let e1 = 0, e2 = 0, e3 = 0;
+    for (let i = 0; i < 160; i++) { const f = o.fa * (0.05 + 1.8 * i / 160) + 917;
+      const zf = K.zin(K.klmPlate(P, f, c(0)), c(0)), an = K.freeAnalytic(P, f); e1 = Math.max(e1, abs(K.sub(zf, an)) / abs(an));
+      const ZB = c(S.ZBm * 1e6 * P.A), ZF = c(S.ZLm * 1e6 * P.A); const a = K.zin(K.klmPlate(PL, f, ZB), ZF), b = K.masonZin(PL, f, ZB, ZF); e2 = Math.max(e2, abs(K.sub(a, b)) / abs(b));
+      const M = K.chain(Object.assign({}, S, { ZBm: 0 }), f), ZL = c(S.ZLm * 1e6 * P.A), FL = ZL, u = c(1); const V = K.add(K.mul(M[0], FL), M[1]), I = K.add(K.mul(M[2], FL), M[3]); const pin = V.r * I.r + V.i * I.i, pout = ZL.r; e3 = Math.max(e3, Math.abs(pin - pout) / pout); }
+    /* IEEE 176 on the lossless free plate: bisection on the sign of Im Z (fr) and Im Y (fa) */
+    const imZ = f => K.zin(K.klmPlate(P, f, c(0)), c(0)).i; let a = 0.3 * o.fa, b = 0.999 * o.fa; for (let n = 0; n < 60; n++) { const m = (a + b) / 2; (imZ(a) * imZ(m) <= 0) ? b = m : a = m; } const fr = (a + b) / 2;
+    const imY = f => K.div(c(1), K.zin(K.klmPlate(P, f, c(0)), c(0))).i; a = 1.001 * fr; b = 1.5 * o.fa; for (let n = 0; n < 60; n++) { const m = (a + b) / 2; (imY(a) * imY(m) <= 0) ? b = m : a = m; } const fa = (a + b) / 2;
+    return { e1, e2, e3, kt: K.kt176(fr, fa), fr, fa, ktTrue: P.kt };
+  }
+  function drawCalc() {
+    const o = calcOpts(); const S = system(o), m = S.meta, fa = o.fa, col = Lab.colors();
+    $('m16-c-fa-o').textContent = (fa / 1e6).toFixed(1); $('m16-c-area-o').textContent = fmt(o.area, o.area < 10 ? 2 : 0); $('m16-c-zb-o').textContent = o.ZB.toFixed(1); $('m16-c-fm-o').textContent = o.fmr.toFixed(2); $('m16-c-zl-o').textContent = o.ZL.toFixed(2); $('m16-c-r-o').textContent = fmt(o.R, 0);
+    const A = analyze(S, fa); const fM = A.f, half = fM.length - 1;
+    /* stack */
+    (function () { const { ctx, w, h } = Lab.canvas($('m16-c-scv'), 78); const items = [{ t: m.P.d, Z: Zp(m.m), lab: m.m.name, colr: col.accent }].concat(S.layers.map((L, i) => ({ t: L.v / (4 * L.fq), Z: L.Zm, lab: 'ML' + (i + 1), colr: i ? col.sig4 : col.sig3 })));
+      const tot = items.reduce((s, it) => s + it.t, 0), x0 = w * 0.2, x1 = w * 0.8, sc = (x1 - x0) / tot; ctx.font = '10.5px ' + col.mono; ctx.textBaseline = 'middle';
+      ctx.save(); ctx.globalAlpha = 0.35; ctx.fillStyle = col.muted; ctx.fillRect(4, 18, x0 - 4, 30); ctx.globalAlpha = 0.18; ctx.fillStyle = col.accent; ctx.fillRect(x1, 18, w - x1 - 4, 30); ctx.restore();
+      ctx.fillStyle = col.fg; ctx.textAlign = 'center'; ctx.fillText('backing ' + o.ZB.toFixed(1), x0 / 2, 33); ctx.fillText('load ' + o.ZL.toFixed(2), (x1 + w) / 2, 33);
+      let xx = x0; items.forEach(it => { const ww = it.t * sc; ctx.save(); ctx.globalAlpha = 0.75; ctx.fillStyle = it.colr; ctx.fillRect(xx, 14, ww, 38); ctx.restore(); ctx.fillStyle = col.fg; ctx.textAlign = 'center'; ctx.fillText(it.lab, xx + ww / 2, 8); ctx.fillText((it.t * 1e3).toFixed(3) + ' mm', xx + ww / 2, 62); ctx.fillText(it.Z.toFixed(1) + ' MR', xx + ww / 2, 73); xx += ww; }); })();
+    /* impedance */
+    const lim = Math.min(half, Math.round(2.2 * fa / (fM[1]))); const fx = [], lz = [], ph = []; for (let i = 1; i <= lim; i++) { fx.push(fM[i] / 1e6); lz.push(Math.log10(Math.hypot(A.Zr[i], A.Zi[i]))); ph.push(Math.atan2(A.Zi[i], A.Zr[i]) * 180 / PI); }
+    (function () { const { ctx, w, h } = Lab.canvas($('m16-c-zcv'), 210); const [ax, lo, hi] = logAxis(ctx, { x: 52, y: 20, w: w - 100, h: h - 58 }, [0, fx[fx.length - 1]], lz, { xlabel: 'frequency (MHz)', ylabel: '|Z_in| (Ω)', title: 'Electrical input impedance (incl. tuning)' });
+      ax.clip(); Lab.line(ctx, ax, fx, ph.map(p => lo + (p + 90) / 180 * (hi - lo)), col.sig2, 1.3); Lab.line(ctx, ax, fx, lz, col.accent, 2); ax.unclip();
+      ctx.save(); ctx.font = '11px ' + col.mono; ctx.fillStyle = col.sig2; ctx.textAlign = 'left'; [-90, 0, 90].forEach(p => ctx.fillText(p + '°', ax.X(fx[fx.length - 1]) + 6, ax.Y(lo + (p + 90) / 180 * (hi - lo)) + 4)); ctx.restore(); })();
+    /* spectrum */
+    const lim2 = Math.min(half, Math.round(3.5 * fa / fM[1])); const sx = [], sh = [], st = []; let pmx = 0; for (let i = 1; i <= lim2; i++) pmx = Math.max(pmx, A.Pt[i]);
+    const hpk = db20(2 * A.band.peak); for (let i = 1; i <= lim2; i++) { sx.push(fM[i] / 1e6); sh.push(db20(2 * A.mag[i])); st.push(db20(A.Pt[i] / pmx) + hpk); }
+    (function () { const { ctx, w, h } = Lab.canvas($('m16-c-hcv'), 220); const top = Math.ceil((hpk + 3) / 10) * 10; const ax = Lab.axes(ctx, { x: 52, y: 20, w: w - 70, h: h - 58 }, [0, sx[sx.length - 1]], [top - 60, top], { xlabel: 'frequency (MHz)', ylabel: 'dB', title: 'Pulse-echo IL = 20 log|2H| (blue); transmit |p/V| re its peak (red)' });
+      ctx.save(); ctx.globalAlpha = 0.16; ctx.fillStyle = col.sig3; ctx.fillRect(ax.X(A.band.fl / 1e6), ax.box.y, ax.X(A.band.fu / 1e6) - ax.X(A.band.fl / 1e6), ax.box.h); ctx.restore();
+      ax.clip(); Lab.line(ctx, ax, sx, st, col.sig2, 1.3, [4, 3]); Lab.line(ctx, ax, sx, sh, col.accent, 2); ax.unclip(); })();
+    /* impulse response */
+    (function () { const { ctx, w, h } = Lab.canvas($('m16-c-icv'), 210); const N = A.N, T = 1 / fa; const j0 = -Math.round(2 * T * A.fsamp), j1 = Math.round(14 * T * A.fsamp); let mx = 0; for (let n = 0; n < N; n++) mx = Math.max(mx, A.env[n]);
+      const tx = [], yi = [], ye = []; for (let j = j0; j <= j1; j++) { const n = (A.ip + j + N) % N; tx.push(j / A.fsamp * 1e6); yi.push(A.ir[n] / mx); ye.push(A.env[n] / mx); }
+      const ax = Lab.axes(ctx, { x: 52, y: 20, w: w - 70, h: h - 58 }, [tx[0], tx[tx.length - 1]], [-1.1, 1.1], { xlabel: 'time re envelope peak (µs)', ylabel: 'normalized', title: 'Pulse-echo impulse response (low-passed at 2–2.5 f_a)' });
+      ax.clip(); Lab.line(ctx, ax, tx, ye, col.sig3, 1.3); Lab.line(ctx, ax, tx, ye.map(v => -v), col.sig3, 1, [2, 3]); Lab.line(ctx, ax, tx, yi, col.accent, 1.6); ax.unclip(); })();
+    /* loaded-element extrema of |Z| between 0.5 and 1.5 fa */
+    const win = A.N / A.fsamp, dd = v => v >= 0.97 * win ? '&gt; ' + (win * 1e6).toFixed(1) : (v * 1e6).toFixed(2);
+    const ifc = Math.round(A.band.fc / fM[1]); const ptx = A.Pt[ifc] / 1e3;
+    $('m16-c-read').innerHTML = 't = <b>' + (m.P.d * 1e3).toFixed(3) + '</b> mm, Z<sub>p</sub> = ' + Zp(m.m).toFixed(1) + ' MRayl, C₀ = <b>' + (m.C0 * 1e12 < 1000 ? (m.C0 * 1e12).toFixed(1) + '</b> pF' : (m.C0 * 1e9).toFixed(2) + '</b> nF') + (S.tune ? ', L = ' + (m.L * 1e6).toFixed(m.L < 1e-5 ? 2 : 1) + ' µH' : '') +
+      '<br>pulse-echo f<sub>c</sub> = <b>' + (A.band.fc / 1e6).toFixed(2) + '</b> MHz, −6 dB FBW = <b>' + (A.band.fbw * 100).toFixed(1) + '</b> %<br>insertion loss (peak) = <b>' + A.il.toFixed(1) + '</b> dB at ' + (A.band.fpk / 1e6).toFixed(2) + ' MHz' +
+      '<br>envelope −6/−20/−40 dB: <b>' + dd(A.d6) + '</b> / ' + dd(A.d20) + ' / ' + dd(A.d40) + ' µs<br>transmit at f<sub>c</sub>: ' + ptx.toFixed(1) + ' kPa/V<br>Z<sub>in</sub>(f<sub>c</sub>) = ' + A.Zr[ifc].toFixed(0) + (A.Zi[ifc] < 0 ? ' − j' : ' + j') + Math.abs(A.Zi[ifc]).toFixed(0) + ' Ω';
+    const V = validate(o);
+    $('m16-c-val').innerHTML = 'Validation (' + m.m.name + ', current geometry):<br>free plate vs closed form: <b>' + V.e1.toExponential(1) + '</b><br>KLM vs Mason, loaded + lossy: <b>' + V.e2.toExponential(1) + '</b><br>energy balance, lossless chain: <b>' + V.e3.toExponential(1) + '</b><br>IEEE 176 on simulated |Z|: k<sub>t</sub> = <b>' + V.kt.toFixed(4) + '</b> (input ' + V.ktTrue.toFixed(2) + ')';
+  }
+  ['m16-c-mat', 'm16-c-fa', 'm16-c-area', 'm16-c-zb', 'm16-c-ml', 'm16-c-fm', 'm16-c-zl', 'm16-c-tune', 'm16-c-r'].forEach(id => $(id).addEventListener('input', drawCalc));
+
+  /* ---------------- Demo 16.5: backing trade-off ---------------- */
+  function drawBack() {
+    const zb = +$('m16-b-zb').value, ml = $('m16-b-ml').value, mat = $('m16-b-mat').value, col = Lab.colors(); $('m16-b-zb-o').textContent = zb.toFixed(1);
+    const zp = Zp(MAT[mat]); $('m16-b-zb').max = zp.toFixed(1);
+    const D = memo('bk-' + ml + mat, () => { const out = []; for (let i = 0; i <= 46; i++) { const z = zp * i / 46; const S = system({ mat, ZB: z, ml, tune: 'none' }); const fs = [], mg = []; for (let j = 1; j <= 260; j++) { const f = j * 2 * 5e6 / 260; fs.push(f); mg.push(abs(K.response(S, f).Hpe)); } const b = K.band(fs, mg); out.push([z, b.fbw * 100, db20(2 * b.peak)]); } return out; });
+    (function () { const { ctx, w, h } = Lab.canvas($('m16-b-cv'), 230); const ax = Lab.axes(ctx, { x: 52, y: 20, w: w - 104, h: h - 58 }, [0, zp], [0, 140], { xlabel: 'backing Z_B (MRayl)', ylabel: 'FBW (%)', title: 'Bandwidth (blue) and insertion loss (red, right axis)' });
+      Lab.line(ctx, ax, D.map(d => d[0]), D.map(d => d[1]), col.accent, 2.2); const ilY = v => 140 + v * 140 / 60; Lab.line(ctx, ax, D.map(d => d[0]), D.map(d => ilY(d[2])), col.sig2, 2.2);
+      ctx.save(); ctx.font = '11px ' + col.mono; ctx.fillStyle = col.sig2; ctx.textAlign = 'left'; [0, -20, -40, -60].forEach(v => ctx.fillText(String(v), ax.X(zp) + 6, ax.Y(ilY(v)) + 4)); ctx.restore();
+      ctx.save(); ctx.strokeStyle = col.fg; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ax.X(zb), ax.box.y); ctx.lineTo(ax.X(zb), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); })();
+    const cur = analyze(system({ mat, ZB: zb, ml, tune: 'none' }), 5e6), air = analyze(system({ mat, ZB: 0, ml, tune: 'none' }), 5e6), mt = analyze(system({ mat, ZB: zp, ml, tune: 'none' }), 5e6);
+    (function () { const { ctx, w, h } = Lab.canvas($('m16-b-scv'), 200); const top = Math.ceil((Math.max(air.il, cur.il) + 3) / 10) * 10;
+      const ax = Lab.axes(ctx, { x: 52, y: 20, w: w - 70, h: h - 58 }, [0, 10], [top - 60, top], { xlabel: 'frequency (MHz)', ylabel: 'IL (dB)', title: 'Pulse-echo spectra: air, current, matched backing' });
+      const lim = Math.round(10e6 / cur.f[1]); const tr = a => { const xs = [], ys = []; for (let i = 1; i <= lim; i++) { xs.push(a.f[i] / 1e6); ys.push(db20(2 * a.mag[i])); } return [xs, ys]; };
+      ax.clip(); [[air, col.sig2, 1.4], [mt, col.sig4, 1.4], [cur, col.accent, 2.2]].forEach(([a, cl, lw]) => { const [xs, ys] = tr(a); Lab.line(ctx, ax, xs, ys, cl, lw); }); ax.unclip(); })();
+    const q = PI / 2 * zp / (zb + 1.5); const win = cur.N / cur.fsamp;
+    $('m16-b-read').innerHTML = 'f<sub>c</sub> = <b>' + (cur.band.fc / 1e6).toFixed(2) + '</b> MHz, FBW = <b>' + (cur.band.fbw * 100).toFixed(1) + '</b> %<br>IL = <b>' + cur.il.toFixed(1) + '</b> dB (air ' + air.il.toFixed(1) + ', matched ' + mt.il.toFixed(1) + ')<br>−40 dB ring-down = <b>' + (cur.d40 >= 0.97 * win ? '&gt; ' + (win * 1e6).toFixed(1) : (cur.d40 * 1e6).toFixed(2)) + '</b> µs<br>' + (ml === '0' ? 'Q formula (π/2)Z<sub>p</sub>/(Z<sub>B</sub>+1.5) = <b>' + q.toFixed(1) + '</b>' : 'with layers the Q formula no longer applies') + '<br>untuned, 50 Ω, f<sub>a</sub> = 5 MHz, 1.5 mm²';
+  }
+  ['m16-b-zb', 'm16-b-ml', 'm16-b-mat'].forEach(id => $(id).addEventListener('input', drawBack));
+
+  /* ---------------- Demo 16.6: tuning ---------------- */
+  function drawTune() {
+    const type = $('m16-t-type').value, lm = +$('m16-t-lm').value, n = +$('m16-t-n').value, len = +$('m16-t-len').value, rr = +$('m16-t-rr').value, cc = $('m16-t-cc').checked, col = Lab.colors();
+    $('m16-t-lm-o').textContent = lm.toFixed(2); $('m16-t-n-o').textContent = n.toFixed(2); $('m16-t-len-o').textContent = len.toFixed(1);
+    const o = Object.assign({}, RDo, { tune: type, Lmul: lm, xn: n, cable: len, ccab: cc, Rr: rr === 50 ? undefined : rr }); const S = system(o);
+    const A = analyze(S, 5e6), R0 = memo('tref', () => analyze(system(Object.assign({}, RDo, { tune: 'none' })), 5e6));
+    const lim = Math.round(10e6 / A.f[1]); const xs = [], re = [], im = []; for (let i = 1; i <= lim; i++) { xs.push(A.f[i] / 1e6); re.push(A.Zr[i]); im.push(A.Zi[i]); }
+    (function () { const { ctx, w, h } = Lab.canvas($('m16-t-zcv'), 210); let mx = 0; xs.forEach((f, i) => { if (f > 2.5 && f < 7.5) mx = Math.max(mx, Math.abs(re[i]), Math.abs(im[i])); }); mx = Math.min(4000, Math.max(200, mx)); const st = mx > 2000 ? 1000 : mx > 800 ? 500 : mx > 300 ? 200 : 100; mx = Math.ceil(mx / st) * st;
+      const ax = Lab.axes(ctx, { x: 56, y: 20, w: w - 74, h: h - 58 }, [0, 10], [-mx, mx], { xlabel: 'frequency (MHz)', ylabel: 'Ω', title: 'Impedance seen by the system (through cable, transformer, L)' });
+      ax.clip(); Lab.line(ctx, ax, [0, 10], [50, 50], col.muted, 1, [4, 3]); Lab.line(ctx, ax, xs, im, col.sig2, 1.6); Lab.line(ctx, ax, xs, re, col.accent, 2); ax.unclip(); })();
+    (function () { const { ctx, w, h } = Lab.canvas($('m16-t-hcv'), 200); const top = Math.ceil((Math.max(A.il, R0.il) + 3) / 10) * 10;
+      const ax = Lab.axes(ctx, { x: 56, y: 20, w: w - 74, h: h - 58 }, [0, 10], [top - 50, top], { xlabel: 'frequency (MHz)', ylabel: 'dB', title: 'Two-way gain 20 log|2V_out/V_s| (= IL when R_r = R_s)' });
+      const tr = a => { const x = [], y = []; for (let i = 1; i <= lim; i++) { x.push(a.f[i] / 1e6); y.push(db20(2 * a.mag[i])); } return [x, y]; };
+      ax.clip(); let t = tr(R0); Lab.line(ctx, ax, t[0], t[1], col.muted, 1.4, [4, 3]); t = tr(A); Lab.line(ctx, ax, t[0], t[1], col.accent, 2.2); ax.unclip(); })();
+    const m = S.meta; const zs = K.response(S, m.fq).Zin;
+    $('m16-t-read').innerHTML = 'C₀ = ' + (m.C0 * 1e12).toFixed(1) + ' pF, C<sub>cable</sub> = ' + (len * 100).toFixed(0) + ' pF' + (S.tune ? ', L = <b>' + (m.L * 1e6).toFixed(1) + '</b> µH' : '') + '<br>Z<sub>seen</sub>(f<sub>m</sub> = 4.5 MHz) = <b>' + zs.r.toFixed(0) + (zs.i < 0 ? ' − j' : ' + j') + Math.abs(zs.i).toFixed(0) + '</b> Ω<br>peak gain = <b>' + A.il.toFixed(1) + '</b> dB (untuned ref ' + R0.il.toFixed(1) + ', Δ = ' + (A.il - R0.il >= 0 ? '+' : '') + (A.il - R0.il).toFixed(1) + ')<br>f<sub>c</sub> = ' + (A.band.fc / 1e6).toFixed(2) + ' MHz, FBW = ' + (A.band.fbw * 100).toFixed(1) + ' %' + (rr !== 50 ? '<br>R<sub>r</sub> ≠ R<sub>s</sub>: voltage gain, not IL' : '');
+  }
+  ['m16-t-type', 'm16-t-lm', 'm16-t-n', 'm16-t-len', 'm16-t-rr', 'm16-t-cc'].forEach(id => $(id).addEventListener('input', drawTune));
+
+  /* ---------------- card grids and rule figures ---------------- */
+  Lab.cardGrid('m16', 'm16-g1', [
+    { q: 'What is uniform inside the plate?', a: 'The displacement D: Gauss\'s law with no free charge gives <b>∂D₃/∂z = 0</b> at every frequency (level drawn arbitrary). Strain and particle displacement form the half-wave standing wave of the open-circuit mode at f<sub>a</sub>.', draw: F.dS, prov: 'exact' },
+    { q: 'Which speed runs inside the plate?', a: 'The stiffened <b>v<sup>D</sup> = v<sup>E</sup>/√(1 − k²)</b>: 16 % above v<sup>E</sup> for k<sub>t</sub> = 0.51, which is why f<sub>a</sub>, not f<sub>r</sub>, is the half-wave frequency.', draw: F.vD, prov: 'exact' }
+  ]);
+  Lab.cardGrid('m16', 'm16-g2', [
+    { q: 'How much energy converts?', a: '<b>k²</b> of the stored energy: 0.26 for a PZT plate, 0.56 for a PZT bar, 0.85 for a PMN-PT bar.', draw: F.kenergy, prov: 'exact' },
+    { q: 'Where does f<sub>r</sub> sit?', a: 'Below f<sub>a</sub> by a gap that grows with k<sub>t</sub>²: <b>f<sub>r</sub>/f<sub>a</sub> = 0.882</b> at k<sub>t</sub> = 0.51, 0.749 at 0.70.', draw: F.frfa, prov: 'exact' },
+    { q: 'Which k does the gap give?', a: 'IEEE 176 returns k<sub>t</sub>; the small-gap form overestimates (+6 % at 0.5); <b>k<sub>eff</sub> = √(1 − (f<sub>r</sub>/f<sub>a</sub>)²)</b> is lower (0.47).', draw: F.kt176, prov: 'exact' }
+  ]);
+  Lab.cardGrid('m16', 'm16-g3', [
+    { q: 'Where do the materials sit?', a: 'Ceramics and crystals at <b>32–37 MRayl</b>, 1-3 composites at 10–22 MRayl with higher k<sub>t</sub>, PVDF at ≈ 4 MRayl with k<sub>t</sub> ≈ 0.1–0.2 (boxes = representative ranges from the table in 16.3).', draw: F.matmap, prov: 'model' },
+    { q: 'How does clamping change the coupling?', a: 'PZT-5H from its constants: <b>k₃₁ 0.39 &lt; k<sub>t</sub> 0.51 &lt; k<sub>p</sub> 0.65 &lt; k₃₃′ 0.70 &lt; k₃₃ 0.75</b>.', draw: F.kbars, prov: 'exact' }
+  ]);
+  Lab.cardGrid('m16', 'm16-g4', [
+    { q: 'What does the fundamental look like?', a: 'Displacement antinodes at both free faces, a node in the middle: <b>t = λ/2</b> at v<sup>D</sup>.', draw: F.mode, prov: 'exact' },
+    { q: 'What does an analyzer show?', a: 'A capacitor <b>1/(ωC₀)</b> with a dip at f<sub>r</sub> = 4.41 MHz and a peak at f<sub>a</sub> = 5.00 MHz (Q<sub>m</sub> = 65, tan δ = 0.02).', draw: F.zfree, prov: 'model' },
+    { q: 'What happens at harmonics?', a: 'A smaller resonance pair near <b>3f<sub>a</sub></b>, nothing at 2f<sub>a</sub> or 4f<sub>a</sub>.', draw: F.zharm, prov: 'model' }
+  ]);
+  Lab.cardGrid('m16', 'm16-g5', [
+    { q: 'How do the KLM elements vary?', a: '<b>φ ∝ sinc(f/2f<sub>a</sub>)</b> vanishes at even harmonics; X₁ ∝ sinc(f/f<sub>a</sub>)/ω vanishes at f<sub>a</sub> and its multiples.', draw: F.phi, prov: 'exact' },
+    { q: 'Do Mason and KLM agree on a loaded, lossy plate?', a: 'Yes: independent solvers give the same |Z| to <b>~10⁻¹³</b>.', draw: F.mk, prov: 'sim' },
+    { q: 'And against the closed form?', a: 'Free plate: KLM matches (1/jωC₀)(1 − k<sub>t</sub>² tan x/x) to <b>~10⁻¹³</b> at all frequencies (both solvers run in JS on this page).', draw: F.mkerr, prov: 'sim' }
+  ]);
+  Lab.cardGrid('m16', 'm16-vis', [
+    { q: 'Why is the plate half a wavelength thick?', a: 'Free faces are displacement antinodes: <b>f<sub>a</sub> = v<sup>D</sup>/2t</b>, 0.46 mm at 5 MHz for PZT-5H.', draw: F.mode, prov: 'exact' },
+    { q: 'What does k² measure?', a: 'The fraction of stored energy that converts: <b>0.26</b> for a PZT-5H plate (k<sub>t</sub> = 0.51).', draw: F.kenergy, prov: 'exact' },
+    { q: 'Why is k<sub>t</sub> below k₃₃?', a: 'Lateral clamping: <b>0.51 (plate) vs 0.70 (sliver) vs 0.75 (bar)</b> for the same ceramic.', draw: F.kbars, prov: 'exact' },
+    { q: 'Which material for which job?', a: 'PZT for robustness, crystal for coupling, composite for <b>low Z and high k<sub>t</sub></b>, PVDF for hydrophones.', draw: F.matmap, prov: 'model' },
+    { q: 'What does a composite buy?', a: 'At ν = 0.5: <b>k<sub>t</sub> 0.69, Z 16 MRayl</b>, versus 0.51 and 34.5 for the solid ceramic.', draw: F.comp, prov: 'model' },
+    { q: 'What does a plate\'s impedance look like?', a: 'A capacitor C₀ with a <b>dip at f<sub>r</sub> and a peak at f<sub>a</sub></b>; 42 pF and 750 Ω at 5 MHz for 1.5 mm².', draw: F.zfree, prov: 'model' },
+    { q: 'How do I get k<sub>t</sub> from the curve?', a: '<b>k<sub>t</sub>² = x cot x</b>, x = (π/2)f<sub>r</sub>/f<sub>a</sub>: 0.882 → 0.51.', draw: F.kt176, prov: 'exact' },
+    { q: 'What does the KLM transformer do with frequency?', a: '<b>φ ∝ sinc(f/2f<sub>a</sub>)</b>: zero at 2f<sub>a</sub>, 1/9 of its f<sub>a</sub> power factor at 3f<sub>a</sub>.', draw: F.phi, prov: 'exact' },
+    { q: 'Are Mason and KLM the same?', a: 'Exactly, in 1D: <b>10⁻¹³</b> agreement for a loaded, lossy plate.', draw: F.mk, prov: 'sim' },
+    { q: 'How does backing set Q?', a: '<b>Q ≈ (π/2)Z<sub>p</sub>/(Z<sub>B</sub> + Z<sub>F</sub>)</b>: 36 on air, 8.3 on 5 MRayl, confirmed by the model (dots).', draw: F.Q, prov: 'model' },
+    { q: 'What does backing cost?', a: 'Without matching: FBW 7 → 58 % costs <b>35 dB</b> of insertion loss (Z<sub>B</sub> 0 → 20 MRayl).', draw: F.backing, prov: 'model' },
+    { q: 'Why matching layers?', a: 'Two layers give <b>65 % bandwidth on an air backing</b> at −17 dB; the bare plate rings at 7 %.', draw: F.ml, prov: 'model' },
+    { q: 'Why tune?', a: 'C₀ at 50 Ω wastes power: series L <b>+11.5 dB</b>, plus a 1 : 2.5 transformer another +7.5 dB.', draw: F.tune, prov: 'model' },
+    { q: 'What pulse comes out?', a: 'Reference stack: <b>0.38 µs at −6 dB</b>, 2.2 µs at −40 dB; the tail is what clutter sees.', draw: F.ir, prov: 'model' }
+  ]);
+  const RF = { 'm16-rf-1': F.kenergy, 'm16-rf-2': F.kbars, 'm16-rf-3': F.frfa, 'm16-rf-4': F.kt176, 'm16-rf-5': F.zfree, 'm16-rf-6': F.mkerr, 'm16-rf-7': F.phi, 'm16-rf-8': F.Q,
+    'm16-rf-9': F.backing, 'm16-rf-10': F.ml, 'm16-rf-11': F.drive, 'm16-rf-12': F.tune, 'm16-rf-13': F.cable, 'm16-rf-14': F.comp, 'm16-rf-15': F.cryst, 'm16-rf-16': F.ir };
+  function drawRules() { Object.keys(RF).forEach(id => { const cv = $(id); if (cv) { try { RF[id](cv); } catch (e) { console.error(e); } } }); }
+  function drawAll() { drawK(); drawCP(); drawZ(); drawCalc(); drawBack(); drawTune(); drawRules(); }
+  Lab.onShow('m16', drawAll);
+
+})();
+</script>
