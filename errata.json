@@ -1,6 +1,13 @@
 {
  "entries": [
   {
+   "version": "1.1",
+   "date": "2026-10-26",
+   "title": "Glossary added",
+   "body": "New glossary of 155 abbreviations with short definitions and links to the module that teaches each one. In the modules, the first use of a term in each section is underlined with dots; hover, tap or press Enter on it to see the definition. No changes to module content.",
+   "items": []
+  },
+  {
    "version": "1.0",
    "date": "2026-10-26",
    "title": "First public release",

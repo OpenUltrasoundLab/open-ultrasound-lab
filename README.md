@@ -11,7 +11,7 @@ python3 build_site.py            # writes public/ (MathJax from the jsDelivr CDN
 python3 build_site.py --local    # same, MathJax served from public/vendor/ (offline testing)
 ```
 
-Inputs read at build time (never modified): `shell.html`, `m1.html` ... `m33.html`, `rail*.html`, `home*.html`, `matlab/*.m`, `audit_summary.json`, `errata.json`, `site.config.json`, `CITATION.cff`, `build_sheet.py`. Edit `site.config.json` (`GH_USER`, `REPO_URL`, `AUTHOR_URL`, `COURSE_URL`, `VERSION`, `DATE`, `DOI`) before publishing.
+Inputs read at build time (never modified): `shell.html`, `m1.html` ... `m33.html`, `rail*.html`, `home*.html`, `matlab/*.m`, `audit_summary.json`, `errata.json`, `glossary.json` (made by `glossary_src.py`), `site.config.json`, `CITATION.cff`, `build_sheet.py`. Edit `site.config.json` (`GH_USER`, `REPO_URL`, `AUTHOR_URL`, `COURSE_URL`, `VERSION`, `DATE`, `DOI`) before publishing.
 
 ## Test
 

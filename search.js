@@ -2,8 +2,8 @@
 (function () {
   'use strict';
   var me = document.currentScript, ROOT = (me && me.getAttribute('data-root')) || '';
-  var TYPES = { mod: 'Module', sec: 'Section', demo: 'Demo', eq: 'Equation', rule: 'Rule', cheat: 'Cheat sheet', iv: 'Interview', chk: 'Self-check' };
-  var BASE = { mod: 100, sec: 60, demo: 50, eq: 35, rule: 30, cheat: 25, iv: 22, chk: 20 };
+  var TYPES = { mod: 'Module', sec: 'Section', demo: 'Demo', eq: 'Equation', rule: 'Rule', cheat: 'Cheat sheet', iv: 'Interview', chk: 'Self-check', gl: 'Glossary' };
+  var BASE = { mod: 100, sec: 60, demo: 50, eq: 35, rule: 30, cheat: 25, iv: 22, chk: 20, gl: 70 };
   var GREEK = { 'α': 'alpha', 'β': 'beta', 'γ': 'gamma', 'δ': 'delta', 'ε': 'epsilon', 'ζ': 'zeta', 'η': 'eta', 'θ': 'theta', 'κ': 'kappa', 'λ': 'lambda', 'μ': 'mu', 'ν': 'nu',
     'ξ': 'xi', 'π': 'pi', 'ρ': 'rho', 'σ': 'sigma', 'ς': 'sigma', 'τ': 'tau', 'φ': 'phi', 'χ': 'chi', 'ψ': 'psi', 'ω': 'omega', 'Δ': 'delta', 'Γ': 'gamma', 'Σ': 'sigma', 'Ω': 'omega',
     'Φ': 'phi', 'Ψ': 'psi', 'Λ': 'lambda', 'Θ': 'theta', 'ϑ': 'theta', 'ϕ': 'phi', 'ϵ': 'epsilon', '×': 'x', '−': '-', '–': '-', '’': "'" };

@@ -1,0 +1,987 @@
+[
+ {
+  "t": "SNR",
+  "f": "signal-to-noise ratio",
+  "d": "Ratio of signal power to noise power, usually in dB. Sets detectability and the precision of every estimate in the course.",
+  "m": 10
+ },
+ {
+  "t": "RF",
+  "f": "radio frequency (RF data)",
+  "d": "The raw, real-valued echo signal around the transducer centre frequency, sampled above its Nyquist rate (typically 4× the centre frequency or more), before demodulation to IQ.",
+  "m": 8
+ },
+ {
+  "t": "IQ",
+  "f": "in-phase/quadrature (complex baseband)",
+  "d": "Complex signal obtained by mixing RF down to baseband and low-pass filtering; I is the real part, Q the imaginary part.",
+  "m": 8
+ },
+ {
+  "t": "FFT",
+  "f": "fast Fourier transform",
+  "d": "An O(N log N) algorithm that computes the DFT.",
+  "m": 2
+ },
+ {
+  "t": "IFFT",
+  "f": "inverse fast Fourier transform",
+  "d": "The fast algorithm for the inverse DFT.",
+  "m": 24
+ },
+ {
+  "t": "DFT",
+  "f": "discrete Fourier transform",
+  "d": "Maps N samples to N complex frequency coefficients; the finite, sampled version of the Fourier transform.",
+  "m": 2
+ },
+ {
+  "t": "DTFT",
+  "f": "discrete-time Fourier transform",
+  "d": "Fourier transform of an infinite discrete-time sequence; a continuous, 2π-periodic function of frequency. The DFT samples it.",
+  "m": 2
+ },
+ {
+  "t": "STFT",
+  "f": "short-time Fourier transform",
+  "d": "Fourier transforms of short, windowed, usually overlapping segments, giving a time–frequency picture.",
+  "m": 25
+ },
+ {
+  "t": "LTI",
+  "f": "linear time-invariant",
+  "d": "A system whose response to a weighted sum of inputs is the same weighted sum of the responses, and whose behaviour does not change over time; fully described by its impulse response.",
+  "m": 3
+ },
+ {
+  "t": "FIR",
+  "f": "finite impulse response",
+  "d": "A digital filter whose impulse response has finite length; always stable and can have exactly linear phase.",
+  "m": 9
+ },
+ {
+  "t": "IIR",
+  "f": "infinite impulse response",
+  "d": "A recursive digital filter whose impulse response never ends; cheaper than FIR for sharp responses but can be unstable and has nonlinear phase.",
+  "m": 9
+ },
+ {
+  "t": "LPF",
+  "f": "low-pass filter",
+  "d": "Passes frequencies below a cut-off and attenuates those above.",
+  "m": 8
+ },
+ {
+  "t": "BIBO",
+  "f": "bounded-input bounded-output",
+  "d": "Stability criterion: every bounded input gives a bounded output. For LTI systems, the impulse response must be absolutely summable.",
+  "m": 3
+ },
+ {
+  "t": "PSD",
+  "f": "power spectral density",
+  "d": "Distribution of a random signal's power over frequency; the Fourier transform of its autocorrelation.",
+  "m": 7
+ },
+ {
+  "t": "ENBW",
+  "f": "equivalent noise bandwidth",
+  "d": "Width of an ideal rectangular filter passing the same white-noise power as a given window or filter.",
+  "m": 2
+ },
+ {
+  "t": "DC",
+  "f": "direct current (zero frequency)",
+  "d": "The zero-frequency (mean) component of a signal.",
+  "m": 2
+ },
+ {
+  "t": "WSS",
+  "f": "wide-sense stationary",
+  "d": "A random process whose mean is constant and whose covariance depends only on the time difference.",
+  "m": 7
+ },
+ {
+  "t": "CIC",
+  "f": "cascaded integrator–comb",
+  "d": "A multiplier-free filter structure used for large decimation factors.",
+  "m": 9
+ },
+ {
+  "t": "AR",
+  "f": "autoregressive (model)",
+  "d": "Model in which each sample is a weighted sum of past samples plus white noise; used for spectral estimation and prediction.",
+  "m": 27
+ },
+ {
+  "t": "DPSS",
+  "f": "discrete prolate spheroidal sequences",
+  "d": "Slepian tapers that maximize energy concentration in a band; the windows of the multitaper method.",
+  "m": 27
+ },
+ {
+  "t": "AAF",
+  "f": "anti-aliasing filter",
+  "d": "Analog low-pass filter before the ADC that removes content above half the sampling rate.",
+  "m": 3
+ },
+ {
+  "t": "PRF",
+  "f": "pulse repetition frequency",
+  "d": "Number of transmit events per second; sets the Doppler Nyquist limit and the maximum imaging depth.",
+  "m": 29
+ },
+ {
+  "t": "PRI",
+  "f": "pulse repetition interval",
+  "d": "Time between transmit events; 1/PRF.",
+  "m": 10
+ },
+ {
+  "t": "FBW",
+  "f": "fractional bandwidth",
+  "d": "Bandwidth divided by centre frequency, often at −6 dB.",
+  "m": 4
+ },
+ {
+  "t": "BW",
+  "f": "bandwidth",
+  "d": "Width of the frequency band a signal or system occupies, usually defined at −3 or −6 dB.",
+  "m": 4
+ },
+ {
+  "t": "LFM",
+  "f": "linear frequency modulation (chirp)",
+  "d": "A pulse whose instantaneous frequency sweeps linearly in time; compressed by a matched filter.",
+  "m": 10
+ },
+ {
+  "t": "TB",
+  "f": "time–bandwidth product",
+  "d": "Code duration times bandwidth; approximately the compression ratio, and the SNR gain of pulse compression relative to a short pulse of equal peak amplitude.",
+  "m": 10,
+  "only": [
+   10
+  ]
+ },
+ {
+  "t": "PSL",
+  "f": "peak sidelobe level",
+  "d": "Highest sidelobe relative to the main lobe, in dB, for a beam pattern or a compressed pulse.",
+  "m": 10
+ },
+ {
+  "t": "ISLR",
+  "f": "integrated sidelobe ratio",
+  "d": "Energy in all sidelobes relative to the main-lobe energy, in dB.",
+  "m": 23
+ },
+ {
+  "t": "AM",
+  "f": "amplitude modulation",
+  "d": "Contrast or harmonic pulse sequence that combines transmits of different amplitudes so linear echoes cancel.",
+  "m": 15,
+  "only": [
+   15,
+   28
+  ]
+ },
+ {
+  "t": "PI",
+  "f": "pulse inversion",
+  "d": "Two transmits of opposite polarity are summed so linear echoes cancel and even harmonics remain.",
+  "m": 15,
+  "only": [
+   15,
+   28
+  ]
+ },
+ {
+  "t": "CPS",
+  "f": "contrast pulse sequence",
+  "d": "Multi-pulse sequence combining amplitude and phase changes to isolate nonlinear microbubble echoes.",
+  "m": 28
+ },
+ {
+  "t": "SVD",
+  "f": "singular value decomposition",
+  "d": "Factorization A = UΣVᴴ into orthonormal bases and non-negative singular values; the tool behind clutter filtering, conditioning and regularization.",
+  "m": 6
+ },
+ {
+  "t": "TSVD",
+  "f": "truncated SVD",
+  "d": "Regularization that keeps only the largest singular values when inverting.",
+  "m": 6
+ },
+ {
+  "t": "PCA",
+  "f": "principal component analysis",
+  "d": "Finding the directions of largest variance; the SVD of centred data.",
+  "m": 6
+ },
+ {
+  "t": "QR",
+  "f": "QR decomposition",
+  "d": "Factorization into an orthonormal Q and an upper-triangular R; a stable way to solve least squares.",
+  "m": 5
+ },
+ {
+  "t": "LS",
+  "f": "least squares",
+  "d": "Choosing parameters that minimize the sum of squared residuals.",
+  "m": 5
+ },
+ {
+  "t": "CRLB",
+  "f": "Cramér–Rao lower bound",
+  "d": "Lower bound on the variance of any unbiased estimator, given by the inverse Fisher information.",
+  "m": 12
+ },
+ {
+  "t": "MLE",
+  "f": "maximum-likelihood estimator",
+  "d": "The parameter value that makes the observed data most probable.",
+  "m": 12
+ },
+ {
+  "t": "MAP",
+  "f": "maximum a posteriori",
+  "d": "Estimate that maximizes the posterior: likelihood times prior.",
+  "m": 12
+ },
+ {
+  "t": "MSE",
+  "f": "mean squared error",
+  "d": "Average squared estimation error; variance plus squared bias.",
+  "m": 12
+ },
+ {
+  "t": "RMSE",
+  "f": "root-mean-square error",
+  "d": "Square root of the MSE, in the units of the quantity.",
+  "m": 12
+ },
+ {
+  "t": "MMSE",
+  "f": "minimum mean squared error",
+  "d": "Estimator that minimizes the expected squared error; the posterior mean.",
+  "m": 12
+ },
+ {
+  "t": "ENR",
+  "f": "energy-to-noise ratio",
+  "d": "Signal energy divided by noise power spectral density; sets the CRLB for delay and localization.",
+  "m": 12
+ },
+ {
+  "t": "NCC",
+  "f": "normalized cross-correlation",
+  "d": "Cross-correlation of mean-removed signals divided by the square root of the product of their energies, so it lies between −1 and 1; the standard similarity measure for speckle tracking.",
+  "m": 11
+ },
+ {
+  "t": "TV",
+  "f": "total variation",
+  "d": "Regularizer equal to the sum of gradient magnitudes; it favours piecewise-constant images with sharp edges.",
+  "m": 13
+ },
+ {
+  "t": "GCV",
+  "f": "generalized cross-validation",
+  "d": "Rule for choosing a regularization parameter by predicting held-out error without re-fitting.",
+  "m": 13
+ },
+ {
+  "t": "ISTA",
+  "f": "iterative shrinkage-thresholding algorithm",
+  "d": "Proximal-gradient method for L1-regularized problems: a gradient step, then soft thresholding.",
+  "m": 13
+ },
+ {
+  "t": "FISTA",
+  "f": "fast ISTA",
+  "d": "ISTA with Nesterov momentum; the objective error falls as O(1/k²) instead of ISTA's O(1/k) (Beck & Teboulle 2009).",
+  "m": 13
+ },
+ {
+  "t": "CGLS",
+  "f": "conjugate gradient for least squares",
+  "d": "Krylov method that solves least squares without forming AᴴA; stopping early acts as regularization.",
+  "m": 13
+ },
+ {
+  "t": "ADMM",
+  "f": "alternating direction method of multipliers",
+  "d": "Splits an optimization into simpler sub-problems that are solved in turn and tied together by dual variables.",
+  "m": 13
+ },
+ {
+  "t": "IRLS",
+  "f": "iteratively reweighted least squares",
+  "d": "Solves non-quadratic fitting problems as a sequence of weighted least-squares problems.",
+  "m": 9
+ },
+ {
+  "t": "GD",
+  "f": "gradient descent",
+  "d": "Iterative minimization by stepping against the gradient.",
+  "m": 14
+ },
+ {
+  "t": "LM",
+  "f": "Levenberg–Marquardt",
+  "d": "Damped Gauss–Newton method that moves between Gauss–Newton and gradient descent.",
+  "m": 14
+ },
+ {
+  "t": "SGD",
+  "f": "stochastic gradient descent",
+  "d": "Gradient descent using noisy gradients from random subsets of the data.",
+  "m": 14
+ },
+ {
+  "t": "FWI",
+  "f": "full-waveform inversion",
+  "d": "Estimates a sound-speed map by fitting full simulated waveforms to measured data.",
+  "m": 14
+ },
+ {
+  "t": "DORT",
+  "f": "decomposition of the time-reversal operator",
+  "d": "Eigen-analysis of the inter-element response matrix; for well-resolved point scatterers, each strong singular vector focuses on one scatterer.",
+  "m": 6
+ },
+ {
+  "t": "SINR",
+  "f": "signal-to-interference-plus-noise ratio",
+  "d": "Signal power divided by interference plus noise power; the figure of merit for adaptive beamformers.",
+  "m": 7
+ },
+ {
+  "t": "RMB",
+  "f": "Reed–Mallett–Brennan rule",
+  "d": "Result that a sample covariance from about 2N snapshots costs roughly 3 dB of SINR in an N-element adaptive beamformer.",
+  "m": 7
+ },
+ {
+  "t": "SMI",
+  "f": "sample matrix inversion",
+  "d": "Adaptive beamforming that inverts the measured sample covariance matrix.",
+  "m": 7
+ },
+ {
+  "t": "DAS",
+  "f": "delay-and-sum",
+  "d": "Beamforming by delaying each channel to align echoes from a point, then summing; the reference method.",
+  "m": 23
+ },
+ {
+  "t": "PSF",
+  "f": "point spread function",
+  "d": "Image of a single point scatterer; sets resolution and sidelobe levels.",
+  "m": 23
+ },
+ {
+  "t": "FWHM",
+  "f": "full width at half maximum",
+  "d": "Width of a peak at half its maximum (−6 dB for amplitude); the usual resolution measure.",
+  "m": 23
+ },
+ {
+  "t": "MV",
+  "f": "minimum variance (Capon) beamformer",
+  "d": "Adaptive beamformer that minimizes output power while keeping unit gain in the look direction.",
+  "m": 25,
+  "only": [
+   5,
+   7,
+   25,
+   26
+  ]
+ },
+ {
+  "t": "MVDR",
+  "f": "minimum variance distortionless response",
+  "d": "Another name for the minimum-variance (Capon) beamformer.",
+  "m": 7
+ },
+ {
+  "t": "ESBMV",
+  "f": "eigenspace-based minimum variance",
+  "d": "MV beamformer whose weights are projected onto the signal subspace of the covariance matrix.",
+  "m": 25
+ },
+ {
+  "t": "CF",
+  "f": "coherence factor",
+  "d": "Ratio of coherent to incoherent energy across the aperture; used as a pixel weight that suppresses clutter.",
+  "m": 25,
+  "only": [
+   5,
+   7,
+   25,
+   26,
+   32,
+   33
+  ]
+ },
+ {
+  "t": "GCF",
+  "f": "generalized coherence factor",
+  "d": "Coherence factor that counts low spatial frequencies across the aperture as coherent energy.",
+  "m": 25
+ },
+ {
+  "t": "PCF",
+  "f": "phase coherence factor",
+  "d": "Weight based on the spread of channel phases instead of amplitudes.",
+  "m": 25
+ },
+ {
+  "t": "SCF",
+  "f": "sign coherence factor",
+  "d": "Weight based on the agreement of channel signs (polarity).",
+  "m": 25
+ },
+ {
+  "t": "SLSC",
+  "f": "short-lag spatial coherence",
+  "d": "Image formed from the spatial coherence of channel signals at small element lags, not from echo amplitude.",
+  "m": 25
+ },
+ {
+  "t": "VCZ",
+  "f": "van Cittert–Zernike (theorem)",
+  "d": "For diffuse scatterers, the spatial coherence of echoes across the receive aperture is the Fourier transform of the insonified intensity distribution; at the transmit focus it equals the autocorrelation of the transmit apodization.",
+  "m": 7
+ },
+ {
+  "t": "DMAS",
+  "f": "delay-multiply-and-sum",
+  "d": "Nonlinear beamformer that sums products of channel pairs after delay.",
+  "m": 25
+ },
+ {
+  "t": "FXPF",
+  "f": "f-x prediction filtering",
+  "d": "Suppresses incoherent clutter by predicting each channel from its neighbours in the frequency–space domain.",
+  "m": 25
+ },
+ {
+  "t": "ADMIRE",
+  "f": "aperture domain model image reconstruction",
+  "d": "Model-based beamformer that fits channel data with a set of modelled wavefronts and keeps only the components from the region of interest.",
+  "m": 25
+ },
+ {
+  "t": "ROI",
+  "f": "region of interest",
+  "d": "Image region selected for measurement or processing.",
+  "m": 26
+ },
+ {
+  "t": "CNR",
+  "f": "contrast-to-noise ratio",
+  "d": "Difference of mean intensities inside and outside a target, divided by a noise or speckle measure.",
+  "m": 26
+ },
+ {
+  "t": "CR",
+  "f": "contrast ratio",
+  "d": "Ratio of mean intensities inside and outside a target, usually in dB.",
+  "m": 26,
+  "only": [
+   25,
+   26
+  ]
+ },
+ {
+  "t": "gCNR",
+  "f": "generalized contrast-to-noise ratio",
+  "d": "1 minus the overlap of the intensity distributions inside and outside a target; ranges from 0 to 1 and is unchanged by monotonic transforms such as log compression (Rodriguez-Molares et al. 2020).",
+  "m": 26
+ },
+ {
+  "t": "OVL",
+  "f": "overlap (of histograms)",
+  "d": "Area shared by the inside and outside intensity distributions; gCNR = 1 − OVL.",
+  "m": 26
+ },
+ {
+  "t": "PICMUS",
+  "f": "Plane-wave Imaging Challenge in Medical Ultrasound",
+  "d": "IUS 2016 challenge that released shared plane-wave datasets and metrics for comparing beamformers.",
+  "m": 25
+ },
+ {
+  "t": "DOF",
+  "f": "depth of field",
+  "d": "Axial range over which a focused beam stays near its focal width.",
+  "m": 23
+ },
+ {
+  "t": "PWI",
+  "f": "plane-wave imaging",
+  "d": "Imaging with unfocused plane-wave transmits, often at several angles that are compounded.",
+  "m": 24
+ },
+ {
+  "t": "SAFT",
+  "f": "synthetic aperture focusing technique",
+  "d": "Imaging that focuses every pixel by combining many single-element or small-aperture transmits.",
+  "m": 24
+ },
+ {
+  "t": "RCA",
+  "f": "row–column addressed array",
+  "d": "2D array whose elements are addressed through whole rows or whole columns (e.g. rows on transmit, columns on receive), so N+N channels serve an N×N aperture.",
+  "m": 19
+ },
+ {
+  "t": "SoS",
+  "f": "speed of sound",
+  "d": "Propagation speed of sound in the medium; about 1540 m/s is the usual soft-tissue assumption.",
+  "m": 32
+ },
+ {
+  "t": "CUTE",
+  "f": "computed ultrasound tomography in echo mode",
+  "d": "Estimates a sound-speed map from phase shifts between images beamformed at different transmit/receive angles.",
+  "m": 32
+ },
+ {
+  "t": "CMA",
+  "f": "common mid-angle",
+  "d": "CUTE refinement (Stähli et al. 2020) that compares transmit/receive angle pairs sharing the same mid-angle; these sample the same k-space region, so their speckle stays correlated and the phase difference reflects sound-speed error.",
+  "m": 32
+ },
+ {
+  "t": "REFoCUS",
+  "f": "retrospective encoding for conventional ultrasound sequences",
+  "d": "Decodes the transmit sequence from channel data so any transmit set can be refocused like synthetic aperture data.",
+  "m": 24
+ },
+ {
+  "t": "ULM",
+  "f": "ultrasound localization microscopy",
+  "d": "Super-resolution imaging that localizes and tracks individual microbubbles over many frames.",
+  "m": 31
+ },
+ {
+  "t": "PALA",
+  "f": "Performance benchmarking of microbubble-localization algorithms",
+  "d": "Open ULM benchmark (Heiles et al. 2022) with shared data and metrics.",
+  "m": 31
+ },
+ {
+  "t": "FRC",
+  "f": "Fourier ring correlation",
+  "d": "Resolution measure from the correlation of two independent half-images over rings in k-space.",
+  "m": 31
+ },
+ {
+  "t": "NN",
+  "f": "neural network",
+  "d": "Learned model built from layers of weighted sums and nonlinearities.",
+  "m": 31,
+  "only": [
+   31
+  ]
+ },
+ {
+  "t": "CW",
+  "f": "continuous wave",
+  "d": "Transmission without pulses; gives Doppler without range resolution.",
+  "m": 29
+ },
+ {
+  "t": "PW",
+  "f": "pulsed wave",
+  "d": "Doppler mode with pulsed transmission and a range gate.",
+  "m": 29,
+  "only": [
+   22,
+   29
+  ]
+ },
+ {
+  "t": "PD",
+  "f": "power Doppler",
+  "d": "Image of the Doppler signal power after clutter filtering, regardless of velocity.",
+  "m": 29,
+  "only": [
+   6,
+   29
+  ]
+ },
+ {
+  "t": "ARFI",
+  "f": "acoustic radiation force impulse",
+  "d": "Imaging of tissue displacement caused by a long focused push pulse.",
+  "m": 30
+ },
+ {
+  "t": "SWE",
+  "f": "shear wave elastography",
+  "d": "Measures shear-wave speed to estimate tissue stiffness.",
+  "m": 30
+ },
+ {
+  "t": "TOF",
+  "f": "time of flight",
+  "d": "Arrival-time method, e.g. estimating shear-wave speed from arrival times at several lateral positions.",
+  "m": 30
+ },
+ {
+  "t": "CEUS",
+  "f": "contrast-enhanced ultrasound",
+  "d": "Imaging with gas microbubble contrast agents.",
+  "m": 28
+ },
+ {
+  "t": "TIC",
+  "f": "time–intensity curve",
+  "d": "Echo intensity in an ROI versus time after contrast injection.",
+  "m": 28
+ },
+ {
+  "t": "TTP",
+  "f": "time to peak",
+  "d": "Time from arrival (or injection) to the TIC maximum.",
+  "m": 28
+ },
+ {
+  "t": "MTT",
+  "f": "mean transit time",
+  "d": "Mean time contrast takes to pass through the tissue; a perfusion parameter from the TIC.",
+  "m": 28
+ },
+ {
+  "t": "CTR",
+  "f": "contrast-to-tissue ratio",
+  "d": "Microbubble signal relative to the residual tissue signal after contrast processing, in dB.",
+  "m": 28
+ },
+ {
+  "t": "DSPC",
+  "f": "distearoylphosphatidylcholine",
+  "d": "A lipid commonly used in microbubble shells.",
+  "m": 28
+ },
+ {
+  "t": "QUS",
+  "f": "quantitative ultrasound",
+  "d": "Estimates tissue properties (attenuation, backscatter, scatterer size, speed of sound) as numbers rather than images.",
+  "m": 27
+ },
+ {
+  "t": "BSC",
+  "f": "backscatter coefficient",
+  "d": "Backscattered power per unit volume, solid angle and incident intensity; frequency dependence carries scatterer size.",
+  "m": 27
+ },
+ {
+  "t": "ESD",
+  "f": "effective scatterer diameter",
+  "d": "Scatterer size estimated by fitting a form factor to the frequency dependence of the BSC.",
+  "m": 27
+ },
+ {
+  "t": "SLD",
+  "f": "spectral log difference",
+  "d": "Attenuation estimate from the log ratio of power spectra from two depths in a homogeneous region; its slope versus frequency, divided by 4Δz, gives the attenuation coefficient slope (Np/cm/MHz).",
+  "m": 27
+ },
+ {
+  "t": "PZT",
+  "f": "lead zirconate titanate",
+  "d": "The standard piezoelectric ceramic for medical transducers.",
+  "m": 16
+ },
+ {
+  "t": "PMN-PT",
+  "f": "lead magnesium niobate–lead titanate",
+  "d": "Relaxor single crystal with higher coupling than PZT; used in wide-band probes.",
+  "m": 16
+ },
+ {
+  "t": "PVDF",
+  "f": "polyvinylidene fluoride",
+  "d": "Flexible piezoelectric polymer with low impedance; common in hydrophones.",
+  "m": 16
+ },
+ {
+  "t": "KLM",
+  "f": "Krimholtz–Leedom–Matthaei model",
+  "d": "Equivalent circuit of a thickness-mode transducer as an acoustic transmission line coupled to an electrical port.",
+  "m": 16
+ },
+ {
+  "t": "BVD",
+  "f": "Butterworth–Van Dyke model",
+  "d": "Lumped equivalent circuit (static capacitance in parallel with a series RLC) of a resonator near resonance.",
+  "m": 20
+ },
+ {
+  "t": "ABCD",
+  "f": "ABCD (transmission) matrix",
+  "d": "Two-port representation that chains layers by matrix multiplication.",
+  "m": 16
+ },
+ {
+  "t": "MRayl",
+  "f": "megarayl",
+  "d": "Unit of acoustic impedance, 10⁶ kg/(m²·s). Soft tissue is about 1.5 MRayl, PZT about 34.",
+  "m": 17
+ },
+ {
+  "t": "CMUT",
+  "f": "capacitive micromachined ultrasonic transducer",
+  "d": "Transducer made of thin vibrating membranes over vacuum gaps, built with silicon micromachining.",
+  "m": 18
+ },
+ {
+  "t": "PMUT",
+  "f": "piezoelectric micromachined ultrasonic transducer",
+  "d": "Micromachined plate transducer driven by a thin piezoelectric film.",
+  "m": 18
+ },
+ {
+  "t": "AlN",
+  "f": "aluminium nitride",
+  "d": "Thin-film piezoelectric used in PMUTs; CMOS-compatible.",
+  "m": 18
+ },
+ {
+  "t": "ScAlN",
+  "f": "scandium aluminium nitride",
+  "d": "AlN alloyed with scandium for a larger piezoelectric coefficient.",
+  "m": 18
+ },
+ {
+  "t": "FDTD",
+  "f": "finite-difference time-domain",
+  "d": "Numerical wave simulation on a grid, stepping fields forward in time.",
+  "m": 21
+ },
+ {
+  "t": "FEM",
+  "f": "finite element method",
+  "d": "Numerical solution of field equations on a mesh of small elements.",
+  "m": 17
+ },
+ {
+  "t": "FEA",
+  "f": "finite element analysis",
+  "d": "Simulation using the finite element method.",
+  "m": 17
+ },
+ {
+  "t": "CFL",
+  "f": "Courant–Friedrichs–Lewy condition",
+  "d": "Stability limit on the time step of explicit wave solvers: c·Δt/Δx must stay below a constant.",
+  "m": 21
+ },
+ {
+  "t": "PPW",
+  "f": "points per wavelength",
+  "d": "Grid samples per wavelength in a simulation; too few cause numerical dispersion.",
+  "m": 21
+ },
+ {
+  "t": "SIR",
+  "f": "spatial impulse response",
+  "d": "Velocity potential at a field point produced by an impulsive normal velocity of the transducer face; the pressure is ρ₀ times the time derivative of the excitation convolved with it.",
+  "m": 21
+ },
+ {
+  "t": "ASIC",
+  "f": "application-specific integrated circuit",
+  "d": "Custom chip, for example the in-probe electronics of a matrix array.",
+  "m": 19
+ },
+ {
+  "t": "ADC",
+  "f": "analog-to-digital converter",
+  "d": "Converts the amplified analog echo into samples.",
+  "m": 20
+ },
+ {
+  "t": "DAC",
+  "f": "digital-to-analog converter",
+  "d": "Converts digital values into an analog voltage.",
+  "m": 20
+ },
+ {
+  "t": "LNA",
+  "f": "low-noise amplifier",
+  "d": "First receive amplifier; sets most of the system noise figure.",
+  "m": 20
+ },
+ {
+  "t": "VGA",
+  "f": "variable-gain amplifier",
+  "d": "Amplifier whose gain changes with depth to apply TGC.",
+  "m": 20
+ },
+ {
+  "t": "TGC",
+  "f": "time-gain compensation",
+  "d": "Gain that increases with echo time to offset attenuation.",
+  "m": 20
+ },
+ {
+  "t": "NF",
+  "f": "noise figure",
+  "d": "Degradation of SNR through a stage, in dB.",
+  "m": 20,
+  "only": [
+   20
+  ]
+ },
+ {
+  "t": "ENOB",
+  "f": "effective number of bits",
+  "d": "Resolution an ADC actually delivers once noise and distortion are counted.",
+  "m": 20
+ },
+ {
+  "t": "FPGA",
+  "f": "field-programmable gate array",
+  "d": "Reconfigurable chip used for beamforming and data handling.",
+  "m": 20
+ },
+ {
+  "t": "HV",
+  "f": "high voltage",
+  "d": "Transmit supply voltage, typically tens of volts up to about ±100 V (some systems higher).",
+  "m": 20
+ },
+ {
+  "t": "MOSFET",
+  "f": "metal–oxide–semiconductor field-effect transistor",
+  "d": "The switching transistor of pulsers and multiplexers.",
+  "m": 20
+ },
+ {
+  "t": "CMOS",
+  "f": "complementary metal–oxide–semiconductor",
+  "d": "The standard integrated-circuit process; CMUTs and PMUTs can be built on top of it.",
+  "m": 18
+ },
+ {
+  "t": "FD",
+  "f": "finite difference",
+  "d": "Approximating derivatives by differences on a grid.",
+  "m": 21,
+  "only": [
+   15,
+   21
+  ]
+ },
+ {
+  "t": "PML",
+  "f": "perfectly matched layer",
+  "d": "Absorbing boundary layer that stops reflections at the edge of a simulation grid.",
+  "m": 21
+ },
+ {
+  "t": "KZK",
+  "f": "Khokhlov–Zabolotskaya–Kuznetsov equation",
+  "d": "Parabolic model of nonlinear, diffracting, absorbing sound beams.",
+  "m": 15
+ },
+ {
+  "t": "TEE",
+  "f": "transesophageal echocardiography",
+  "d": "Cardiac imaging with a probe placed in the oesophagus.",
+  "m": 19
+ },
+ {
+  "t": "IVUS",
+  "f": "intravascular ultrasound",
+  "d": "Imaging from a catheter inside a blood vessel.",
+  "m": 18
+ },
+ {
+  "t": "MI",
+  "f": "mechanical index",
+  "d": "Derated (0.3 dB/cm/MHz) peak rarefactional pressure in MPa divided by the square root of the acoustic working frequency in MHz; indicates the likelihood of inertial cavitation (FDA limit 1.9).",
+  "m": 22,
+  "only": [
+   10,
+   20,
+   21,
+   22,
+   23,
+   28
+  ]
+ },
+ {
+  "t": "TI",
+  "f": "thermal index",
+  "d": "Ratio of the relevant (attenuated, bounded) acoustic power to the power that raises a model tissue by 1 °C; an exposure indicator, not a measured temperature rise.",
+  "m": 22
+ },
+ {
+  "t": "TIS",
+  "f": "soft-tissue thermal index",
+  "d": "TI for soft tissue only.",
+  "m": 22
+ },
+ {
+  "t": "TIB",
+  "f": "bone thermal index",
+  "d": "TI with bone at or near the focus.",
+  "m": 22
+ },
+ {
+  "t": "PII",
+  "f": "pulse intensity integral",
+  "d": "Time integral of instantaneous intensity over one pulse.",
+  "m": 22
+ },
+ {
+  "t": "ISPTA",
+  "f": "spatial-peak temporal-average intensity",
+  "d": "Highest temporal-average intensity in the field; its derated value ISPTA.3 is limited by FDA to 720 mW/cm² for most applications, alongside MI ≤ 1.9.",
+  "m": 22
+ },
+ {
+  "t": "SPTA",
+  "f": "spatial-peak temporal-average",
+  "d": "Short for spatial-peak temporal-average intensity (ISPTA).",
+  "m": 22
+ },
+ {
+  "t": "ALARA",
+  "f": "as low as reasonably achievable",
+  "d": "Safety principle: use the lowest output and shortest exposure that answer the clinical question.",
+  "m": 22
+ },
+ {
+  "t": "CEM43",
+  "f": "cumulative equivalent minutes at 43 °C",
+  "d": "Thermal dose: heating converted to the equivalent time at 43 °C.",
+  "m": 22
+ },
+ {
+  "t": "IEC",
+  "f": "International Electrotechnical Commission",
+  "d": "Standards body whose standards define acoustic output measurement and safety for ultrasound.",
+  "m": 22
+ },
+ {
+  "t": "FDA",
+  "f": "US Food and Drug Administration",
+  "d": "US regulator for medical devices, including ultrasound output limits.",
+  "m": 22
+ },
+ {
+  "t": "AIUM",
+  "f": "American Institute of Ultrasound in Medicine",
+  "d": "Professional society that issues safety and practice statements.",
+  "m": 22
+ }
+]

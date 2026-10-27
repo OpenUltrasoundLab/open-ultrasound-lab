@@ -413,6 +413,119 @@ def ptxt(s, limit=0):
 SEARCH_INDEX = {'mods': {}, 'e': []}
 
 
+# ---------- glossary (glossary.json): first use of a term per section gets a pop-up card ----------
+GLOSS = json.loads((root / 'glossary.json').read_text()) if (root / 'glossary.json').exists() else []
+GL_BY = {g['t']: g for g in GLOSS}
+GL_RX = re.compile(r'(?<![\w\-/.#&])(' + '|'.join(re.escape(t) for t in sorted(GL_BY, key=len, reverse=True)) + r')(?=s?(?![\w\-]))') if GLOSS else None
+GL_SKIP = {'script', 'style', 'pre', 'code', 'a', 'h1', 'h2', 'h3', 'h4', 'summary', 'canvas', 'svg', 'button', 'select', 'option', 'textarea', 'label', 'abbr', 'title'}
+GL_FIRST = {}   # term -> (module, section id) of first tagged use in its teaching module
+
+
+def gl_id(t):
+    return 'g-' + re.sub(r'[^A-Za-z0-9]+', '-', t).strip('-')
+
+
+def tag_terms(body, n):
+    """Wrap the first use of each glossary term in every h2 section (text only; not math, code, links, headings)."""
+    if not GL_RX:
+        return body, set()
+    out, used, seen, stack = [], set(), set(), []
+    sec = 'top'
+    in_math = False
+    for m in re.finditer(r'(<[^>]+>)|([^<]+)', body):
+        tag, txt = m.group(1), m.group(2)
+        if tag:
+            tm = re.match(r'<(/?)([a-zA-Z0-9]+)([^>]*?)(/?)>', tag)
+            if tm:
+                close, name, attrs, selfc = tm.group(1), tm.group(2).lower(), tm.group(3), tm.group(4)
+                if name == 'h2' and not close:
+                    seen = set(); hid = re.search(r'id="([^"]+)"', attrs); sec = hid.group(1) if hid else sec
+                skip = name in GL_SKIP or re.search(r'class="[^"]*\b(eqn-math|where|tag|sec|num|page-meta|dl-bar)\b', attrs or '')
+                if not close and not selfc and name not in ('br', 'img', 'input', 'hr', 'meta', 'link', 'wbr', 'source', 'col'):
+                    stack.append((name, bool(skip) or (stack[-1][1] if stack else False)))
+                elif close:
+                    for k in range(len(stack) - 1, -1, -1):
+                        if stack[k][0] == name:
+                            del stack[k:]; break
+            out.append(tag); continue
+        if stack and stack[-1][1]:
+            out.append(txt); continue
+        # split off TeX: \( \) \[ \] $$ ; state carries across nodes
+        parts = re.split(r'(\\\(|\\\)|\\\[|\\\]|\$\$)', txt)
+        res = []
+        for part in parts:
+            if part in ('\\(', '\\['): in_math = True; res.append(part); continue
+            if part in ('\\)', '\\]'): in_math = False; res.append(part); continue
+            if part == '$$': in_math = not in_math; res.append(part); continue
+            if in_math or not part:
+                res.append(part); continue
+            def rep(mm):
+                t = mm.group(1); g = GL_BY[t]
+                if t in seen or ('only' in g and n not in g['only']):
+                    return t
+                seen.add(t); used.add(t)
+                if g['m'] == n and t not in GL_FIRST:
+                    GL_FIRST[t] = (n, sec)
+                return f'<abbr class="gl" tabindex="0" data-g="{t}">{t}</abbr>'
+            res.append(GL_RX.sub(rep, part))
+        out.append(''.join(res))
+    return ''.join(out), used
+
+
+def gl_link(t, depth):
+    g = GL_BY[t]; up = '../' * depth
+    n, sec = GL_FIRST.get(t, (g['m'], ''))
+    return up + MODS[n]['url'].replace('index.html', '') + (('#' + sec) if sec else ''), n
+
+
+GL_CSS = """<style>
+abbr.gl { text-decoration: underline dotted; text-decoration-color: var(--muted); text-underline-offset: 3px; cursor: help; }
+abbr.gl:hover, abbr.gl:focus { text-decoration-color: var(--accent); outline: none; }
+.gl-card { position: absolute; z-index: 60; box-sizing: border-box; max-width: min(360px, calc(100vw - 32px)); background: var(--panel, #fff); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.18); padding: 12px 14px; font: 400 0.9rem/1.45 var(--f-body); }
+.gl-card b { font-family: var(--f-display); } .gl-card .f { color: var(--muted); }
+.gl-card p { margin: 6px 0 8px; } .gl-card .l { display: flex; gap: 14px; font-size: 0.82rem; flex-wrap: wrap; }
+.gl-card .x { position: absolute; top: 4px; right: 8px; border: 0; background: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; }
+.gl-list { list-style: none; padding: 0; margin: 0; } .gl-list li { padding: 10px 0; border-bottom: 1px solid var(--rule); scroll-margin-top: 80px; }
+.gl-list li:target { background: var(--accent-wash); } .gl-list .t { font: 600 1rem var(--f-display); } .gl-list .f { color: var(--muted); }
+.gl-list p { margin: 4px 0; } .gl-letters { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0 16px; }
+#gl-filter { width: 100%; max-width: 420px; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; }
+</style>"""
+
+GL_JS = """<script>
+(function () {
+  var D = window.GL_DATA || {}, card = null, cur = null;
+  function close() { if (card) { card.remove(); card = null; } if (cur) { cur.setAttribute('aria-expanded', 'false'); cur = null; } }
+  function open(el) {
+    var g = D[el.dataset.g]; if (!g) return; if (cur === el) return; close(); cur = el;
+    card = document.createElement('div'); card.className = 'gl-card'; card.setAttribute('role', 'dialog');
+    card.innerHTML = '<button class="x" aria-label="Close">\\u00d7</button><b></b> <span class="f"></span><p></p><div class="l"><a class="m"></a><a class="a">All terms</a></div>';
+    card.querySelector('b').textContent = el.dataset.g; card.querySelector('.f').textContent = g[0];
+    card.querySelector('p').textContent = g[1];
+    var m = card.querySelector('.m'); m.href = g[2]; m.textContent = 'Taught in Module ' + g[3];
+    card.querySelector('.a').href = g[4];
+    card.querySelector('.x').onclick = close;
+    document.body.appendChild(card); el.setAttribute('aria-expanded', 'true');
+    var r = el.getBoundingClientRect(), w = card.offsetWidth, x = Math.max(window.scrollX + 16, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - w - 16));
+    var y = r.bottom + window.scrollY + 6; if (r.bottom + card.offsetHeight + 12 > window.innerHeight && r.top > card.offsetHeight + 12) y = r.top + window.scrollY - card.offsetHeight - 6;
+    card.style.left = x + 'px'; card.style.top = y + 'px';
+  }
+  document.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('abbr.gl'); if (a) { e.preventDefault(); cur === a ? close() : open(a); } else if (card && !card.contains(e.target)) close(); });
+  document.addEventListener('keydown', function (e) { var a = e.target.closest && e.target.closest('abbr.gl'); if (a && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(a); } if (e.key === 'Escape') close(); });
+  var hov; document.addEventListener('mouseover', function (e) { if (!window.matchMedia('(hover: hover)').matches) return; var a = e.target.closest && e.target.closest('abbr.gl'); if (a) { clearTimeout(hov); hov = setTimeout(function () { open(a); }, 250); } });
+  document.addEventListener('mouseout', function (e) { var a = e.target.closest && e.target.closest('abbr.gl'); if (a) clearTimeout(hov); });
+})();
+</script>"""
+
+
+def gl_data(terms, depth):
+    d = {}
+    for t in sorted(terms):
+        g = GL_BY[t]; href, mn = gl_link(t, depth)
+        d[t] = [g['f'], g['d'], href, mn, ('../' * depth) + 'glossary.html#' + gl_id(t)]
+    return '<script>window.GL_DATA=' + json.dumps(d, ensure_ascii=False).replace('</', '<\\/') + ';</script>'
+
+
 def add_anchors(body, n):
     """Give sections, demos, rules, equations, cheat-sheet rows and quiz questions stable ids (built output only)."""
     used = set(re.findall(r'\bid="([^"]+)"', body))
@@ -507,7 +620,7 @@ def footer(depth):
     return (f'<footer class="site-foot" role="contentinfo">'
             f'<span class="ver">Open Ultrasound Lab v{esc(VERSION)} · last reviewed {esc(DATE)}</span>'
             f'<span>Text and figures <a href="https://creativecommons.org/licenses/by/4.0/" rel="license">CC BY 4.0</a> · code MIT</span>'
-            f'<a href="{up}disclaimer.html">Disclaimer</a><a href="{up}errata.html">Errata</a>'
+            f'<a href="{up}glossary.html">Glossary</a><a href="{up}disclaimer.html">Disclaimer</a><a href="{up}errata.html">Errata</a>'
             f'<a href="{up}cite.html">Cite</a><a href="{up}about.html">About</a>'
             f'<a href="{up}contribute.html">Contribute</a>'
             f'<span>By M. Nguyen (<a href="{attr(AUTHOR)}" rel="noopener">LinkedIn</a>), with Claude (Anthropic)</span>'
@@ -526,7 +639,7 @@ def topbar(depth, cur=''):
     up = '../' * depth
     items = [('index.html#map', 'Modules', 'map'), ('index.html#paths', 'Learning paths', 'paths'),
              ('formula-sheet/index.html', 'Formula sheet', 'sheet'), ('interview/index.html', 'Interview prep', 'interview'),
-             ('about.html', 'About', 'about'), ('errata.html', 'Errata', 'errata')]
+             ('glossary.html', 'Glossary', 'glossary'), ('about.html', 'About', 'about'), ('errata.html', 'Errata', 'errata')]
     nav = ''.join(f'<a href="{up}{h}"' + (' aria-current="page"' if k == cur else '') + f'>{t}</a>' for h, t, k in items)
     return (f'<a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="{up}index.html">Open Ultrasound Lab</a>'
             f'<nav aria-label="Site">{nav}</nav>{search_box("top", depth)}</header>\n')
@@ -604,6 +717,9 @@ for a, b in SHELL_FIXES:
         sys.exit('shell.html changed; cannot apply fix: ' + a[:60])
     shell_body = shell_body.replace(a, b, 1)
 
+for _n, _M in MODS.items():   # glossary pre-pass: where each term is first used in its teaching module
+    tag_terms(add_anchors(re.sub(r'<script\b[^>]*>.*?</script>', '', _M['src'], flags=re.S), _n), _n)
+
 link_count = 0
 for n, M in MODS.items():
     from_dir = posixpath.dirname(M['url'])
@@ -618,6 +734,7 @@ for n, M in MODS.items():
     body = add_anchors(body, n)
     index_module(n, M, body)
     body = inline_code(body)
+    body, gl_used = tag_terms(body, n)
     files = re.findall(r'<code data-file="(matlab/[^"]+)"', body)
     if files:
         seen = list(dict.fromkeys(files))
@@ -635,9 +752,9 @@ for n, M in MODS.items():
             f'<a href="../../errata.html">Errata</a></div>')
     main = meta + '\n' + body + '\n' + footer(2)
     out = shell_body.replace('<!--RAIL-->', rail_html(n)).replace('<!--HOME-->', '').replace('<!--MODULES-->', main)
-    out = out.replace('<!--MODULE-SCRIPTS-->', scripts_txt + '\n' + ANCHOR_JS)
+    out = out.replace('<!--MODULE-SCRIPTS-->', scripts_txt + '\n' + ANCHOR_JS + '\n' + gl_data(gl_used, 2) + GL_JS)
     out = out.replace('<!--MATHJAX-->', mj_tag(2))
-    out = head(title, clip(M['lede']), 2) + f'<body data-single="m{n}">\n' + out + '\n</body>\n</html>\n'
+    out = head(title, clip(M['lede']), 2, GL_CSS) + f'<body data-single="m{n}">\n' + out + '\n</body>\n</html>\n'
     leftover = re.findall(r'\{\{[A-Z][A-Z0-9_]+\}\}', out)
     if leftover:
         sys.exit(f'm{n}: unresolved placeholders {sorted(set(leftover))}')
@@ -867,6 +984,29 @@ def audit_flags_md():
     return out
 
 
+
+def glossary_page():
+    if not GLOSS:
+        return
+    items, letters, first = [], [], {}
+    for g in sorted(GLOSS, key=lambda g: g['t'].upper()):
+        L = g['t'][0].upper()
+        if L not in letters:
+            letters.append(L); first[L] = gl_id(g['t'])
+        href, mn = gl_link(g['t'], 0)
+        items.append(f'<li id="{gl_id(g["t"])}" data-k="{attr((g["t"] + " " + g["f"]).lower())}"><span class="t">{esc(g["t"])}</span> '
+                     f'<span class="f">{esc(g["f"])}</span><p>{esc(g["d"])}</p>'
+                     f'<a href="{attr(href)}">Module {mn:02d} · {esc(MODS[mn]["short"])}</a></li>')
+        SEARCH_INDEX['e'].append(['gl', f'{g["t"]}: {g["f"]}. {g["d"]}', mn, GL_FIRST.get(g['t'], (mn, ''))[1]])
+    body = (f'<div class="hero"><h1>Glossary</h1><p class="lede">{len(GLOSS)} abbreviations used across the modules. '
+            'In the modules, the first use of a term in each section is underlined with dots: hover, tap or press Enter on it to see the definition.</p></div>'
+            '<p><input id="gl-filter" type="search" placeholder="Filter terms, e.g. SNR or coherence" aria-label="Filter glossary"></p>'
+            '<p class="gl-letters">' + ' '.join(f'<a href="#{first[L]}">{L}</a>' for L in letters) + '</p>'
+            '<ul class="gl-list">' + '\n'.join(items) + '</ul>'
+            '<script>(function(){var f=document.getElementById("gl-filter"),li=[].slice.call(document.querySelectorAll(".gl-list li"));'
+            'f.addEventListener("input",function(){var q=f.value.trim().toLowerCase();li.forEach(function(e){e.hidden=q&&e.dataset.k.indexOf(q)<0;});});})();</script>')
+    static_page('glossary.html', 'Glossary — Open Ultrasound Lab', 'Abbreviations and key terms used in Open Ultrasound Lab, with short definitions and links to the modules that teach them.', GL_CSS + body, 'glossary')
+
 def errata_page():
     data = json.loads((root / 'errata.json').read_text())
     flags = AUD['flags']
@@ -1018,6 +1158,7 @@ if __name__ == '__main__':
     pass
 formula_sheet()
 assets()
+glossary_page()
 idx_bytes, idx_n = write_search_index()
 total = sum(f.stat().st_size for f in PUB.rglob('*') if f.is_file())
 print(f'public/: {len(written)} pages, {len(MODS)} modules, {n_questions} interview questions, {n_flags} flagged audit items, '
