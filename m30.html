@@ -330,7 +330,7 @@
     <p>Tissue data are better described by a power law (a spring-pot, or fractional derivative model; KVFD adds a spring in parallel). With \(\mu^{*} = \mu_0 (j\omega/\omega_0)^{n}\), \(0 \le n \le 1\),</p>
     <div class="eqn" id="m30-eq18">
       <div class="eqn-body"><div class="eqn-math">\[ c_{\mathrm{ph}}(\omega) = \frac{c_0}{\cos(n\pi/4)}\left(\frac{\omega}{\omega_0}\right)^{n/2}, \qquad \alpha(\omega) = \frac{\omega}{c_{\mathrm{ph}}}\tan\frac{n\pi}{4}, \qquad c_g = \frac{c_{\mathrm{ph}}}{1 - n/2} \]</div><span class="eqn-no">(30.18)</span></div>
-      <dl class="where"><dt>\(n\)</dt><dd>power-law exponent: 0 = elastic, 1 = Newtonian fluid</dd><dt>\(c_0\)</dt><dd>\(\sqrt{\mu_0/\rho}\) at the reference frequency \(\omega_0\), m/s</dd><dt>\(\omega\)</dt><dd>angular frequency, rad/s</dd><dt>\(c_{\mathrm{ph}},\ \alpha,\ c_g\)</dt><dd>phase velocity, shear-wave attenuation and group velocity, as in (30.16), (30.17)</dd><dt>\(\tan,\ \cos\)</dt><dd>argument in rad</dd></dl>
+      <dl class="where"><dt>\(n\)</dt><dd>power-law exponent: 0 = elastic, 1 = Newtonian fluid</dd><dt>\(c_0\)</dt><dd>\(\sqrt{\mu_0/\rho} = \sqrt{\lvert\mu^{*}(\omega_0)\rvert/\rho}\), m/s; the phase velocity at \(\omega_0\) is \(c_0/\cos(n\pi/4)\) (Demo 30.6 and m30_viscoelastic_dispersion.m instead set \(c_{\mathrm{ph}}(\omega_0) = c_0\))</dd><dt>\(\omega\)</dt><dd>angular frequency, rad/s</dd><dt>\(c_{\mathrm{ph}},\ \alpha,\ c_g\)</dt><dd>phase velocity, shear-wave attenuation and group velocity, as in (30.16), (30.17)</dd><dt>\(\tan,\ \cos\)</dt><dd>argument in rad</dd></dl>
       <span class="note">Speed and attenuation are tied: one parameter \(n\) sets both, consistent with Kramers–Kronig (Ormachea and Parker 2020 exploit this to get attenuation from dispersion). \(n\) = 0.2: \(c_{\mathrm{ph}} \propto \omega^{0.1}\), a factor \(10^{0.1}\) = 1.26 per decade of frequency, and \(c_g = 1.11\,c_{\mathrm{ph}}\) at every frequency.</span>
     </div>
     <p>Three practical consequences. <strong>Vendors disagree</strong> partly because they push at different frequencies, track at different frame rates and apply different estimators, so they sample different points of the same dispersion curve. <strong>Dispersion is a biomarker:</strong> shear-wave dispersion slope (m/s per kHz), attenuation and the power-law exponent are reported as viscosity surrogates for inflammation and steatosis, and Demo 30.6 computes all three. <strong>kPa hides the model:</strong> \(E = 3\rho c^{2}\) applied to a group velocity in a dispersive medium is neither the storage modulus nor the loss modulus at any frequency.</p>
@@ -438,7 +438,7 @@
     </div>
     <div class="rule">
       <div class="say">A strain image is a stiffness image only under uniform stress: a stiff cylinder 4 times harder shows a strain ratio of 2.5.</div>
-      <div class="keynum"><span>ε<sub>∞</sub>/ε<sub>inc</sub> = (1 + r)/2</span><span>soft: capped at 2</span></div>
+      <div class="keynum"><span>ε<sub>∞</sub>/ε<sub>inc</sub> = (1 + r)/2</span><span>soft: ε<sub>inc</sub>/ε<sub>∞</sub> ≤ 2</span></div>
       <div class="why"><p>Stress concentrates in stiff inclusions and avoids soft ones; for a circular inclusion in incompressible plane strain the inside strain is \(2\varepsilon_\infty/(1+r)\) <span class="eqref">(30.5)</span>. Only layers in series reproduce the modulus ratio. Strain ratios are therefore monotonic but compressed and geometry-dependent.</p><div class="rule-fig"><span class="prov model">Approx. model</span><canvas id="m30-rf-4" aria-label="Strain ratio versus modulus ratio for layers and cylinders"></canvas></div></div>
       <div class="limits">Plane strain, circular section, far-field uniform loading, linear elastic; spheres and slipping interfaces give different factors.</div>
     </div>
@@ -487,7 +487,7 @@
     <div class="rule">
       <div class="say">Displacement and particle velocity give different speeds in dispersive tissue, because jω tilts the spectrum up.</div>
       <div class="keynum"><span>centroid 237 Hz (v) vs ≈ 100 Hz (u)</span><span>TTP 1.85 vs 1.62 m/s</span></div>
-      <div class="why"><p>Differentiation multiplies the spectrum by ω. The velocity trace of Demo 30.4 centres at 237 Hz, the displacement trace near 105 Hz, and a positively dispersive medium returns a higher speed for the higher band: 1.86 versus 1.62 m/s by TTP at η = 0.4 Pa·s.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Spectra of the Demo 30.4 source at 3 mm without attenuation: push sinc × (jω)<sup>−1/2</sup> × high-pass, with and without the extra jω.</span><canvas id="m30-rf-12" aria-label="Displacement and particle velocity spectra"></canvas></div></div>
+      <div class="why"><p>Differentiation multiplies the spectrum by ω. The velocity trace of Demo 30.4 centres at 237 Hz, the displacement trace near 105 Hz, and a positively dispersive medium returns a higher speed for the higher band: 1.85 versus 1.62 m/s by TTP at η = 0.4 Pa·s.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Spectra of the Demo 30.4 source at 3 mm without attenuation: push sinc × (jω)<sup>−1/2</sup> × high-pass, with and without the extra jω.</span><canvas id="m30-rf-12" aria-label="Displacement and particle velocity spectra"></canvas></div></div>
       <div class="limits">Elastic media: identical speeds. The size of the gap depends on push length and viscosity.</div>
     </div>
     <div class="rule">
@@ -708,7 +708,7 @@ const G1 = [
 ];
 /* ================= card grid 30.2 ================= */
 const G2 = [
-  { prov: 'exact', q: 'How much does the LSQ span tame strain noise?', a: '<b>σ<sub>ε</sub> = (σ<sub>u</sub>/Δ)√(12/(N(N²−1)))</b>: √2 = 1.41 for N = 2, 0.129 for 9, 0.035 for 21 (independent errors). The price is strain resolution ≈ (N − 1)Δ + kernel.',
+  { prov: 'exact', q: 'How much does the LSQ span tame strain noise?', a: '<b>σ<sub>ε</sub> = (σ<sub>u</sub>/Δ)√(12/(N(N²−1)))</b>: √2 = 1.41 for N = 2, 0.129 for 9, 0.036 for 21 (independent errors). The price is strain resolution ≈ (N − 1)Δ + kernel.',
     draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [2, 25], [-1.7, 0.3], { lab: 'log₁₀ σ_ε·Δ/σ_u vs N', ticks: [[2, '2'], [5, '5'], [9, '9'], [15, '15'], [21, '21'], [25, '25']], hlines: [[L10(Math.SQRT2), '√2'], [L10(0.129), '0.13']] });
       Mm().curve(x, m, N => L10(Math.sqrt(12 / (N * (N * N - 1)))), c.a, { w: 2 }); [2, 9, 21].forEach(N => dot(x, m, N, L10(Math.sqrt(12 / (N * (N * N - 1)))), c.b)); } },
   { prov: 'model', q: 'Does the strain ratio equal the modulus ratio?', a: 'Only for layers (dashed). A circular inclusion in an incompressible matrix shows <b>ε<sub>∞</sub>/ε<sub>inc</sub> = (1 + r)/2</b>: r = 4 reads 2.5, r = 10 reads 5.5. Soft inclusions (r &lt; 1) are capped at 0.5.',
@@ -1143,7 +1143,7 @@ const VIS = [
   { prov: 'exact', q: 'How much slower is a Lamb wave in a thin layer?', a: 'Exact A0 root (c<sub>t</sub> = 3 m/s): at 200 Hz, <b>1.00, 1.37, 1.80 m/s</b> for h = 0.5, 1, 2 mm. Thinner and lower in frequency means slower; all approach 0.955 c<sub>t</sub> at high f·h.',
     draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [50, 2000], [0, 3.2], { lab: 'c_A0 (m/s) vs f (Hz), c_t = 3 m/s', ticks: [[200, '200'], [1000, '1000'], [2000, '2000']], hlines: [[2.866, '0.955 c_t']] });
       [[0.5e-3, c.d], [1e-3, c.a], [2e-3, c.b]].forEach(([h, col]) => { const fs = [], cs = []; for (let f = 50; f <= 2000; f += 50) { fs.push(f); cs.push(lambA0(f, h, 3)); } poly(x, m, fs, cs, col, { w: 2 }); }); } },
-  { prov: 'exact', q: 'How does speed depend on the angle to the fibres?', a: '<b>ρc² = μ<sub>T</sub>sin²θ + μ<sub>L</sub>cos²θ</b> (SH). Resting brachialis (5.9 / 1.6 kPa, Gennisson et al. 2010): 2.42 m/s along, 1.26 m/s across.',
+  { prov: 'exact', q: 'How does speed depend on the angle to the fibres?', a: '<b>ρc² = μ<sub>T</sub>sin²θ + μ<sub>L</sub>cos²θ</b> (SH). Resting brachialis (5.9 / 1.6 kPa, Gennisson et al. 2010): 2.43 m/s along, 1.26 m/s across.',
     draw: cv => { const c = Mm().col(); const { x, m } = fig(cv, H, [0, 90], [0, 3], { lab: 'c (m/s) vs θ (deg)', ticks: [[0, '0'], [45, '45'], [90, '90']], hlines: [[2.42, '2.42'], [1.26, '1.26']] });
       Mm().curve(x, m, t => Math.sqrt((1580 * Math.sin(t * PI / 180) ** 2 + 5860 * Math.cos(t * PI / 180) ** 2) / RHO), c.a, { w: 2 }); } },
   { prov: 'exact', q: 'How large can the phase-gradient kernel be?', a: '<b>Δ &lt; λ/4 = c/(4f)</b>: for 2 m/s, 1.25 mm at 400 Hz and 2.5 mm at 200 Hz; for soft 1 m/s tissue at 500 Hz only 0.5 mm. Stiff lesions tolerate larger kernels than soft ones.',

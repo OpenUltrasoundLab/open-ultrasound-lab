@@ -222,7 +222,7 @@
     <tbody>
       <tr><td>Unnormalized</td><td>1</td><td>\(1/N\)</td><td class="num">\(AN/2\)</td><td class="num">\(Nc\)</td><td>MATLAB <code>fft</code>/<code>ifft</code>, numpy, FFTW</td></tr>
       <tr><td>Unitary</td><td>\(1/\sqrt N\)</td><td>\(1/\sqrt N\)</td><td class="num">\(A\sqrt N/2\)</td><td class="num">\(\sqrt N\,c\)</td><td>Linear algebra (\(\mathbf{F}/\sqrt N\) is unitary, Parseval without factors)</td></tr>
-      <tr><td>Amplitude</td><td>\(1/N\)</td><td>1</td><td class="num">\(A/2\)</td><td class="num">\(c\)</td><td>Fourier-series coefficients; one-sided amplitude = \(2\lvert X[k]\rvert/N\)</td></tr>
+      <tr><td>Amplitude</td><td>\(1/N\)</td><td>1</td><td class="num">\(A/2\)</td><td class="num">\(c\)</td><td>Fourier-series coefficients; one-sided amplitude = 2 × the normalized coefficient, i.e. \(2\lvert X[k]\rvert/N\) with \(X[k]\) the unnormalized DFT (0 &lt; k &lt; N/2)</td></tr>
     </tbody>
   </table></div>
   <div class="prose"><p>Noise behaves differently from a tone. White noise and a bin-centred tone scale differently with N (unnormalized DFT):</p></div>
@@ -243,7 +243,7 @@
         <div class="ctrl"><label for="m2-d3-p">Tone phase φ <output id="m2-d3-p-o">30°</output></label><input type="range" id="m2-d3-p" min="-180" max="180" step="5" value="30"></div>
         <div class="ctrl"><label for="m2-d3-view">Show</label><select id="m2-d3-view"><option value="ri" selected>Re X and Im X</option><option value="mp">|X| and ∠X</option></select></div>
         <div class="ctrl"><label for="m2-d3-ord">Bin order</label><select id="m2-d3-ord"><option value="fft" selected>fft order 0 … N−1</option><option value="shift">fftshift −N/2 … N/2−1</option></select></div>
-        <div class="ctrl"><label for="m2-d3-norm">Scaling</label><select id="m2-d3-norm"><option value="1" selected>none (MATLAB fft)</option><option value="n">1/N (amplitude)</option><option value="r">1/√N (unitary)</option></select></div>
+        <div class="ctrl"><label for="m2-d3-norm">Scaling</label><select id="m2-d3-norm"><option value="1" selected>none (MATLAB fft)</option><option value="n">1/N (two-sided coefficients)</option><option value="r">1/√N (unitary)</option></select></div>
         <div class="readout" id="m2-d3-read"></div>
       </div>
     </div>

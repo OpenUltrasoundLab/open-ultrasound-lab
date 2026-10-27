@@ -65,7 +65,7 @@
     <h3>Biased vs unbiased correlation estimates, and FFT correlation</h3>
     <p>For a single record of length \(N\) the sample correlation can be normalized two ways:</p>
     <div class="eqn" id="m11-eq7">
-      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \hat{R}_b(k) &amp;= \frac{1}{N} \sum_{n=0}^{N-1-\lvert k\rvert} x[n]\, y[n+k] \\ \hat{R}_u(k) &amp;= \frac{1}{N - \lvert k\rvert} \sum_{n=0}^{N-1-\lvert k\rvert} x[n]\, y[n+k] \end{aligned} \]</div><span class="eqn-no">(11.7)</span></div>
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \hat{R}_b(k) &amp;= \frac{1}{N} \sum_{n=\max(0,-k)}^{\min(N-1,N-1-k)} x[n]\, y[n+k] \\ \hat{R}_u(k) &amp;= \frac{1}{N - \lvert k\rvert} \sum_{n=\max(0,-k)}^{\min(N-1,N-1-k)} x[n]\, y[n+k] \end{aligned} \]</div><span class="eqn-no">(11.7)</span></div>
     <dl class="where"><dt>\(\hat{R}_b(k),\ \hat{R}_u(k)\)</dt><dd>biased and unbiased sample cross-correlation at lag \(k\)</dd><dt>\(x[n],\ y[n]\)</dt><dd>records of length \(N\), as in (11.3)</dd><dt>\(N\)</dt><dd>record length, samples</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(k\)</dt><dd>lag, samples</dd><dt>\(\lvert k\rvert\)</dt><dd>absolute value of the lag</dd></dl>
       <span class="note">\(\mathrm{E}[\hat{R}_b(k)] = (1 - \lvert k\rvert/N)\, R(k)\): a triangular taper that pulls the peak toward \(k = 0\) (a delay bias that is small only when \(\lvert D\rvert \ll N\)). \(\hat{R}_u\) is unbiased but its variance blows up at large lags, and it is not guaranteed positive semidefinite. NCC with a fixed kernel and a sliding search window (as used in the demos) avoids both: every lag uses exactly \(W\) products.</span>
     </div>

@@ -1,6 +1,45 @@
 {
  "entries": [
   {
+   "version": "1.2",
+   "date": "2026-10-26",
+   "title": "Corrections from two external reviews; glossary, search, cross-links and licence updates",
+   "body": "Four external reviews (26–27 Oct 2026) were checked against the source; every confirmed issue is fixed below. Prompted by the second review, 15 modules (06–10, 13, 16–18, 20–22, 25, 30, 32) then had a second equation-by-equation pass for domains, units, index ranges and stated assumptions, with every worked number recomputed; 58 small corrections, summarized below. The second review also ran all 159 MATLAB/Octave scripts in GNU Octave 8.4 (all completed) and 609 numerical checks (604 passed; the 5 failures were the defects fixed here). Glossary extended to 177 terms, plain \"Module NN\" and \"Section NN.x\" references are now links, page titles and search metadata improved. Licensing clarified: content stays CC BY 4.0 and the MATLAB scripts and demo code stay MIT; from this version the site design and build tools are all rights reserved (see About).",
+   "items": [
+    "Module 08, after Eq. 08.3: the factor 2 does not \"restore the energy of the discarded half\"; it makes Re{x<sub>a</sub>} = x, and the analytic signal then carries twice the energy of a zero-mean x. Text corrected.",
+    "Module 15, Eq. 15.1: p<sub>0</sub> was used both for the rest pressure and for the acoustic pressure amplitude. The rest pressure is now p<sub>eq</sub>.",
+    "Module 25, 25.1 and Demo 25.6: method counts made consistent (twelve methods introduced; eleven compared in Demo 25.6, ten of them computed live in the page and ADMIRE precomputed).",
+    "Module 27, Eq. 27.1: autocorrelation written with the complex conjugate, r[l] = E{x[n+l] x*[n]}, consistent with Module 07 (no change for real RF).",
+    "Module 01, Eq. 01.12: the period is T = 1/|f| for f ≠ 0 (negative frequencies are allowed; a constant has no period).",
+    "Module 02, Demo 02.3: the 1/N scaling option is labelled \"two-sided coefficients\".",
+    "Module 07, Eq. 07.7 and summary table: ρ = cos θ and the range [−1, 1] hold for real variables; complex correlations satisfy |ρ| ≤ 1. Eq. 07.24 is now stated as the narrowband (separated-lobe) approximation.",
+    "Module 10, Eq. 10.8: the stationary-phase window argument is (f − f<sub>0</sub>)/B, not (f − f<sub>0</sub>)T/B; S is the analytic-signal spectrum.",
+    "Module 11, Eq. 11.7: summation limits corrected for negative lags, n = max(0, −k) … min(N−1, N−1−k).",
+    "Module 13, Eq. 13.2: the pseudo-inverse returns A<sup>+</sup>A x (the row-space projection of x), which equals x only for full column rank.",
+    "Module 22: Nowicki (2020) DOI corrected to 10.11152/mu-2372 (verified in Crossref).",
+    "Module 25, Eq. 25.12: the ridge term μ‖a‖² added to the FXPF objective, so the cost matches its closed-form solution.",
+    "Shared eigenvalue routine used by several demos: the stopping test is now relative to the matrix scale (it stopped early for very small matrices).",
+    "Build tools read and write UTF-8 explicitly, so the documented build also works on Windows.",
+    "Errata: the 57 rechecked flags include one duplicate, so the dispositions sum to 56 distinct claims; wording clarified. The Module 26 open item is narrowed: PICMUS Figs. 2–3, Oelze & Mamou Fig. 3 and gCNR Fig. 1 are now confirmed.",
+    "Second pass, Module 06: noise edge written σ<sub>noise</sub>(√(N<sub>x</sub>N<sub>z</sub>) + √n) (σ<sub>n</sub> clashed with the n-th singular value); conditions added for power iteration (c<sub>1</sub> ≠ 0), κ<sub>2</sub> = σ<sub>1</sub>/σ<sub>n</sub> (full column rank) and the Marchenko–Pastur range.",
+    "Module 07: Eq. 07.31 units (enter c in mm/µs); E[xy] = E[x]E[y] for uncorrelated variables stated for real variables; mean removal stated in 07.16; lag range of 07.25.",
+    "Module 08: the condition for |IQ| = |x<sub>a</sub>| with an ideal low-pass (echo band inside (0, 2f<sub>d</sub>)); u(0) = ½ and sgn(0) = 0 defined.",
+    "Module 09: forward–backward filtering gives |H|² only for real taps.",
+    "Module 10: the raw-echo centroid shift at 6 cm is −2.6 µs (−2.64), not −2.5 µs; the earlier value came from an FFT wrap-around in the lab script and Demo 10.5, both fixed; Barker/Golay sum limits; FDA Track 3 row now includes the I<sub>SPPA.3</sub> ≤ 190 W/cm² branch.",
+    "Module 13: the ill-posedness rule card and cheat sheet now carry the null-space term A<sup>+</sup>Ax; I2 convention note; a cross-reference and the universal-threshold N defined.",
+    "Module 16: ε<sup>S</sup> = ε<sup>T</sup>(1 − k<sup>2</sup>) replaced by the correct mode-free permittivity relation (the module's own table gives ε<sup>S</sup>/ε<sup>T</sup> = 0.43, not 1 − k<sub>t</sub><sup>2</sup>); loaded-plate Q renamed to avoid a clash with the material Q<sub>m</sub>.",
+    "Modules 17, 18, 20, 21: symbol clashes resolved (lens reflection coefficient vs radius, impedance ratio vs round-trip ratio); Demo 18.1 pull-in hint corrected (halving the vacuum gap cuts V<sub>PI</sub> by about 2.6, not 2.8, because the insulator stays); |sin(πε)| for signed ε in 20.4; voltage-noise and Friis cascades no longer called equivalent; k-space correction uses the unnormalized sinc (21.7).",
+    "Module 22: interview I6 push fluence given for both Gaussian (0.09 J/cm²) and rectangular (0.12 J/cm²) 400 µs bursts; the chirp intensity example now states frequency and reference pulse.",
+    "Module 25: ADMIRE predictor index renamed (it clashed with the imaginary unit j); FXPF noise fraction kept, not lost, is p/(N−p); power-law exponent and delay-error symbols disambiguated; several index ranges and definitions completed.",
+    "Module 30: c<sub>0</sub> in 30.18 defined as in the demo and script (phase velocity at ω<sub>0</sub>); strain-ratio wording; two card values rounded correctly (0.036, 2.43 m/s).",
+    "Module 32: ρ in 32.10 is the magnitude of the complex correlation; the 14 m/s Imbault cut-off gap is marked as a working value wherever it is used.",
+    "Module 01: Demo 01.1 hint now says the cos trace is unchanged under a direction flip only for φ = 0; the readout shows T = 1/|f|. Module 02: the one-sided amplitude row distinguishes raw and normalized DFT coefficients.",
+    "Module 22: new caveat that the calculators are not a substitute for IEC 62359 measurement, IEC 60601-2-37 probe-temperature testing or a conformity assessment, and that a displayed TI excludes transducer self-heating; the two-branch non-scanning TIB and the IEC 60601-2-37:2024 temperature tests (simulated use 43 °C; still air, rise plus offset ≤ 27 °C at 23 ± 3 °C) are described as reported by external reviews and still unconfirmed against the official text.",
+    "Module 25: new pitfall with a worked example of MVDR self-nulling under a small steering error (−37.1 dB re DAS, recovered by diagonal loading), reproduced independently by an external review.",
+    "New review record at the top of this page, with a per-module table; each module page links to its row (\"Reviewed\")."
+   ]
+  },
+  {
    "version": "1.1",
    "date": "2026-10-26",
    "title": "Glossary added",
@@ -11,7 +50,7 @@
    "version": "1.0",
    "date": "2026-10-26",
    "title": "First public release",
-   "body": "33 modules in five parts, formula sheet, interview collection and MATLAB/Octave scripts. Before release every module was audited claim by claim (about 1,400 claims checked; wrong and imprecise statements fixed and the fixes re-verified). The 57 claims that audit could not confirm were rechecked against primary sources on 26 October 2026: 32 confirmed, 9 corrected, 12 reworded or removed; the 3 items below are still open.",
+   "body": "33 modules in five parts, formula sheet, interview collection and MATLAB/Octave scripts. Before release every module was audited claim by claim (about 1,400 claims checked; wrong and imprecise statements fixed and the fixes re-verified). The 57 flags that audit could not confirm (56 distinct claims; one flag was a duplicate) were rechecked against primary sources on 26 October 2026: 32 confirmed, 9 corrected, 12 reworded or removed; the 3 items below are still open.",
    "items": [],
    "flagged": "from-audits"
   }

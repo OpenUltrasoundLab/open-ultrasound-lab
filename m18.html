@@ -107,7 +107,7 @@
         <div class="readout" id="m18-pl-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> at 0.9 \(V_{\mathrm{PI}}\) the distributed plate gives \(k^{2} \approx 0.26\) where the piston promises 0.43; the gap between the curves is the cost of a bending membrane. Thicken the insulator and watch the snap-back voltage (left end of the red branch) rise toward \(V_{\mathrm{PI}}\): the hysteresis window closes. Halve the gap: \(V_{\mathrm{PI}}\) falls by \(2^{1.5} \approx 2.8\) (it scales as \(g_{\mathrm{eff}}^{3/2}\)).</div>
+    <div class="demo-foot"><strong>Try:</strong> at 0.9 \(V_{\mathrm{PI}}\) the distributed plate gives \(k^{2} \approx 0.26\) where the piston promises 0.43; the gap between the curves is the cost of a bending membrane. Thicken the insulator and watch the snap-back voltage (left end of the red branch) rise toward \(V_{\mathrm{PI}}\): the hysteresis window closes. Halve the vacuum gap (0.2 → 0.1 µm): \(V_{\mathrm{PI}}\) falls by \((0.213/0.113)^{1.5} \approx 2.6\), not \(2^{1.5} \approx 2.8\), because it scales as \(g_{\mathrm{eff}}^{3/2}\) and the 13 nm insulator term does not halve.</div>
   </div>
 
   <!-- ===================== 18.2 ===================== -->
@@ -552,7 +552,7 @@
     <div class="rule">
       <div class="say">PVDF is a receiver: small \(d_{33}\), huge \(g_{33}\), water-matched.</div>
       <div class="keynum"><span>\(g_{33}\) = 0.33 V·m/N</span><span>≈ 18 × PZT-5H</span><span>\(Z \approx\) 4 MRayl, \(k_t\) 0.14</span></div>
-      <div class="why"><p>\(g = d/\varepsilon^{T}\) is the open-circuit field per unit stress. PVDF's \(d_{33}\) is 20 times smaller than PZT-5H's but its permittivity is 300–500 times smaller, so its receive voltage per unit thickness is larger. Its impedance is close to water's, so it barely perturbs the field it measures: the basis of membrane and needle hydrophones.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">\(g_{33} = d_{33}/(\varepsilon_0\varepsilon_{33}^{T})\) from Table 18.1 mid values; PVDF datasheet value.</span><canvas id="m18-rf-17" aria-label="Receive constant g33 bars"></canvas></div></div>
+      <div class="why"><p>\(g = d/\varepsilon^{T}\) is the open-circuit field per unit stress. PVDF's \(d_{33}\) is 20 times smaller than PZT-5H's but its permittivity is 300–500 times smaller, so its receive voltage per unit thickness is larger. Its impedance is close to water's, so it barely perturbs the field it measures: the basis of membrane and needle hydrophones.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">\(g_{33} = d_{33}/\varepsilon_{33}^{T}\) with \(d_{33}\) and \(\varepsilon_{33}^{T}/\varepsilon_0\) from Table 18.1 mid values; PVDF datasheet value.</span><canvas id="m18-rf-17" aria-label="Receive constant g33 bars"></canvas></div></div>
       <div class="limits">Low \(k_t\) makes PVDF a poor transmitter; \(\tan\delta \approx\) 0.25 at 1 MHz and a 70–80 °C limit restrict it further.</div>
     </div>
   </div>

@@ -1,0 +1,442 @@
+{
+ "updated": "2026-10-27",
+ "passes": [
+  {
+   "date": "Oct 2026",
+   "title": "Built-in checks",
+   "detail": "Every number and figure comes from code that runs in the page or in the MATLAB/Octave labs; every page is rendered on desktop and phone and every internal link is checked before each release."
+  },
+  {
+   "date": "Oct 2026",
+   "title": "Expert review",
+   "detail": "The author, a practising ultrasound engineer, and several reviewers from the ultrasound field reviewed modules in their areas for technical accuracy, clarity and practical relevance."
+  },
+  {
+   "date": "Oct 2026",
+   "title": "Claim-by-claim audit of all 33 modules",
+   "detail": "Each module's key results were re-derived independently and every quantitative claim and citation was checked: 1,405 claims checked, 212 wrong or imprecise statements fixed and re-verified."
+  },
+  {
+   "date": "26 Oct 2026",
+   "title": "Primary-source recheck",
+   "detail": "The 56 claims the audit could not confirm were rechecked against primary sources: 32 confirmed, 9 corrected, 12 reworded or removed, 3 still open (listed below)."
+  },
+  {
+   "date": "26 Oct 2026",
+   "title": "Independent external review",
+   "detail": "An independent external review of the site and repository; 5 issues confirmed and fixed."
+  },
+  {
+   "date": "27 Oct 2026",
+   "title": "Reproducible external audit",
+   "detail": "All 159 MATLAB/Octave labs were run in GNU Octave 8.4 (all completed), 609 numerical checks were run (604 passed; the 5 failures were real defects, now fixed) and 127 DOIs were resolved (one wrong DOI, now fixed); 11 issues fixed in total."
+  },
+  {
+   "date": "27 Oct 2026",
+   "title": "Second equation-by-equation pass",
+   "detail": "15 higher-risk modules (06–10, 13, 16–18, 20–22, 25, 30, 32) re-checked for domains, units, index ranges and stated assumptions, with every worked number recomputed: 58 small corrections, including one lab-script bug."
+  },
+  {
+   "date": "27 Oct 2026",
+   "title": "Standards and robustness review",
+   "detail": "Module 22 compared with the IEC 62359 and IEC 60601-2-37 requirements as reported by an external review (clearly marked where unconfirmed); Module 25 adaptive beamforming checked against independent reference cases."
+  },
+  {
+   "date": "ongoing",
+   "title": "Your review",
+   "detail": "More expert reviewers are welcome, and reviewers are credited here by name if they wish. Use the \"Report an error\" link on any module page."
+  }
+ ],
+ "modules": {
+  "1": {
+   "claims": 31,
+   "fixed_first": 3,
+   "unconfirmed_first": 0,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "2": {
+   "claims": 32,
+   "fixed_first": 3,
+   "unconfirmed_first": 0,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "3": {
+   "claims": 37,
+   "fixed_first": 3,
+   "unconfirmed_first": 2,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "4": {
+   "claims": 36,
+   "fixed_first": 5,
+   "unconfirmed_first": 3,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "5": {
+   "claims": 25,
+   "fixed_first": 3,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "6": {
+   "claims": 23,
+   "fixed_first": 7,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "7": {
+   "claims": 37,
+   "fixed_first": 6,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "8": {
+   "claims": 32,
+   "fixed_first": 4,
+   "unconfirmed_first": 0,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "External review 1",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "9": {
+   "claims": 29,
+   "fixed_first": 6,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "10": {
+   "claims": 24,
+   "fixed_first": 4,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "11": {
+   "claims": 38,
+   "fixed_first": 2,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "12": {
+   "claims": 31,
+   "fixed_first": 4,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "13": {
+   "claims": 49,
+   "fixed_first": 7,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "14": {
+   "claims": 55,
+   "fixed_first": 5,
+   "unconfirmed_first": 0,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "15": {
+   "claims": 71,
+   "fixed_first": 8,
+   "unconfirmed_first": 3,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "External review 1"
+   ],
+   "open": []
+  },
+  "16": {
+   "claims": 61,
+   "fixed_first": 14,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "17": {
+   "claims": 52,
+   "fixed_first": 11,
+   "unconfirmed_first": 2,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "18": {
+   "claims": 36,
+   "fixed_first": 7,
+   "unconfirmed_first": 4,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "19": {
+   "claims": 68,
+   "fixed_first": 10,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "20": {
+   "claims": 35,
+   "fixed_first": 10,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "21": {
+   "claims": 33,
+   "fixed_first": 7,
+   "unconfirmed_first": 3,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "22": {
+   "claims": 38,
+   "fixed_first": 5,
+   "unconfirmed_first": 2,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass",
+    "Standards and robustness review"
+   ],
+   "open": [
+    "C_TIB constant of the IEC 62359 TIB formula; IEC 60601-2-37:2024 temperature-test details"
+   ]
+  },
+  "23": {
+   "claims": 36,
+   "fixed_first": 9,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "24": {
+   "claims": 36,
+   "fixed_first": 7,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "25": {
+   "claims": 34,
+   "fixed_first": 8,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "External review 1",
+    "Second equation-by-equation pass",
+    "Standards and robustness review"
+   ],
+   "open": []
+  },
+  "26": {
+   "claims": 42,
+   "fixed_first": 5,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": [
+    "gCNR paper figure numbers (Figs. 4, 5, 7–9)"
+   ]
+  },
+  "27": {
+   "claims": 36,
+   "fixed_first": 3,
+   "unconfirmed_first": 2,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "External review 1"
+   ],
+   "open": []
+  },
+  "28": {
+   "claims": 42,
+   "fixed_first": 5,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "29": {
+   "claims": 40,
+   "fixed_first": 5,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "30": {
+   "claims": 51,
+   "fixed_first": 10,
+   "unconfirmed_first": 2,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": []
+  },
+  "31": {
+   "claims": 77,
+   "fixed_first": 7,
+   "unconfirmed_first": 6,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  },
+  "32": {
+   "claims": 57,
+   "fixed_first": 9,
+   "unconfirmed_first": 4,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Second equation-by-equation pass"
+   ],
+   "open": [
+    "Imbault 2017 speed range and cut-offs"
+   ]
+  },
+  "33": {
+   "claims": 81,
+   "fixed_first": 10,
+   "unconfirmed_first": 1,
+   "passes": [
+    "Claim-by-claim audit",
+    "Primary-source recheck of doubtful claims",
+    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+   ],
+   "open": []
+  }
+ }
+}

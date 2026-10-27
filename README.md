@@ -29,6 +29,14 @@ CI: `.github/workflows/deploy.yml` builds and deploys `public/` to GitHub Pages 
 
 Report errors through the "Report an error" link on any module page or open an issue (module, equation number, what is wrong, a source). For content changes read `CONTRIBUTING.md` (authoring rules and quality gates).
 
-## License
+## Reuse and forks
+Reuse, adaptation, translation and hosting are welcome under the licences below. Please credit "Open Ultrasound Lab, M. Nguyen" with a link to https://openultrasoundlab.org and state your changes. Modified copies should use a different name and must not imply that they are the original or endorsed by it. The canonical site is https://openultrasoundlab.org (archived at Zenodo, DOI 10.5281/zenodo.23676982).
 
-Text and figures: CC BY 4.0 (`LICENSE-CONTENT`). Code (page scripts, MATLAB/Octave, build tools): MIT (`LICENSE`). Cite via `CITATION.cff` or the site's citation page.
+## License
+| What | License |
+|---|---|
+| Text, equations, figures, glossary, interview questions | CC BY 4.0 (`LICENSE-CONTENT`) |
+| MATLAB/Octave scripts, in-page demo code | MIT (`LICENSE`) |
+| Site design, templates, build and test tools | All rights reserved (`LICENSE-SITE`); viewable and runnable for testing corrections, not for reuse |
+
+Versions up to v1.1.1 released the build tools under MIT; that remains valid for those versions. Cite via `CITATION.cff` or the site's citation page.

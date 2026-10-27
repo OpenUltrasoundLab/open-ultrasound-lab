@@ -16,4 +16,4 @@ Thank you for helping. The most valuable contribution is a precise error report:
 4. `python3 mtest.py matlab/*.m`: every script runs in GNU Octave without error, in under about 30 s, and prints the numbers the page text quotes.
 5. Numbers you add are checked (Python/Octave/node), and anything unverifiable is labeled as such and added to the errata list.
 
-By contributing you agree that text and figures are released under CC BY 4.0 and code under MIT.
+By contributing you agree that text and figures are released under CC BY 4.0, MATLAB scripts and in-page demo code under MIT, and changes to the site design and build tools (LICENSE-SITE) under terms that let M. Nguyen distribute them under any license.

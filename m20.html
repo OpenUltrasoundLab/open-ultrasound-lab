@@ -141,7 +141,7 @@
     </div>
     <p><strong>Even harmonics need broken symmetry.</strong> Harmonic imaging receives at \(2f_0\), so the transmit spectrum near \(2f_0\) must be as clean as possible. A ±V square with duty \(D = \tfrac{1}{2} + \varepsilon\) has</p>
     <div class="eqn key" id="m20-eq4">
-      <div class="eqn-body"><div class="eqn-math">\[ \frac{c_2}{c_1} = \lvert \cos \pi D \rvert = \sin(\pi\varepsilon) \approx \pi\varepsilon, \qquad \varepsilon = \frac{\Delta}{T} \]</div><span class="eqn-no">(20.4)</span></div>
+      <div class="eqn-body"><div class="eqn-math">\[ \frac{c_2}{c_1} = \lvert \cos \pi D \rvert = \lvert \sin(\pi\varepsilon) \rvert \approx \pi \lvert \varepsilon \rvert, \qquad \varepsilon = \frac{\Delta}{T} \]</div><span class="eqn-no">(20.4)</span></div>
       <dl class="where"><dt>\(c_1,\ c_2\)</dt><dd>fundamental and second-harmonic amplitudes, V</dd><dt>\(D\)</dt><dd>duty cycle of the positive half, \(D = \tfrac{1}{2} + \varepsilon\), dimensionless</dd><dt>\(\varepsilon\)</dt><dd>duty error, dimensionless</dd><dt>\(\Delta\)</dt><dd>excess length of the positive half cycle, ns</dd><dt>\(T\)</dt><dd>period \(1/f_0\), ns</dd></dl>
       <span class="note">A positive half-cycle that is \(\Delta = 1\) ns too long at 5 MHz (\(T = 200\) ns, \(\varepsilon = 0.005\)) gives a second harmonic at −36.1 dBc; 2 ns gives −30.1 dBc. A −45 dBc second-harmonic spec at 5 MHz is a duty error below 0.36 ns. Unequal rise and fall times break the symmetry the same way. An amplitude mismatch \(+V \ne -V\) alone does not: it adds a step at the burst envelope, which is low-frequency.</span>
     </div>
@@ -372,7 +372,7 @@
       <span class="note">Noise figure is the SNR degradation relative to the source's own thermal noise at \(T_0\) = 290 K. For a resistive source and uncorrelated \(e_n\), \(i_n\), \(F\) is minimum at \(R_{\mathrm{opt}} = e_n/i_n\) with \(F_{\mathrm{min}} = 1 + e_n i_n/(2kT)\). 0.8 nV/√Hz and 1.5 pA/√Hz: \(R_{\mathrm{opt}} = 533\) Ω, \(\mathrm{NF}_{\mathrm{min}} = 0.61\) dB.</span>
     </div>
     <div class="eqn" id="m20-eq10">
-      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} e_{\mathrm{tot}}^2 = e_1^2 + \frac{e_2^2}{A_1^2} + \frac{e_3^2}{(A_1 A_2)^2} + \dots \\ \Longleftrightarrow\quad F = F_1 + \frac{F_2 - 1}{G_1} + \frac{F_3 - 1}{G_1 G_2} + \dots \end{gathered} \]</div><span class="eqn-no">(20.10)</span></div>
+      <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} e_{\mathrm{tot}}^2 = e_1^2 + \frac{e_2^2}{A_1^2} + \frac{e_3^2}{(A_1 A_2)^2} + \dots \\ \text{Friis (available power gains):}\quad F = F_1 + \frac{F_2 - 1}{G_1} + \frac{F_3 - 1}{G_1 G_2} + \dots \end{gathered} \]</div><span class="eqn-no">(20.10)</span></div>
       <dl class="where"><dt>\(e_k\)</dt><dd>input-referred noise density of stage k, nV/√Hz</dd><dt>\(e_{\mathrm{tot}}\)</dt><dd>total noise density referred to the chain input, nV/√Hz</dd><dt>\(A_k\)</dt><dd>voltage gain of stage k, linear</dd><dt>\(F_k\)</dt><dd>noise factor of stage k, dimensionless</dd><dt>\(G_k\)</dt><dd>available power gain of stage k, linear</dd></dl>
       <span class="note">The voltage form (input-referred noise densities, voltage gains \(A\)) suits a chain of high-impedance amplifiers; the Friis power form (Friis, Proc. IRE 1944) assumes available power gains. Same message: the first stage's gain divides every later stage's noise.</span>
     </div>

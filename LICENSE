@@ -2,9 +2,16 @@ MIT License
 
 Copyright (c) 2026 M. Nguyen
 
-This license covers the code in this repository: page scripts, MATLAB/Octave
-files, and the build and test tools. Text and figures are licensed separately
-under CC BY 4.0 (see LICENSE-CONTENT). Files under vendor/ keep their own licenses.
+This license covers the educational code in this repository: the MATLAB/Octave
+scripts (matlab/), the interactive demo code inside the module pages (m1.html ...
+m33.html) and the research code under tools/m25-admire-tuning/. Text and figures
+are licensed under CC BY 4.0 (see LICENSE-CONTENT). The site design and build
+tools are not covered by this license (see LICENSE-SITE). Files under vendor/
+keep their own licenses.
+
+Versions up to and including v1.1.1 (October 2026) were released with all code,
+including the build tools, under this MIT license; those grants remain valid for
+those versions.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

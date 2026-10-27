@@ -11,8 +11,8 @@ import re, sys, json, pathlib
 root = pathlib.Path(__file__).parent
 LOCAL = '--local' in sys.argv
 
-b = (root / 'sheet_body.html').read_text()
-v = (root / 'sheet_vis.html').read_text()
+b = (root / 'sheet_body.html').read_text(encoding="utf-8")
+v = (root / 'sheet_vis.html').read_text(encoding="utf-8")
 conv = v[v.index('<!--CONV-->') + 11:v.index('<!--/CONV-->')]
 rapid = v[v.index('<!--RAPID-->') + 12:v.index('<!--/RAPID-->')]
 tail = v[v.index('<!--/RAPID-->') + 13:]
@@ -31,7 +31,7 @@ def balanced_div(s, start):
 
 
 def module_keyeqs(n):
-    s = (root / f'm{n}.html').read_text()
+    s = (root / f'm{n}.html').read_text(encoding="utf-8")
     title = re.search(r'data-title="([^"]*)"', s).group(1)
     out = []
     for m in re.finditer(r'<div class="eqn key"', s):
@@ -79,13 +79,13 @@ n = [0]
 def num(m): n[0] += 1; return '<span class="sec">%d</span>' % n[0]
 b = re.sub(r'<span class="sec">\d+</span>', num, b)
 
-shell = (root / 'shell.html').read_text()
+shell = (root / 'shell.html').read_text(encoding="utf-8")
 head_bits = shell[shell.index('<link'):shell.index('</style>') + len('</style>')]
 mj_cfg = re.search(r'<script>\s*window\.MathJax = .*?</script>', shell, re.S).group(0)
 mj_cfg = re.sub(r'\nwindow\.Lab &&.*?\n', '\n', mj_cfg)
 mj = root / 'vendor' / 'mathjax-tex-svg-3.2.2.js'
 if LOCAL and mj.exists():
-    mj_tag = '<script>' + mj.read_text().replace('</script', '<\\/script') + '</script>'
+    mj_tag = '<script>' + mj.read_text(encoding="utf-8").replace('</script', '<\\/script') + '</script>'
 else:
     mj_tag = '<script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>'
 
@@ -93,11 +93,11 @@ out = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
        '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
        '<title>Ultrasound Formula Sheet</title>\n' + head_bits + '\n</head>\n<body>\n'
        + b + '\n' + tail + '\n' + mj_cfg + '\n' + mj_tag + '\n</body>\n</html>\n')
-urls = json.loads((root / 'urls.json').read_text()) if (root / 'urls.json').exists() else {}
+urls = json.loads((root / 'urls.json').read_text(encoding="utf-8")) if (root / 'urls.json').exists() else {}
 for k, val in urls.items():
     out = out.replace('{{' + k + '}}', val)
 (root / 'build').mkdir(exist_ok=True)
 p = root / 'build' / 'formula-sheet.html'
-p.write_text(out)
+p.write_text(out, encoding="utf-8")
 print(p, f'{len(out)/1024:.0f} KB', 'sections', n[0], 'key equations', sum(counts.values()), counts,
       'MathJax', 'embedded' if (LOCAL and mj.exists()) else 'CDN')

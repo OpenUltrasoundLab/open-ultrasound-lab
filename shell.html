@@ -353,7 +353,7 @@ details.code pre code { font: inherit; }
   /* Symmetric eigendecomposition (cyclic Jacobi). A: array of rows (n x n, symmetric). Returns {values (desc), vectors: array of column vectors as arrays}. */
   Lab.eigSym = function (A) {
     const n = A.length; const a = A.map(r => r.slice()); const V = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => i === j ? 1 : 0));
-    for (let sweep = 0; sweep < 60; sweep++) { let off = 0; for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) off += a[p][q] * a[p][q]; if (off < 1e-22) break;
+    for (let sweep = 0; sweep < 60; sweep++) { let off = 0; for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) off += a[p][q] * a[p][q]; const norm2 = a.reduce((ss, row) => ss + row.reduce((tt, v) => tt + v*v, 0), 0); if (off === 0 || off <= 1e-26 * norm2) break;
       for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) { if (Math.abs(a[p][q]) < 1e-300) continue;
         const th = (a[q][q] - a[p][p]) / (2 * a[p][q]); const t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1)); const c = 1 / Math.sqrt(t * t + 1), s = t * c;
         for (let k = 0; k < n; k++) { const akp = a[k][p], akq = a[k][q]; a[k][p] = c * akp - s * akq; a[k][q] = s * akp + c * akq; }

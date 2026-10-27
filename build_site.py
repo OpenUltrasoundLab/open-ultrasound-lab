@@ -16,7 +16,7 @@ Layout of public/:
   about.html disclaimer.html errata.html cite.html contribute.html
   matlab/*.m  CITATION.cff  .nojekyll  (vendor/ only with --local)
 """
-import re, sys, json, shutil, html, posixpath, pathlib, subprocess, unicodedata
+import os, re, sys, json, shutil, html, posixpath, pathlib, subprocess, unicodedata
 
 root = pathlib.Path(__file__).resolve().parent
 PUB = root / 'public'
@@ -25,7 +25,7 @@ MJ_FILE = 'mathjax-tex-svg-3.2.2.js'
 MJ_CDN = 'https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js'
 
 # ---------------------------------------------------------------- config
-CFG = json.loads((root / 'site.config.json').read_text())
+CFG = json.loads((root / 'site.config.json').read_text(encoding="utf-8"))
 def cfg_expand(s):
     for _ in range(3):
         for k, v in CFG.items():
@@ -116,14 +116,14 @@ short = {}
 for k in range(1, 6):
     f = root / f'rail{k}.html'
     if f.exists():
-        for m in re.finditer(r'data-view="m(\d+)"><span class="num">\d+</span><span class="t">(.*?)</span>', f.read_text()):
+        for m in re.finditer(r'data-view="m(\d+)"><span class="num">\d+</span><span class="t">(.*?)</span>', f.read_text(encoding="utf-8")):
             short[int(m.group(1))] = html.unescape(m.group(2))
 subs, part_lede = {}, {}
 for k in range(1, 6):
     f = root / f'home{k}.html'
     if not f.exists():
         continue
-    t = f.read_text()
+    t = f.read_text(encoding="utf-8")
     for m in re.finditer(r'<p class="sub">(.*?)</p>.*?href="#m(\d+)"', t, re.S):
         subs[int(m.group(2))] = html.unescape(m.group(1))
     m = re.search(r'<p class="lede">(.*?)</p>', t, re.S)
@@ -135,7 +135,7 @@ for n in range(1, 34):
     f = root / f'm{n}.html'
     if not f.exists():
         continue
-    s = f.read_text()
+    s = f.read_text(encoding="utf-8")
     title = html.unescape(re.search(r'data-title="([^"]*)"', s).group(1))
     lede_m = re.search(r'<p class="lede">(.*?)</p>', s, re.S)
     MODS[n] = dict(n=n, src=s, title=title, short=short.get(n, title), sub=subs.get(n, ''),
@@ -205,13 +205,13 @@ def rewrite_links(t, from_dir, cur):
 def inline_code(t):
     def rep(m):
         p = root / m.group(1)
-        src = p.read_text() if p.exists() else f'% MISSING FILE: {m.group(1)}'
+        src = p.read_text(encoding="utf-8") if p.exists() else f'% MISSING FILE: {m.group(1)}'
         return f'<code data-file="{m.group(1)}">' + esc(src.rstrip() + '\n') + '</code>'
     return re.sub(r'<code data-file="([^"]+)">\s*</code>', rep, t)
 
 
 # ---------------------------------------------------------------- shared chrome
-shell = (root / 'shell.html').read_text()
+shell = (root / 'shell.html').read_text(encoding="utf-8")
 HEAD_CSS = shell[shell.index('<link'):shell.index('</style>') + len('</style>')]
 MJ_CFG = re.search(r'<script>\s*window\.MathJax = .*?</script>', shell, re.S).group(0)
 
@@ -373,6 +373,13 @@ SEARCH_CSS = r"""
 @media (max-width: 860px) { .site-rail .os-rail { display: none; } .os-meta { display: block; } .top .os-box { width: 100%; order: 3; } }
 """
 SITE_CSS = SITE_CSS.replace('</style>', SEARCH_CSS + '</style>')
+SITE_CSS = SITE_CSS.replace('</style>', '''.rv-steps { padding-left: 1.2em; } .rv-steps li { margin: 6px 0; } .rv-d { display: inline-block; min-width: 6.5em; color: var(--muted); font-size: 0.9em; }
+.rv-table { border-collapse: collapse; width: 100%; font-size: 0.9rem; } .rv-table th, .rv-table td { border-bottom: 1px solid var(--rule); padding: 6px 8px; text-align: left; vertical-align: top; }
+.rv-table td.num { text-align: right; } .rv-table tr:target { background: var(--accent-wash); } .tablewrap { overflow-x: auto; }
+.rv-badge { color: var(--good, #0F7A63) !important; font-weight: 600; }
+.rv-table { table-layout: fixed; } .rv-table th, .rv-table td { overflow-wrap: anywhere; }
+@media (max-width: 640px) { .rv-table th:nth-child(2), .rv-table td:nth-child(2), .rv-table th:nth-child(3), .rv-table td:nth-child(3), .rv-table th:nth-child(5), .rv-table td:nth-child(5) { display: none; } }
+</style>''')
 
 
 def search_box(kind, depth):
@@ -414,11 +421,12 @@ SEARCH_INDEX = {'mods': {}, 'e': []}
 
 
 # ---------- glossary (glossary.json): first use of a term per section gets a pop-up card ----------
-GLOSS = json.loads((root / 'glossary.json').read_text()) if (root / 'glossary.json').exists() else []
+GLOSS = json.loads((root / 'glossary.json').read_text(encoding="utf-8")) if (root / 'glossary.json').exists() else []
 GL_BY = {g['t']: g for g in GLOSS}
 GL_RX = re.compile(r'(?<![\w\-/.#&])(' + '|'.join(re.escape(t) for t in sorted(GL_BY, key=len, reverse=True)) + r')(?=s?(?![\w\-]))') if GLOSS else None
 GL_SKIP = {'script', 'style', 'pre', 'code', 'a', 'h1', 'h2', 'h3', 'h4', 'summary', 'canvas', 'svg', 'button', 'select', 'option', 'textarea', 'label', 'abbr', 'title'}
 GL_FIRST = {}   # term -> (module, section id) of first tagged use in its teaching module
+GL_USED = {}    # term -> set of modules where it is tagged
 
 
 def gl_id(t):
@@ -461,7 +469,10 @@ def tag_terms(body, n):
                 res.append(part); continue
             def rep(mm):
                 t = mm.group(1); g = GL_BY[t]
-                if t in seen or ('only' in g and n not in g['only']):
+                if 'only' in g and n not in g['only']:
+                    return t
+                GL_USED.setdefault(t, set()).add(n)
+                if t in seen:
                     return t
                 seen.add(t); used.add(t)
                 if g['m'] == n and t not in GL_FIRST:
@@ -488,7 +499,7 @@ abbr.gl:hover, abbr.gl:focus { text-decoration-color: var(--accent); outline: no
 .gl-card .x { position: absolute; top: 4px; right: 8px; border: 0; background: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; }
 .gl-list { list-style: none; padding: 0; margin: 0; } .gl-list li { padding: 10px 0; border-bottom: 1px solid var(--rule); scroll-margin-top: 80px; }
 .gl-list li:target { background: var(--accent-wash); } .gl-list .t { font: 600 1rem var(--f-display); } .gl-list .f { color: var(--muted); }
-.gl-list p { margin: 4px 0; } .gl-letters { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0 16px; }
+.gl-list p { margin: 4px 0; } .gl-list .u { color: var(--muted); font-size: 0.9em; } .gl-letters { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0 16px; }
 #gl-filter { width: 100%; max-width: 420px; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; }
 </style>"""
 
@@ -619,7 +630,7 @@ def footer(depth):
     up = '../' * depth
     return (f'<footer class="site-foot" role="contentinfo">'
             f'<span class="ver">Open Ultrasound Lab v{esc(VERSION)} · last reviewed {esc(DATE)}</span>'
-            f'<span>Text and figures <a href="https://creativecommons.org/licenses/by/4.0/" rel="license">CC BY 4.0</a> · code MIT</span>'
+            f'<span>Content <a href="https://creativecommons.org/licenses/by/4.0/" rel="license">CC BY 4.0</a> · scripts MIT · site design © M. Nguyen</span>'
             f'<a href="{up}glossary.html">Glossary</a><a href="{up}disclaimer.html">Disclaimer</a><a href="{up}errata.html">Errata</a>'
             f'<a href="{up}cite.html">Cite</a><a href="{up}about.html">About</a>'
             f'<a href="{up}contribute.html">Contribute</a>'
@@ -627,11 +638,48 @@ def footer(depth):
             f'</footer>')
 
 
-def head(title, desc, depth, extra=''):
+SITE_URL = CFG['COURSE_URL'].rstrip('/') + '/'
+REV = json.loads((root / 'review_record.json').read_text(encoding='utf-8')) if (root / 'review_record.json').exists() else None
+SEO_T = json.loads((root / 'seo_titles.json').read_text(encoding="utf-8")) if (root / 'seo_titles.json').exists() else {}
+
+
+def canon(path):
+    return SITE_URL + (path[:-len('index.html')] if path.endswith('index.html') else path)
+
+
+def seo_tags(title, desc, path, kind='website'):
+    if path is None:
+        return ''
+    u = canon(path)
+    return (f'<link rel="canonical" href="{attr(u)}">\n<meta property="og:url" content="{attr(u)}">\n'
+            f'<meta property="og:type" content="{kind}">\n<meta property="og:site_name" content="Open Ultrasound Lab">\n'
+            f'<meta property="og:image" content="{attr(SITE_URL)}og-card.png">\n<meta property="og:image:width" content="1200">\n'
+            f'<meta property="og:image:height" content="630">\n<meta property="og:image:alt" content="Open Ultrasound Lab: free interactive ultrasound course">\n'
+            f'<meta name="twitter:card" content="summary_large_image">\n<meta name="author" content="M. Nguyen">\n')
+
+
+def jsonld(obj):
+    return '<script type="application/ld+json">' + json.dumps(obj, ensure_ascii=False).replace('</', '<\\/') + '</script>\n'
+
+
+AUTHOR_LD = {'@type': 'Person', 'name': 'M. Nguyen', 'url': AUTHOR, 'sameAs': [AUTHOR, f"https://orcid.org/{CFG.get('ORCID', '')}"]}
+COURSE_LD = {'@type': 'Course', 'name': 'Open Ultrasound Lab', '@id': SITE_URL + '#course', 'url': SITE_URL,
+             'description': 'A free, open, interactive course on the mathematics, physics, hardware and signal processing of ultrasound imaging: 33 modules with live demos and MATLAB/Octave labs.',
+             'provider': {'@type': 'Person', 'name': 'M. Nguyen', 'url': AUTHOR}, 'author': AUTHOR_LD,
+             'isAccessibleForFree': True, 'inLanguage': 'en', 'license': 'https://creativecommons.org/licenses/by/4.0/',
+             'educationalLevel': 'Graduate / professional', 'teaches': 'Ultrasound signal processing, beamforming, transducers, Doppler, elastography, ULM, sound speed estimation, aberration correction',
+             'offers': {'@type': 'Offer', 'category': 'Free', 'price': 0, 'priceCurrency': 'USD'},
+             'hasCourseInstance': {'@type': 'CourseInstance', 'courseMode': 'Online', 'courseWorkload': 'PT60H'}}
+if HAS_DOI:
+    COURSE_LD['identifier'] = f"https://doi.org/{CFG['DOI']}"
+
+
+def head(title, desc, depth, extra='', path=None, kind='website'):
     return ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
             f'<title>{esc(title)}</title>\n<meta name="description" content="{attr(desc)}">\n'
             f'<meta property="og:title" content="{attr(title)}">\n<meta property="og:description" content="{attr(desc)}">\n'
+            + seo_tags(title, desc, path, kind)
             + HEAD_CSS + '\n' + SITE_CSS + '\n' + search_script(depth) + extra + '</head>\n')
 
 
@@ -639,20 +687,22 @@ def topbar(depth, cur=''):
     up = '../' * depth
     items = [('index.html#map', 'Modules', 'map'), ('index.html#paths', 'Learning paths', 'paths'),
              ('formula-sheet/index.html', 'Formula sheet', 'sheet'), ('interview/index.html', 'Interview prep', 'interview'),
-             ('glossary.html', 'Glossary', 'glossary'), ('about.html', 'About', 'about'), ('errata.html', 'Errata', 'errata')]
+             ('glossary.html', 'Glossary', 'glossary'), ('about.html', 'About', 'about'), ('errata.html', 'Review &amp; errata', 'errata')]
     nav = ''.join(f'<a href="{up}{h}"' + (' aria-current="page"' if k == cur else '') + f'>{t}</a>' for h, t, k in items)
     return (f'<a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="{up}index.html">Open Ultrasound Lab</a>'
             f'<nav aria-label="Site">{nav}</nav>{search_box("top", depth)}</header>\n')
 
 
-def static_page(path, title, desc, body, cur='', mathjax=False):
+def static_page(path, title, desc, body, cur='', mathjax=False, ld=None):
     depth = path.count('/')
     extra = ''
     tail = ''
     if mathjax:
         cfg = re.sub(r'\nwindow\.Lab &&.*?\n', '\n', MJ_CFG)
         tail = cfg + '\n' + mj_tag(depth) + '\n'
-    out = (head(title, desc, depth, extra) + '<body>\n' + topbar(depth, cur)
+    if ld:
+        extra += jsonld(ld)
+    out = (head(title, desc, depth, extra, path) + '<body>\n' + topbar(depth, cur)
            + f'<main id="main" class="page">\n{body}\n{footer(depth)}\n</main>\n' + tail + '</body>\n</html>\n')
     write(path, out)
 
@@ -661,7 +711,7 @@ written = []
 def write(path, text):
     p = PUB / path
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(text)
+    p.write_text(text, encoding="utf-8")
     written.append(path)
 
 
@@ -746,15 +796,26 @@ for n, M in MODS.items():
     body, c1 = rewrite_links(body, from_dir, n)
     scripts_txt, c2 = rewrite_links('\n'.join(scripts), from_dir, n)
     link_count += c1 + c2
-    title = f'{n:02d} · {M["title"]} — Open Ultrasound Lab'
+    title = (SEO_T[str(n)] if str(n) in SEO_T else f'{n:02d} · {M["title"]}') + ' | Open Ultrasound Lab'
     issue = f'{REPO}/issues/new?title=Module%20{n:02d}:%20'
     meta = (f'<div class="page-meta" id="top">{search_box("meta", 2)}<a href="{attr(issue)}">Report an error</a>'
-            f'<a href="../../errata.html">Errata</a></div>')
+            + (f'<a class="rv-badge" href="../../errata.html#review-m{n}" title="Review passes for this module">✓ Reviewed · {len(REV["modules"][str(n)]["passes"])} passes</a>' if REV and str(n) in REV['modules'] else f'<a href="../../errata.html">Errata</a>')
+            + '</div>')
     main = meta + '\n' + body + '\n' + footer(2)
     out = shell_body.replace('<!--RAIL-->', rail_html(n)).replace('<!--HOME-->', '').replace('<!--MODULES-->', main)
     out = out.replace('<!--MODULE-SCRIPTS-->', scripts_txt + '\n' + ANCHOR_JS + '\n' + gl_data(gl_used, 2) + GL_JS)
     out = out.replace('<!--MATHJAX-->', mj_tag(2))
-    out = head(title, clip(M['lede']), 2, GL_CSS) + f'<body data-single="m{n}">\n' + out + '\n</body>\n</html>\n'
+    secs = [re.sub(r'^\d+\.\d+\s*', '', ptxt(h)) for h in re.findall(r'<h2 id="m\d+-s[^"]*">(.*?)</h2>', body, re.S)]
+    secs = [x for x in secs if x and not re.match(r'(Cheat sheet|Interview|Check yourself|References|Further reading|MATLAB|Summary)', x)]
+    crumbs = {'@context': 'https://schema.org', '@type': 'BreadcrumbList', 'itemListElement': [
+        {'@type': 'ListItem', 'position': 1, 'name': 'Open Ultrasound Lab', 'item': SITE_URL},
+        {'@type': 'ListItem', 'position': 2, 'name': f'Module {n:02d}: {M["title"]}', 'item': canon(M['url'])}]}
+    mld = {'@context': 'https://schema.org', '@type': 'LearningResource', 'teaches': secs[:20],
+           'keywords': ', '.join(sorted(GL_BY[t]['f'] + f' ({t})' for t in gl_used)[:40]), 'name': f'Module {n:02d}: {M["title"]}', 'url': canon(M['url']),
+           'description': clip(M['lede']), 'learningResourceType': 'Interactive course module', 'isAccessibleForFree': True,
+           'inLanguage': 'en', 'license': 'https://creativecommons.org/licenses/by/4.0/', 'author': AUTHOR_LD,
+           'isPartOf': {'@type': 'Course', '@id': SITE_URL + '#course', 'name': 'Open Ultrasound Lab', 'url': SITE_URL}}
+    out = head(title, clip(M['lede']), 2, GL_CSS + jsonld(mld) + jsonld(crumbs), M['url'], 'article') + f'<body data-single="m{n}">\n' + out + '\n</body>\n</html>\n'
     leftover = re.findall(r'\{\{[A-Z][A-Z0-9_]+\}\}', out)
     if leftover:
         sys.exit(f'm{n}: unresolved placeholders {sorted(set(leftover))}')
@@ -913,7 +974,7 @@ def landing():
   <div><h3>Every figure says where it comes from</h3><p>Each plot carries one of four badges: <span class="prov exact">Exact formula</span><span class="prov sim">Simulation</span><span class="prov model">Approx. model</span><span class="prov schem">Schematic</span>. Simulations name the solver that actually ran; approximate models state their assumptions beside the figure.</p></div>
   <div><h3>Runnable MATLAB and Octave</h3><p>{n_scripts} scripts in base MATLAB with no toolboxes. Every one runs unchanged in GNU Octave 8 and is executed headless on each change; the numbers it prints match the page text.</p></div>
   <div><h3>Literature you can check</h3><p>{n_lit} "Figures from the literature" entries point to a specific figure in a published paper, with citation and DOI, each looked up before it was included. Unverifiable details are removed or listed on the <a href="errata.html">errata page</a>.</p></div>
-  <div><h3>Checked, and still learning</h3><p>Every number on these pages was checked by running code. Before release every module also had a careful second review, in which a separate AI model re-derived the key results and looked up the citations, and the claims it could not confirm were rechecked against primary sources. The few still open are listed on the <a href="errata.html">errata page</a>. The most valuable review of all comes from readers, so corrections are always welcome.</p></div>
+  <div><h3>Checked, and still learning</h3><p>Every number on these pages was checked by running code. The author and several reviewers from the ultrasound field reviewed modules in their areas, and every module was independently audited: key results re-derived, every claim and citation checked, every lab run. The full <a href="errata.html#review">review record</a> lists every pass, every correction and the few claims still open. The most valuable review of all comes from readers, so corrections are always welcome.</p></div>
 </div>
 
 <h2 id="sheet">Formula sheet</h2>
@@ -923,9 +984,9 @@ def landing():
 <div class="prose"><p>Nguyen, M. ({DATE[:4]}). <em>Open Ultrasound Lab</em> (Version {esc(VERSION)}) [Interactive educational resource]. {esc(ARCH)}</p>
 <p>BibTeX and CITATION.cff are on the <a href="cite.html">citation page</a>. Found a mistake? <a href="{attr(REPO)}/issues/new">Open an issue</a> or read <a href="contribute.html">how to contribute</a>. Please read the <a href="disclaimer.html">disclaimer</a> before relying on anything here.</p></div>
 '''
-    static_page('index.html', 'Open Ultrasound Lab — interactive ultrasound signal processing, physics and imaging',
+    static_page('index.html', 'Open Ultrasound Lab: free interactive course on ultrasound imaging, physics and signal processing',
                 'A free, open, interactive course: 33 modules on the math, physics, hardware and signal processing of ultrasound imaging, with live figures and runnable MATLAB/Octave.',
-                body + js, 'home')
+                body + js, 'home', ld={'@context': 'https://schema.org', '@graph': [{'@type': 'WebSite', 'name': 'Open Ultrasound Lab', 'url': SITE_URL, 'author': AUTHOR_LD}, COURSE_LD]})
 
 
 landing()
@@ -944,7 +1005,7 @@ def audit_summary():
         rc = root / 'notes' / 'recheck_2026-10-26.json'   # private: pre-release recheck of the flagged claims
         stats = None
         if rc.exists():
-            R = json.loads(rc.read_text()); byc = {r['claim']: r for r in R}
+            R = json.loads(rc.read_text(encoding="utf-8")); byc = {r['claim']: r for r in R}
             stats = {k: sum(1 for r in R if r['status'] == k) for k in ('confirmed', 'corrected', 'soften', 'unverifiable', 'open')}
             keep = []
             for fl in flags:
@@ -952,13 +1013,15 @@ def audit_summary():
                 if r is None or r['status'] in ('unverifiable', 'open'):
                     if r is not None:
                         fl['verdict'] = 'open'; fl['action'] = r.get('open_note') or 'no accessible source found in the 26 Oct 2026 recheck'
+                        if r.get('display_claim'):
+                            fl['claim'] = r['display_claim']
                     keep.append(fl)
             flags = keep
         d = {'audited': sorted({int(m.group(1)) for f in files for m in [re.search(r'm(\d+)', f.stem)] if m}), 'flags': flags, 'recheck': stats}
-        AUDIT_JSON.write_text(json.dumps(d, ensure_ascii=False, indent=1))
+        AUDIT_JSON.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
         return d
     if AUDIT_JSON.exists():
-        return json.loads(AUDIT_JSON.read_text())
+        return json.loads(AUDIT_JSON.read_text(encoding="utf-8"))
     return {'audited': [], 'flags': []}
 
 
@@ -968,7 +1031,7 @@ def audit_flags_md():
     for f in sorted(root.glob('AUDIT_*.md'), key=lambda p: [int(x) if x.isdigit() else x for x in re.split(r'(\d+)', p.name)]):
         m = re.search(r'm(\d+)', f.stem)
         n = int(m.group(1)) if m else None
-        for line in f.read_text().splitlines():
+        for line in f.read_text(encoding="utf-8").splitlines():
             if not line.startswith('|') or set(line) <= set('|-: '):
                 continue
             cells = [c.strip() for c in re.split(r'(?<!\\)\|', line.strip().strip('|'))]
@@ -996,7 +1059,9 @@ def glossary_page():
         href, mn = gl_link(g['t'], 0)
         items.append(f'<li id="{gl_id(g["t"])}" data-k="{attr((g["t"] + " " + g["f"]).lower())}"><span class="t">{esc(g["t"])}</span> '
                      f'<span class="f">{esc(g["f"])}</span><p>{esc(g["d"])}</p>'
-                     f'<a href="{attr(href)}">Module {mn:02d} · {esc(MODS[mn]["short"])}</a></li>')
+                     f'<a href="{attr(href)}">Taught in Module {mn:02d} · {esc(MODS[mn]["short"])}</a>'
+                     + (f'<span class="u"> · also used in ' + ', '.join(f'<a href="{attr(MODS[k]["url"])}">{k:02d}</a>' for k in sorted(GL_USED.get(g['t'], set()) - {mn})) + '</span>' if GL_USED.get(g['t'], set()) - {mn} else '')
+                     + '</li>')
         SEARCH_INDEX['e'].append(['gl', f'{g["t"]}: {g["f"]}. {g["d"]}', mn, GL_FIRST.get(g['t'], (mn, ''))[1]])
     body = (f'<div class="hero"><h1>Glossary</h1><p class="lede">{len(GLOSS)} abbreviations used across the modules. '
             'In the modules, the first use of a term in each section is underlined with dots: hover, tap or press Enter on it to see the definition.</p></div>'
@@ -1005,10 +1070,114 @@ def glossary_page():
             '<ul class="gl-list">' + '\n'.join(items) + '</ul>'
             '<script>(function(){var f=document.getElementById("gl-filter"),li=[].slice.call(document.querySelectorAll(".gl-list li"));'
             'f.addEventListener("input",function(){var q=f.value.trim().toLowerCase();li.forEach(function(e){e.hidden=q&&e.dataset.k.indexOf(q)<0;});});})();</script>')
-    static_page('glossary.html', 'Glossary — Open Ultrasound Lab', 'Abbreviations and key terms used in Open Ultrasound Lab, with short definitions and links to the modules that teach them.', GL_CSS + body, 'glossary')
+    dts = {'@context': 'https://schema.org', '@type': 'DefinedTermSet', '@id': SITE_URL + 'glossary.html', 'name': 'Open Ultrasound Lab glossary',
+           'hasDefinedTerm': [{'@type': 'DefinedTerm', 'name': g['f'], 'termCode': g['t'], 'description': g['d'],
+                               'url': SITE_URL + 'glossary.html#' + gl_id(g['t'])} for g in GLOSS]}
+    static_page('glossary.html', f'Ultrasound glossary: {len(GLOSS)} abbreviations defined | Open Ultrasound Lab',
+                f'Definitions of {len(GLOSS)} ultrasound and signal-processing abbreviations (SNR, PSF, DAS, CRLB, MI, TI, ULM, SWE and more), each linked to the module that teaches it.',
+                GL_CSS + body, 'glossary', ld=dts)
+
+
+# ---------- cross-reference links: plain "Module 07" / "Module 04, Section 04.1" text becomes a link ----------
+XR_SKIP = {'a', 'script', 'style', 'h1', 'h2', 'h3', 'title', 'button', 'option', 'textarea', 'code', 'pre', 'summary', 'label', 'select'}
+LIST_RX = re.compile(r'\b(Modules)(\s+)(\d{1,2}(?:\s*\([^()<]{1,90}\))?(?:\s*(?:,|,?\s+and|,?\s+or|;)\s*\d{1,2}(?:\s*\([^()<]{1,90}\))?)+)')
+XR_RX = re.compile(r'\b(Modules?)(\s+)(\d{1,2})((?:(?:\s*,\s*|\s+and\s+|\s+or\s+|\s*[–-]\s*|\s+to\s+)\d{1,2}(?!\.\d))*)(?:(,\s+[Ss]ections?\s+)(\d{1,2}\.\d{1,2}))?')
+
+SEC_RX = re.compile(r'(?<![\w.])(Sections?\s+|§\s?)(\d{1,2})\.(\d{1,2})(?![\d.])')
+
+
+def autolink_xrefs():
+    ids = {}
+    for n, M in MODS.items():
+        f = PUB / M['url']
+        if f.exists():
+            ids[n] = set(re.findall(r'\bid="(m\d+-s[^"]+)"', f.read_text(encoding="utf-8")))
+    count = 0
+    for path in sorted(set(written) | {'formula-sheet/index.html'}):
+        if not path.endswith('.html'):
+            continue
+        f = PUB / path
+        if not f.exists():
+            continue
+        depth = path.count('/'); up = '../' * depth
+        selfn = next((n for n, M in MODS.items() if M['url'] == path), None)
+        html_in = f.read_text(encoding="utf-8")
+        out, stack = [], []
+        def href(n, sec=None):
+            h = up + MODS[n]['url']
+            if sec:
+                for cand in (f'm{n}-s{sec.replace(".", "-")}', f'm{n}-s{int(sec.split(".")[0]):02d}-{sec.split(".")[1]}', f'm{n}-s{int(sec.split(".")[0])}-{sec.split(".")[1]}'):
+                    if cand in ids.get(n, ()):
+                        return h + '#' + cand
+            return h
+        def rep(m):
+            nonlocal count
+            word, sp, first, rest, sec_lbl, sec = m.groups()
+            def lk(numtxt, sec=None, label=None):
+                nonlocal count
+                k = int(numtxt)
+                if k not in MODS or (k == selfn and not sec):
+                    return label or numtxt
+                count += 1
+                return f'<a class="xref" href="{attr(href(k, sec))}">{label or numtxt}</a>'
+            res = lk(first, None, f'{word}{sp}{first}') if not rest else f'{word}{sp}' + lk(first)
+            if rest:
+                res += re.sub(r'\d{1,2}', lambda mm: lk(mm.group(0)), rest)
+            if sec:
+                k = int(first)
+                res += sec_lbl + (f'<a class="xref" href="{attr(href(k, sec))}">{sec}</a>' if k in MODS else sec)
+            return res
+        for m in re.finditer(r'(<[^>]+>)|([^<]+)', html_in):
+            tag, txt = m.group(1), m.group(2)
+            if tag:
+                tm = re.match(r'<(/?)([a-zA-Z0-9]+)', tag)
+                if tm:
+                    name = tm.group(2).lower()
+                    if name in XR_SKIP:
+                        if tm.group(1):
+                            if name in stack:
+                                while stack and stack.pop() != name:
+                                    pass
+                        elif not tag.endswith('/>'):
+                            stack.append(name)
+                out.append(tag); continue
+            if stack:
+                out.append(txt); continue
+            def srep(m):
+                nonlocal count
+                k = int(m.group(2)); sec = f'{m.group(2)}.{m.group(3)}'
+                h = href(k, sec) if k in MODS else ''
+                if '#' not in h:
+                    return m.group(0)
+                count += 1
+                return f'{m.group(1)}<a class="xref" href="{attr(h)}">{sec}</a>'
+            def lrep(m):
+                nonlocal count
+                word, sp, body = m.groups()
+                res, depth = [], 0
+                for tok in re.split(r'(\(|\)|\d{1,2})', body):
+                    if tok == '(':
+                        depth += 1
+                    elif tok == ')':
+                        depth -= 1
+                    elif tok and tok.isdigit() and depth == 0 and int(tok) in MODS and int(tok) != selfn:
+                        count += 1
+                        tok = f'<a class="xref" href="{attr(href(int(tok)))}">{tok}</a>'
+                    res.append(tok)
+                return word + sp + ''.join(res)
+            pieces, last = [], 0
+            for mm in LIST_RX.finditer(txt):
+                pieces.append(SEC_RX.sub(srep, XR_RX.sub(rep, txt[last:mm.start()])))
+                pieces.append(lrep(mm)); last = mm.end()
+            pieces.append(SEC_RX.sub(srep, XR_RX.sub(rep, txt[last:])))
+            out.append(''.join(pieces))
+        new = ''.join(out)
+        if new != html_in:
+            f.write_text(new, encoding="utf-8")
+    return count
 
 def errata_page():
-    data = json.loads((root / 'errata.json').read_text())
+    data = json.loads((root / 'errata.json').read_text(encoding="utf-8"))
     flags = AUD['flags']
     audited = AUD['audited']
     ents = []
@@ -1035,10 +1204,29 @@ def errata_page():
                 h += ('<h3 id="flagged">Flagged as unverified</h3><ol class="flag-list"><li class="muted">No audit reports are '
                       'present in this build.</li></ol>')
         ents.append(h + '</div>')
-    body = (f'<div class="hero"><h1>Errata</h1><p class="lede">Corrections and known issues, newest first. Each entry names the '
-            f'version it applies to. To report a new error, use the "Report an error" link on any module page or '
-            f'<a href="{attr(REPO)}/issues/new">open an issue</a>.</p></div>' + ''.join(ents))
-    static_page('errata.html', 'Errata — Open Ultrasound Lab', 'Corrections, known issues and claims flagged as unverified in Open Ultrasound Lab.', body, 'errata')
+    rv = ''
+    if REV:
+        steps = ''.join(f'<li><span class="rv-d">{esc(x["date"])}</span><strong>{esc(x["title"])}.</strong> {esc(x["detail"])}</li>' for x in REV['passes'])
+        trs = []
+        for k, v in REV['modules'].items():
+            n = int(k)
+            if n not in MODS:
+                continue
+            op = ('; '.join(esc(o) for o in v['open'])) if v['open'] else '–'
+            trs.append(f'<tr id="review-m{n}"><td><a href="{attr(MODS[n]["url"])}">{n:02d} · {esc(MODS[n]["short"])}</a></td>'
+                       f'<td class="num">{v["claims"]}</td><td class="num">{v["fixed_first"]}</td><td class="num">{len(v["passes"])}</td>'
+                       f'<td>{esc(", ".join(v["passes"][3:])) or "–"}</td><td>{op}</td></tr>')
+        rv = ('<section id="review"><h2>How this course is checked</h2>'
+              '<p>The author, a practising ultrasound engineer, and several reviewers from the ultrasound field reviewed modules in their areas, and every module has been through independent audits that re-derive the key results, check every quantitative claim and citation, and run every lab script. '
+              'Each round is listed below with what it found; every correction is listed under the versions further down, and anything not yet confirmed stays visible as an open check rather than being hidden.</p>'
+              f'<ol class="rv-steps">{steps}</ol>'
+              '<h3>Review record by module</h3><div class="tablewrap"><table class="rv-table"><thead><tr><th>Module</th><th>Claims checked (first audit)</th><th>Fixed (first audit)</th><th>Review passes</th><th>Extra passes</th><th>Still open</th></tr></thead><tbody>'
+              + ''.join(trs) + '</tbody></table></div>'
+              '<p class="muted">Every module had the claim-by-claim audit, the primary-source recheck and the reproducible external audit. Last updated ' + esc(REV['updated']) + '.</p></section>')
+    body = (f'<div class="hero"><h1>Review record and errata</h1><p class="lede">How the course is checked, what each review changed, and what is still open. '
+            f'To report an error, use the "Report an error" link on any module page or '
+            f'<a href="{attr(REPO)}/issues/new">open an issue</a>.</p></div>' + rv + '<h2 id="errata">Errata, newest first</h2>' + ''.join(ents))
+    static_page('errata.html', 'Review record and errata | Open Ultrasound Lab', 'How Open Ultrasound Lab is checked: review passes, per-module review record, corrections by version and claims still open.', body, 'errata')
     return len(flags)
 
 
@@ -1056,29 +1244,29 @@ static_page('about.html', 'About — Open Ultrasound Lab', 'What Open Ultrasound
 <h2>The project</h2>
 <p>The course has {len(MODS)} modules in five parts, from complex numbers and the FFT to the three capstones. Each module derives its results, puts {n_demos // len(MODS)}-odd interactive demos next to the equations, collects the rules of thumb experts quote, and ends with interview questions, a MATLAB lab and a self-check. Modules link to each other by number, so you can start anywhere and follow the prerequisites back.</p>
 <h2>How it was built</h2>
-<p>M. Nguyen, an ultrasound engineer, planned the course, set the scope and the accuracy rules, and reviewed parts of it. Most of the text, demos and scripts were drafted by an AI model (Claude, by Anthropic) working to written accuracy and style rules (summarized in CONTRIBUTING.md in the repository). Because a language model can state wrong things fluently, the build relies on checks rather than trust:</p>
+<p>M. Nguyen, an ultrasound engineer, planned the course, set its scope and accuracy rules, and reviewed modules together with several reviewers from the ultrasound field. Most of the text, demos and scripts were drafted with an AI model (Claude, by Anthropic) working to written accuracy and style rules (summarized in CONTRIBUTING.md in the repository). Because a language model can state wrong things fluently, the build relies on checks rather than trust:</p>
 <ul>
 <li><strong>Provenance badges.</strong> Every figure is labeled <span class="prov exact">Exact formula</span>, <span class="prov sim">Simulation</span>, <span class="prov model">Approx. model</span> or <span class="prov schem">Schematic</span>. A simulation badge is allowed only for solvers that actually run in the page or in Octave, and approximate models must state their assumptions.</li>
 <li><strong>Render tests.</strong> A headless browser opens every page at desktop and phone width in light and dark themes and fails the build on JavaScript errors, horizontal overflow, canvases that stay blank, MathJax errors or unrendered TeX.</li>
 <li><strong>Octave tests.</strong> All {n_scripts} MATLAB scripts run headless in GNU Octave; a script that errors fails the build. The printed numbers were compared with the page text when each script was written.</li>
-<li><strong>Independent audit.</strong> A second model instance, without the author's context, re-derives each module's key results blind, extracts every quantitative claim and citation into a table, and marks each correct, wrong, imprecise, unverifiable or disputed. Wrong and imprecise items are fixed and the fixes re-verified; every module ({aud_txt}) was audited before release. Claims the audit could not confirm were then rechecked against primary sources; the few still open are listed on the <a href="errata.html">errata page</a>.</li>
+<li><strong>Independent audit.</strong> An independent audit re-derives each module's key results, extracts every quantitative claim and citation into a table, and marks each correct, wrong, imprecise, unverifiable or disputed. Wrong and imprecise items are fixed and the fixes re-verified; every module ({aud_txt}) was audited before release. Claims the audit could not confirm were then rechecked against primary sources; the full <a href="errata.html#review">review record</a> lists every pass and the few claims still open. External audits then ran all 159 labs, 609 numerical checks and resolved 127 DOIs.</li>
 <li><strong>Verified literature.</strong> References and figure numbers in "Figures from the literature" were looked up before inclusion; ones that could not be confirmed were dropped.</li>
 </ul>
-<p>None of this makes the course error-free. It has been only partly reviewed by a human expert. Read the <a href="disclaimer.html">disclaimer</a>, and please report what you find.</p>
+<p>None of this makes the course error-free. Every correction and every claim still open is listed in the <a href="errata.html#review">review record</a>. Read the <a href="disclaimer.html">disclaimer</a>, and please report what you find.</p>
 <h2>Who made it</h2>
 <p>M. Nguyen, with Claude (Anthropic). More about the author on <a href="{attr(AUTHOR)}">LinkedIn</a>. This is a personal project and does not represent any employer.</p>
 <h2 id="license">License</h2>
-<p>Text and figures: <a href="https://creativecommons.org/licenses/by/4.0/" rel="license">Creative Commons Attribution 4.0 International</a>. Code (page scripts, MATLAB/Octave files, build tools): MIT. See LICENSE and LICENSE-CONTENT in the <a href="{attr(REPO)}">repository</a>.</p>
+<p>Text, equations, figures and the glossary: <a href="https://creativecommons.org/licenses/by/4.0/" rel="license">Creative Commons Attribution 4.0 International</a>. MATLAB/Octave scripts and the demo code in the module pages: MIT. The site design, templates and build tools are © M. Nguyen, all rights reserved: they are public so the site can be built and checked openly, but they are not licensed for reuse. See LICENSE-CONTENT, LICENSE and LICENSE-SITE in the <a href="{attr(REPO)}">repository</a>.</p>
 </div>''', 'about')
 
-static_page('disclaimer.html', 'Disclaimer — Open Ultrasound Lab', 'Open Ultrasound Lab is an educational resource, partly reviewed, developed with an AI model; not for clinical, regulatory or safety decisions.', f'''
+static_page('disclaimer.html', 'Disclaimer — Open Ultrasound Lab', 'Open Ultrasound Lab is an educational resource, reviewed in part by experts and independently audited, developed with an AI model; not for clinical, regulatory or safety decisions.', f'''
 <div class="hero"><h1>Disclaimer</h1></div>
 <div class="prose">
-<p>This is a free educational resource developed by M. Nguyen with substantial help from an AI model (Claude, by Anthropic) and only partly reviewed. It will contain errors. Every figure is labeled as exact formula, in-browser simulation, approximate model, or schematic; none is measured data unless a cited source says so. Not for clinical, regulatory or safety decisions; not a substitute for IEC/FDA/AIUM standards. Personal project; does not represent the views, products or confidential information of any employer or collaborator. Trademarks belong to their owners.</p>
+<p>This is a free educational resource developed by M. Nguyen with substantial help from an AI model (Claude, by Anthropic), reviewed in part by the author and several reviewers, and independently audited. It may still contain errors. Every figure is labeled as exact formula, in-browser simulation, approximate model, or schematic; none is measured data unless a cited source says so. Not for clinical, regulatory or safety decisions; not a substitute for IEC/FDA/AIUM standards. Personal project; does not represent the views, products or confidential information of any employer or collaborator. Trademarks belong to their owners.</p>
 <p class="muted">Claims still awaiting an accessible source are listed on the <a href="errata.html">errata page</a>. The material is provided "as is", without warranty, under the licenses on the <a href="about.html#license">about page</a>.</p>
 </div>''')
 
-cff_src = (root / 'CITATION.cff').read_text()
+cff_src = (root / 'CITATION.cff').read_text(encoding="utf-8")
 cff_pub = cff_src.replace('GH_USER', CFG.get('GH_USER', 'GH_USER')).replace('10.5281/zenodo.0000000', CFG['DOI'])
 _doi_lines = (f"  publisher    = {{Zenodo}},\n  doi          = {{{CFG['DOI']}}},\n" if HAS_DOI else '')
 bib = (f"@misc{{nguyen{DATE[:4]}openultrasoundlab,\n"
@@ -1087,7 +1275,7 @@ bib = (f"@misc{{nguyen{DATE[:4]}openultrasoundlab,\n"
        f"  year         = {{{DATE[:4]}}},\n"
        f"  version      = {{{VERSION}}},\n" + _doi_lines +
        f"  url          = {{{CFG['COURSE_URL']}}},\n"
-       f"  note         = {{Developed with Claude (Anthropic). Text CC BY 4.0, code MIT}}\n}}")
+       f"  note         = {{Developed with Claude (Anthropic). Text CC BY 4.0, scripts MIT}}\n}}")
 static_page('cite.html', 'Cite — Open Ultrasound Lab', 'How to cite Open Ultrasound Lab: APA, BibTeX and CITATION.cff.', f'''
 <div class="hero"><h1>How to cite</h1><p class="lede">If the course helped your work or teaching, cite it as below{'' if HAS_DOI else '. An archived version with a DOI will be added here'}.</p></div>
 <div class="prose"><p>Author: M. Nguyen, ORCID <a href="https://orcid.org/{CFG.get("ORCID","")}">{CFG.get("ORCID","")}</a></p></div>
@@ -1114,6 +1302,8 @@ static_page('contribute.html', 'Contribute — Open Ultrasound Lab', 'How to rep
 <p>Open an issue first for anything larger than a fix. New or changed module content follows the rules in CONTRIBUTING.md: structure, accuracy rules, provenance badges, MathJax markup and the MATLAB rules (base MATLAB only, runs unchanged in Octave 8).</p>
 <h2>Quality gates</h2>
 <p>Every pull request runs two checks: the render check opens every page in headless Chromium at 1280 px light and 400 px dark and fails on JavaScript errors, overflow, blank canvases, MathJax errors or raw TeX; the Octave job runs every MATLAB script with a time limit. Both must pass. Details are in CONTRIBUTING.md.</p>
+<h2>Reuse, forks and translations</h2>
+<p>You are welcome to reuse, adapt, translate or host the course content: text and figures are CC BY 4.0 and the MATLAB scripts and demo code are MIT. The site design and build tools are not licensed for reuse; please present the content in your own design. Please credit "Open Ultrasound Lab, M. Nguyen" with a link to <a href="https://openultrasoundlab.org/">openultrasoundlab.org</a> and say what you changed. A modified copy should use a different name and should not suggest that it is the original or endorsed by it. Translations are especially welcome: tell us and we will link to them.</p>
 <h2>Where</h2>
 <p><a href="{attr(REPO)}">Repository</a> · <a href="{attr(REPO)}/issues">Issues</a> · <a href="{attr(REPO)}/pulls">Pull requests</a></p>
 </div>''')
@@ -1122,8 +1312,8 @@ static_page('contribute.html', 'Contribute — Open Ultrasound Lab', 'How to rep
 # ---------------------------------------------------------------- formula sheet
 def formula_sheet():
     cmd = [sys.executable, str(root / 'build_sheet.py')] + (['--local'] if LOCAL else [])
-    subprocess.run(cmd, check=True, capture_output=True)
-    s = (root / 'build' / 'formula-sheet.html').read_text()
+    subprocess.run(cmd, check=True, capture_output=True, env={**os.environ, 'PYTHONUTF8': '1'})
+    s = (root / 'build' / 'formula-sheet.html').read_text(encoding="utf-8")
     if LOCAL:  # serve the shared copy instead of the embedded 2 MB script
         s = re.sub(r'<script>[^<]{100000,}?</script>', f'<script async src="../vendor/{MJ_FILE}"></script>', s, count=1, flags=re.S)
 
@@ -1133,7 +1323,7 @@ def formula_sheet():
     s = re.sub(r'<h3 class="kmod" id="k-m(\d+)"><a href="[^"]*"(?: target="_blank")?(?: rel="noopener")?>', kmod, s)
     s = s.replace('<title>Ultrasound Formula Sheet</title>',
                   '<title>Formula sheet — Open Ultrasound Lab</title>\n<meta name="description" content="Key equations of all 33 Open Ultrasound Lab modules on one page, organized by part.">', 1)
-    s = s.replace('</head>', SITE_CSS + '\n' + search_script(1) + '</head>', 1)
+    s = s.replace('</head>', seo_tags('Formula sheet', '', 'formula-sheet/index.html') + SITE_CSS + '\n' + search_script(1) + '</head>', 1)
     s = s.replace('<body>', '<body>\n' + topbar(1, 'sheet') + '<span id="main"></span>', 1)
     s = s.replace('</body>', f'<div class="page" style="padding-top:0">{footer(1)}</div>\n</body>', 1)
     write('formula-sheet/index.html', s)
@@ -1145,8 +1335,11 @@ def assets():
     d.mkdir(parents=True, exist_ok=True)
     for f in sorted((root / 'matlab').glob('*.m')):
         shutil.copy2(f, d / f.name)
-    (PUB / '.nojekyll').write_text('')
-    (PUB / 'CITATION.cff').write_text(cff_pub)
+    (PUB / '.nojekyll').write_text('', encoding="utf-8")
+    if (root / 'og-card.png').exists():
+        shutil.copy2(root / 'og-card.png', PUB / 'og-card.png')
+    (PUB / 'robots.txt').write_text(f'User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}sitemap.xml\n', encoding="utf-8")
+    (PUB / 'CITATION.cff').write_text(cff_pub, encoding="utf-8")
     if not LOCAL:
         shutil.rmtree(PUB / 'vendor', ignore_errors=True)
     if LOCAL:
@@ -1160,6 +1353,12 @@ formula_sheet()
 assets()
 glossary_page()
 idx_bytes, idx_n = write_search_index()
+xref_n = autolink_xrefs()
+print(f'cross-reference links added: {xref_n}')
+pages = sorted(set(w for w in written if w.endswith('.html')) | {'formula-sheet/index.html'})
+(PUB / 'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    + ''.join(f'<url><loc>{esc(canon(w))}</loc><lastmod>{esc(DATE)}</lastmod><priority>{"1.0" if w == "index.html" else "0.8" if w.startswith("modules/") else "0.5"}</priority></url>\n' for w in pages)
+    + '</urlset>\n', encoding='utf-8')
 total = sum(f.stat().st_size for f in PUB.rglob('*') if f.is_file())
 print(f'public/: {len(written)} pages, {len(MODS)} modules, {n_questions} interview questions, {n_flags} flagged audit items, '
       f'{link_count} module links rewritten, {total / 1e6:.1f} MB, MathJax {"local" if LOCAL else "CDN"}, search index {idx_n} entries / {idx_bytes / 1e3:.0f} kB')

@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this course, please cite it as below."
 title: "Open Ultrasound Lab: an interactive course on ultrasound signal processing, physics and imaging"
 type: dataset
-version: "1.1"
+version: "1.2"
 date-released: "2026-10-26"
 doi: "10.5281/zenodo.23676982"
 authors:
@@ -12,7 +12,7 @@ authors:
 repository-code: "https://github.com/OpenUltrasoundLab/open-ultrasound-lab"
 url: "https://openultrasoundlab.org/"
 license: CC-BY-4.0
-abstract: "Free, open, interactive course (33 modules) on the mathematics, physics, hardware and signal processing of ultrasound imaging. Developed with Claude (Anthropic); text CC BY 4.0, code MIT."
+abstract: "Free, open, interactive course (33 modules) on the mathematics, physics, hardware and signal processing of ultrasound imaging. Developed with Claude (Anthropic); text CC BY 4.0, MATLAB scripts and demo code MIT; site design all rights reserved."
 keywords:
   - ultrasound
   - signal processing

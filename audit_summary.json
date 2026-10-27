@@ -44,17 +44,17 @@
   },
   {
    "module": 26,
-   "claim": "Specific figure numbers (gCNR Fig. 1 S-DAS, Figs. 4,5,7–9; PICMUS Figs. 2,3; Oelze Fig. 3)",
+   "claim": "gCNR paper (Rodriguez-Molares et al. 2020): figure numbers Figs. 4, 5, 7–9",
    "where": "26.14",
    "verdict": "open",
-   "action": "no accessible source found in the 26 Oct 2026 recheck"
+   "action": "PICMUS Figs. 2–3, Oelze & Mamou Fig. 3 and the gCNR paper Fig. 1 were confirmed against the primary papers (external audit, 27 Oct 2026); gCNR Figs. 4, 5 and 7–9 still to check."
   },
   {
    "module": 32,
    "claim": "Imbault 2017: speeds 1492–1604 m/s, PDFF 2–17 %, cut-offs 1541 (PDFF 5 %) and 1555 m/s (biopsy 10 %)",
    "where": "32.1, card G1, cheat sheet, demo 32.6 targets",
    "verdict": "open",
-   "action": "Speeds 1492–1604 m/s, PDFF range and the 1541/1555 m/s cut-offs from Imbault et al. 2017 await a check against the full paper."
+   "action": "17 patients, R² = 0.69 with MRI-PDFF and AUROC 0.952 confirmed in the PubMed abstract; the 1541/1555 m/s cut-offs are reportedly also cited in a 2024 AJR review (doi:10.2214/AJR.24.31709, not accessible to us); the 1492–1604 m/s range and the cut-offs still await the full paper."
   }
  ],
  "recheck": {

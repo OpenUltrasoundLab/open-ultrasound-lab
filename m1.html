@@ -290,9 +290,9 @@
     <div class="stepbox">
       <div>
         <h3>Step 12 · Frequency is turns per second</h3>
-        <p>\(e^{j(\omega t + \varphi)}\) rotates at ω radians per second, i.e. \(f = \omega/(2\pi)\) full turns per second. One turn takes the period \(T = 1/f\). The starting angle φ is the phase.</p>
+        <p>\(e^{j(\omega t + \varphi)}\) rotates at ω radians per second, i.e. \(f = \omega/(2\pi)\) full turns per second. One turn takes the positive period \(T = 1/|f|\) for nonzero f (a constant signal has no fundamental period). The starting angle φ is the phase.</p>
         <div class="eqn" id="m1-eq12">
-          <div class="eqn-body"><div class="eqn-math">\[ z(t) = A\,e^{j(2\pi f t + \varphi)}, \qquad \omega = 2\pi f, \qquad T = \frac{1}{f} \]</div><span class="eqn-no">(01.12)</span></div>
+          <div class="eqn-body"><div class="eqn-math">\[ z(t) = A\,e^{j(2\pi f t + \varphi)}, \qquad \omega = 2\pi f, \qquad T = \frac{1}{\lvert f\rvert}\quad(f\ne0) \]</div><span class="eqn-no">(01.12)</span></div>
           <dl class="where"><dt>\(A\)</dt><dd>amplitude (arrow length)</dd><dt>\(f\)</dt><dd>frequency, turns per second (Hz); the sign gives the direction</dd><dt>\(\omega\)</dt><dd>angular frequency, rad/s</dd><dt>\(\varphi\)</dt><dd>phase (angle at t = 0), rad</dd><dt>\(T\)</dt><dd>period, s</dd><dt>\(z(t)\)</dt><dd>complex phasor, rotating arrow</dd><dt>\(t\)</dt><dd>time, s</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
         </div>
         <div class="hand">f = 5 MHz: 5 × 10⁶ turns/s, ω = 3.142 × 10⁷ rad/s, T = 200 ns<br>t = 50 ns: angle = 2π × 5 × 10⁶ × 50 × 10⁻⁹ = π/2 → z = j<br>t = 30 ns: angle = 54° → z = 0.588 + 0.809j</div>
@@ -342,7 +342,7 @@
         <div class="readout" id="m1-rot-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> press Play, then switch the direction: the blue cos trace does not change at all, the pink sin trace flips sign. Set f = 5 MHz and scrub to t = 50 ns: the arrow points straight up (j). Change φ: both traces slide left or right together, because a phase is a time shift of \(\varphi/(2\pi f)\).</div>
+    <div class="demo-foot"><strong>Try:</strong> press Play with φ = 0, then switch the direction: the blue cos trace does not change at all, the pink sin trace flips sign (with φ ≠ 0 the cos trace changes too, because \(\cos(-\omega t + \varphi) = \cos(\omega t - \varphi)\)). Set f = 5 MHz and scrub to t = 50 ns: the arrow points straight up (j). Change φ: both traces slide left or right together, because a phase is a time shift of \(\varphi/(2\pi f)\).</div>
   </div>
 
   <!-- ===================== 01.5 ===================== -->
@@ -1326,7 +1326,7 @@
     // direction cue
     x.save(); x.strokeStyle = c.muted; x.lineWidth = 1.2; x.beginPath(); const a0 = th(t); x.arc(cx, cy, Rr * 0.32, -a0, -(a0 + sg * 0.9), sg > 0); x.stroke(); x.restore();
     const turns = f * t, ang = wrapPi(th(t));
-    $('m1-rot-read').innerHTML = 'θ(t) = ' + (sg > 0 ? '+' : '−') + '2πft + φ = <b>' + fdeg(ang, 1) + '</b> (wrapped)<br>arrow = ' + fz(zt, 3) + '<br>Re = cos θ = <b>' + fn(zt.re, 3) + '</b>, Im = sin θ = <b>' + fn(zt.im, 3) + '</b><br>turns so far f·t = ' + fn(turns, 2) + '<br>period T = 1/f = ' + Lab.fmt(1e9 / f) + ' ns, ω = ' + fn(2 * PI * f / 1e6, 2) + '×10⁶ rad/s';
+    $('m1-rot-read').innerHTML = 'θ(t) = ' + (sg > 0 ? '+' : '−') + '2πft + φ = <b>' + fdeg(ang, 1) + '</b> (wrapped)<br>arrow = ' + fz(zt, 3) + '<br>Re = cos θ = <b>' + fn(zt.re, 3) + '</b>, Im = sin θ = <b>' + fn(zt.im, 3) + '</b><br>turns so far f·t = ' + fn(turns, 2) + '<br>period T = 1/|f| = ' + Lab.fmt(1e9 / f) + ' ns, ω = ' + fn(2 * PI * f / 1e6, 2) + '×10⁶ rad/s';
   }
   function stepRot(ts) { if (Lab.current !== 'm1') { rot.raf = null; $('m1-rot-play').textContent = 'Play'; return; } if (!rot.last) rot.last = ts; const dt = (ts - rot.last) / 1000; rot.last = ts; let t = +$('m1-rot-t').value + dt * 100; if (t > 1000) t -= 1000; $('m1-rot-t').value = t; drawRot(); rot.raf = requestAnimationFrame(stepRot); }
   $('m1-rot-play').addEventListener('click', () => { if (rot.raf) { cancelAnimationFrame(rot.raf); rot.raf = null; $('m1-rot-play').textContent = 'Play'; } else { rot.last = 0; rot.raf = requestAnimationFrame(stepRot); $('m1-rot-play').textContent = 'Pause'; } });

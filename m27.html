@@ -26,7 +26,7 @@
     <h2><span class="sec">27.1</span>The periodogram: biased by the window, never consistent</h2>
     <p>Take \(N\) samples \(x[n]\) of a zero-mean stationary process at sampling rate \(f_s\). Its power spectral density is the DTFT of the autocorrelation (Module 07). Use per-sample units so that unit-variance white noise has \(S(f) = 1\); divide by \(f_s\) for per-hertz units.</p>
     <div class="eqn" id="m27-eq1">
-      <div class="eqn-body"><div class="eqn-math">\[ S(f) = \sum_{l} r[l]\, e^{-j 2\pi f l / f_s}, \qquad r[l] = \mathrm{E}\{ x[n]\, x[n+l] \} \]</div><span class="eqn-no">(27.1)</span></div>
+      <div class="eqn-body"><div class="eqn-math">\[ S(f) = \sum_{l} r[l]\, e^{-j 2\pi f l / f_s}, \qquad r[l] = \mathrm{E}\{ x[n+l]\, x^{*}[n] \} \]</div><span class="eqn-no">(27.1)</span></div>
       <dl class="where"><dt>\(x[n]\)</dt><dd>zero-mean stationary samples, \(n = 0 \dots N-1\)</dd><dt>\(f_s\)</dt><dd>sampling rate, MHz (40 MHz in the demos)</dd><dt>\(r[l]\)</dt><dd>autocorrelation at lag \(l\) samples</dd><dt>\(S(f)\)</dt><dd>power spectral density, per-sample units</dd><dt>\(l\)</dt><dd>lag, samples</dd><dt>\(\mathrm{E}\{\cdot\}\)</dt><dd>expected value</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(\sum_l\)</dt><dd>sum over all lags</dd><dt>\(n\)</dt><dd>sample index</dd></dl>
     </div>
     <div class="eqn" id="m27-eq2">

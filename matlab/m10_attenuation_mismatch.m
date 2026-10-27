@@ -41,7 +41,7 @@ xR  = @(a,i,v) i-1 + (a(i-1)-v)./(a(i-1)-a(i));
 xL  = @(a,i,v) i+1 - (a(i+1)-v)./(a(i+1)-a(i));
 wf  = @(a,k,v) xR(a, k-1+find(a(k:end) < v, 1), v) - xL(a, k+1-find(a(k:-1:1) < v, 1), v);  % full width at level v
 pslf = @(a,k) 20*log10(max(a([1:(k+1-find(diff(a(k:-1:1)) > 0, 1))-1, (k-1+find(diff(a(k:end)) > 0, 1))+1:numel(a)])));
-pos = fax > 0; tt = (0:Nfft-1)'/fs;
+pos = fax > 0; tt = [0:Nfft/2-1, -Nfft/2:-1]'/fs;   % signed time: leakage before t = 0 wraps to negative times, not to +Nfft/fs
 
 fprintf('alpha = %.2f dB/cm/MHz, chirp %.1f-%.1f MHz, T = %.0f us, transducer %.0f%%\n', alpha_dB, (f0-B/2)/1e6, (f0+B/2)/1e6, T*1e6, fbw*100);
 fprintf(' z(cm)  fc(MHz)  2*a*f0*z(dB) | fixed: w6 w20 (ns) PSL(dB) loss(dB) shift(ns) | adapted: w6 w20 PSL | equalizer: w6 w20 PSL loss | echo centroid shift (us) vs (fc-f0)T/B\n');

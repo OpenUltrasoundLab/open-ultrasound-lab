@@ -1,0 +1,32 @@
+Open Ultrasound Lab: site design and build tools
+
+Copyright (c) 2026 M. Nguyen. All rights reserved.
+
+From version 1.2 on, the following are NOT open source. They are published so
+that the site can be built and checked in public, but no license is granted to
+copy, modify, redistribute or reuse them, or to create websites with the same or
+a confusingly similar design, without written permission:
+
+- the page templates and layout: shell.html, home*.html, rail*.html, sheet_*.html
+- the visual design: style sheets and site scripts embedded in the build tools,
+  search.js, the glossary pop-up, og-card.png
+- the build and test tools: build_site.py, build_sheet.py, assemble.py,
+  check.py, check_site.py, check_links.py, mtest.py, test_search.py,
+  .github/workflows/
+- the built website (the generated HTML pages), as far as its design and code
+  are concerned
+
+You may view these files, run them locally to test a proposed correction to the
+course content, and submit pull requests. Contributions to these files are
+accepted under the condition that M. Nguyen may distribute them under any license.
+
+The course content itself (text, equations, figures, glossary definitions,
+interview questions) remains licensed under CC BY 4.0 (LICENSE-CONTENT), and the
+MATLAB/Octave scripts and in-page demo code remain under the MIT license
+(LICENSE). Reusing the content in your own design is welcome, with credit.
+
+Versions up to and including v1.1.1 (October 2026) were released with the build
+tools under the MIT license; those grants remain valid for those versions only.
+
+Permission requests: open an issue at
+https://github.com/OpenUltrasoundLab/open-ultrasound-lab

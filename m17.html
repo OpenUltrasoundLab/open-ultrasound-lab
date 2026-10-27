@@ -305,7 +305,7 @@
       <li><strong>Inverse apodization</strong>: the centre is thickest, so it is attenuated most (two-way 3.1 dB at the centre, 1.8 dB at the edge). The aperture is weighted towards its edges, which narrows the main lobe slightly and raises sidelobes (−26.5 dB → −25.7 dB two-way in this example).</li>
       <li><strong>Downshift</strong>: attenuation that rises with frequency multiplies the pulse-echo spectrum by a low-pass factor. For a Gaussian spectrum of standard deviation \(\sigma\) and a linear law (\(\beta\) Np/MHz two-way), the centre moves by \(-\beta \sigma^2\). With \(\alpha \propto f^{1.5}\) and the aperture-mean thickness (0.439 mm), a 70 % band at 5 MHz shifts its centroid to 4.81 MHz.</li>
     </ul>
-    <p>The lens impedance should match tissue (filled silicones reach 1.4–1.6 MRayl; unfilled ones are nearer 1.0–1.1 MRayl, \(R \approx -0.2\), a −14 dB reverberation source between lens face and matching stack).</p>
+    <p>The lens impedance should match tissue (filled silicones reach 1.4–1.6 MRayl; unfilled ones are nearer 1.0–1.1 MRayl, pressure reflection coefficient \(\approx -0.2\) against tissue, a −14 dB reverberation source between lens face and matching stack).</p>
   </div>
 
   <figure class="stack-fig" id="m17-fig-lens">
@@ -453,7 +453,7 @@
     <div class="rule">
       <div class="say">"A bare PZT face gets only 16 % of the power into tissue; the rest rings in the plate."</div>
       <div class="keynum"><span>\(R = -0.916\)</span><span>\(T_I = 0.161\) (−7.9 dB)</span></div>
-      <div class="why"><p>\(T_I = 4Z_1 Z_2 /(Z_1 + Z_2)^{2}\) depends only on the ratio \(r = Z_p /Z_L\): \(T_I = 4r/(1 + r)^{2}\). At \(r = 22.8\) (34.2/1.5) that is 0.161. A 1-3 composite at 15 MRayl \((r = 10)\) already gets 0.33 across. The curve is symmetric in log r: going from tissue into PZT is just as bad.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m17-rf-1" aria-label="Intensity transmission versus impedance ratio"></canvas></div></div>
+      <div class="why"><p>\(T_I = 4Z_1 Z_2 /(Z_1 + Z_2)^{2}\) depends only on the ratio \(\zeta = Z_p /Z_L\): \(T_I = 4\zeta/(1 + \zeta)^{2}\). At \(\zeta = 22.8\) (34.2/1.5) that is 0.161. A 1-3 composite at 15 MRayl \((\zeta = 10)\) already gets 0.33 across. The curve is symmetric in \(\log \zeta\): going from tissue into PZT is just as bad.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m17-rf-1" aria-label="Intensity transmission versus impedance ratio"></canvas></div></div>
       <div class="limits">Normal incidence, plane waves, semi-infinite media. A finite plate is a resonator, so the energy that does not leave on the first pass leaves later (ringing), not never.</div>
     </div>
     <div class="rule">
