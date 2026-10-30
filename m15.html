@@ -18,6 +18,8 @@
     </div>
   </header>
   <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>numerical solver run in this page (1D FDTD, coupled-harmonic Burgers with RK4, exact 3×3 boundary solve)</span><span><span class="prov model">Approx. model</span>simplified physics; the assumptions are stated under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not to scale</span><span>Every demo, card and rule-figure curve is computed in the browser (the static drawings are badged Schematic); the MATLAB lab reproduces the numbers in Octave. No k-Wave, Field II or KZK output is shown.</span></div>
+  <div class="k60"><span class="label">In 60 seconds</span><ol><li><b>Linear acoustics:</b> the linear wave equation assumes tissue particles move far slower than sound; the ratio stays near \(4\times10^{-4}\) even at 1 MPa. In a travelling plane wave the intensity is \(I=p_0^2/(2Z)\), with \(p_0\) the pressure amplitude and \(Z=\rho_0c_0\) the impedance (density times sound speed): 1 MPa in tissue carries 31 W/cm² while the pulse lasts. <a class="sref" href="#m15-s15-1">§15.1</a></li><li><b>Interfaces:</b> a boundary echoes in proportion to the impedance change across it. At normal incidence the pressure reflection is \(R=(Z_2-Z_1)/(Z_2+Z_1)\), \(Z_1,Z_2\) the impedances on each side, so soft-tissue boundaries echo tens of dB below bone or air. Transmitted pressure above 1 is no energy gain: into skull, 1.54 times the incident pressure carries 71 % of the energy. <a class="sref" href="#m15-s15-1">§15.1</a> <a class="sref" href="#m15-s15-2">§15.2</a></li><li><b>Refraction and slow layers:</b> beamformers assume straight paths at 1540 m/s, so slower layers delay echoes and bend the beam. Beyond the critical angle \(\arcsin(c_1/c_2)\), with \(c_1,c_2\) the sound speeds before and after the boundary, reflection is total (33.1° into skull). Into a solid such as skull, most transmitted energy enters as shear waves over a wide angle range. <a class="sref" href="#m15-s15-2">§15.2</a></li><li><b>Attenuation sets the frequency–depth trade:</b> tissue loss grows roughly with frequency, and an echo pays it twice. With one-way loss \(\alpha_0 f\) (\(\alpha_0\) in dB/cm/MHz, f in MHz), a dynamic-range budget of B dB reaches \(z=B/(2\alpha_0 f)\): 60 dB at 0.5 dB/cm/MHz reaches 12 cm at 5 MHz. High frequencies fade first, so the centre frequency drifts down with depth. <a class="sref" href="#m15-s15-3">§15.3</a></li><li><b>The focus is the aperture's Fourier transform:</b> the focal beam is the aperture's far-field pattern, so wider apertures and higher frequencies give narrower beams. A line aperture's one-way −6 dB width is \(1.21\,\lambda F/D\) (λ wavelength, F focal depth, D aperture width); sidelobes start at −13.3 dB. Receiving with the same aperture narrows the beam to 0.73 of that width. <a class="sref" href="#m15-s15-4">§15.4</a></li><li><b>Nonlinear propagation:</b> high-pressure parts of a wave travel slightly faster, so peaks catch up with troughs and the wave steepens toward a shock. The Gol'dberg number Γ, steepening over absorption, decides: water at 3 MHz and 1 MPa (Γ ≈ 90) shocks, liver (Γ ≈ 1) absorbs first. High-output water-tank waveforms thus differ in shape from in-tissue ones. <a class="sref" href="#m15-s15-5">§15.5</a></li><li><b>Harmonic imaging:</b> tissue generates a second harmonic in proportion to pressure squared, so the harmonic beam is the transmit beam squared: narrower, with clutter at L dB returning at 2L dB. It builds up with depth, so near-skin reverberation contributes less. The cost is 15–25 dB less signal and twice the attenuation in dB, eroding the gain in deep patients. <a class="sref" href="#m15-s15-6">§15.6</a> <a class="sref" href="#m15-s15-7">§15.7</a></li></ol></div>
+  <div class="field"><span class="label">From the field</span><ul><li><b>Switch from harmonic back to fundamental imaging when penetration runs out.</b> <span class="why">The harmonic starts 15–25 dB below the fundamental and, received at twice the transmit frequency, suffers twice the attenuation in dB. The symptom is a far field that turns to noise while the fundamental still shows tissue. <a class="sref" href="#m15-s15-6">§15.6</a></span></li><li><b>Budget pulse inversion as half the frame rate plus a motion residual.</b> <span class="why">Adding echoes of a pulse and its negative needs two transmits per line, and motion between them leaves fundamental uncancelled: −26 dB at 10 mm/s and −12 dB at 50 mm/s for 5 kHz pulse repetition frequency and 3 MHz transmit. <a class="sref" href="#m15-s15-7">§15.7</a></span></li><li><b>Do not derate high-output water-tank waveforms linearly to describe the field in tissue.</b> <span class="why">In water steepening beats absorption (Gol'dberg number Γ ≈ 90 at 3 MHz, 1 MPa) and a shock forms; in tissue (Γ ≈ 1) absorption stops it. The waveforms differ in shape, so no single factor maps one onto the other. <a class="sref" href="#m15-s15-5">§15.5</a></span></li><li><b>Re-check gain and presets whenever the output level (mechanical index, MI) changes in harmonic mode.</b> <span class="why">The harmonic source is proportional to pressure squared, so harmonic brightness moves twice as fast as the drive in dB: a 3 dB output cut for safety darkens the harmonic image by about 6 dB at fixed gain. <a class="sref" href="#m15-s15-6">§15.6</a></span></li><li><b>Correct for fat layers before trusting positions in a straight-ray image.</b> <span class="why">Beamforming at 1540 m/s ignores slower layers: each cm of fat shifts echoes about 0.62 mm deeper, and a 20° fat wedge in muscle deviates the beam by 1.9° (2.0 mm at 6 cm depth). <a class="sref" href="#m15-s15-2">§15.2</a></span></li></ul></div>
 
   <!-- ===================== 15.1 ===================== -->
   <div class="prose">
@@ -56,30 +58,31 @@
       <div class="stage">
         <canvas id="m15-w-cv" aria-label="Pressure snapshot along x"></canvas>
         <canvas id="m15-w-tr" aria-label="Pressure traces at two receivers"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>\(p(x)\) at the time cursor</span><span><i style="background:var(--sig2)"></i>receiver A in medium 1 (incident, reflected)</span><span><i style="background:var(--sig4)"></i>receiver B in medium 2 (transmitted)</span></div>
+        <div class="legend" id="m15-w-leg"><span data-s="p"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>\(p(x)\) at the time cursor</span><span data-s="A"><i class="solid" style="color:var(--sig2);background:var(--sig2)"></i>receiver A in medium 1 (incident, reflected)</span><span data-s="B"><i class="dash" style="color:var(--sig4);background:var(--sig4)"></i>receiver B in medium 2 (transmitted)</span><span data-s="if"><i class="dash" style="color:var(--muted);background:var(--muted)"></i>interface</span><span data-s="t"><i class="dot" style="color:var(--ink);background:var(--ink)"></i>time cursor</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m15-w-pre">Preset</label><select id="m15-w-pre"><option value="fm">Fat → muscle</option><option value="sk" selected>Soft tissue → skull (longitudinal)</option><option value="air">Soft tissue → air-like</option><option value="pzt">PZT → tissue, bare</option><option value="pztq">PZT → tissue, λ/4 layer</option></select></div>
-        <div class="ctrl"><label for="m15-w-c1">\(c_1\) <output id="m15-w-c1-o"></output></label><input type="range" id="m15-w-c1" min="1000" max="4500" step="10" value="1540"></div>
-        <div class="ctrl"><label for="m15-w-r1">\(\rho_1\) <output id="m15-w-r1-o"></output></label><input type="range" id="m15-w-r1" min="1" max="8000" step="1" value="1050"></div>
-        <div class="ctrl"><label for="m15-w-c2">\(c_2\) <output id="m15-w-c2-o"></output></label><input type="range" id="m15-w-c2" min="1000" max="4500" step="10" value="2820"></div>
-        <div class="ctrl"><label for="m15-w-r2">\(\rho_2\) <output id="m15-w-r2-o"></output></label><input type="range" id="m15-w-r2" min="1" max="8000" step="1" value="1900"></div>
-        <div class="ctrl"><label for="m15-w-dl">Layer thickness (c = 2500 m/s) <output id="m15-w-dl-o"></output></label><input type="range" id="m15-w-dl" min="0" max="0.6" step="0.002" value="0"></div>
-        <div class="ctrl"><label for="m15-w-zl">Layer impedance <output id="m15-w-zl-o"></output></label><input type="range" id="m15-w-zl" min="1" max="20" step="0.1" value="7"></div>
-        <div class="ctrl"><label for="m15-w-t">Time cursor <output id="m15-w-t-o"></output></label><input type="range" id="m15-w-t" min="0" max="1" step="0.002" value="0.62"></div>
+        <div class="ctrl"><label for="m15-w-pre">Preset <span class="hint">sets both media and the layer</span></label><select id="m15-w-pre"><option value="fm">Fat → muscle</option><option value="sk" selected>Soft tissue → skull (longitudinal)</option><option value="air">Soft tissue → air-like</option><option value="pzt">PZT → tissue, bare</option><option value="pztq">PZT → tissue, λ/4 layer</option></select></div>
+        <div class="ctrl"><label for="m15-w-c1">Sound speed, medium 1 \(c_1\) <output id="m15-w-c1-o"></output></label><input type="range" id="m15-w-c1" min="1000" max="4500" step="10" value="1540"></div>
+        <div class="ctrl"><label for="m15-w-r1">Density, medium 1 \(\rho_1\) <output id="m15-w-r1-o"></output></label><input type="range" id="m15-w-r1" min="1" max="8000" step="1" value="1050"></div>
+        <div class="ctrl"><label for="m15-w-c2">Sound speed, medium 2 \(c_2\) <output id="m15-w-c2-o"></output></label><input type="range" id="m15-w-c2" min="1000" max="4500" step="10" value="2820"></div>
+        <div class="ctrl"><label for="m15-w-r2">Density, medium 2 \(\rho_2\) <output id="m15-w-r2-o"></output></label><input type="range" id="m15-w-r2" min="1" max="8000" step="1" value="1900"></div>
+        <div class="ctrl"><label for="m15-w-dl">Layer thickness d <output id="m15-w-dl-o"></output> <span class="hint">0 = no layer; layer sound speed fixed at 2500 m/s</span></label><input type="range" id="m15-w-dl" min="0" max="0.6" step="0.002" value="0"></div>
+        <div class="ctrl"><label for="m15-w-zl">Layer impedance Z<sub>L</sub> <output id="m15-w-zl-o"></output> <span class="hint">acts only when d &gt; 0</span></label><input type="range" id="m15-w-zl" min="1" max="20" step="0.1" value="7"></div>
+        <div class="ctrl"><label for="m15-w-t">Time cursor t <output id="m15-w-t-o"></output> <span class="hint">time of the upper snapshot, marked on the traces below</span></label><input type="range" id="m15-w-t" min="0" max="1" step="0.002" value="0.62"></div>
         <div class="btn-row"><button class="btn solid" id="m15-w-play" type="button">Play</button></div>
         <div class="readout" id="m15-w-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> the skull preset reflects 54 % in pressure (29 % of the energy) and transmits a pressure 1.54 times the incident one: pressure transmission above 1 is not an energy gain, because the intensity carries \(1/Z_2\). The air-like preset returns an inverted copy (\(R \approx -1\)). Then compare PZT → tissue bare (81 % of the energy reflected) with a quarter-wave layer of impedance \(\sqrt{Z_1 Z_2}\) ≈ 7 MRayl: the reflection collapses to the band-averaged value and the transmitted pulse rings, which is Module 17's matching layer seen in the time domain. Measured values come from the simulated traces, not from the formula.</div>
+    <div class="demo-foot"><strong>Try:</strong> the skull preset reflects 54 % in pressure (29 % of the energy) and transmits a pressure 1.54 times the incident one: pressure transmission above 1 is not an energy gain, because the intensity carries \(1/Z_2\). The air-like preset returns an inverted copy (\(R \approx -1\)). Then compare PZT → tissue bare (81 % of the energy reflected) with a quarter-wave layer of impedance \(\sqrt{Z_1 Z_2}\) ≈ 7 MRayl: the reflection collapses to the band-averaged value and the transmitted pulse rings, which is Module 17's matching layer seen in the time domain. Measured values come from the simulated traces, not from the formula.<span class="symnote">Symbols used here: c₁, c₂, the sound speeds of the two media in m/s; ρ₁, ρ₂, their densities in kg/m³; Z = ρc, the acoustic impedance in MRayl (Z<sub>L</sub> for the layer); d, the layer thickness in mm; λ, the wavelength in the layer; R and T, the pressure reflection and transmission coefficients (no unit); f₀ = 3 MHz, the pulse centre frequency; p_inc, the incident pressure amplitude.</span></div>
   </div>
   <div class="rf-grid" id="m15-g1"></div>
   <div class="callout intuit"><span class="label">Intuition: a DAS beamformer is a solver of this equation run backwards</span><p>Every delay you apply assumes \(p = f(t - r/c_0)\) with one \(c_0\) and no interaction between waves. Aberration correction and sound-speed estimation exist because the \(c_0\) in the equation is really \(c(\mathbf{r})\); harmonic imaging exists because the dropped second-order terms are not negligible at diagnostic pressures.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>Linearization drops terms second order in ε = u₀/c₀ (≈ 4 × 10⁻⁴ at 1 MPa in tissue); the dropped equation-of-state term returns as B/A in 15.5.</li><li>In a plane progressive wave p and u are in phase and p/u = Z = ρ₀c₀ (1.62 MRayl for generic tissue); near a small source they are not: 0.71ρc and 45° at kr = 1.</li><li>I = p₀²/(2Z): 1 MPa in tissue carries 31 W/cm² while the pulse lasts.</li><li>Pressure transmission above 1 is not an energy gain: the skull preset transmits 1.54 times the incident pressure but only 71 % of the energy.</li></ul></div>
 
   <!-- ===================== 15.2 ===================== -->
   <div class="prose">
     <h2><span class="sec">15.2</span>Reflection, transmission and refraction</h2>
-    <p>At a plane boundary pressure and normal particle velocity are continuous. For normal incidence of a plane wave from medium 1 onto medium 2:</p>
+    <p>At a plane boundary, pressure and normal particle velocity are continuous. For normal incidence of a plane wave from medium 1 onto medium 2:</p>
   </div>
   <div class="eqn key" id="m15-eq3">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} R &amp;= \frac{p_r}{p_i} = \frac{Z_2 - Z_1}{Z_2 + Z_1}, \qquad T = \frac{p_t}{p_i} = 1 + R = \frac{2Z_2}{Z_2 + Z_1} \\ \text{energy:}\ \ R_I &amp;= R^2, \qquad T_I = \frac{Z_1}{Z_2}\, T^2 = \frac{4 Z_1 Z_2}{(Z_1 + Z_2)^2}, \qquad R_I + T_I = 1 \end{aligned} \]</div><span class="eqn-no">(15.3)</span></div>
@@ -93,7 +96,7 @@
     <span class="note">Beyond \(\theta_c\), \(\cos\theta_2\) is imaginary, \(\lvert R \rvert = 1\) and the transmitted field is evanescent. Soft tissue → skull (\(c_L\) = 2820 m/s): \(\theta_{\mathrm{c,L}}\) = 33.1°. Fat → muscle: \(\theta_c\) = 66.6°.</span>
   </div>
   <div class="prose"><p><strong>Mode conversion.</strong> A solid also supports shear waves, and a fluid–solid boundary has three conditions (normal displacement, normal stress, zero shear stress), so an incident longitudinal wave launches a reflected wave, a transmitted longitudinal wave and a transmitted shear wave. Demo 15.2 solves that 3 × 3 system exactly. With the skull values, beyond 33° the longitudinal wave is gone and between about 37° and 73° more than 90 % of the incident energy enters the bone as shear. Because \(c_S\) (1500 m/s) is below the tissue speed, the shear wave has no critical angle and is refracted toward the normal; shear attenuation in bone is high, which is why transcranial imaging normally stays near normal incidence.</p>
-    <p><strong>Refraction errors in imaging.</strong> The beamformer assumes straight rays at \(c_0\) = 1540 m/s. Three consequences: (1) an axial shift, because a layer of thickness d and speed \(c_L\) is displayed as \(d \cdot c_0/c_L\) (fat: +0.62 mm per cm); (2) a lateral shift, because a wedge-shaped layer bends the beam (a fat wedge of 20° in muscle deviates the beam by 1.9°, i.e. 2.0 mm at 6 cm, the mechanism behind duplicated images below the rectus muscles); (3) defocus, because the delays no longer match the true arrival times. These are the aberrations that sound-speed estimation and aberration correction try to undo.</p></div>
+    <p><strong>Refraction errors in imaging.</strong> The beamformer assumes straight rays at \(c_0\) = 1540 m/s. This has three consequences: (1) an axial shift, because a layer of thickness d and speed \(c_L\) is displayed as \(d \cdot c_0/c_L\) (fat: +0.62 mm per cm); (2) a lateral shift, because a wedge-shaped layer bends the beam (a fat wedge of 20° in muscle deviates the beam by 1.9°, i.e. 2.0 mm at 6 cm, the mechanism behind duplicated images below the rectus muscles); (3) defocus, because the delays no longer match the true arrival times. These are the aberrations that sound-speed estimation and aberration correction try to undo.</p></div>
 
   <div class="demo">
     <div class="demo-head"><span class="tag">Demo 15.2</span><h3>Snell's law, critical angles and mode conversion</h3> <span class="prov sim">Simulation</span><span class="prov-note">exact plane-wave boundary conditions solved as a 3×3 complex system in JS (fluid–fluid closed form when \(c_S\) = 0); flat, lossless, isotropic media</span></div>
@@ -101,22 +104,23 @@
       <div class="stage">
         <canvas id="m15-s-ray" aria-label="Ray diagram at the interface"></canvas>
         <canvas id="m15-s-en" aria-label="Energy fractions versus incidence angle"></canvas>
-        <div class="legend"><span><i style="background:var(--ink)"></i>incident</span><span><i style="background:var(--sig3)"></i>reflected</span><span><i style="background:var(--accent)"></i>transmitted longitudinal</span><span><i style="background:var(--sig2)"></i>transmitted shear</span></div>
+        <div class="legend" id="m15-s-leg"><span data-s="i"><i class="solid" style="color:var(--ink);background:var(--ink)"></i>incident</span><span data-s="r"><i class="dot" style="color:var(--sig3);background:var(--sig3)"></i>reflected</span><span data-s="L"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>transmitted longitudinal</span><span data-s="S"><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>transmitted shear</span><span data-s="c"><i class="dot" style="color:var(--muted);background:var(--muted)"></i>critical angles (dotted, colour of the wave)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m15-s-pre">Preset</label><select id="m15-s-pre"><option value="sk" selected>Soft tissue → skull (solid)</option><option value="fm">Fat → muscle</option><option value="mf">Muscle → fat</option><option value="cb">Soft tissue → cortical bone (fast)</option><option value="wt">Water → soft tissue</option></select></div>
-        <div class="ctrl"><label for="m15-s-th">Incidence angle <output id="m15-s-th-o"></output></label><input type="range" id="m15-s-th" min="0" max="89" step="0.5" value="45"></div>
-        <div class="ctrl"><label for="m15-s-c1">\(c_1\) <output id="m15-s-c1-o"></output></label><input type="range" id="m15-s-c1" min="1300" max="1700" step="5" value="1540"></div>
-        <div class="ctrl"><label for="m15-s-c2">\(c_2\) (longitudinal) <output id="m15-s-c2-o"></output></label><input type="range" id="m15-s-c2" min="1300" max="4000" step="10" value="2820"></div>
-        <div class="ctrl"><label for="m15-s-cs">\(c_S\) (0 = fluid) <output id="m15-s-cs-o"></output></label><input type="range" id="m15-s-cs" min="0" max="2200" step="10" value="1500"></div>
-        <div class="ctrl"><label for="m15-s-r2">\(\rho_2\) <output id="m15-s-r2-o"></output></label><input type="range" id="m15-s-r2" min="900" max="2200" step="10" value="1900"></div>
+        <div class="ctrl"><label for="m15-s-pre">Preset <span class="hint">sets both media, including the density of medium 1</span></label><select id="m15-s-pre"><option value="sk" selected>Soft tissue → skull (solid)</option><option value="fm">Fat → muscle</option><option value="mf">Muscle → fat</option><option value="cb">Soft tissue → cortical bone (fast)</option><option value="wt">Water → soft tissue</option></select></div>
+        <div class="ctrl"><label for="m15-s-th">Incidence angle θ₁ <output id="m15-s-th-o"></output></label><input type="range" id="m15-s-th" min="0" max="89" step="0.5" value="45"></div>
+        <div class="ctrl"><label for="m15-s-c1">Sound speed, medium 1 \(c_1\) <output id="m15-s-c1-o"></output></label><input type="range" id="m15-s-c1" min="1300" max="1700" step="5" value="1540"></div>
+        <div class="ctrl"><label for="m15-s-c2">Longitudinal speed, medium 2 \(c_2\) <output id="m15-s-c2-o"></output></label><input type="range" id="m15-s-c2" min="1300" max="4000" step="10" value="2820"></div>
+        <div class="ctrl"><label for="m15-s-cs">Shear speed, medium 2 \(c_S\) <output id="m15-s-cs-o"></output> <span class="hint">0 treats medium 2 as a fluid</span></label><input type="range" id="m15-s-cs" min="0" max="2200" step="10" value="1500"></div>
+        <div class="ctrl"><label for="m15-s-r2">Density, medium 2 \(\rho_2\) <output id="m15-s-r2-o"></output></label><input type="range" id="m15-s-r2" min="900" max="2200" step="10" value="1900"></div>
         <div class="readout" id="m15-s-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> sweep the angle on the skull preset: the longitudinal transmission (blue) dies at 33.1°, the reflection spikes just before it, and the shear wave takes over. Set \(c_S\) to 0 to treat the bone as a fluid and see how wrong that is beyond the critical angle. Muscle → fat has no critical angle (the wave enters a slower medium and bends toward the normal); fat → muscle reaches total reflection at 66.6°.</div>
+    <div class="demo-foot"><strong>Try:</strong> sweep the angle on the skull preset: the longitudinal transmission (blue) dies at 33.1°, the reflection spikes just before it, and the shear wave takes over. Set \(c_S\) to 0 to treat the bone as a fluid and see how wrong that is beyond the critical angle. Muscle → fat has no critical angle (the wave enters a slower medium and bends toward the normal); fat → muscle reaches total reflection at 66.6°.<span class="symnote">Symbols used here: θ₁, the incidence angle from the normal in degrees; θ_L, θ_S, the refraction angles of the transmitted longitudinal and shear waves; c₁, the sound speed of medium 1; c₂ (c_L on the diagram) and c_S, the longitudinal and shear speeds of medium 2, all in m/s; ρ₂, the density of medium 2 in kg/m³; R, the pressure reflection coefficient (no unit).</span></div>
   </div>
   <div class="rf-grid" id="m15-g2"></div>
   <div class="callout us"><span class="label">Ultrasound link: refraction is the aberration you model</span><p>For sound-speed estimation and aberration correction the interfaces above are the forward model. A 2 cm subcutaneous fat layer adds 1.24 mm of apparent depth and a delay error that grows across the aperture with the path length in fat; an oblique fat–muscle boundary adds a steering error. Ray-based correction uses exactly Snell's law and the layer speeds; full-wave correction (Module 21) adds the reflections and mode conversion that ray models ignore.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>Normal incidence: R = (Z₂ − Z₁)/(Z₂ + Z₁), T = 1 + R, R<sub>I</sub> + T<sub>I</sub> = 1. Fat → muscle −20.7 dB, liver → muscle −48 dB, tissue → skull 0.54, tissue → air −0.9995.</li><li>Critical angle arcsin(c₁/c₂): 33.1° into skull, 66.6° fat → muscle; beyond it |R| = 1 and the transmitted field is evanescent.</li><li>A fluid–solid boundary converts to shear: on skull more than 90 % of the energy enters as shear between about 37° and 73°.</li><li>Straight rays at 1540 m/s misplace echoes: +0.62 mm per cm of fat, and a 20° fat wedge in muscle deviates the beam by 1.9° (2.0 mm at 6 cm).</li></ul></div>
 
   <!-- ===================== 15.3 ===================== -->
   <div class="prose">
@@ -145,7 +149,7 @@
     <span class="note">With a 60 dB dynamic range budget and 0.5 dB/cm/MHz the usable depth is 20 cm at 3 MHz, 12 cm at 5 MHz and 6 cm at 10 MHz. Water at 20 °C: \(2.2 \times 10^{-3}\) dB/cm/MHz², 0.02 dB/cm at 3 MHz.</span>
   </div>
   <div class="prose">
-    <p><strong>Dispersion is forced by causality.</strong> A causal, linear medium has a response whose real and imaginary parts of the wavenumber are a Hilbert-transform (Kramers–Kronig) pair: frequency-dependent loss implies a frequency-dependent phase speed. For a power law the nearly local approximation (O'Donnell, Jaynes and Miller 1981; Szabo 1994) gives:</p>
+    <p><strong>Dispersion from causality.</strong> A causal, linear medium has a response whose real and imaginary parts of the wavenumber are a Hilbert-transform (Kramers–Kronig) pair: frequency-dependent loss implies a frequency-dependent phase speed. For a power law the nearly local approximation (O'Donnell, Jaynes and Miller 1981; Szabo 1994) gives:</p>
   </div>
   <div class="eqn" id="m15-eq7">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} y = 1\text{:}\quad &amp; 1/c(\omega) - 1/c(\omega_0) = -(2/\pi)\, \alpha_1 \ln(\omega/\omega_0), \qquad \alpha(\omega) = \alpha_1 \lvert \omega \rvert \\ y \ne 1\text{:}\quad &amp; 1/c(\omega) - 1/c(\omega_0) = \alpha_1 \tan(\pi y/2) \left( \lvert \omega \rvert^{y-1} - \lvert \omega_0 \rvert^{y-1} \right), \qquad \alpha = \alpha_1 \lvert \omega \rvert^y \end{aligned} \]</div><span class="eqn-no">(15.7)</span></div>
@@ -166,21 +170,22 @@
         <canvas id="m15-a-law" aria-label="Attenuation and phase speed versus frequency"></canvas>
         <canvas id="m15-a-sp" aria-label="Spectra before and after propagation"></canvas>
         <canvas id="m15-a-t" aria-label="Pulse before and after propagation"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>α(f) or input</span><span><i style="background:var(--sig2)"></i>\(c(f) - c(f_0)\) or after \(z\)</span><span><i style="background:var(--muted)"></i>normalized copy</span></div>
+        <div class="legend" id="m15-a-leg"><span data-s="in"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>α(f) (top) or input pulse</span><span data-s="out"><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>\(c(f) - c(f_0)\) (top) or after \(z\)</span><span data-s="norm"><i class="dot" style="color:var(--muted);background:var(--muted)"></i>spectrum after \(z\), renormalized to 0 dB</span><span data-s="cent"><i class="dot" style="color:var(--accent);background:var(--accent)"></i>spectral centroids (dotted, colour of their spectrum)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m15-a-a0">\(\alpha_0\) <output id="m15-a-a0-o"></output></label><input type="range" id="m15-a-a0" min="0.05" max="2" step="0.05" value="0.5"></div>
-        <div class="ctrl"><label for="m15-a-y">Exponent y <output id="m15-a-y-o"></output></label><input type="range" id="m15-a-y" min="1" max="2" step="0.05" value="1.1"></div>
-        <div class="ctrl"><label for="m15-a-z">Path length z <output id="m15-a-z-o"></output></label><input type="range" id="m15-a-z" min="0" max="20" step="0.5" value="8"></div>
+        <div class="ctrl"><label for="m15-a-a0">Attenuation coefficient \(\alpha_0\) <output id="m15-a-a0-o"></output> <span class="hint">α(f) = α₀ f<sup>y</sup>, f in MHz</span></label><input type="range" id="m15-a-a0" min="0.05" max="2" step="0.05" value="0.5"></div>
+        <div class="ctrl"><label for="m15-a-y">Power-law exponent y <output id="m15-a-y-o"></output> <span class="hint">how fast attenuation grows with frequency; 2 is water-like</span></label><input type="range" id="m15-a-y" min="1" max="2" step="0.05" value="1.1"></div>
+        <div class="ctrl"><label for="m15-a-z">One-way path length z <output id="m15-a-z-o"></output></label><input type="range" id="m15-a-z" min="0" max="20" step="0.5" value="8"></div>
         <div class="ctrl"><label for="m15-a-f">Centre frequency \(f_0\) <output id="m15-a-f-o"></output></label><input type="range" id="m15-a-f" min="1" max="10" step="0.5" value="5"></div>
-        <div class="ctrl"><label for="m15-a-b">−6 dB fractional bandwidth <output id="m15-a-b-o"></output></label><input type="range" id="m15-a-b" min="0.3" max="1" step="0.05" value="0.6"></div>
+        <div class="ctrl"><label for="m15-a-b">Fractional bandwidth B (−6 dB) <output id="m15-a-b-o"></output></label><input type="range" id="m15-a-b" min="0.3" max="1" step="0.05" value="0.6"></div>
         <div class="readout" id="m15-a-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> at \(y = 1\) the readout's numerical centroid shift matches \(f_0 - \sigma_f^2 \alpha_0' z\) exactly. Raise \(y\) toward 2 (water-like): attenuation curves upward and the dispersion term changes sign convention but still raises c with f. Push z to 20 cm at 10 MHz: the received pulse is down by more than 100 dB and centred well below \(f_0\), which is why high-frequency probes do not reach deep. The pulse panel is drawn in a frame moving at c(\(f_0\)); dispersion shows up as a small asymmetry and shift of the waveform.</div>
+    <div class="demo-foot"><strong>Try:</strong> at \(y = 1\) the readout's numerical centroid shift matches \(f_0 - \sigma_f^2 \alpha_0' z\) exactly. Raise \(y\) toward 2 (water-like): attenuation curves upward and the dispersion term changes sign convention but still raises c with f. Push z to 20 cm at 10 MHz: the received pulse is down by more than 100 dB and centred well below \(f_0\), which is why high-frequency probes do not reach deep. The pulse panel is drawn in a frame moving at c(\(f_0\)); dispersion shows up as a small asymmetry and shift of the waveform.<span class="symnote">Symbols used here: f, frequency in MHz, and f₀, the pulse centre frequency; α(f) = α₀f<sup>y</sup>, the attenuation in dB/cm (α₀ in dB/cm/MHz<sup>y</sup>, α₀′ the same slope in Np/(m·Hz) for y = 1); y, the power-law exponent; z, the path length in cm; c(f), the phase speed in m/s; σ<sub>f</sub>, the Gaussian spectral standard deviation in MHz; B, the −6 dB fractional bandwidth.</span></div>
   </div>
   <div class="rf-grid" id="m15-g3"></div>
   <div class="callout pitfall"><span class="label">Pitfall: dB, nepers, one-way and round trip</span><p>Attenuation coefficients are quoted in dB/cm/MHz for amplitude, one-way. Simulators often want Np/m (multiply dB/cm by 100/8.686 = 11.5). Pulse-echo loss doubles the path; intensity loss in dB equals amplitude loss in dB, but in nepers intensity decays as \(\exp(-2\alpha z)\). Mixing any two of these gives errors of a factor 2 or 8.7.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>Rayleigh scatterers (ka ≪ 1) scatter as f⁴, +12 dB per octave; with a Gaussian form factor the local exponent is 4 − 1.654(ka<sub>eff</sub>)².</li><li>α = α₀f<sup>y</sup> is one-way amplitude attenuation; the round trip doubles it: 0.5 dB/cm/MHz, 5 MHz, 10 cm gives 50 dB, and a 60 dB budget reaches 20, 12, 6 cm at 3, 5, 10 MHz.</li><li>Kramers–Kronig: power-law loss forces dispersion, +3.2 m/s from 1 to 10 MHz for 0.5 dB/cm/MHz and y = 1.</li><li>A Gaussian pulse downshifts to f₀ − σ<sub>f</sub>²α₀′z: 0.47 MHz per 5 cm of path at 5 MHz, 60 %. Np/m = dB/cm × 11.5.</li></ul></div>
 
   <!-- ===================== 15.4 ===================== -->
   <div class="prose">
@@ -198,6 +203,7 @@
     <span class="note">Module 04 derived the Fourier pair. 3 MHz, D = 20 mm, F = 60 mm, circular: −6 dB width 2.2 mm one-way. Section 15.6 shows that the second harmonic gets the "two-way" narrowing already on transmit.</span>
   </div>
   <div class="rf-grid" id="m15-g4"></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>Focal gain G = kh ≈ πa²/(λF): 10.3 for a = 10 mm, F = 60 mm, 3 MHz; the on-axis maximum (10.8) sits short of F, at 54.5 mm.</li><li>The focal profile is the Fourier transform of the aperture: one-way −6 dB width 1.21 λF/D and −13.3 dB sidelobe for a line, 1.41 λF/D and −17.6 dB for a disc.</li><li>Two-way with the same aperture: widths × 0.73, sidelobes doubled in dB.</li></ul></div>
 
   <!-- ===================== 15.5 ===================== -->
   <div class="prose">
@@ -251,7 +257,7 @@
     <dl class="where"><dt>\(\sigma = x/\bar{x}\)</dt><dd>shock parameter (distance over shock distance), dimensionless</dd><dt>\(B_n\)</dt><dd>amplitude of harmonic n relative to \(p_0\)</dd><dt>\(J_n\)</dt><dd>Bessel function of the first kind, order n</dd><dt>\(n\)</dt><dd>harmonic order (1 = fundamental)</dd><dt>\(x,\ \bar{x}\)</dt><dd>distance (m) and shock distance from (15.12)</dd><dt>\(p_0\)</dt><dd>as in (15.12)</dd></dl>
     <span class="note">Energy flows from the fundamental to the harmonics; at σ = 1 the fundamental has lost 1.1 dB to them. After the shock the waveform is a sawtooth whose amplitude decays because energy is dissipated at the shock front.</span>
   </div>
-  <div class="prose"><p><strong>Absorption competes.</strong> The Burgers equation adds thermoviscous loss to plane-wave nonlinearity; the KZK equation adds diffraction (parabolic) as well, and is the standard model for focused nonlinear beams:</p></div>
+  <div class="prose"><p><strong>Absorption and diffraction.</strong> The Burgers equation adds thermoviscous loss to plane-wave nonlinearity; the KZK equation adds diffraction (parabolic) as well, and is the standard model for focused nonlinear beams:</p></div>
   <div class="eqn" id="m15-eq14">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &amp;\text{Burgers:}\ \ \frac{\partial p}{\partial x} = \frac{\beta}{\rho_0 c_0^3}\, p \frac{\partial p}{\partial \tau} + \frac{\delta}{2 c_0^3} \frac{\partial^2 p}{\partial \tau^2} \\ &amp;\text{KZK:}\ \ \frac{\partial^2 p}{\partial z\, \partial \tau} = \frac{c_0}{2} \nabla_\perp^2 p + \frac{\delta}{2 c_0^3} \frac{\partial^3 p}{\partial \tau^3} + \frac{\beta}{2 \rho_0 c_0^3} \frac{\partial^2 (p^2)}{\partial \tau^2} \\ &amp;\text{harmonic form (any } \alpha(f)\text{):}\ \ \frac{dB_n}{d\sigma} = \frac{n}{4} \sum_{k=1}^{n-1} B_k B_{n-k} - \frac{n}{2} \sum_{k \ge 1} B_k B_{k+n} - \alpha(n f_0)\, \bar{x} B_n \\ &amp;\text{Gol'dberg number:}\ \ \Gamma = 1/(\alpha(f_0)\, \bar{x}) \end{aligned} \]</div><span class="eqn-no">(15.14)</span></div>
     <dl class="where"><dt>\(\delta\)</dt><dd>sound diffusivity, m²/s</dd><dt>\(\nabla_\perp^2\)</dt><dd>Laplacian in the plane transverse to the beam axis</dd><dt>\(\alpha(f)\)</dt><dd>attenuation at frequency f, Np/m</dd><dt>\(\Gamma\)</dt><dd>Gol’dberg number, dimensionless</dd><dt>\(x,\ z\)</dt><dd>distance along the beam axis, m</dd><dt>\(\tau\)</dt><dd>retarded time, s</dd><dt>\(p\)</dt><dd>acoustic pressure, Pa</dd><dt>\(\beta,\ \rho_0,\ c_0\)</dt><dd>as in (15.12) and (15.1)</dd><dt>\(\sigma,\ B_n,\ \bar{x}\)</dt><dd>as in (15.12) and (15.13)</dd><dt>\(k\)</dt><dd>summation index over harmonics (not the wavenumber)</dd><dt>\(f_0\)</dt><dd>transmit centre frequency, MHz</dd><dt>\(\partial\)</dt><dd>partial derivative</dd></dl>
@@ -264,21 +270,22 @@
       <div class="stage">
         <canvas id="m15-n-h" aria-label="Harmonic amplitudes versus distance"></canvas>
         <canvas id="m15-n-w" aria-label="Waveform at the cursor distance"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>\(f_0\)</span><span><i style="background:var(--sig2)"></i>\(2f_0\)</span><span><i style="background:var(--sig3)"></i>\(3f_0\)</span><span><i style="background:var(--sig4)"></i>\(4f_0\)</span><span><i style="background:var(--muted)"></i>Fubini (lossless, \(\sigma \le 1\)) or input sine</span></div>
+        <div class="legend" id="m15-n-leg"><span data-s="h1"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>\(f_0\) / waveform</span><span data-s="h2"><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>\(2f_0\)</span><span data-s="h3"><i class="dot" style="color:var(--sig3);background:var(--sig3)"></i>\(3f_0\)</span><span data-s="h4"><i class="dash" style="color:var(--sig4);background:var(--sig4)"></i>\(4f_0\) (dash-dot)</span><span data-s="fub"><i class="dash" style="color:var(--muted);background:var(--muted)"></i>Fubini (lossless, \(\sigma \le 1\)) or input sine</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m15-n-med">Medium</label><select id="m15-n-med"><option value="0">Water, 20 °C (B/A 5.0)</option><option value="1">Blood (6.1)</option><option value="2" selected>Liver (7.0)</option><option value="3">Muscle (7.4)</option><option value="4">Fat (10)</option></select></div>
-        <div class="ctrl"><label for="m15-n-p">Source pressure \(p_0\) <output id="m15-n-p-o"></output></label><input type="range" id="m15-n-p" min="0.1" max="4" step="0.05" value="1"></div>
-        <div class="ctrl"><label for="m15-n-f">\(f_0\) <output id="m15-n-f-o"></output></label><input type="range" id="m15-n-f" min="1" max="10" step="0.5" value="3"></div>
+        <div class="ctrl"><label for="m15-n-med">Medium <span class="hint">B/A, the nonlinearity parameter, in brackets</span></label><select id="m15-n-med"><option value="0">Water, 20 °C (B/A 5.0)</option><option value="1">Blood (6.1)</option><option value="2" selected>Liver (7.0)</option><option value="3">Muscle (7.4)</option><option value="4">Fat (10)</option></select></div>
+        <div class="ctrl"><label for="m15-n-p">Source pressure amplitude \(p_0\) <output id="m15-n-p-o"></output></label><input type="range" id="m15-n-p" min="0.1" max="4" step="0.05" value="1"></div>
+        <div class="ctrl"><label for="m15-n-f">Source frequency \(f_0\) <output id="m15-n-f-o"></output></label><input type="range" id="m15-n-f" min="1" max="10" step="0.5" value="3"></div>
         <label class="check"><input type="checkbox" id="m15-n-abs" checked>Power-law absorption of the medium</label>
-        <div class="ctrl"><label for="m15-n-x">Distance cursor <output id="m15-n-x-o"></output></label><input type="range" id="m15-n-x" min="0" max="120" step="0.5" value="25"></div>
+        <div class="ctrl"><label for="m15-n-x">Distance cursor x <output id="m15-n-x-o"></output> <span class="hint">where the lower waveform is taken</span></label><input type="range" id="m15-n-x" min="0" max="120" step="0.5" value="25"></div>
         <div class="readout" id="m15-n-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> liver at 3 MHz, 1 MPa: the second harmonic peaks near 24 mm at about −21 dB re \(p_0\) and then decays with the fundamental (\(\Gamma \approx 1\)). Switch to water: \(\Gamma \approx 90\), the harmonics follow Fubini (dashed) to \(\sigma = 1\) and the waveform becomes a sawtooth. Uncheck absorption to see the lossless closed forms (Fubini up to \(\sigma = 1\), the sawtooth beyond \(\sigma = 3\)). Raise \(f_0\) to 7 MHz in liver: \(\bar{x}\) shrinks but absorption grows faster, so the harmonic peaks earlier and lower.</div>
+    <div class="demo-foot"><strong>Try:</strong> liver at 3 MHz, 1 MPa: the second harmonic peaks near 24 mm at about −21 dB re \(p_0\) and then decays with the fundamental (\(\Gamma \approx 1\)). Switch to water: \(\Gamma \approx 90\), the harmonics follow Fubini (dashed) to \(\sigma = 1\) and the waveform becomes a sawtooth. Uncheck absorption to see the lossless closed forms (Fubini up to \(\sigma = 1\), the sawtooth beyond \(\sigma = 3\)). Raise \(f_0\) to 7 MHz in liver: \(\bar{x}\) shrinks but absorption grows faster, so the harmonic peaks earlier and lower.<span class="symnote">Symbols used here: p₀, the source pressure amplitude in MPa; f₀, the source frequency in MHz; x, the propagation distance in mm; x̄, the shock-formation distance in mm; σ = x/x̄, the distortion (no unit); B<sub>n</sub>, the amplitude of the n-th harmonic in dB re p₀; B/A, the medium's nonlinearity parameter, β = 1 + B/2A; α(f₀), the absorption at f₀ in Np/m; Γ = 1/(αx̄), the Gol'dberg number (above 1, nonlinearity wins over absorption); ω, τ, the angular frequency and retarded time.</span></div>
   </div>
   <div class="rf-grid" id="m15-g5"></div>
   <div class="callout pitfall"><span class="label">Pitfall: plane-wave numbers for focused beams</span><p>The demo is a plane wave. A focused beam has low pressure near the aperture and gain \(G\) at the focus, so harmonic generation concentrates near the focus; diffraction also shifts the harmonic phase relative to the fundamental. Use KZK or a nonlinear full-wave code (k-Wave, Module 21) for quantitative focused-beam work, and use \(\bar{x}\) and \(\Gamma\) for orders of magnitude. Diagnostic in-situ pressures of 1–3 MPa at 2–5 MHz give \(\bar{x}\) of a few centimetres: harmonics are always present in the measured field (Module 21, hydrophone bandwidth) and in the echo.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>β = 1 + B/2A (water 3.5, liver 4.5, fat 6.0): each point of the waveform travels at c₀ + βu.</li><li>Shock distance x̄ = ρ₀c₀³/(βωp₀): 49 mm in water and liver, 25.6 mm in fat at 3 MHz and 1 MPa; it halves when f or p₀ doubles.</li><li>Fubini: B₂ ≈ σ/2 for small σ, −12.5 dB re B₁ at σ = 0.5; at σ = 1, B₁ = 0.880 and B₂ = 0.353.</li><li>The Gol&#39;dberg number Γ = 1/(αx̄) decides: water (Γ ≈ 90) forms shocks; liver (Γ = 1.06) peaks B₂ at −20.9 dB re p₀ near 24 mm. For focused beams use these as orders of magnitude.</li></ul></div>
 
   <!-- ===================== 15.6 ===================== -->
   <div class="prose">
@@ -329,7 +336,7 @@
     <p class="cap">Envelopes are Gaussian-beam −6 dB half-widths for a 19.2 mm aperture focused at 50 mm, 3 MHz (source 1/e half-width 0.4D); the harmonic transmit envelope is the fundamental one divided by \(\sqrt{2}\) (the square of a Gaussian), and its build-up with depth (shading) is drawn schematically. With \(\lambda_0 F/D\) = 1.34 mm the focal −6 dB widths are: \(f_0\) one-way 1.207 → 1.61 mm, harmonic transmit (\(\operatorname{sinc}^2\)) 0.886 → 1.18 mm, fundamental two-way 0.886 → 1.18 mm, harmonic two-way 0.511 → 0.68 mm. The near-field body wall sees a weak harmonic source, which is why its reverberations add little \(2f_0\).</p>
   </figure>
   <div class="prose">
-    <p><strong>Why less clutter.</strong> Three mechanisms, all from the \(p^2\) dependence: (1) reverberation and off-axis energy are weak, so the harmonic they generate is weaker by twice as many decibels (−20 dB clutter becomes −40 dB); (2) the harmonic is not present at the aperture and builds up with depth, so multiple reflections in the body wall, which involve the strong near field, generate comparatively little \(2f_0\); (3) aberrating layers near the skin degrade the fundamental, but the harmonic is generated deeper, after much of that path. Sidelobes and grating lobes of the transmit beam are squared as well.</p>
+    <p><strong>Why less clutter.</strong> Three mechanisms follow from the \(p^2\) dependence: (1) reverberation and off-axis energy are weak, so the harmonic they generate is weaker by twice as many decibels (−20 dB clutter becomes −40 dB); (2) the harmonic is not present at the aperture and builds up with depth, so multiple reflections in the body wall, which involve the strong near field, generate comparatively little \(2f_0\); (3) aberrating layers near the skin degrade the fundamental, but the harmonic is generated deeper, after much of that path. Sidelobes and grating lobes of the transmit beam are squared as well.</p>
     <p><strong>What it costs.</strong> The harmonic is 15–25 dB below the fundamental at the depths of interest (Demo 15.4), so SNR and penetration fall; the receive band at \(2f_0\) suffers twice the attenuation in dB; and if the harmonic is separated by filtering, transmit bandwidth must be limited so that the fundamental spectrum does not leak into the harmonic band (15.7). On receive at \(2f_0\) an array designed for \(f_0\) has its pitch doubled relative to λ, so its receive grating lobes move inward; the squared transmit pattern suppresses them, as Demo 15.5 shows.</p>
   </div>
 
@@ -339,23 +346,24 @@
       <div class="stage">
         <canvas id="m15-h-one" aria-label="One-way patterns"></canvas>
         <canvas id="m15-h-two" aria-label="Two-way patterns"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>fundamental (\(f_0\) tx, \(f_0\) rx)</span><span><i style="background:var(--sig2)"></i>harmonic (\(f_0\) tx squared, \(2f_0\) rx)</span><span><i style="background:var(--muted)"></i>probe driven linearly at \(2f_0\)</span><span><i style="background:var(--sig3)"></i>\(2f_0\) receive pattern alone</span></div>
+        <div class="legend" id="m15-h-leg"><span data-s="fund"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>fundamental (\(f_0\) tx, \(f_0\) rx)</span><span data-s="harm"><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>harmonic (\(f_0\) tx squared, \(2f_0\) rx)</span><span data-s="lin"><i class="dot" style="color:var(--muted);background:var(--muted)"></i>probe driven linearly at \(2f_0\)</span><span data-s="rx2"><i class="dot" style="color:var(--sig3);background:var(--sig3)"></i>\(2f_0\) receive pattern alone</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m15-h-f">\(f_0\) <output id="m15-h-f-o"></output></label><input type="range" id="m15-h-f" min="1.5" max="5" step="0.1" value="3"></div>
-        <div class="ctrl"><label for="m15-h-n">Active elements <output id="m15-h-n-o"></output></label><input type="range" id="m15-h-n" min="16" max="128" step="8" value="64"></div>
-        <div class="ctrl"><label for="m15-h-p">Pitch <output id="m15-h-p-o"></output></label><input type="range" id="m15-h-p" min="0.1" max="0.6" step="0.01" value="0.3"></div>
-        <div class="ctrl"><label for="m15-h-s">Steering angle <output id="m15-h-s-o"></output></label><input type="range" id="m15-h-s" min="0" max="45" step="1" value="30"></div>
+        <div class="ctrl"><label for="m15-h-f">Transmit frequency \(f_0\) <output id="m15-h-f-o"></output></label><input type="range" id="m15-h-f" min="1.5" max="5" step="0.1" value="3"></div>
+        <div class="ctrl"><label for="m15-h-n">Active elements N <output id="m15-h-n-o"></output></label><input type="range" id="m15-h-n" min="16" max="128" step="8" value="64"></div>
+        <div class="ctrl"><label for="m15-h-p">Element pitch p <output id="m15-h-p-o"></output></label><input type="range" id="m15-h-p" min="0.1" max="0.6" step="0.01" value="0.3"></div>
+        <div class="ctrl"><label for="m15-h-s">Steering angle θ<sub>s</sub> <output id="m15-h-s-o"></output></label><input type="range" id="m15-h-s" min="0" max="45" step="1" value="30"></div>
         <div class="ctrl"><label for="m15-h-ap">Apodization (tx and rx)</label><select id="m15-h-ap"><option value="rect">Uniform</option><option value="hann">Hann</option></select></div>
-        <div class="ctrl"><label for="m15-h-F">Focal depth (for mm) <output id="m15-h-F-o"></output></label><input type="range" id="m15-h-F" min="20" max="100" step="5" value="50"></div>
+        <div class="ctrl"><label for="m15-h-F">Focal depth F <output id="m15-h-F-o"></output> <span class="hint">used only to convert beam widths to mm</span></label><input type="range" id="m15-h-F" min="20" max="100" step="5" value="50"></div>
         <label class="check"><input type="checkbox" id="m15-h-lin" checked>Show linear \(2f_0\) reference</label>
         <div class="readout" id="m15-h-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> with the default 3 MHz, 0.3 mm pitch, 30° steering, the \(2f_0\) receive pattern (amber) has a grating lobe near −21° as strong as its main lobe, and a probe driven linearly at \(2f_0\) (grey) would image it; the harmonic two-way pattern (pink) suppresses it by more than 70 dB because the squared transmit pattern is tiny there. Steer to 0°: the harmonic main lobe is about 0.58 times the fundamental two-way width. Switch to Hann: sidelobes fall for all, the harmonic gain in width remains.</div>
+    <div class="demo-foot"><strong>Try:</strong> with the default 3 MHz, 0.3 mm pitch, 30° steering, the \(2f_0\) receive pattern (amber) has a grating lobe near −21° as strong as its main lobe, and a probe driven linearly at \(2f_0\) (grey) would image it; the harmonic two-way pattern (pink) suppresses it by more than 70 dB because the squared transmit pattern is tiny there. Steer to 0°: the harmonic main lobe is about 0.58 times the fundamental two-way width. Switch to Hann: sidelobes fall for every pattern, but the harmonic gain in width remains.<span class="symnote">Symbols used here: f₀, the transmit frequency in MHz, and 2f₀, the second harmonic; λ₀, the wavelength at f₀; N, the number of active elements; p, the element pitch in mm; θ, the angle from the array normal in degrees, θ<sub>s</sub> the steering angle; F, the focal depth in mm; tx and rx, transmit and receive.</span></div>
   </div>
   <div class="rf-grid" id="m15-g6"></div>
   <div class="callout us"><span class="label">Ultrasound link: harmonic imaging and the reader's research targets</span><p>Sound-speed estimators and aberration-correction metrics (coherence, focusing quality) behave differently on harmonic data: the harmonic is generated after part of the aberrating path, so phase screens estimated from harmonic channel data are not the same as fundamental ones. ULM and CEUS rely on the bubble's own nonlinearity (Module 28); tissue harmonics are then the clutter that PI and AM must also suppress.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>The harmonic source is ∝ p₁²: transmit width × 0.734; two-way −6 dB widths 0.886 (fundamental) vs 0.511 λ₀F/D (harmonic), close to the 0.443 of a probe driven at 2f₀.</li><li>Clutter at L dB makes harmonic at 2L dB (−20 → −40 dB), and the harmonic builds up with depth, so body-wall reverberation and near-skin aberration add less.</li><li>The cost: 15–25 dB less signal and twice the attenuation in dB at 2f₀; the squared transmit pattern suppressed the 2f₀ receive grating lobe by more than 70 dB in Demo 15.5.</li></ul></div>
 
   <!-- ===================== 15.7 ===================== -->
   <div class="prose">
@@ -411,21 +419,22 @@
         <canvas id="m15-p-e" aria-label="Echoes of the transmitted pulses"></canvas>
         <canvas id="m15-p-o" aria-label="Combined output"></canvas>
         <canvas id="m15-p-s" aria-label="Spectra of single echo and combined output"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>echo of +s (full amplitude)</span><span><i style="background:var(--sig2)"></i>echo of −s or s/2</span><span><i style="background:var(--ink)"></i>combined output</span><span><i style="background:var(--muted)"></i>\(f_0\) and \(2f_0\) bands</span></div>
+        <div class="legend" id="m15-p-leg"><span data-s="e1"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>echo of +s (full amplitude)</span><span data-s="e2"><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>echo of −s or s/2</span><span data-s="out"><i class="solid" style="color:var(--ink);background:var(--ink)"></i>combined output</span><span data-s="band"><i class="fill" style="color:var(--muted);background:var(--muted)"></i>\(f_0\) and \(2f_0\) bands</span><span data-s="lin"><i class="dash" style="color:var(--muted);background:var(--muted)"></i>linear pulse spectrum (band-pass mode)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m15-p-m">Scheme</label><select id="m15-p-m"><option value="pi" selected>Pulse inversion: e(s) + e(−s)</option><option value="am">Amplitude modulation: e(s) − 2e(s/2)</option><option value="filt">Single pulse + 2f₀ band-pass</option></select></div>
+        <div class="ctrl"><label for="m15-p-m">Scheme <span class="hint">s is the transmitted pulse, e(·) its echo</span></label><select id="m15-p-m"><option value="pi" selected>Pulse inversion: e(s) + e(−s)</option><option value="am">Amplitude modulation: e(s) − 2e(s/2)</option><option value="filt">Single pulse + 2f₀ band-pass</option></select></div>
         <div class="ctrl"><label for="m15-p-tg">Target</label><select id="m15-p-tg"><option value="tissue" selected>Tissue (propagation distortion)</option><option value="poly">Nonlinear scatterer (x + 0.3x² + 0.2x³)</option></select></div>
-        <div class="ctrl"><label for="m15-p-sg">Distortion \(\sigma = x/\bar{x}\) <output id="m15-p-sg-o"></output></label><input type="range" id="m15-p-sg" min="0" max="0.8" step="0.02" value="0.3"></div>
-        <div class="ctrl"><label for="m15-p-b">Transmit bandwidth <output id="m15-p-b-o"></output></label><input type="range" id="m15-p-b" min="0.3" max="1" step="0.05" value="0.5"></div>
-        <div class="ctrl"><label for="m15-p-v">Tissue velocity (PRF 5 kHz) <output id="m15-p-v-o"></output></label><input type="range" id="m15-p-v" min="0" max="50" step="1" value="0"></div>
+        <div class="ctrl"><label for="m15-p-sg">Distortion \(\sigma = x/\bar{x}\) <output id="m15-p-sg-o"></output> <span class="hint">depth over shock distance; sets the tissue harmonic level</span></label><input type="range" id="m15-p-sg" min="0" max="0.8" step="0.02" value="0.3"></div>
+        <div class="ctrl"><label for="m15-p-b">Transmit fractional bandwidth (−6 dB) <output id="m15-p-b-o"></output></label><input type="range" id="m15-p-b" min="0.3" max="1" step="0.05" value="0.5"></div>
+        <div class="ctrl"><label for="m15-p-v">Axial velocity v <output id="m15-p-v-o"></output> <span class="hint">target motion between the two pulses, pulse repetition frequency 5 kHz</span></label><input type="range" id="m15-p-v" min="0" max="50" step="1" value="0"></div>
         <div class="readout" id="m15-p-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> with PI on tissue the fundamental band drops more than 30 dB and the \(2f_0\) band gains 6 dB; what remains near \(f_0\) is the low-frequency (difference-frequency) part of the even-order term. Add 10 mm/s of motion: the residual fundamental rises to the −26 dB the formula predicts and swamps the harmonic. Choose the nonlinear scatterer with AM: the fundamental band keeps the cubic term's contribution (about −22 dB), which PI discards. In band-pass mode widen the bandwidth beyond about 45 % and watch the fundamental leak into the harmonic band.</div>
+    <div class="demo-foot"><strong>Try:</strong> with PI on tissue the fundamental band drops more than 30 dB and the \(2f_0\) band gains 6 dB; what remains near \(f_0\) is the low-frequency (difference-frequency) part of the even-order term. Add 10 mm/s of motion: the residual fundamental rises to the −26 dB the formula predicts and swamps the harmonic. Choose the nonlinear scatterer with AM: the fundamental band keeps the cubic term's contribution (about −22 dB), which PI discards. In band-pass mode widen the bandwidth beyond about 45 % and watch the fundamental leak into the harmonic band.<span class="symnote">Symbols used here: s, the transmitted pulse, and e(s), the echo it returns (a.u., arbitrary units); f₀ = 3 MHz, the transmit frequency, and 2f₀ its second harmonic; σ = x/x̄, the propagation distortion (depth over shock distance, no unit); v, the axial target velocity in mm/s; δ, the echo time shift between the two pulses in ns; FBW, the −6 dB fractional bandwidth.</span></div>
   </div>
   <div class="rf-grid" id="m15-g7"></div>
   <div class="callout pitfall"><span class="label">Pitfall: perfect cancellation needs perfect transmitters</span><p>PI assumes the inverted pulse is an exact negative of the first. Pulser asymmetry (unipolar rise and fall times, Module 20) and transducer nonlinearity leave a residual fundamental, at a level set by the hardware, that the subtraction cannot remove; AM needs the half-amplitude pulse to be an exact scaled copy, which is why systems often realise it by firing alternate elements rather than lowering the voltage.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>Pulse inversion e(a) + e(−a) cancels odd orders and doubles even ones (+6 dB at 2f₀); amplitude modulation e(a) − 2e(a/2) cancels only the linear term and keeps odd nonlinear terms.</li><li>Both need two transmits per line and are motion sensitive: residual 2|sin(πf₀δ)|, δ = 2v/(c·PRF), −26 dB at 10 mm/s and −12 dB at 50 mm/s (5 kHz, 3 MHz).</li><li>Filter-based THI needs separated bands: transmit bandwidth ≤ 45 % for −20 dB overlap (83 % at −6 dB), at the cost of axial resolution.</li><li>Frequency compounding over N independent sub-bands raises speckle SNR toward 1.91√N, with an N times longer pulse.</li></ul></div>
 
   <!-- ===================== 15.8 Visual summary ===================== -->
   <h2><span class="sec">15.8</span>Visual summary</h2>
@@ -437,8 +446,8 @@
   <div class="prose"><p>An expert keeps three small parameters in view and asks which one is not small. Impedance contrast \(\Delta Z/Z\) sets what reflects and how much; \(ka\) sets how it scatters; the Mach number \(\varepsilon\), multiplied by \(kx\) and \(\beta\), sets whether the wave is still linear (\(\sigma = \beta\varepsilon k x\)). Everything else is a ratio of lengths: the path relative to \(1/\alpha\) (attenuation), to \(a^2/\lambda\) (diffraction) and to \(\bar{x}\) (nonlinearity), and \(\Gamma = 1/(\alpha\bar{x})\) says whether absorption or nonlinearity wins. Harmonic imaging is the \(p^2\) law applied to beams: anything weak gets weaker by twice as many decibels.</p></div>
   <div class="rules">
     <div class="rule">
-      <div class="say">Mass, momentum and an equation of state, each linearized, give the wave equation; \(c^2 = 1/(\rho\kappa)\).</div>
-      <div class="keynum"><span>\(\nabla^2 p = c^{-2}\, \partial^2 p/\partial t^2\)</span><span>\(p = f(x - ct) + g(x + ct)\)</span><span>\(\varepsilon \approx 4 \times 10^{-4}\) at 1 MPa</span></div>
+      <div class="say">Sound speed is stiffness over inertia, \(c^2 = 1/(\rho\kappa)\), and linear acoustics holds only while \(u/c\) stays small: about \(4 \times 10^{-4}\) at 1 MPa in tissue, so nonlinearity is weak locally but accumulates over distance.</div>
+      <div class="keynum"><span>\(\nabla^2 p = c^{-2}\, \partial^2 p/\partial t^2\)</span><span>\(p = f(x - ct) + g(x + ct)\)</span><span>\(\varepsilon \approx 4 \times 10^{-4}\) at 1 MPa (tissue)</span><span>water: 1490 m/s</span></div>
       <div class="why"><p>Eliminating \(\rho'\) between \(\partial\rho'/\partial t + \rho_0 \nabla \cdot \mathbf{u} = 0\), \(\rho_0\, \partial\mathbf{u}/\partial t = -\nabla p\) and \(p = c_0^2 \rho'\) gives the wave equation, whose 1D solutions are any two shapes moving in opposite directions at \(c_0\). Sound speed is stiffness over inertia: water's adiabatic compressibility \(4.5 \times 10^{-10}\) Pa⁻¹ and density 998 kg/m³ give 1490 m/s. The neglected terms are of relative order \(\varepsilon = u_0/c_0 = p_0/(\rho_0 c_0^2)\), \(4 \times 10^{-4}\) at 1 MPa in tissue.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m15-rf-1" aria-label="d'Alembert solution"></canvas></div></div>
       <div class="limits">Small amplitude (\(\varepsilon \ll 1\) and path \(\ll \bar{x}\)), no viscosity or relaxation, homogeneous medium at rest; tissue also supports shear waves, which this scalar equation omits.</div>
     </div>
@@ -461,8 +470,8 @@
       <div class="limits">Normal incidence, lossless media; layered structures need transfer matrices (Demo 15.1, Module 17).</div>
     </div>
     <div class="rule">
-      <div class="say">Snell's law: \(\sin\theta/c\) is conserved along the boundary; going into faster media there is a critical angle \(\arcsin(c_1/c_2)\).</div>
-      <div class="keynum"><span>tissue→skull 33.1°</span><span>fat→muscle 66.6°</span><span>tissue→3500 m/s 26.1°</span></div>
+      <div class="say">Snell's law is trace-velocity matching: into a faster medium the transmitted wave vanishes past \(\arcsin(c_1/c_2)\), and even a 9 % speed step bends a 40° ray by 4.5°.</div>
+      <div class="keynum"><span>\(\theta_c\): tissue→skull 33.1°</span><span>fat→muscle 66.6°</span><span>tissue→3500 m/s 26.1°</span><span>1450 → 1580 m/s: 40° → 44.5°</span></div>
       <div class="why"><p>The trace velocity along the boundary \(c/\sin\theta\) must match on both sides. Into faster media the ray bends away from the normal and stops transmitting at \(\theta_c\), beyond which \(\lvert R \rvert = 1\) and the transmitted field is evanescent. Small speed contrasts matter at oblique incidence: 1450 → 1580 m/s turns a 40° ray into 44.5°. Into slower media (muscle → fat) there is no critical angle.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m15-rf-5" aria-label="Transmission angle versus incidence angle"></canvas></div></div>
       <div class="limits">Plane waves and plane boundaries; for curved boundaries and finite beams, ray tracing is a high-frequency approximation.</div>
     </div>
@@ -802,32 +811,32 @@
     const tf = +$('m15-w-t').value, k = Math.min(R.frames.length - 1, Math.round(tf * (R.frames.length - 1))), tNow = R.ftimes[k];
     $('m15-w-t-o').textContent = fmt(tNow * 1e6, 2) + ' µs';
     { const { ctx, w } = Lab.canvas($('m15-w-cv'), 220); const ym = Math.max(1.6, 1.15 * Math.max(1 + Math.abs(R.Rth), 1));
-      const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: 166 }, [0, 35], [-ym, ym], { xlabel: 'x (mm)', ylabel: 'p / p_inc' });
+      const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: 166 }, [0, 35], [-ym, ym], { xlabel: 'position x (mm)', ylabel: 'p / p_inc' });
       shade(ctx, ax, R.xI * 1e3, 35, c.sig4, 0.08); if (R.dL > 0) shade(ctx, ax, R.xI * 1e3, (R.xI + R.dL) * 1e3, c.sig3, 0.25);
-      ctx.save(); ctx.strokeStyle = c.muted; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(ax.X(R.xI * 1e3), ax.box.y); ctx.lineTo(ax.X(R.xI * 1e3), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore();
+      if (Lab.on('m15-w-leg', 'if')) { ctx.save(); ctx.strokeStyle = c.muted; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(ax.X(R.xI * 1e3), ax.box.y); ctx.lineTo(ax.X(R.xI * 1e3), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
       const fr = R.frames[k], xs = [], ys = []; for (let i = 0; i < R.nShow; i += 1) { const xm = i * R.dx * 1e3; if (xm > 35) break; xs.push(xm); ys.push(fr[i]); }
-      ax.clip(); Lab.line(ctx, ax, xs, ys, c.accent, 1.6); ax.unclip();
+      ax.clip(); if (Lab.on('m15-w-leg', 'p')) Lab.line(ctx, ax, xs, ys, c.accent, 1.6); ax.unclip();
       [[R.xA, c.sig2, 'A'], [R.xB, c.sig4, 'B']].forEach(([xr, col, l]) => { if (xr * 1e3 <= 35) { ctx.fillStyle = col; ctx.font = '600 11px ' + c.mono; ctx.textAlign = 'center'; ctx.fillText('▼' + l, ax.X(xr * 1e3), ax.box.y + 10); } });
       ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.textAlign = 'left'; ctx.fillText('medium 1', ax.X(1), ax.box.y + ax.box.h - 8); ctx.fillText('medium 2', ax.X(R.xI * 1e3 + 1 + R.dL * 1e3), ax.box.y + ax.box.h - 8); }
     { const { ctx, w } = Lab.canvas($('m15-w-tr'), 190); const tmax = R.nt * R.dt * 1e6; const ym = Math.max(1.2, 1.1 * Math.max(1, 1 + R.Rth));
       const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: 136 }, [0, tmax], [-ym, ym], { xlabel: 't (µs)', ylabel: 'p / p_inc' });
       const step = Math.max(1, Math.floor(R.nt / 1500)); const ts = [], a = [], b = []; for (let n = 0; n < R.nt; n += step) { ts.push((n + 1) * R.dt * 1e6); a.push(R.pA[n]); b.push(R.pB[n]); }
-      ax.clip(); Lab.line(ctx, ax, ts, a, c.sig2, 1.4); Lab.line(ctx, ax, ts, b, c.sig4, 1.4); ax.unclip();
-      ctx.save(); ctx.strokeStyle = c.fg; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ax.X(tNow * 1e6), ax.box.y); ctx.lineTo(ax.X(tNow * 1e6), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
+      ax.clip(); if (Lab.on('m15-w-leg', 'A')) Lab.line(ctx, ax, ts, a, c.sig2, 1.4); if (Lab.on('m15-w-leg', 'B')) Lab.line(ctx, ax, ts, b, c.sig4, 1.6, [6, 4]); ax.unclip();
+      if (Lab.on('m15-w-leg', 't')) { ctx.save(); ctx.strokeStyle = c.fg; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ax.X(tNow * 1e6), ax.box.y); ctx.lineTo(ax.X(tNow * 1e6), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); } }
     const Z1 = R.r1 * R.c1 / 1e6, Z2 = R.r2 * R.c2 / 1e6;
-    let h = 'Z₁ = <b>' + fmt(Z1, 3) + '</b>, Z₂ = <b>' + fmt(Z2, 3) + '</b> MRayl<br>';
+    let h = 'Impedances Z = ρc: Z₁ = <b>' + fmt(Z1, 3) + '</b>, Z₂ = <b>' + fmt(Z2, 3) + '</b> MRayl<br>';
     if (R.dL === 0) {
-      h += 'R theory <b>' + R.Rth.toFixed(4) + '</b> (' + fmt(dB(R.Rth), 1) + ' dB), measured <b>' + R.Rm.toFixed(4) + '</b><br>T = 1 + R theory <b>' + (1 + R.Rth).toFixed(4) + '</b>, measured <b>' + R.Tm.toFixed(4) + '</b><br>';
+      h += 'Pressure reflection coefficient R: theory <b>' + R.Rth.toFixed(4) + '</b> (' + fmt(dB(R.Rth), 1) + ' dB), measured <b>' + R.Rm.toFixed(4) + '</b><br>Pressure transmission coefficient T = 1 + R: theory <b>' + (1 + R.Rth).toFixed(4) + '</b>, measured <b>' + R.Tm.toFixed(4) + '</b><br>';
     } else {
-      h += 'layer ' + (R.dL * 1e3).toFixed(3) + ' mm = <b>' + fmt(R.dL / (2500 / W.f0), 3) + ' λ</b> at 3 MHz<br>|R| at f₀ <b>' + R.RthF0.toFixed(3) + '</b>; bare interface ' + Math.abs(R.Rth).toFixed(3) + '<br>';
+      h += 'Layer thickness d = ' + (R.dL * 1e3).toFixed(3) + ' mm = <b>' + fmt(R.dL / (2500 / W.f0), 3) + ' λ</b> at 3 MHz<br>|R| at f₀ = 3 MHz <b>' + R.RthF0.toFixed(3) + '</b>; bare interface (no layer) ' + Math.abs(R.Rth).toFixed(3) + '<br>';
     }
-    h += 'reflected energy: theory <b>' + R.ErTh.toFixed(4) + '</b>' + (R.dL > 0 ? ' (band-averaged)' : '') + ', measured <b>' + R.ErM.toFixed(4) + '</b><br>transmitted energy: theory <b>' + (1 - R.ErTh).toFixed(4) + '</b>, measured <b>' + R.EtM.toFixed(4) + '</b>';
+    h += 'Reflected energy fraction: theory <b>' + R.ErTh.toFixed(4) + '</b>' + (R.dL > 0 ? ' (band-averaged)' : '') + ', measured <b>' + R.ErM.toFixed(4) + '</b><br>Transmitted energy fraction: theory <b>' + (1 - R.ErTh).toFixed(4) + '</b>, measured <b>' + R.EtM.toFixed(4) + '</b>';
     $('m15-w-read').innerHTML = h;
   }
   let wTimer = null; function wRerun() { clearTimeout(wTimer); wTimer = setTimeout(() => { wSim(); wDraw(); }, 60); }
   function wPreset() { const v = W_PRE[$('m15-w-pre').value]; ['c1', 'r1', 'c2', 'r2', 'dl', 'zl'].forEach((id, i) => { $('m15-w-' + id).value = v[i]; }); wSim(); wDraw(); }
   ['m15-w-c1', 'm15-w-r1', 'm15-w-c2', 'm15-w-r2', 'm15-w-dl', 'm15-w-zl'].forEach(id => $(id).addEventListener('input', wRerun));
-  $('m15-w-pre').addEventListener('change', wPreset); $('m15-w-t').addEventListener('input', wDraw);
+  $('m15-w-pre').addEventListener('change', wPreset); Lab.legendToggle('m15-w-leg', wDraw); $('m15-w-t').addEventListener('input', wDraw);
   $('m15-w-play').addEventListener('click', () => { W.playing = !W.playing; $('m15-w-play').textContent = W.playing ? 'Pause' : 'Play';
     if (W.playing) { if (+$('m15-w-t').value >= 0.999) $('m15-w-t').value = 0; const tick = () => { if (!W.playing || Lab.current !== 'm15') { W.playing = false; $('m15-w-play').textContent = 'Play'; return; } let v = +$('m15-w-t').value + 0.004; if (v >= 1) { v = 1; W.playing = false; $('m15-w-play').textContent = 'Play'; } $('m15-w-t').value = v; wDraw(); if (W.playing) requestAnimationFrame(tick); }; requestAnimationFrame(tick); } });
 
@@ -843,25 +852,25 @@
       ctx.strokeStyle = c.rule; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(10, cy); ctx.lineTo(w - 10, cy); ctx.stroke();
       ctx.setLineDash([3, 3]); ctx.strokeStyle = c.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, 8); ctx.lineTo(cx, h - 8); ctx.stroke(); ctx.setLineDash([]);
       const lw = e => 0.8 + 5 * Math.sqrt(Math.max(0, e));
-      Lab.arrow(ctx, cx - L * Math.sin(th), cy - L * Math.cos(th), cx - 3 * Math.sin(th), cy - 3 * Math.cos(th), c.fg, lw(1));
-      if (b.ER > 1e-4) Lab.arrow(ctx, cx, cy, cx + L * Math.sin(th), cy - L * Math.cos(th), c.sig3, lw(b.ER));
-      if (isFinite(b.thL) && b.EL > 1e-4) Lab.arrow(ctx, cx, cy, cx + L * Math.sin(b.thL), cy + L * Math.cos(b.thL), c.accent, lw(b.EL));
-      if (isFinite(b.thS) && b.ES > 1e-4) { ctx.save(); ctx.setLineDash([5, 3]); Lab.arrow(ctx, cx, cy, cx + 0.8 * L * Math.sin(b.thS), cy + 0.8 * L * Math.cos(b.thS), c.sig2, lw(b.ES)); ctx.restore(); }
+      if (Lab.on('m15-s-leg', 'i')) Lab.arrow(ctx, cx - L * Math.sin(th), cy - L * Math.cos(th), cx - 3 * Math.sin(th), cy - 3 * Math.cos(th), c.fg, lw(1));
+      if (b.ER > 1e-4 && Lab.on('m15-s-leg', 'r')) { ctx.save(); ctx.setLineDash([2, 3]); Lab.arrow(ctx, cx, cy, cx + L * Math.sin(th), cy - L * Math.cos(th), c.sig3, lw(b.ER)); ctx.restore(); }
+      if (isFinite(b.thL) && b.EL > 1e-4 && Lab.on('m15-s-leg', 'L')) Lab.arrow(ctx, cx, cy, cx + L * Math.sin(b.thL), cy + L * Math.cos(b.thL), c.accent, lw(b.EL));
+      if (isFinite(b.thS) && b.ES > 1e-4 && Lab.on('m15-s-leg', 'S')) { ctx.save(); ctx.setLineDash([5, 3]); Lab.arrow(ctx, cx, cy, cx + 0.8 * L * Math.sin(b.thS), cy + 0.8 * L * Math.cos(b.thS), c.sig2, lw(b.ES)); ctx.restore(); }
       ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.textAlign = 'left';
       ctx.fillText('medium 1: c₁ = ' + c1 + ' m/s', 12, 16); ctx.fillText('medium 2: c_L = ' + c2 + (cS > 0 ? ', c_S = ' + cS : '') + ' m/s', 12, h - 10);
       ctx.textAlign = 'right'; ctx.fillText('θ₁ = ' + fmt(th * 180 / PI, 1) + '°', w - 12, 16);
       ctx.fillText(isFinite(b.thL) ? 'θ_L = ' + fmt(b.thL * 180 / PI, 1) + '°' : 'L: evanescent', w - 12, h - 26); if (cS > 0) ctx.fillText(isFinite(b.thS) ? 'θ_S = ' + fmt(b.thS * 180 / PI, 1) + '°' : 'S: evanescent', w - 12, h - 10); }
-    { const { ctx, w } = Lab.canvas($('m15-s-en'), 200); const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: 146 }, [0, 90], [0, 1.02], { xlabel: 'incidence angle (deg)', ylabel: 'energy fraction', xticks: [0, 15, 30, 45, 60, 75, 90] });
+    { const { ctx, w } = Lab.canvas($('m15-s-en'), 200); const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: 146 }, [0, 90], [0, 1.02], { xlabel: 'incidence angle (deg)', ylabel: 'energy fraction of incident', xticks: [0, 15, 30, 45, 60, 75, 90] });
       const as = lin(0, 89.5, 360), R = [], E1 = [], E2 = []; as.forEach(a => { const q = boundary(r1, c1, r2, c2, cS, a * PI / 180); R.push(q.ER); E1.push(q.EL); E2.push(q.ES); });
-      ax.clip(); Lab.line(ctx, ax, as, R, c.sig3, 1.8); Lab.line(ctx, ax, as, E1, c.accent, 1.8); if (cS > 0) Lab.line(ctx, ax, as, E2, c.sig2, 1.8, [5, 3]); ax.unclip();
-      if (c2 > c1) { const tc = Math.asin(c1 / c2) * 180 / PI; ctx.save(); ctx.strokeStyle = c.accent; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ax.X(tc), ax.box.y); ctx.lineTo(ax.X(tc), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
-      if (cS > c1) { const tc = Math.asin(c1 / cS) * 180 / PI; ctx.save(); ctx.strokeStyle = c.sig2; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ax.X(tc), ax.box.y); ctx.lineTo(ax.X(tc), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
+      ax.clip(); if (Lab.on('m15-s-leg', 'r')) Lab.line(ctx, ax, as, R, c.sig3, 2, [2, 3]); if (Lab.on('m15-s-leg', 'L')) Lab.line(ctx, ax, as, E1, c.accent, 1.8); if (cS > 0 && Lab.on('m15-s-leg', 'S')) Lab.line(ctx, ax, as, E2, c.sig2, 1.8, [5, 3]); ax.unclip();
+      if (c2 > c1 && Lab.on('m15-s-leg', 'c')) { const tc = Math.asin(c1 / c2) * 180 / PI; ctx.save(); ctx.strokeStyle = c.accent; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ax.X(tc), ax.box.y); ctx.lineTo(ax.X(tc), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
+      if (cS > c1 && Lab.on('m15-s-leg', 'c')) { const tc = Math.asin(c1 / cS) * 180 / PI; ctx.save(); ctx.strokeStyle = c.sig2; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ax.X(tc), ax.box.y); ctx.lineTo(ax.X(tc), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
       ctx.save(); ctx.strokeStyle = c.fg; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ax.X(th * 180 / PI), ax.box.y); ctx.lineTo(ax.X(th * 180 / PI), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
     const tcL = c2 > c1 ? fmt(Math.asin(c1 / c2) * 180 / PI, 1) + '°' : 'none', tcS = cS > c1 ? fmt(Math.asin(c1 / cS) * 180 / PI, 1) + '°' : (cS > 0 ? 'none (c_S < c₁)' : '–');
-    $('m15-s-read').innerHTML = 'critical angle L: <b>' + tcL + '</b>, S: <b>' + tcS + '</b><br>|R| = <b>' + fmt(Math.sqrt(b.ER), 3) + '</b>, phase ' + fmt(Math.atan2(b.R.im, b.R.re) * 180 / PI, 0) + '°<br>energy: reflected <b>' + fmt(b.ER, 3) + '</b><br>longitudinal <b>' + fmt(b.EL, 3) + '</b>, shear <b>' + fmt(b.ES, 3) + '</b><br>sum = ' + (b.ER + b.EL + b.ES).toFixed(4);
+    $('m15-s-read').innerHTML = 'Critical angle, longitudinal: <b>' + tcL + '</b>, shear: <b>' + tcS + '</b><br>Pressure reflection coefficient |R| = <b>' + fmt(Math.sqrt(b.ER), 3) + '</b>, phase ' + fmt(Math.atan2(b.R.im, b.R.re) * 180 / PI, 0) + '°<br>Energy fractions of incident: reflected <b>' + fmt(b.ER, 3) + '</b><br>transmitted longitudinal <b>' + fmt(b.EL, 3) + '</b>, shear <b>' + fmt(b.ES, 3) + '</b><br>sum (energy check) = ' + (b.ER + b.EL + b.ES).toFixed(4);
   }
   function sPreset() { const v = S_PRE[$('m15-s-pre').value]; $('m15-s-c1').value = v[0]; $('m15-s-c2').value = v[1]; $('m15-s-cs').value = v[2]; $('m15-s-r2').value = v[3]; S_r1 = v[4]; sDraw(); }
-  ['m15-s-th', 'm15-s-c1', 'm15-s-c2', 'm15-s-cs', 'm15-s-r2'].forEach(id => $(id).addEventListener('input', sDraw)); $('m15-s-pre').addEventListener('change', sPreset);
+  ['m15-s-th', 'm15-s-c1', 'm15-s-c2', 'm15-s-cs', 'm15-s-r2'].forEach(id => $(id).addEventListener('input', sDraw)); $('m15-s-pre').addEventListener('change', sPreset); Lab.legendToggle('m15-s-leg', sDraw);
 
   /* ======================= Demo 15.3: attenuation and dispersion ======================= */
   // KK nearly local: 1/c(f) = 1/c(fr) + a1 tan(pi y/2) (w^(y-1) - wr^(y-1)); y = 1: -(2/pi) a1 ln(w/wr)
@@ -872,11 +881,11 @@
     setOut('m15-a-a0', fmt(a0, 2) + ' dB/cm/MHz^y'); setOut('m15-a-y', y.toFixed(2)); setOut('m15-a-z', fmt(zc, 1) + ' cm'); setOut('m15-a-f', fmt(f0 / 1e6, 1) + ' MHz'); setOut('m15-a-b', Math.round(B * 100) + ' %');
     const c0 = 1540, z = zc / 100, fs = lin(0.5e6, 15e6, 300);
     { const { ctx, w } = Lab.canvas($('m15-a-law'), 190); const half = (w - 70) / 2 - 20;
-      const amax = Math.max(1, a0 * Math.pow(15, y)); const ax1 = Lab.axes(ctx, { x: 46, y: 18, w: half, h: 130 }, [0, 15], [0, amax * 1.05], { xlabel: 'f (MHz)', title: 'α(f) (dB/cm)' });
-      ax1.clip(); Lab.line(ctx, ax1, fs.map(f => f / 1e6), fs.map(f => a0 * Math.pow(f / 1e6, y)), c.accent, 1.8); ax1.unclip();
+      const amax = Math.max(1, a0 * Math.pow(15, y)); const ax1 = Lab.axes(ctx, { x: 46, y: 18, w: half, h: 130 }, [0, 15], [0, amax * 1.05], { xlabel: 'f (MHz)', ylabel: 'α (dB/cm)' });
+      ax1.clip(); if (Lab.on('m15-a-leg', 'in')) Lab.line(ctx, ax1, fs.map(f => f / 1e6), fs.map(f => a0 * Math.pow(f / 1e6, y)), c.accent, 1.8); ax1.unclip();
       const dc = fs.map(f => cKK(a0, y, f, f0, c0) - c0); const lo = Math.min(...dc), hi = Math.max(...dc);
-      const ax2 = Lab.axes(ctx, { x: 46 + half + 64, y: 18, w: half, h: 130 }, [0, 15], [Math.floor(lo - 0.5), Math.ceil(hi + 0.5)], { xlabel: 'f (MHz)', title: 'c(f) − c(f₀) (m/s)' });
-      ax2.clip(); Lab.line(ctx, ax2, fs.map(f => f / 1e6), dc, c.sig2, 1.8); ax2.unclip(); }
+      const ax2 = Lab.axes(ctx, { x: 46 + half + 64, y: 18, w: half, h: 130 }, [0, 15], [Math.floor(lo - 0.5), Math.ceil(hi + 0.5)], { xlabel: 'f (MHz)', ylabel: 'c(f) − c(f₀) (m/s)' });
+      ax2.clip(); if (Lab.on('m15-a-leg', 'out')) Lab.line(ctx, ax2, fs.map(f => f / 1e6), dc, c.sig2, 1.8, [6, 4]); ax2.unclip(); }
     // FFT model
     const N = 2048, Fs = 100e6, sf = B * f0 / (2 * Math.sqrt(2 * Math.LN2)), st = 1 / (TAU * sf);
     const re = new Float64Array(N), im = new Float64Array(N); for (let i = 0; i < N; i++) { const t = (i < N / 2 ? i : i - N) / Fs; re[i] = Math.exp(-t * t / (2 * st * st)) * Math.cos(TAU * f0 * t); }
@@ -890,18 +899,18 @@
     const fcIn = num0 / den0, fcOut = num / den, smax = Math.max(...Sin), omax = Math.max(...Sout);
     { const { ctx, w } = Lab.canvas($('m15-a-sp'), 180); const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: 126 }, [0, Math.min(25, 2.6 * f0 / 1e6)], [-80, 3], { xlabel: 'f (MHz)', ylabel: 'dB re input peak' });
       const xs = [], a = [], b = [], bn = []; for (let k = 1; k < N / 2; k++) { const f = k * Fs / N / 1e6; if (f > 25) break; xs.push(f); a.push(dB(Sin[k] / smax)); b.push(dB(Sout[k] / smax)); bn.push(dB(Sout[k] / omax)); }
-      ax.clip(); Lab.line(ctx, ax, xs, a, c.accent, 1.6); Lab.line(ctx, ax, xs, bn, c.muted, 1.2, [4, 3]); Lab.line(ctx, ax, xs, b, c.sig2, 1.8);
-      [[fcIn, c.accent], [fcOut, c.sig2]].forEach(([fc, col]) => { ctx.save(); ctx.strokeStyle = col; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ax.X(fc / 1e6), ax.box.y); ctx.lineTo(ax.X(fc / 1e6), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }); ax.unclip(); }
-    { const { ctx, w } = Lab.canvas($('m15-a-t'), 170); const T = Math.max(0.4, 5 * st * 1e6 + 0.1); const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: 116 }, [-T, T], [-1.15, 1.15], { xlabel: 't − z/c(f₀) (µs), normalized amplitudes', ylabel: 'p' });
+      const LG = 'm15-a-leg'; ax.clip(); if (Lab.on(LG, 'in')) Lab.line(ctx, ax, xs, a, c.accent, 1.6); if (Lab.on(LG, 'norm')) Lab.line(ctx, ax, xs, bn, c.muted, 1.4, [2, 3]); if (Lab.on(LG, 'out')) Lab.line(ctx, ax, xs, b, c.sig2, 1.8, [6, 4]);
+      if (Lab.on(LG, 'cent')) [[fcIn, c.accent], [fcOut, c.sig2]].forEach(([fc, col]) => { ctx.save(); ctx.strokeStyle = col; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ax.X(fc / 1e6), ax.box.y); ctx.lineTo(ax.X(fc / 1e6), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }); ax.unclip(); }
+    { const { ctx, w } = Lab.canvas($('m15-a-t'), 170); const T = Math.max(0.4, 5 * st * 1e6 + 0.1); const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: 116 }, [-T, T], [-1.15, 1.15], { xlabel: 't − z/c(f₀) (µs)', ylabel: 'p (normalized)' });
       const xs = [], a = [], b = []; let bm = 0; for (let i = -N / 2; i < N / 2; i++) { const t = i / Fs * 1e6; if (Math.abs(t) > T) continue; const idx = (i + N) % N; xs.push(t); a.push(inRe[idx]); b.push(re[idx]); bm = Math.max(bm, Math.abs(re[idx])); }
-      ax.clip(); Lab.line(ctx, ax, xs, a, c.accent, 1.3); Lab.line(ctx, ax, xs, b.map(v => v / (bm || 1)), c.sig2, 1.8); ax.unclip(); }
+      ax.clip(); if (Lab.on('m15-a-leg', 'in')) Lab.line(ctx, ax, xs, a, c.accent, 1.3); if (Lab.on('m15-a-leg', 'out')) Lab.line(ctx, ax, xs, b.map(v => v / (bm || 1)), c.sig2, 1.8, [6, 4]); ax.unclip(); }
     const a0p = a0 / NP * 100 / 1e6;   // Np/(m*Hz) for y = 1
     const pred = f0 - sf * sf * a0p * z;
-    $('m15-a-read').innerHTML = 'loss at f₀ over z: <b>' + fmt(a0 * Math.pow(f0 / 1e6, y) * zc, 1) + ' dB</b><br>centroid: in <b>' + fmt(fcIn / 1e6, 3) + '</b> → out <b>' + fmt(fcOut / 1e6, 3) + ' MHz</b><br>' +
+    $('m15-a-read').innerHTML = 'Attenuation loss at f₀ over z: <b>' + fmt(a0 * Math.pow(f0 / 1e6, y) * zc, 1) + ' dB</b><br>Spectral centroid (amplitude-weighted mean frequency): in <b>' + fmt(fcIn / 1e6, 3) + '</b> → out <b>' + fmt(fcOut / 1e6, 3) + ' MHz</b><br>' +
       (pred <= 0 ? 'Gaussian formula: not applicable (shift exceeds f₀)' : Math.abs(y - 1) < 1e-6 ? 'Gaussian formula f₀ − σ_f²α₀′z: <b>' + fmt(pred / 1e6, 3) + ' MHz</b>' : 'Gaussian formula (y = 1 only): ' + fmt(pred / 1e6, 3) + ' MHz') +
-      '<br>c(10 MHz) − c(1 MHz): <b>' + fmt(cKK(a0, y, 10e6, 1e6, c0) - c0, 2) + ' m/s</b><br>α in Np/m at f₀: ' + fmt(a0 * Math.pow(f0 / 1e6, y) / NP * 100, 2);
+      '<br>Dispersion c(10 MHz) − c(1 MHz): <b>' + fmt(cKK(a0, y, 10e6, 1e6, c0) - c0, 2) + ' m/s</b><br>Attenuation α at f₀ in Np/m: ' + fmt(a0 * Math.pow(f0 / 1e6, y) / NP * 100, 2);
   }
-  ['m15-a-a0', 'm15-a-y', 'm15-a-z', 'm15-a-f', 'm15-a-b'].forEach(id => $(id).addEventListener('input', aDraw));
+  ['m15-a-a0', 'm15-a-y', 'm15-a-z', 'm15-a-f', 'm15-a-b'].forEach(id => $(id).addEventListener('input', aDraw)); Lab.legendToggle('m15-a-leg', aDraw);
 
   /* ======================= Demo 15.4: nonlinear plane wave ======================= */
   const NL = { key: '', sol: null, NH: 48 };
@@ -925,28 +934,28 @@
     const cols = [c.accent, c.sig2, c.sig3, c.sig4];
     { const { ctx, w } = Lab.canvas($('m15-n-h'), 220); const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: 166 }, [0, 120], [-60, 2], { xlabel: 'distance x (mm)', ylabel: 'dB re p₀' });
       const xs = lin(0, 0.12, 241);
-      for (let n = 1; n <= 4; n++) { const ys = xs.map(x => { const B = nAt(sol, x); return B ? dB(B[n - 1]) : NaN; }); ax.clip(); Lab.line(ctx, ax, xs.map(v => v * 1e3), ys, cols[n - 1], 1.8); ax.unclip();
-        if (!sol.lossless) { const xf = xs.filter(x => x / sol.xb <= 1 && x > 0); ax.clip(); Lab.line(ctx, ax, xf.map(v => v * 1e3), xf.map(x => dB(fubB(n, x / sol.xb))), c.muted, 1, [4, 3]); ax.unclip(); } }
+      for (let n = 1; n <= 4; n++) { if (!Lab.on('m15-n-leg', 'h' + n)) continue; const ys = xs.map(x => { const B = nAt(sol, x); return B ? dB(B[n - 1]) : NaN; }); ax.clip(); Lab.line(ctx, ax, xs.map(v => v * 1e3), ys, cols[n - 1], n === 3 ? 2.2 : 1.8, [null, [6, 4], [2, 3], [10, 3, 2, 3]][n - 1]); ax.unclip();
+        if (!sol.lossless && Lab.on('m15-n-leg', 'fub')) { const xf = xs.filter(x => x / sol.xb <= 1 && x > 0); ax.clip(); Lab.line(ctx, ax, xf.map(v => v * 1e3), xf.map(x => dB(fubB(n, x / sol.xb))), c.muted, 1, [4, 3]); ax.unclip(); } }
       if (sol.xb <= 0.12) { ctx.save(); ctx.strokeStyle = c.muted; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(ax.X(sol.xb * 1e3), ax.box.y); ctx.lineTo(ax.X(sol.xb * 1e3), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.fillText('x̄', ax.X(sol.xb * 1e3) + 4, ax.box.y + 12); }
       ctx.save(); ctx.strokeStyle = c.fg; ctx.beginPath(); ctx.moveTo(ax.X(xc * 1e3), ax.box.y); ctx.lineTo(ax.X(xc * 1e3), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore(); }
     const B = nAt(sol, xc);
     { const { ctx, w } = Lab.canvas($('m15-n-w'), 190); const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: 136 }, [0, 2], [-1.3, 1.3], { xlabel: 'ωτ/2π (periods, retarded time)', ylabel: 'p / p₀' });
-      const ts = lin(0, 2, 800); ax.clip(); Lab.line(ctx, ax, ts, ts.map(t => Math.sin(TAU * t)), c.muted, 1, [4, 3]);
+      const ts = lin(0, 2, 800); ax.clip(); if (Lab.on('m15-n-leg', 'fub')) Lab.line(ctx, ax, ts, ts.map(t => Math.sin(TAU * t)), c.muted, 1, [4, 3]);
       if (B) { let wv; const s = xc / sol.xb;
         if (sol.lossless && s <= 1) { wv = ts.map(t => { let P = Math.sin(TAU * t); for (let it = 0; it < 300; it++) P = Math.sin(TAU * t + s * P); return P; }); }
         else wv = ts.map(t => { let v = 0; for (let n = 1; n <= NL.NH; n++) v += B[n - 1] * Math.sin(n * TAU * t); return v; });
-        Lab.line(ctx, ax, ts, wv, c.accent, 1.8); NL.wv = wv; } else NL.wv = null;
+        if (Lab.on('m15-n-leg', 'h1')) Lab.line(ctx, ax, ts, wv, c.accent, 1.8); NL.wv = wv; } else NL.wv = null;
       ax.unclip(); if (!B) { ctx.fillStyle = c.muted; ctx.font = '12px ' + c.mono; ctx.textAlign = 'center'; ctx.fillText('lossless, 1 < σ < 3: shocked, no closed form here', ax.box.x + ax.box.w / 2, ax.box.y + 20); } }
     const m = sol.m, beta = 1 + m[5] / 2, eps = sol.p0 / (m[1] * m[2] * m[2]), al = m[3] * Math.pow(sol.f0 / 1e6, m[4]) / NP * 100;
-    let h = 'β = <b>' + fmt(beta, 2) + '</b>, ε = <b>' + (eps * 1e4).toFixed(2) + ' × 10⁻⁴</b><br>x̄ = <b>' + fmt(sol.xb * 1e3, 1) + ' mm</b>, σ at cursor = <b>' + fmt(xc / sol.xb, 2) + '</b><br>α(f₀) = ' + fmt(al, 2) + ' Np/m, Γ = <b>' + fmt(1 / (al * sol.xb), 2) + '</b>' + (sol.lossless ? ' (absorption off)' : '') + '<br>';
-    if (B) { h += 'B₁ <b>' + fmt(dB(B[0]), 1) + '</b>, B₂ <b>' + fmt(dB(B[1]), 1) + '</b>, B₃ <b>' + fmt(dB(B[2]), 1) + '</b> dB re p₀<br>B₂/B₁ = <b>' + fmt(dB(B[1] / B[0]), 1) + ' dB</b>';
-      if (NL.wv) { const mx = Math.max(...NL.wv), mn = Math.min(...NL.wv); h += '<br>p₊ = ' + fmt(mx * sol.p0 / 1e6, 2) + ', p₋ = ' + fmt(-mn * sol.p0 / 1e6, 2) + ' MPa'; } }
+    let h = 'Nonlinearity coefficient β = 1 + B/2A: <b>' + fmt(beta, 2) + '</b>, acoustic Mach number ε = p₀/(ρc²): <b>' + (eps * 1e4).toFixed(2) + ' × 10⁻⁴</b><br>Shock distance x̄ = <b>' + fmt(sol.xb * 1e3, 1) + ' mm</b>, distortion σ = x/x̄ at cursor = <b>' + fmt(xc / sol.xb, 2) + '</b><br>Absorption α(f₀) = ' + fmt(al, 2) + ' Np/m, Gol\'dberg number Γ = 1/(α x̄) = <b>' + fmt(1 / (al * sol.xb), 2) + '</b>' + (sol.lossless ? ' (absorption off)' : '') + '<br>';
+    if (B) { h += 'Harmonic amplitudes B₁ <b>' + fmt(dB(B[0]), 1) + '</b>, B₂ <b>' + fmt(dB(B[1]), 1) + '</b>, B₃ <b>' + fmt(dB(B[2]), 1) + '</b> dB re p₀<br>B₂/B₁ = <b>' + fmt(dB(B[1] / B[0]), 1) + ' dB</b>';
+      if (NL.wv) { const mx = Math.max(...NL.wv), mn = Math.min(...NL.wv); h += '<br>Peak compressional p₊ = ' + fmt(mx * sol.p0 / 1e6, 2) + ', peak rarefactional p₋ = ' + fmt(-mn * sol.p0 / 1e6, 2) + ' MPa'; } }
     if (!B) h += 'lossless, 1 &lt; σ &lt; 3: shocked waveform, no closed form here';
-    if (!sol.lossless) { let bm = 0, xm = 0; sol.out.forEach((v, i) => { if (Math.abs(v[1]) > bm) { bm = Math.abs(v[1]); xm = i * sol.hs * sol.xb; } }); h += '<br>B₂ peak <b>' + fmt(dB(bm), 1) + ' dB</b> at ' + fmt(xm * 1e3, 1) + ' mm'; }
+    if (!sol.lossless) { let bm = 0, xm = 0; sol.out.forEach((v, i) => { if (Math.abs(v[1]) > bm) { bm = Math.abs(v[1]); xm = i * sol.hs * sol.xb; } }); h += '<br>Second-harmonic peak B₂ <b>' + fmt(dB(bm), 1) + ' dB</b> at ' + fmt(xm * 1e3, 1) + ' mm'; }
     $('m15-n-read').innerHTML = h;
   }
   let nRaf = 0; const nQueue = () => { if (nRaf) return; nRaf = requestAnimationFrame(() => { nRaf = 0; nDraw(); }); };
-  ['m15-n-p', 'm15-n-f', 'm15-n-x'].forEach(id => $(id).addEventListener('input', nQueue)); ['m15-n-med', 'm15-n-abs'].forEach(id => $(id).addEventListener('change', nQueue));
+  ['m15-n-p', 'm15-n-f', 'm15-n-x'].forEach(id => $(id).addEventListener('input', nQueue)); ['m15-n-med', 'm15-n-abs'].forEach(id => $(id).addEventListener('change', nQueue)); Lab.legendToggle('m15-n-leg', nQueue);
 
   /* ======================= Demo 15.5: harmonic beam ======================= */
   function hPatterns(f0, N, pitch, steer, apod) {
@@ -968,19 +977,19 @@
     const P = hPatterns(f0, N, pitch, steer, apod);
     const m1 = hMetrics(P.th, P.P1, steer), mSq = hMetrics(P.th, P.P1.map(v => v * v), steer), mR2 = hMetrics(P.th, P.P2, steer);
     const mF = hMetrics(P.th, P.fund, steer), mH = hMetrics(P.th, P.harm, steer), mL = hMetrics(P.th, P.lin2, steer);
-    const draw = (cv, title, list) => { const { ctx, w } = Lab.canvas(cv, 200); const ax = Lab.axes(ctx, { x: 50, y: 22, w: w - 66, h: 140 }, [-90, 90], [-80, 5], { xlabel: 'angle (deg)', ylabel: 'dB', title, xticks: [-90, -60, -30, 0, 30, 60, 90] });
-      ax.clip(); list.forEach(([d, col, wd, dash]) => Lab.line(ctx, ax, P.th, d.map(v => Math.max(-85, v)), col, wd, dash)); ax.unclip(); return ax; };
-    draw($('m15-h-one'), 'One-way: tx at f₀, harmonic source (tx²), rx at 2f₀', [[m1.d, c.accent, 1.5], [mSq.d, c.sig2, 1.5], [mR2.d, c.sig3, 1.3, [4, 3]]]);
-    const ax2 = draw($('m15-h-two'), 'Two-way', (showLin ? [[mL.d, c.muted, 1.3, [4, 3]]] : []).concat([[mF.d, c.accent, 1.6], [mH.d, c.sig2, 1.8]]));
+    const draw = (cv, title, list) => { const { ctx, w } = Lab.canvas(cv, 200); const ax = Lab.axes(ctx, { x: 50, y: 22, w: w - 66, h: 140 }, [-90, 90], [-80, 5], { xlabel: 'angle θ (deg)', ylabel: 'level (dB)', title, xticks: [-90, -60, -30, 0, 30, 60, 90] });
+      ax.clip(); list.filter(q => Lab.on('m15-h-leg', q[4])).forEach(([d, col, wd, dash]) => Lab.line(ctx, ax, P.th, d.map(v => Math.max(-85, v)), col, wd, dash)); ax.unclip(); return ax; };
+    draw($('m15-h-one'), 'One-way: tx at f₀, harmonic source (tx²), rx at 2f₀', [[m1.d, c.accent, 1.5, null, 'fund'], [mSq.d, c.sig2, 1.6, [6, 4], 'harm'], [mR2.d, c.sig3, 1.6, [2, 3], 'rx2']]);
+    const ax2 = draw($('m15-h-two'), 'Two-way', (showLin ? [[mL.d, c.muted, 1.5, [2, 3], 'lin']] : []).concat([[mF.d, c.accent, 1.6, null, 'fund'], [mH.d, c.sig2, 1.8, [6, 4], 'harm']]));
     const sg2 = P.s0 - 1540 / (2 * f0) / pitch, sg1 = P.s0 - 1540 / f0 / pitch;
     let gl = ''; if (Math.abs(sg2) <= 1) { const tg = Math.asin(sg2) * 180 / PI; const lev = arr => { let v = -999; P.th.forEach((t, i) => { if (Math.abs(t - tg) < 3) v = Math.max(v, arr[i]); }); return v < -120 ? '&lt; −120' : fmt(v, 1); };
-      gl = '<br>2f₀ rx grating lobe at <b>' + fmt(tg, 1) + '°</b>: rx alone ' + lev(mR2.d) + ' dB; fund ' + lev(mF.d) + ', <b>harm ' + lev(mH.d) + '</b>, lin 2f₀ ' + lev(mL.d) + ' dB'; }
+      gl = '<br>2f₀ rx grating lobe at <b>' + fmt(tg, 1) + '°</b>: rx alone ' + lev(mR2.d) + ' dB; fundamental ' + lev(mF.d) + ', <b>harmonic ' + lev(mH.d) + '</b>, linear 2f₀ ' + lev(mL.d) + ' dB'; }
     else gl = '<br>no 2f₀ receive grating lobe in real space';
     const mmW = wd => fmt(F * Math.tan(wd * PI / 180 / 2) * 2 / Math.cos(steer * PI / 180), 2);
-    $('m15-h-read').innerHTML = '−6 dB two-way width:<br>fund <b>' + fmt(mF.width, 2) + '°</b> (' + mmW(mF.width) + ' mm), harm <b>' + fmt(mH.width, 2) + '°</b> (' + mmW(mH.width) + ' mm), lin 2f₀ ' + fmt(mL.width, 2) + '°<br>ratio harm/fund <b>' + fmt(mH.width / mF.width, 3) + '</b><br>peak sidelobe: fund <b>' + fmt(mF.psl, 1) + '</b>, harm <b>' + fmt(mH.psl, 1) + '</b>, lin 2f₀ ' + fmt(mL.psl, 1) + ' dB' + gl + (Math.abs(sg1) <= 1 ? '<br>f₀ grating lobe at ' + fmt(Math.asin(sg1) * 180 / PI, 1) + '°' : '');
+    $('m15-h-read').innerHTML = 'Two-way beam width at −6 dB:<br>fundamental <b>' + fmt(mF.width, 2) + '°</b> (' + mmW(mF.width) + ' mm), harmonic <b>' + fmt(mH.width, 2) + '°</b> (' + mmW(mH.width) + ' mm), linear 2f₀ drive ' + fmt(mL.width, 2) + '°<br>width ratio harmonic/fundamental <b>' + fmt(mH.width / mF.width, 3) + '</b><br>peak sidelobe: fundamental <b>' + fmt(mF.psl, 1) + '</b>, harmonic <b>' + fmt(mH.psl, 1) + '</b>, linear 2f₀ ' + fmt(mL.psl, 1) + ' dB' + gl + (Math.abs(sg1) <= 1 ? '<br>f₀ grating lobe at ' + fmt(Math.asin(sg1) * 180 / PI, 1) + '°' : '');
   }
   let hRaf = 0; const hQueue = () => { if (hRaf) return; hRaf = requestAnimationFrame(() => { hRaf = 0; hDraw(); }); };
-  ['m15-h-f', 'm15-h-n', 'm15-h-p', 'm15-h-s', 'm15-h-F'].forEach(id => $(id).addEventListener('input', hQueue)); ['m15-h-ap', 'm15-h-lin'].forEach(id => $(id).addEventListener('change', hQueue));
+  ['m15-h-f', 'm15-h-n', 'm15-h-p', 'm15-h-s', 'm15-h-F'].forEach(id => $(id).addEventListener('input', hQueue)); ['m15-h-ap', 'm15-h-lin'].forEach(id => $(id).addEventListener('change', hQueue)); Lab.legendToggle('m15-h-leg', hQueue);
 
   /* ======================= Demo 15.6: pulse inversion / AM ======================= */
   function pDraw() {
@@ -1002,34 +1011,34 @@
     const lin1 = new Float64Array(N); for (let i = 0; i < N; i++) lin1[i] = s[i]; const Slin = spec(lin1); const leak = band(Slin, 1.5 * f0, 2.5 * f0);
     const win = 1.4e-6; const draw = (cv, h, list, ylab) => { const { ctx, w } = Lab.canvas(cv, h); let ym = 0.3; list.forEach(([a]) => { for (let i = 0; i < N; i++) if (Math.abs(t[i]) < win) ym = Math.max(ym, Math.abs(a[i])); });
       const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: h - 54 }, [-win * 1e6, win * 1e6], [-1.1 * ym, 1.1 * ym], { xlabel: 't (µs)', ylabel: ylab }); ax.clip();
-      list.forEach(([a, col, wd]) => { const xs = [], ys = []; for (let i = 0; i < N; i++) if (Math.abs(t[i]) < win) { xs.push(t[i] * 1e6); ys.push(a[i]); } Lab.line(ctx, ax, xs, ys, col, wd); }); ax.unclip(); };
-    draw($('m15-p-e'), 170, e2 ? [[e1, c.accent, 1.5], [e2, c.sig2, 1.5]] : [[e1, c.accent, 1.6]], 'echo');
+      list.filter(q => Lab.on('m15-p-leg', q[4])).forEach(([a, col, wd, ds]) => { const xs = [], ys = []; for (let i = 0; i < N; i++) if (Math.abs(t[i]) < win) { xs.push(t[i] * 1e6); ys.push(a[i]); } Lab.line(ctx, ax, xs, ys, col, wd, ds); }); ax.unclip(); };
+    draw($('m15-p-e'), 170, e2 ? [[e1, c.accent, 1.5, null, 'e1'], [e2, c.sig2, 1.6, [6, 4], 'e2']] : [[e1, c.accent, 1.6, null, 'e1']], 'echo (a.u.)');
     if (mode === 'filt') { // ideal band-pass 1.5-2.5 f0 of the single echo
       const re = Float64Array.from(e1), im = new Float64Array(N); fft(re, im, false); for (let k = 0; k < N; k++) { const f = Math.abs((k <= N / 2 ? k : k - N) * Fs / N); if (f < 1.5 * f0 || f >= 2.5 * f0) { re[k] = 0; im[k] = 0; } } fft(re, im, true); out = re; }
-    draw($('m15-p-o'), 150, [[out, c.fg, 1.6]], mode === 'filt' ? '2f₀ band' : 'combined');
+    draw($('m15-p-o'), 150, [[out, c.fg, 1.6, null, 'out']], mode === 'filt' ? '2f₀ band (a.u.)' : 'combined (a.u.)');
     { const { ctx, w } = Lab.canvas($('m15-p-s'), 190); const ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 66, h: 136 }, [0, 12], [-80, 8], { xlabel: 'f (MHz)', ylabel: 'dB re single-echo peak' });
-      shade(ctx, ax, 1.5, 4.5, c.muted, 0.08); shade(ctx, ax, 4.5, 7.5, c.muted, 0.16);
+      if (Lab.on('m15-p-leg', 'band')) { shade(ctx, ax, 1.5, 4.5, c.muted, 0.08); shade(ctx, ax, 4.5, 7.5, c.muted, 0.16); }
       const mx = Math.max(...S1); const xs = [], a = [], b = [], l = []; for (let k = 1; k < N / 2; k++) { const f = k * Fs / N / 1e6; if (f > 12) break; xs.push(f); a.push(dB(S1[k] / mx)); b.push(dB(So[k] / mx)); l.push(dB(Slin[k] / mx)); }
-      ax.clip(); if (mode === 'filt') Lab.line(ctx, ax, xs, l, c.muted, 1.2, [4, 3]); Lab.line(ctx, ax, xs, a, c.accent, 1.5); if (mode !== 'filt') Lab.line(ctx, ax, xs, b, c.fg, 1.8); ax.unclip(); }
+      const LG = 'm15-p-leg'; ax.clip(); if (mode === 'filt' && Lab.on(LG, 'lin')) Lab.line(ctx, ax, xs, l, c.muted, 1.2, [4, 3]); if (Lab.on(LG, 'e1')) Lab.line(ctx, ax, xs, a, c.accent, 1.5); if (mode !== 'filt' && Lab.on(LG, 'out')) Lab.line(ctx, ax, xs, b, c.fg, 1.8); ax.unclip(); }
     const r10 = x => fmt(10 * Math.log10(Math.max(1e-30, x)), 1);
-    let h = 'single echo: 2f₀ band re f₀ band <b>' + r10(eh / ef) + ' dB</b><br>';
+    let h = 'Single echo, energy in the 2f₀ band re the f₀ band: <b>' + r10(eh / ef) + ' dB</b><br>';
     if (mode === 'filt') { const dn = e1.map((v, i) => v - (tg === 'tissue' ? s[i] : s[i])); const enl = band(spec(dn), 1.5 * f0, 2.5 * f0); h += 'linear echo energy leaking into the 2f₀ band, re the nonlinear 2f₀ signal: <b>' + r10(leak / Math.max(1e-30, enl)) + ' dB</b><br>(f₀ and 2f₀ skirts meet at −20 dB for FBW = 45 %)'; }
-    else h += 'output f₀ band re single f₀ band: <b>' + r10(of / ef) + ' dB</b><br>output 2f₀ band re single 2f₀ band: <b>' + r10(oh / eh) + ' dB</b>' + (mode === 'pi' ? ' (ideal +6.0)' : ' (quadratic × ½: −6.0)');
-    h += '<br>motion shift δ = <b>' + fmt(delta * 1e9, 2) + ' ns</b>' + (delta > 0 && mode !== 'filt' ? '; predicted f₀ residual 2|sin(πf₀δ)| = <b>' + fmt(dB(2 * Math.sin(PI * f0 * delta)), 1) + ' dB</b>' : '');
+    else h += 'Combined output energy re single echo: f₀ band <b>' + r10(of / ef) + ' dB</b>, 2f₀ band <b>' + r10(oh / eh) + ' dB</b>' + (mode === 'pi' ? ' (ideal +6.0)' : ' (quadratic × ½: −6.0)');
+    h += '<br>Echo shift between the two pulses from motion δ = <b>' + fmt(delta * 1e9, 2) + ' ns</b>' + (delta > 0 && mode !== 'filt' ? '; predicted f₀ residual 2|sin(πf₀δ)| = <b>' + fmt(dB(2 * Math.sin(PI * f0 * delta)), 1) + ' dB</b>' : '');
     $('m15-p-read').innerHTML = h;
   }
-  ['m15-p-sg', 'm15-p-b', 'm15-p-v'].forEach(id => $(id).addEventListener('input', pDraw)); ['m15-p-m', 'm15-p-tg'].forEach(id => $(id).addEventListener('change', pDraw));
+  ['m15-p-sg', 'm15-p-b', 'm15-p-v'].forEach(id => $(id).addEventListener('input', pDraw)); ['m15-p-m', 'm15-p-tg'].forEach(id => $(id).addEventListener('change', pDraw)); Lab.legendToggle('m15-p-leg', pDraw);
 
   /* ======================= figure library (cards and rule figures) ======================= */
   const FH = 150; const cache = {};
   const F = {
     dalembert: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), f = s => Math.exp(-s * s / 0.5) * Math.cos(TAU * s), gb = s => 0.8 * Math.exp(-s * s / 0.3);
-      const m = MI.panel(x, box(w, h), [-6, 6], [-1.2, 2.2], { lab: 'f(x − ct) (pulse, →) + g(x + ct) (bump, ←), three times', yaxis: false, ticks: [[-4, '−4'], [0, '0'], [4, '4']] });
-      [[-4, c.mu, 1.1], [0, c.a, 1.8], [4, c.b, 1.4]].forEach(([X, col, wd]) => MI.curve(x, m, xx => f(xx - X) + gb(xx + X), col, { w: wd }));
+      const m = MI.panel(x, box(w, h), [-6, 6], [-1.2, 2.2], { yl: 'f(x − ct) → + g(x + ct) ←', xl: 'x, three times', yaxis: false, ticks: [[-4, '−4'], [0, '0'], [4, '4']] });
+      [[-4, c.mu, 1.4, [2, 3]], [0, c.a, 1.8], [4, c.b, 1.6, [6, 4]]].forEach(([X, col, wd, ds]) => MI.curve(x, m, xx => f(xx - X) + gb(xx + X), col, { w: wd, dash: ds }));
       MI.text(x, 't₁', m.X(-5.6), m.Y(1.5), c.mu); MI.text(x, 't₂: overlap, sum', m.X(-1.4), m.Y(2.0), c.a); MI.text(x, 't₃', m.X(4.9), m.Y(1.5), c.b); },
     sphZ: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), lk = lin(-1.5, 1.5, 200);
       const m = MI.panel(x, box(w, h), [-1.5, 1.5], [0, 1.1], { lab: '|Z|/ρc (blue), phase/90° (pink) vs kr (log)', ticks: [[-1, '0.1'], [0, '1'], [1, '10']], yaxis: false });
-      plotXY(x, m, lk, lk.map(l => { const kr = 10 ** l; return kr / Math.sqrt(1 + kr * kr); }), c.a); plotXY(x, m, lk, lk.map(l => { const kr = 10 ** l; return Math.atan2(1, kr) / (PI / 2); }), c.b); vline(x, m, 0, c.mu);
+      plotXY(x, m, lk, lk.map(l => { const kr = 10 ** l; return kr / Math.sqrt(1 + kr * kr); }), c.a); plotXY(x, m, lk, lk.map(l => { const kr = 10 ** l; return Math.atan2(1, kr) / (PI / 2); }), c.b, { dash: [6, 4] }); vline(x, m, 0, c.mu);
       MI.text(x, 'kr = 1: 0.71, 45°', m.X(0.05), m.Y(0.5), c.fg); },
     intensity: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), ps = lin(0, 2, 100);
       const m = MI.panel(x, box(w, h), [0, 2], [0, 140], { lab: 'I = p²/2Z (W/cm²) vs p (MPa): tissue (blue), water (dashed)', ticks: [[0.5, '0.5'], [1, '1'], [1.5, '1.5'], [2, '2']] }); dot(x, m, 1, 30.9, c.a); MI.text(x, '31 W/cm² at 1 MPa', m.X(1.05), m.Y(30.9) + 10, c.a);
@@ -1041,20 +1050,20 @@
       MI.text(x, 'liver/muscle −48 dB', m.X(-1.15), m.Y(-50), c.b); },
     Tz: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), lr = lin(-1.6, 1.6, 300);
       const m = MI.panel(x, box(w, h), [-1.6, 1.6], [0, 2.05], { lab: 'T (pressure, blue) and T_I (energy, pink) vs Z₂/Z₁ (log)', ticks: [[-1, '0.1'], [0, '1'], [Math.log10(3.31), 'skull'], [1, '10']] });
-      plotXY(x, m, lr, lr.map(l => { const r = 10 ** l; return 2 * r / (1 + r); }), c.a); plotXY(x, m, lr, lr.map(l => { const r = 10 ** l; return 4 * r / (1 + r) ** 2; }), c.b);
+      plotXY(x, m, lr, lr.map(l => { const r = 10 ** l; return 2 * r / (1 + r); }), c.a); plotXY(x, m, lr, lr.map(l => { const r = 10 ** l; return 4 * r / (1 + r) ** 2; }), c.b, { dash: [6, 4] });
       const r = 5.36 / 1.617; dot(x, m, Math.log10(r), 2 * r / (1 + r), c.a); dot(x, m, Math.log10(r), 4 * r / (1 + r) ** 2, c.b); MI.text(x, '1.54', m.X(Math.log10(r)) + 5, m.Y(1.54) - 6, c.a); MI.text(x, '0.71', m.X(Math.log10(r)) + 5, m.Y(0.71) + 8, c.b); },
     snell: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), as = lin(0, 89.9, 400);
       const m = MI.panel(x, box(w, h), [0, 90], [0, 92], { lab: 'transmitted angle vs incidence angle (deg)', ticks: [[26.1, '26'], [33.1, '33'], [66.6, '67'], [90, '90']] });
-      [[1580 / 1450, c.a, 'fat→muscle'], [1450 / 1580, c.d, 'muscle→fat'], [2820 / 1540, c.b, '→skull'], [3500 / 1540, c.c, '→3500 m/s']].forEach(([r, col, t], i) => { plotXY(x, m, as, as.map(a => { const s = r * Math.sin(a * PI / 180); return s <= 1 ? Math.asin(s) * 180 / PI : NaN; }), col); MI.text(x, t, m.X([60, 70, 20, 4][i]), m.Y([84, 50, 88, 70][i]), col); });
-      plotXY(x, m, [0, 90], [0, 90], c.mu, { dash: [3, 3], w: 1 }); },
+      [[1580 / 1450, c.a, 'fat→muscle', null], [1450 / 1580, c.d, 'muscle→fat', [6, 4]], [2820 / 1540, c.b, '→skull', [2, 3]], [3500 / 1540, c.c, '→3500 m/s', [10, 3, 2, 3]]].forEach(([r, col, t, ds], i) => { plotXY(x, m, as, as.map(a => { const s = r * Math.sin(a * PI / 180); return s <= 1 ? Math.asin(s) * 180 / PI : NaN; }), col, { dash: ds, w: ds && ds[0] === 2 ? 2.2 : 1.7 }); MI.text(x, t, m.X([60, 70, 20, 4][i]), m.Y([84, 50, 88, 70][i]), col); });
+      plotXY(x, m, [0, 90], [0, 90], c.mu, { dash: [1, 3], w: 1 }); },
     bone: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH);
       if (!cache.bone) { const as = lin(0, 89, 268); cache.bone = { as, r: as.map(a => boundary(1050, 1540, 1900, 2820, 1500, a * PI / 180)) }; }
-      const m = MI.panel(x, box(w, h), [0, 90], [0, 1.02], { lab: 'energy fraction vs angle: tissue → skull (2820/1500 m/s)', ticks: [[33.1, '33.1°'], [60, '60'], [90, '90']] });
-      plotXY(x, m, cache.bone.as, cache.bone.r.map(q => q.ER), c.c); plotXY(x, m, cache.bone.as, cache.bone.r.map(q => q.EL), c.a); plotXY(x, m, cache.bone.as, cache.bone.r.map(q => q.ES), c.b, { dash: [5, 3] });
+      const m = MI.panel(x, box(w, h), [0, 90], [0, 1.02], { lab: 'energy fraction vs angle (deg), tissue → skull', ticks: [[33.1, '33.1°'], [60, '60'], [90, '90']] });
+      plotXY(x, m, cache.bone.as, cache.bone.r.map(q => q.ER), c.c, { dash: [2, 3], w: 2 }); plotXY(x, m, cache.bone.as, cache.bone.r.map(q => q.EL), c.a); plotXY(x, m, cache.bone.as, cache.bone.r.map(q => q.ES), c.b, { dash: [5, 3] });
       MI.text(x, 'longitudinal', m.X(2), m.Y(0.78), c.a); MI.text(x, 'shear', m.X(48), m.Y(0.86), c.b); MI.text(x, 'reflected', m.X(5), m.Y(0.2), c.c); },
     wedge: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), ph = lin(0, 40, 200), dev = p => Math.asin(Math.min(1, 1580 / 1450 * Math.sin(p * PI / 180))) * 180 / PI - p;
-      const m = MI.panel(x, box(w, h), [0, 40], [0, 4.5], { lab: 'fat wedge in muscle: deviation (°, blue), shift at 6 cm (mm, pink)', ticks: [[10, '10'], [20, '20°'], [30, '30'], [40, '40']] });
-      plotXY(x, m, ph, ph.map(dev), c.a); plotXY(x, m, ph, ph.map(p => 60 * Math.tan(dev(p) * PI / 180)), c.b); dot(x, m, 20, dev(20), c.a); dot(x, m, 20, 60 * Math.tan(dev(20) * PI / 180), c.b);
+      const m = MI.panel(x, box(w, h), [0, 40], [0, 4.5], { yl: 'deviation (°), shift at 6 cm (mm)', xl: 'fat wedge angle (deg)', ticks: [[10, '10'], [20, '20°'], [30, '30'], [40, '40']] });
+      plotXY(x, m, ph, ph.map(dev), c.a); plotXY(x, m, ph, ph.map(p => 60 * Math.tan(dev(p) * PI / 180)), c.b, { dash: [6, 4] }); dot(x, m, 20, dev(20), c.a); dot(x, m, 20, 60 * Math.tan(dev(20) * PI / 180), c.b);
       MI.text(x, '1.88°', m.X(21), m.Y(dev(20)) + 10, c.a); MI.text(x, '1.97 mm', m.X(13), m.Y(2.4), c.b); },
     fatDepth: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), ds = lin(0, 40, 100);
       const m = MI.panel(x, box(w, h), [0, 40], [0, 3.2], { lab: 'apparent extra depth (mm) vs fat thickness (mm), c₀ = 1540', ticks: [[10, '10'], [20, '20'], [30, '30'], [40, '40']] });
@@ -1062,126 +1071,127 @@
       MI.text(x, '1450 m/s', m.X(31), m.Y(2.6), c.a); MI.text(x, '1480 m/s', m.X(31), m.Y(0.75), c.mu); },
     bsc: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), fs = lin(1, 15, 200), bs = (f, a) => 40 * Math.log10(f) - 0.827 * (TAU * f * 1e6 / 1540 * a) ** 2 * 10 / Math.LN10;
       const m = MI.panel(x, box(w, h), [1, 15], [0, 50], { lab: 'BSC (dB, arbitrary ref) vs f (MHz), Gaussian form factor', ticks: [[2, '2'], [5, '5'], [10, '10'], [15, '15']] });
-      [[10e-6, c.a, '10 µm', 12], [50e-6, c.c, '50 µm', 12], [100e-6, c.b, '100 µm', 3.4]].forEach(([a, col, t, fl]) => { plotXY(x, m, fs, fs.map(f => bs(f, a)), col); MI.text(x, t, m.X(fl), m.Y(bs(fl, a)) - 9, col); });
+      [[10e-6, c.a, '10 µm', 12, null], [50e-6, c.c, '50 µm', 12, [6, 4]], [100e-6, c.b, '100 µm', 3.4, [2, 3]]].forEach(([a, col, t, fl, ds]) => { plotXY(x, m, fs, fs.map(f => bs(f, a)), col, { dash: ds, w: ds && ds[0] === 2 ? 2.2 : 1.7 }); MI.text(x, t, m.X(fl), m.Y(bs(fl, a)) - 9, col); });
       MI.text(x, 'f⁴: +12 dB per octave', m.X(1.3), m.Y(44), c.mu); },
     rtLoss: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), zs = lin(0, 20, 100);
       const m = MI.panel(x, box(w, h), [0, 20], [0, 100], { lab: 'round-trip loss (dB) vs depth (cm), 0.5 dB/cm/MHz', ticks: [[6, '6'], [12, '12'], [20, '20']], hlines: [[60, '60 dB budget']] });
-      [[3, c.a, 17, 12], [5, c.c, 14.5, -8], [10, c.b, 7.5, -8]].forEach(([f, col, zl, off]) => { plotXY(x, m, zs, zs.map(z => 2 * 0.5 * f * z), col); MI.text(x, f + ' MHz', m.X(zl), m.Y(f * zl) + off, col, 'right'); }); },
+      [[3, c.a, 17, 12, null], [5, c.c, 14.5, -8, [6, 4]], [10, c.b, 7.5, -8, [2, 3]]].forEach(([f, col, zl, off, ds]) => { plotXY(x, m, zs, zs.map(z => 2 * 0.5 * f * z), col, { dash: ds, w: ds && ds[0] === 2 ? 2.2 : 1.7 }); MI.text(x, f + ' MHz', m.X(zl), m.Y(f * zl) + off, col, 'right'); }); },
     disp: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), fs = lin(0.5e6, 15e6, 200);
       const m = MI.panel(x, box(w, h), [0, 15], [-2, 8], { lab: 'c(f) − c(1 MHz) (m/s) vs f (MHz), Kramers–Kronig', ticks: [[1, '1'], [5, '5'], [10, '10'], [15, '15']], hlines: [] });
-      [[0.5, 1, c.a, '0.5, y = 1'], [0.5, 1.1, c.c, '0.5, y = 1.1'], [1, 1, c.b, '1.0, y = 1']].forEach(([a0, y, col, t], i) => { plotXY(x, m, fs.map(f => f / 1e6), fs.map(f => cKK(a0, y, f, 1e6, 1540) - 1540), col); MI.text(x, t, m.X(9.5), m.Y([1.9, 4.6, 7.2][i]), col); }); },
+      [[0.5, 1, c.a, '0.5, y = 1', null], [0.5, 1.1, c.c, '0.5, y = 1.1', [6, 4]], [1, 1, c.b, '1.0, y = 1', [2, 3]]].forEach(([a0, y, col, t, ds], i) => { plotXY(x, m, fs.map(f => f / 1e6), fs.map(f => cKK(a0, y, f, 1e6, 1540) - 1540), col, { dash: ds, w: ds && ds[0] === 2 ? 2.2 : 1.7 }); MI.text(x, t, m.X(9.5), m.Y([1.9, 4.6, 7.2][i]), col); }); },
     downshift: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), f0 = 5, sf = 0.6 * f0 / (2 * Math.sqrt(2 * Math.LN2)), a0p = 0.5 / NP * 100 / 1e6 * 1e6;
       const m = MI.panel(x, box(w, h), [0, 10], [0, 1.08], { lab: 'normalized spectrum vs f (MHz): 5 MHz, 60 %, 0.5 dB/cm/MHz path', ticks: [[4.07, '4.07'], [5, '5.0']] });
-      [[0, c.a, '0 cm'], [5, c.c, '5'], [10, c.b, '10 cm']].forEach(([zc, col]) => { const S = f => Math.exp(-((f - f0) ** 2) / (2 * sf * sf) - a0p * f * zc / 100); let mx = 0; for (let f = 0; f < 10; f += 0.01) mx = Math.max(mx, S(f)); MI.curve(x, m, f => S(f) / mx, col); vline(x, m, f0 - sf * sf * a0p * zc / 100, col); }); },
+      [[0, c.a, '0 cm', null], [5, c.c, '5', [6, 4]], [10, c.b, '10 cm', [2, 3]]].forEach(([zc, col, lb, ds]) => { const S = f => Math.exp(-((f - f0) ** 2) / (2 * sf * sf) - a0p * f * zc / 100); let mx = 0; for (let f = 0; f < 10; f += 0.01) mx = Math.max(mx, S(f)); MI.curve(x, m, f => S(f) / mx, col, { dash: ds, w: ds && ds[0] === 2 ? 2.2 : 1.7 }); vline(x, m, f0 - sf * sf * a0p * zc / 100, col); }); },
     oneil: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), lam = 1540 / 3e6, k = TAU / lam, a = 10e-3, Fz = 60e-3, hb = Fz - Math.sqrt(Fz * Fz - a * a);
       const P = z => { const re = Math.sqrt((z - hb) ** 2 + a * a); const den = 1 - z / Fz; return Math.abs(den) < 1e-6 ? k * hb : Math.abs(2 / den * Math.sin(k * (re - z) / 2)); };
       const m = MI.panel(x, box(w, h), [0, 120], [0, 12], { lab: 'on-axis |p|/ρcv₀ vs z (mm): a = 10, F = 60 mm, 3 MHz', ticks: [[54.5, '54.5'], [60, 'F'], [120, '120']], hlines: [[k * hb, 'G = kh = 10.3']] });
       MI.curve(x, m, zz => P(zz * 1e-3), c.a); vline(x, m, 60, c.mu); },
     gainF: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), Fs = lin(1, 6, 100), a = 10e-3;
       const m = MI.panel(x, box(w, h), [1, 6], [0, 60], { lab: 'focal gain kh vs F# (D = 20 mm)', ticks: [[2, '2'], [3, '3'], [4, '4'], [6, '6']] });
-      [[3e6, c.a, '3 MHz'], [5e6, c.b, '5 MHz']].forEach(([f, col], i) => { const k = TAU * f / 1540; plotXY(x, m, Fs, Fs.map(Fn => { const Fz = Fn * 2 * a; return k * (Fz - Math.sqrt(Fz * Fz - a * a)); }), col); MI.text(x, f / 1e6 + ' MHz', m.X(1.6), m.Y(i ? 40 : 18), col); }); },
+      [[3e6, c.a, '3 MHz'], [5e6, c.b, '5 MHz']].forEach(([f, col], i) => { const k = TAU * f / 1540; plotXY(x, m, Fs, Fs.map(Fn => { const Fz = Fn * 2 * a; return k * (Fz - Math.sqrt(Fz * Fz - a * a)); }), col, { dash: i ? [6, 4] : null }); MI.text(x, f / 1e6 + ' MHz', m.X(1.6), m.Y(i ? 40 : 18), col); }); },
     lateral: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH);
       const m = MI.panel(x, box(w, h), [-2.5, 2.5], [-40, 0], { lab: 'focal profile (dB) vs x/(λF/D): line vs disc aperture', base: -40, ticks: [[-2, '−2'], [-1, '−1'], [1, '1'], [2, '2']], hlines: [[-6, '−6'], [-13.3, '−13.3'], [-17.6, '−17.6']] });
-      MI.curve(x, m, u => dB(sinc(u)), c.a); MI.curve(x, m, u => dB(jinc(u)), c.b); MI.text(x, 'line: sinc', m.X(-2.4), m.Y(-3), c.a); MI.text(x, 'disc: jinc', m.X(1.1), m.Y(-3), c.b); },
+      MI.curve(x, m, u => dB(sinc(u)), c.a); MI.curve(x, m, u => dB(jinc(u)), c.b, { dash: [6, 4] }); MI.text(x, 'line: sinc', m.X(-2.4), m.Y(-3), c.a); MI.text(x, 'disc: jinc', m.X(1.1), m.Y(-3), c.b); },
     steep: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH);
-      const m = MI.panel(x, box(w, h), [0, 1], [-1.2, 1.2], { lab: 'p/p₀ over one period: σ = 0, 0.5, 0.95 (lossless)', yaxis: false, ticks: [[0.5, 'T/2'], [1, 'T']] });
-      [[0, c.mu], [0.5, c.a], [0.95, c.b]].forEach(([sg, col]) => MI.curve(x, m, t => { let P = Math.sin(TAU * t); for (let it = 0; it < 200; it++) P = Math.sin(TAU * t + sg * P); return P; }, col));
+      const m = MI.panel(x, box(w, h), [0, 1], [-1.2, 1.2], { lab: 'p/p₀ vs t over one period (σ = 0, 0.5, 0.95)', yaxis: false, ticks: [[0.5, 'T/2'], [1, 'T']] });
+      [[0, c.mu, [6, 4]], [0.5, c.a, null], [0.95, c.b, [2, 3]]].forEach(([sg, col, ds]) => MI.curve(x, m, t => { let P = Math.sin(TAU * t); for (let it = 0; it < 200; it++) P = Math.sin(TAU * t + sg * P); return P; }, col, { dash: ds, w: ds && ds[0] === 2 ? 2.2 : 1.7 }));
       MI.text(x, 'peak arrives early', m.X(0.02), m.Y(1.08), c.b); MI.text(x, 'steep front', m.X(0.78), m.Y(0.5), c.b); },
     xbar: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), lp = lin(-1, Math.log10(4), 100);
       const m = MI.panel(x, box(w, h), [-1, Math.log10(4)], [0, 3], { lab: 'log₁₀ x̄ (mm) vs p₀ (MPa, log), 3 MHz', ticks: [[Math.log10(0.2), '0.2'], [Math.log10(0.5), '0.5'], [0, '1'], [Math.log10(2), '2'], [Math.log10(4), '4']] });
-      [[0, c.a, 'water (liver ≈ same)', -9], [4, c.b, 'fat', 12]].forEach(([i, col, t, off]) => { const md = MED[i]; plotXY(x, m, lp, lp.map(l => Math.log10(xbarOf(md[1], md[2], md[5], 3e6, 10 ** l * 1e6) * 1e3)), col); MI.text(x, t, m.X(-0.95), m.Y(Math.log10(xbarOf(md[1], md[2], md[5], 3e6, 0.11e6) * 1e3)) + off, col); });
+      [[0, c.a, 'water (liver ≈ same)', -9], [4, c.b, 'fat', 12]].forEach(([i, col, t, off]) => { const md = MED[i]; plotXY(x, m, lp, lp.map(l => Math.log10(xbarOf(md[1], md[2], md[5], 3e6, 10 ** l * 1e6) * 1e3)), col, { dash: i ? [6, 4] : null }); MI.text(x, t, m.X(-0.95), m.Y(Math.log10(xbarOf(md[1], md[2], md[5], 3e6, 0.11e6) * 1e3)) + off, col); });
       dot(x, m, 0, Math.log10(49.2), c.a); MI.text(x, '49 mm', m.X(0.03), m.Y(Math.log10(49.2)) - 8, c.a); },
     ba: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), names = ['air', 'water', 'blood', 'liver', 'muscle', 'fat'], vals = [0.4, 5.0, 6.1, 7.0, 7.4, 10];
-      const m = MI.panel(x, box(w, h), [-0.5, 5.5], [0, 13.5], { lab: 'B/A (dots) and β = 1 + B/2A (labels)', yaxis: false, ticks: names.map((n, i) => [i, n]), hlines: [[5, ''], [10, '']] });
+      const m = MI.panel(x, box(w, h), [-0.5, 5.5], [0, 13.5], { yl: 'B/A (dots), β = 1 + B/2A (labels)', xl: 'medium', yaxis: false, ticks: names.map((n, i) => [i, n]), hlines: [[5, ''], [10, '']] });
       vals.forEach((v, i) => { x.save(); x.strokeStyle = c.a; x.lineWidth = 6; x.globalAlpha = 0.35; x.beginPath(); x.moveTo(m.X(i), m.Y(0)); x.lineTo(m.X(i), m.Y(v)); x.stroke(); x.restore(); dot(x, m, i, v, c.a, 3.5); MI.text(x, 'β ' + fmt(1 + v / 2, 2), m.X(i), m.Y(v) - 10, c.fg, 'center'); });
       x.save(); x.strokeStyle = c.b; x.lineWidth = 3; x.globalAlpha = 0.5; x.beginPath(); x.moveTo(m.X(3), m.Y(6.5)); x.lineTo(m.X(3), m.Y(7.6)); x.moveTo(m.X(5), m.Y(9.6)); x.lineTo(m.X(5), m.Y(11.3)); x.stroke(); x.restore(); },
     fubini: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), ss = lin(0, 1, 101);
       const m = MI.panel(x, box(w, h), [0, 1], [0, 1.05], { lab: 'Fubini Bₙ = 2Jₙ(nσ)/(nσ) vs σ = x/x̄', ticks: [[0.5, '0.5'], [1, '1']] });
-      [[1, c.a, 0.86, -7], [2, c.b, 0.9, -9], [3, c.c, 0.62, -9], [4, c.d, 0.8, 10]].forEach(([n, col, sl, off]) => { plotXY(x, m, ss, ss.map(s => fubB(n, s)), col); MI.text(x, 'n = ' + n, m.X(sl), m.Y(fubB(n, sl)) + off, col); });
+      [[1, c.a, 0.86, -7, null], [2, c.b, 0.9, -9, [6, 4]], [3, c.c, 0.62, -9, [2, 3]], [4, c.d, 0.8, 10, [10, 3, 2, 3]]].forEach(([n, col, sl, off, ds]) => { plotXY(x, m, ss, ss.map(s => fubB(n, s)), col, { dash: ds, w: n === 3 ? 2.2 : 1.7 }); MI.text(x, 'n = ' + n, m.X(sl), m.Y(fubB(n, sl)) + off, col); });
       plotXY(x, m, ss, ss.map(s => s / 2), c.mu, { dash: [3, 3], w: 1 }); MI.text(x, 'σ/2', m.X(0.4), m.Y(0.28), c.mu); },
     goldberg: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH);
       if (!cache.gold) cache.gold = [1e9, 10, 3, 1].map(G => { const N = 40, att = []; for (let n = 1; n <= N; n++) att.push(n / G); const r = harmonicMarch(N, att, 3, 600); return r.out.map(v => v[1]); });
       const ss = lin(0, 3, 601); const m = MI.panel(x, box(w, h), [0, 3], [0, 0.42], { lab: 'B₂ vs σ for Γ = ∞ (Fubini), 10, 3, 1 (α ∝ f)', ticks: [[1, '1'], [2, '2'], [3, '3']] });
-      [[0, c.mu, '∞'], [1, c.a, '10'], [2, c.c, '3'], [3, c.b, '1']].forEach(([i, col, t]) => { const ys = cache.gold[i]; plotXY(x, m, ss.filter((s, j) => i > 0 || s <= 1), ys.filter((v, j) => i > 0 || ss[j] <= 1), col, i ? {} : { dash: [4, 3] }); const j = ys.indexOf(Math.max(...ys)); if (i) MI.text(x, 'Γ = ' + t, m.X(Math.min(2.4, ss[j] + 0.08)), m.Y(ys[j]) - 7, col); });
+      [[0, c.mu, '∞'], [1, c.a, '10'], [2, c.c, '3'], [3, c.b, '1']].forEach(([i, col, t]) => { const ys = cache.gold[i]; plotXY(x, m, ss.filter((s, j) => i > 0 || s <= 1), ys.filter((v, j) => i > 0 || ss[j] <= 1), col, [{ dash: [4, 3] }, {}, { dash: [2, 3], w: 2.2 }, { dash: [10, 3, 2, 3] }][i]); const j = ys.indexOf(Math.max(...ys)); if (i) MI.text(x, 'Γ = ' + t, m.X(Math.min(2.4, ss[j] + 0.08)), m.Y(ys[j]) - 7, col); });
       MI.text(x, 'Fubini', m.X(0.62), m.Y(0.36), c.mu); },
     harmBeam: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH);
       const m = MI.panel(x, box(w, h), [-2.5, 2.5], [-50, 0], { lab: 'focal profile (dB) vs u = xD/λ₀F', base: -50, ticks: [[0.603, '±0.60'], [0.443, ''], [2, '2']], hlines: [[-6, '−6'], [-26.5, '−26.5']] });
-      MI.curve(x, m, u => dB(sinc(u)), c.a); MI.curve(x, m, u => dB(sinc(u) ** 2), c.c, { dash: [4, 3] }); MI.curve(x, m, u => dB(sinc(u) ** 2 * sinc(2 * u)), c.b);
+      MI.curve(x, m, u => dB(sinc(u)), c.a); MI.curve(x, m, u => dB(sinc(u) ** 2), c.c, { dash: [4, 3] }); MI.curve(x, m, u => dB(sinc(u) ** 2 * sinc(2 * u)), c.b, { dash: [2, 3], w: 2.2 });
       MI.text(x, 'f₀ one-way', m.X(-2.45), m.Y(-3), c.a); MI.text(x, 'tx² (dashed)', m.X(-2.45), m.Y(-40), c.c); MI.text(x, 'harm two-way', m.X(1.05), m.Y(-40), c.b); },
     clutter: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), Ls = lin(-40, 0, 50);
       const m = MI.panel(x, box(w, h), [-40, 0], [-80, 0], { lab: 'harmonic level vs fundamental level (dB re main beam)', base: -80, ticks: [[-40, '−40'], [-20, '−20'], [0, '0']], hlines: [] });
       plotXY(x, m, Ls, Ls, c.mu, { dash: [4, 3] }); plotXY(x, m, Ls, Ls.map(L => 2 * L), c.b); dot(x, m, -20, -40, c.b); MI.text(x, 'clutter −20 → −40', m.X(-19), m.Y(-46), c.b); MI.text(x, 'fundamental (slope 1)', m.X(-39), m.Y(-30), c.mu); },
     harmSource: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), lam = 1540 / 3e6, k = TAU / lam, a = 10e-3, Fz = 60e-3, hb = Fz - Math.sqrt(Fz * Fz - a * a);
       const P = z => { const re = Math.sqrt((z - hb) ** 2 + a * a); const den = 1 - z / Fz; return Math.abs(den) < 1e-6 ? k * hb : Math.abs(2 / den * Math.sin(k * (re - z) / 2)); }; let mx = 0; for (let z = 1; z < 120; z += 0.2) mx = Math.max(mx, P(z * 1e-3));
-      const m = MI.panel(x, box(w, h), [0, 120], [-50, 0], { lab: 'on axis, dB re focal max: |p| (blue), 2f₀ source ∝ |p|² (pink)', base: -50, ticks: [[10, '10'], [55, '55'], [120, '120 mm']] });
-      MI.curve(x, m, z => dB(P(z * 1e-3) / mx), c.a); MI.curve(x, m, z => 2 * dB(P(z * 1e-3) / mx), c.b); },
+      const m = MI.panel(x, box(w, h), [0, 120], [-50, 0], { lab: '|p|, 2f₀ source ∝ |p|² (dB re focal max) vs z (mm)', base: -50, ticks: [[10, '10'], [55, '55'], [120, '120 mm']] });
+      MI.curve(x, m, z => dB(P(z * 1e-3) / mx), c.a); MI.curve(x, m, z => 2 * dB(P(z * 1e-3) / mx), c.b, { dash: [6, 4] }); },
     piRes: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), vs = lin(0.1, 60, 200);
       const m = MI.panel(x, box(w, h), [0, 60], [-60, 0], { lab: 'PI fundamental residual (dB) vs velocity (mm/s), 3 MHz', base: -60, ticks: [[10, '10'], [30, '30'], [50, '50']], hlines: [] }); MI.text(x, '−26.2 dB at 10 mm/s', m.X(12), m.Y(-26.2) + 12, c.a);
-      [[2e3, c.b, '2 kHz', 20, -9], [5e3, c.a, '5 kHz', 34, 11], [10e3, c.d, '10 kHz', 48, 13]].forEach(([prf, col, t, vl, off]) => { plotXY(x, m, vs, vs.map(v => dB(2 * Math.sin(PI * 3e6 * 2 * v * 1e-3 / 1540 / prf))), col); MI.text(x, 'PRF ' + t, m.X(vl), m.Y(dB(2 * Math.sin(PI * 3e6 * 2 * vl * 1e-3 / 1540 / prf))) + off, col, 'center'); });
+      [[2e3, c.b, '2 kHz', 20, -9, [6, 4]], [5e3, c.a, '5 kHz', 34, 11, null], [10e3, c.d, '10 kHz', 48, 13, [2, 3]]].forEach(([prf, col, t, vl, off, ds]) => { plotXY(x, m, vs, vs.map(v => dB(2 * Math.sin(PI * 3e6 * 2 * v * 1e-3 / 1540 / prf))), col, { dash: ds, w: ds && ds[0] === 2 ? 2.2 : 1.7 }); MI.text(x, 'PRF ' + t, m.X(vl), m.Y(dB(2 * Math.sin(PI * 3e6 * 2 * vl * 1e-3 / 1540 / prf))) + off, col, 'center'); });
       dot(x, m, 10, -26.2, c.a); },
     bands: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), B = 0.454, f0 = 1, s1 = B * f0 / (2 * Math.sqrt(2 * Math.LN2)), s2 = s1 * Math.SQRT2;
       const m = MI.panel(x, box(w, h), [0, 3], [-40, 0], { lab: 'f₀ and 2f₀ spectra (dB) vs f/f₀, FBW = 45 %', base: -40, ticks: [[1, 'f₀'], [2, '2f₀'], [1 + B / 2 * Math.sqrt(20 / 6), '']], hlines: [[-20, '−20 dB'], [-6, '']] });
-      MI.curve(x, m, f => dB(Math.exp(-((f - 1) ** 2) / (2 * s1 * s1))), c.a); MI.curve(x, m, f => dB(Math.exp(-((f - 2) ** 2) / (2 * s2 * s2))), c.b); vline(x, m, 1 + B / 2 * Math.sqrt(20 / 6), c.mu); },
+      MI.curve(x, m, f => dB(Math.exp(-((f - 1) ** 2) / (2 * s1 * s1))), c.a); MI.curve(x, m, f => dB(Math.exp(-((f - 2) ** 2) / (2 * s2 * s2))), c.b, { dash: [6, 4] }); vline(x, m, 1 + B / 2 * Math.sqrt(20 / 6), c.mu); },
     compound: cv => { const c = MI.col(), { x, w, h } = MI.size(cv, FH), ns = [1, 2, 3, 4, 5, 6];
       const m = MI.panel(x, box(w, h), [0.5, 6.5], [0, 6.4], { lab: 'speckle SNR 1.91√N (blue), pulse-length factor N (pink) vs sub-bands N', ticks: ns.map(n => [n, '' + n]) });
       plotXY(x, m, ns, ns.map(n => 1.91 * Math.sqrt(n)), c.a); ns.forEach(n => dot(x, m, n, 1.91 * Math.sqrt(n), c.a)); plotXY(x, m, ns, ns, c.b, { dash: [4, 3] }); MI.text(x, '1.91', m.X(0.65), m.Y(1.91) - 9, c.a); }
   };
 
+  const LG = {"dalembert": [["t₁", "mu", "dot"], ["t₂ (overlap, sum)", "a", "solid"], ["t₃", "b", "dash"]], "sphZ": [["|Z|/ρc", "a", "solid"], ["phase / 90°", "b", "dash"], ["kr = 1", "mu", "dash"]], "intensity": [["tissue", "a", "solid"], ["water", "mu", "dash"]], "Rz": [["|R|", "a", "solid"], ["tissue pairs", "b", "mark"], ["−20, −40 dB", "mu", "dash"]], "Tz": [["T (pressure)", "a", "solid"], ["T_I (energy)", "b", "dash"]], "snell": [["fat → muscle", "a", "solid"], ["muscle → fat", "d", "dash"], ["→ skull", "b", "dot"], ["→ 3500 m/s (dash-dot)", "c", "dash"], ["no refraction", "mu", "dot"]], "bone": [["reflected", "c", "dot"], ["longitudinal", "a", "solid"], ["shear", "b", "dash"]], "wedge": [["deviation (°)", "a", "solid"], ["shift at 6 cm (mm)", "b", "dash"]], "fatDepth": [["fat 1450 m/s", "a", "solid"], ["1480 m/s", "mu", "dash"]], "bsc": [["a = 10 µm", "a", "solid"], ["50 µm", "c", "dash"], ["100 µm", "b", "dot"]], "rtLoss": [["3 MHz", "a", "solid"], ["5 MHz", "c", "dash"], ["10 MHz", "b", "dot"], ["60 dB budget", "mu", "dash"]], "disp": [["0.5, y = 1", "a", "solid"], ["0.5, y = 1.1", "c", "dash"], ["1.0, y = 1", "b", "dot"]], "downshift": [["0 cm", "a", "solid"], ["5 cm", "c", "dash"], ["10 cm", "b", "dot"], ["centroids", "mu", "dash"]], "oneil": [["on-axis |p|/ρcv₀", "a", "solid"], ["F and G = kh", "mu", "dash"]], "gainF": [["3 MHz", "a", "solid"], ["5 MHz", "b", "dash"]], "lateral": [["line: sinc", "a", "solid"], ["disc: jinc", "b", "dash"], ["−6, −13.3, −17.6 dB", "mu", "dash"]], "steep": [["σ = 0", "mu", "dash"], ["σ = 0.5", "a", "solid"], ["σ = 0.95", "b", "dot"]], "xbar": [["water", "a", "solid"], ["fat", "b", "dash"]], "ba": [["B/A", "a", "mark"], ["literature range", "b", "fill"]], "fubini": [["n = 1", "a", "solid"], ["n = 2", "b", "dash"], ["n = 3", "c", "dot"], ["n = 4 (dash-dot)", "d", "dash"], ["σ/2", "mu", "dash"]], "goldberg": [["Fubini (Γ = ∞)", "mu", "dash"], ["Γ = 10", "a", "solid"], ["Γ = 3", "c", "dot"], ["Γ = 1 (dash-dot)", "b", "dash"]], "harmBeam": [["f₀ one-way", "a", "solid"], ["tx²", "c", "dash"], ["harmonic two-way", "b", "dot"]], "clutter": [["fundamental (slope 1)", "mu", "dash"], ["harmonic (slope 2)", "b", "solid"]], "harmSource": [["|p|", "a", "solid"], ["2f₀ source ∝ |p|²", "b", "dash"]], "piRes": [["PRF 2 kHz", "b", "dash"], ["PRF 5 kHz", "a", "solid"], ["PRF 10 kHz", "d", "dot"]], "bands": [["f₀ spectrum", "a", "solid"], ["2f₀ spectrum", "b", "dash"], ["−20 dB crossing", "mu", "dash"]], "compound": [["speckle SNR 1.91√N", "a", "solid"], ["pulse-length factor N", "b", "dash"]]};
   Lab.cardGrid('m15', 'm15-g1', [
-    { q: 'What does the 1D wave equation allow?', a: 'Any two shapes moving in opposite directions at c: <b>p = f(x − ct) + g(x + ct)</b>. They pass through each other unchanged (linearity).', prov: 'exact', draw: F.dalembert },
-    { q: 'When are p and u out of phase?', a: 'Close to a small source (kr ≲ 1): <b>Z = ρc·jkr/(1 + jkr)</b>, 0.71ρc and 45° at kr = 1 (r = λ/2π), 90° only as kr → 0.', prov: 'exact', draw: F.sphZ },
-    { q: 'How much intensity does 1 MPa carry?', a: '<b>I = p²/2Z</b>: 31 W/cm² in tissue, 34 W/cm² in water, while the pulse lasts.', prov: 'exact', draw: F.intensity }
+    { q: 'What does the 1D wave equation allow?', a: 'Any two shapes moving in opposite directions at c: <b>p = f(x − ct) + g(x + ct)</b>. They pass through each other unchanged (linearity).', prov: 'exact', draw: F.dalembert, leg: LG.dalembert },
+    { q: 'When are p and u out of phase?', a: 'Close to a small source (kr ≲ 1): <b>Z = ρc·jkr/(1 + jkr)</b>, 0.71ρc and 45° at kr = 1 (r = λ/2π), 90° only as kr → 0.', prov: 'exact', draw: F.sphZ, leg: LG.sphZ },
+    { q: 'How much intensity does 1 MPa carry?', a: '<b>I = p²/2Z</b>: 31 W/cm² in tissue, 34 W/cm² in water, while the pulse lasts.', prov: 'exact', draw: F.intensity, leg: LG.intensity }
   ]);
   Lab.cardGrid('m15', 'm15-g2', [
-    { q: 'How strong is an interface echo?', a: '<b>R = (Z₂ − Z₁)/(Z₂ + Z₁)</b>: fat/muscle −20.7 dB, liver/muscle −48 dB, tissue/skull −5.4 dB.', prov: 'exact', draw: F.Rz },
-    { q: 'How far does a fat wedge bend the beam?', a: 'A 20° exit face: <b>1.88°</b>, a 2.0 mm lateral shift at 6 cm.', prov: 'model', draw: F.wedge },
-    { q: 'How much deeper does fat make things look?', a: '<b>Δz = d(c₀/c<sub>f</sub> − 1)</b>: 0.62 mm per cm of fat at 1450 m/s.', prov: 'model', draw: F.fatDepth }
+    { q: 'How strong is an interface echo?', a: '<b>R = (Z₂ − Z₁)/(Z₂ + Z₁)</b>: fat/muscle −20.7 dB, liver/muscle −48 dB, tissue/skull −5.4 dB.', prov: 'exact', draw: F.Rz, leg: LG.Rz },
+    { q: 'How far does a fat wedge bend the beam?', a: 'A 20° exit face: <b>1.88°</b>, a 2.0 mm lateral shift at 6 cm.', prov: 'model', draw: F.wedge, leg: LG.wedge },
+    { q: 'How much deeper does fat make things look?', a: '<b>Δz = d(c₀/c<sub>f</sub> − 1)</b>: 0.62 mm per cm of fat at 1450 m/s.', prov: 'model', draw: F.fatDepth, leg: LG.fatDepth }
   ]);
   Lab.cardGrid('m15', 'm15-g3', [
-    { q: 'What frequency slope does tissue backscatter have?', a: '<b>f⁴</b> for point scatterers, rolling off as <b>4 − 1.654(ka)²</b> with the Gaussian form factor.', prov: 'model', draw: F.bsc },
-    { q: 'How deep can I image?', a: '60 dB at 0.5 dB/cm/MHz round trip: <b>20, 12, 6 cm</b> at 3, 5, 10 MHz.', prov: 'model', draw: F.rtLoss },
-    { q: 'How far does the spectrum shift?', a: '<b>σ<sub>f</sub>²α₀′z</b>: 0.47 MHz per 5 cm of path for a 5 MHz, 60 % pulse.', prov: 'model', draw: F.downshift }
+    { q: 'What frequency slope does tissue backscatter have?', a: '<b>f⁴</b> for point scatterers, rolling off as <b>4 − 1.654(ka)²</b> with the Gaussian form factor.', prov: 'model', draw: F.bsc, leg: LG.bsc },
+    { q: 'How deep can I image?', a: '60 dB at 0.5 dB/cm/MHz round trip: <b>20, 12, 6 cm</b> at 3, 5, 10 MHz.', prov: 'model', draw: F.rtLoss, leg: LG.rtLoss },
+    { q: 'How far does the spectrum shift?', a: '<b>σ<sub>f</sub>²α₀′z</b>: 0.47 MHz per 5 cm of path for a 5 MHz, 60 % pulse.', prov: 'model', draw: F.downshift, leg: LG.downshift }
   ]);
   Lab.cardGrid('m15', 'm15-g4', [
-    { q: 'What is the focal gain?', a: '<b>G = kh ≈ ka²/2F</b>: 10.3 for a = 10 mm, F = 60 mm, 3 MHz; the peak sits at 54.5 mm.', prov: 'model', draw: F.oneil },
-    { q: 'How does gain scale with F#?', a: '<b>∝ 1/F#</b> at fixed aperture, and ∝ f: 5 MHz gains 5/3 more than 3 MHz.', prov: 'model', draw: F.gainF },
-    { q: 'How wide is the focus?', a: 'Line aperture <b>1.21 λF/D</b> (−13.3 dB sidelobe); disc <b>1.41 λF/D</b> (−17.6 dB).', prov: 'model', draw: F.lateral }
+    { q: 'What is the focal gain?', a: '<b>G = kh ≈ ka²/2F</b>: 10.3 for a = 10 mm, F = 60 mm, 3 MHz; the peak sits at 54.5 mm.', prov: 'model', draw: F.oneil, leg: LG.oneil },
+    { q: 'How does gain scale with F#?', a: '<b>∝ 1/F#</b> at fixed aperture, and ∝ f: 5 MHz gains 5/3 more than 3 MHz.', prov: 'model', draw: F.gainF, leg: LG.gainF },
+    { q: 'How wide is the focus?', a: 'Line aperture <b>1.21 λF/D</b> (−13.3 dB sidelobe); disc <b>1.41 λF/D</b> (−17.6 dB).', prov: 'model', draw: F.lateral, leg: LG.lateral }
   ]);
   Lab.cardGrid('m15', 'm15-g5', [
-    { q: 'What does nonlinearity do to a sine?', a: 'Peaks travel at <b>c₀ + βu</b>: they arrive early and the front steepens toward a shock at σ = 1.', prov: 'exact', draw: F.steep },
-    { q: 'How far to the shock?', a: '<b>x̄ = ρc³/(βωp₀)</b>: 49 mm in water at 3 MHz, 1 MPa; halves per doubling of f or p₀.', prov: 'exact', draw: F.xbar },
-    { q: 'Which tissue is most nonlinear?', a: 'Fat: <b>B/A ≈ 10, β = 6</b>; soft tissues 6–8, water 5.', prov: 'model', draw: F.ba },
-    { q: 'Does the harmonic keep growing?', a: 'Only if <b>Γ = 1/(αx̄) ≫ 1</b>. At Γ = 1 it peaks at −21 dB near σ = 0.5 and decays.', prov: 'sim', draw: F.goldberg }
+    { q: 'What does nonlinearity do to a sine?', a: 'Peaks travel at <b>c₀ + βu</b>: they arrive early and the front steepens toward a shock at σ = 1.', prov: 'exact', draw: F.steep, leg: LG.steep },
+    { q: 'How far to the shock?', a: '<b>x̄ = ρc³/(βωp₀)</b>: 49 mm in water at 3 MHz, 1 MPa; halves per doubling of f or p₀.', prov: 'exact', draw: F.xbar, leg: LG.xbar },
+    { q: 'Which tissue is most nonlinear?', a: 'Fat: <b>B/A ≈ 10, β = 6</b>; soft tissues 6–8, water 5.', prov: 'model', draw: F.ba, leg: LG.ba },
+    { q: 'Does the harmonic keep growing?', a: 'Only if <b>Γ = 1/(αx̄) ≫ 1</b>. At Γ = 1 it peaks at −21 dB near σ = 0.5 and decays.', prov: 'sim', draw: F.goldberg, leg: LG.goldberg }
   ]);
   Lab.cardGrid('m15', 'm15-g6', [
-    { q: 'Why is the harmonic beam narrower?', a: 'Its source is <b>p₁²</b>: tx width × 0.73, two-way <b>0.511</b> vs 0.886 λ₀F/D.', prov: 'model', draw: F.harmBeam },
-    { q: 'Why is there less clutter?', a: 'Clutter at L dB makes harmonic at <b>2L dB</b>: −20 becomes −40 dB.', prov: 'model', draw: F.clutter },
-    { q: 'Where is the harmonic generated?', a: 'Where |p|² is large: near the focus. At the aperture the rate is <b>(1/G)²</b> of the focal rate.', prov: 'model', draw: F.harmSource }
+    { q: 'Why is the harmonic beam narrower?', a: 'Its source is <b>p₁²</b>: tx width × 0.73, two-way <b>0.511</b> vs 0.886 λ₀F/D.', prov: 'model', draw: F.harmBeam, leg: LG.harmBeam },
+    { q: 'Why is there less clutter?', a: 'Clutter at L dB makes harmonic at <b>2L dB</b>: −20 becomes −40 dB.', prov: 'model', draw: F.clutter, leg: LG.clutter },
+    { q: 'Where is the harmonic generated?', a: 'Where |p|² is large: near the focus. At the aperture the rate is <b>(1/G)²</b> of the focal rate.', prov: 'model', draw: F.harmSource, leg: LG.harmSource }
   ]);
   Lab.cardGrid('m15', 'm15-g7', [
-    { q: 'How wide may the transmit band be for filter THI?', a: 'f₀ and 2f₀ skirts meet at −20 dB when <b>FBW = 45 %</b> (83 % at −6 dB).', prov: 'model', draw: F.bands },
-    { q: 'How much motion can PI tolerate?', a: '<b>2|sin(πf₀δ)|</b>, δ = 2v/(c·PRF): −26 dB at 10 mm/s, 5 kHz, 3 MHz.', prov: 'model', draw: F.piRes },
-    { q: 'What does frequency compounding buy?', a: 'Speckle SNR <b>1.91√N</b> for N independent sub-bands, at N times the pulse length.', prov: 'model', draw: F.compound }
+    { q: 'How wide may the transmit band be for filter THI?', a: 'f₀ and 2f₀ skirts meet at −20 dB when <b>FBW = 45 %</b> (83 % at −6 dB).', prov: 'model', draw: F.bands, leg: LG.bands },
+    { q: 'How much motion can PI tolerate?', a: '<b>2|sin(πf₀δ)|</b>, δ = 2v/(c·PRF): −26 dB at 10 mm/s, 5 kHz, 3 MHz.', prov: 'model', draw: F.piRes, leg: LG.piRes },
+    { q: 'What does frequency compounding buy?', a: 'Speckle SNR <b>1.91√N</b> for N independent sub-bands, at N times the pulse length.', prov: 'model', draw: F.compound, leg: LG.compound }
   ]);
   Lab.cardGrid('m15', 'm15-vis', [
-    { q: 'Interface echo?', a: '<b>R = (Z₂ − Z₁)/(Z₂ + Z₁)</b>; soft tissue −20 to −50 dB.', prov: 'exact', draw: F.Rz },
-    { q: 'Energy through a boundary?', a: '<b>T<sub>I</sub> = 4Z₁Z₂/(Z₁ + Z₂)²</b>; pressure T can exceed 1.', prov: 'exact', draw: F.Tz },
-    { q: 'Snell and critical angle?', a: '<b>sin θ/c conserved</b>; θ<sub>c</sub> = arcsin(c₁/c₂): 33° into skull.', prov: 'exact', draw: F.snell },
-    { q: 'Oblique on bone?', a: 'Past 33°, <b>&gt; 90 % shear</b> (37°–73°).', prov: 'sim', draw: F.bone },
-    { q: 'Fat-layer depth error?', a: '<b>+0.62 mm per cm</b> of fat at c₀ = 1540 m/s.', prov: 'model', draw: F.fatDepth },
-    { q: 'Backscatter slope?', a: '<b>f⁴</b> (Rayleigh), lower for finite scatterers.', prov: 'model', draw: F.bsc },
-    { q: 'Dispersion?', a: '<b>+3.2 m/s</b> from 1 to 10 MHz at 0.5 dB/cm/MHz.', prov: 'model', draw: F.disp },
-    { q: 'Downshift?', a: '<b>f₀ − σ<sub>f</sub>²α₀′z</b> for a Gaussian pulse.', prov: 'model', draw: F.downshift },
-    { q: 'Focal gain?', a: '<b>G = kh ≈ πa²/λF</b>; weak foci peak short of F.', prov: 'model', draw: F.oneil },
-    { q: 'Steepening?', a: 'Each point moves at <b>c₀ + βu</b>; shock at σ = 1.', prov: 'exact', draw: F.steep },
-    { q: 'Shock distance?', a: '<b>x̄ = ρc³/(βωp₀)</b>, cm at diagnostic pressures.', prov: 'exact', draw: F.xbar },
-    { q: 'Harmonic amplitudes?', a: 'Fubini <b>2Jₙ(nσ)/(nσ)</b>; B₂ ≈ σ/2.', prov: 'exact', draw: F.fubini },
-    { q: 'Harmonic beam?', a: '<b>≈ fundamental²</b>: narrower, lower sidelobes.', prov: 'model', draw: F.harmBeam },
-    { q: 'PI motion residual?', a: '<b>2|sin(πf₀δ)|</b>, δ = 2v/(c·PRF).', prov: 'model', draw: F.piRes },
-    { q: 'Filter-THI bandwidth?', a: '<b>≲ 45 %</b> for −20 dB band separation.', prov: 'model', draw: F.bands }
+    { q: 'Interface echo?', a: '<b>R = (Z₂ − Z₁)/(Z₂ + Z₁)</b>; soft tissue −20 to −50 dB.', prov: 'exact', draw: F.Rz, leg: LG.Rz },
+    { q: 'Energy through a boundary?', a: '<b>T<sub>I</sub> = 4Z₁Z₂/(Z₁ + Z₂)²</b>; pressure T can exceed 1.', prov: 'exact', draw: F.Tz, leg: LG.Tz },
+    { q: 'Snell and critical angle?', a: '<b>sin θ/c conserved</b>; θ<sub>c</sub> = arcsin(c₁/c₂): 33° into skull.', prov: 'exact', draw: F.snell, leg: LG.snell },
+    { q: 'Oblique on bone?', a: 'Past 33°, <b>&gt; 90 % shear</b> (37°–73°).', prov: 'sim', draw: F.bone, leg: LG.bone },
+    { q: 'Fat-layer depth error?', a: '<b>+0.62 mm per cm</b> of fat at c₀ = 1540 m/s.', prov: 'model', draw: F.fatDepth, leg: LG.fatDepth },
+    { q: 'Backscatter slope?', a: '<b>f⁴</b> (Rayleigh), lower for finite scatterers.', prov: 'model', draw: F.bsc, leg: LG.bsc },
+    { q: 'Dispersion?', a: '<b>+3.2 m/s</b> from 1 to 10 MHz at 0.5 dB/cm/MHz.', prov: 'model', draw: F.disp, leg: LG.disp },
+    { q: 'Downshift?', a: '<b>f₀ − σ<sub>f</sub>²α₀′z</b> for a Gaussian pulse.', prov: 'model', draw: F.downshift, leg: LG.downshift },
+    { q: 'Focal gain?', a: '<b>G = kh ≈ πa²/λF</b>; weak foci peak short of F.', prov: 'model', draw: F.oneil, leg: LG.oneil },
+    { q: 'Steepening?', a: 'Each point moves at <b>c₀ + βu</b>; shock at σ = 1.', prov: 'exact', draw: F.steep, leg: LG.steep },
+    { q: 'Shock distance?', a: '<b>x̄ = ρc³/(βωp₀)</b>, cm at diagnostic pressures.', prov: 'exact', draw: F.xbar, leg: LG.xbar },
+    { q: 'Harmonic amplitudes?', a: 'Fubini <b>2Jₙ(nσ)/(nσ)</b>; B₂ ≈ σ/2.', prov: 'exact', draw: F.fubini, leg: LG.fubini },
+    { q: 'Harmonic beam?', a: '<b>≈ fundamental²</b>: narrower, lower sidelobes.', prov: 'model', draw: F.harmBeam, leg: LG.harmBeam },
+    { q: 'PI motion residual?', a: '<b>2|sin(πf₀δ)|</b>, δ = 2v/(c·PRF).', prov: 'model', draw: F.piRes, leg: LG.piRes },
+    { q: 'Filter-THI bandwidth?', a: '<b>≲ 45 %</b> for −20 dB band separation.', prov: 'model', draw: F.bands, leg: LG.bands }
   ]);
-  const RF = { 1: F.dalembert, 2: F.sphZ, 3: F.Rz, 4: F.Tz, 5: F.snell, 6: F.bone, 7: F.wedge, 8: F.bsc, 9: F.rtLoss, 10: F.disp, 11: F.oneil, 12: F.ba, 13: F.xbar, 14: F.goldberg, 15: F.harmBeam, 16: F.clutter, 17: F.piRes, 18: F.bands };
-  function drawRules() { Object.keys(RF).forEach(k => { const cv = $('m15-rf-' + k); if (cv) { try { RF[k](cv); } catch (e) { console.error(e); } } }); }
+  const RFN = { 1: 'dalembert', 2: 'sphZ', 3: 'Rz', 4: 'Tz', 5: 'snell', 6: 'bone', 7: 'wedge', 8: 'bsc', 9: 'rtLoss', 10: 'disp', 11: 'oneil', 12: 'ba', 13: 'xbar', 14: 'goldberg', 15: 'harmBeam', 16: 'clutter', 17: 'piRes', 18: 'bands' };
+  function drawRules() { Object.keys(RFN).forEach(k => { const cv = $('m15-rf-' + k); if (cv) { try { F[RFN[k]](cv); const lg = LG[RFN[k]]; if (lg && !(cv.nextElementSibling && cv.nextElementSibling.classList.contains('legend'))) cv.insertAdjacentHTML('afterend', Lab.legendHTML(lg)); } catch (e) { console.error(e); } } }); }
   function drawAll() { if (!W.res) wSim(); wDraw(); sDraw(); aDraw(); nDraw(); hDraw(); pDraw(); drawRules(); }
   Lab.onShow('m15', drawAll);
 })();

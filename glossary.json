@@ -193,6 +193,7 @@
   "m": 15,
   "only": [
    15,
+   20,
    28
   ]
  },
@@ -395,6 +396,7 @@
   "m": 25,
   "only": [
    5,
+   6,
    7,
    25,
    26
@@ -602,7 +604,8 @@
   "m": 29,
   "only": [
    22,
-   29
+   29,
+   36
   ]
  },
  {
@@ -641,14 +644,14 @@
  },
  {
   "t": "TIC",
-  "f": "time–intensity curve",
-  "d": "Echo intensity in an ROI versus time after contrast injection.",
+  "f": "time–intensity curve (contrast); cranial thermal index (acoustic output)",
+  "d": "Two meanings. In contrast imaging (Module 28): echo intensity in an ROI versus time after injection. In acoustic output (Modules 22, 36): the cranial-bone thermal index, the TI with bone at the skin surface, as in transcranial scanning.",
   "m": 28
  },
  {
   "t": "TTP",
   "f": "time to peak",
-  "d": "Time from arrival (or injection) to the TIC maximum.",
+  "d": "Time at which a curve peaks: in contrast imaging, from arrival or injection to the time–intensity-curve maximum; in shear-wave elastography (Module 30), when the displacement peaks at each lateral position.",
   "m": 28
  },
  {
@@ -793,7 +796,10 @@
   "t": "SIR",
   "f": "spatial impulse response",
   "d": "Velocity potential at a field point produced by an impulsive normal velocity of the transducer face; the pressure is ρ₀ times the time derivative of the excitation convolved with it.",
-  "m": 21
+  "m": 21,
+  "only": [
+   21
+  ]
  },
  {
   "t": "ASIC",
@@ -877,7 +883,10 @@
   "m": 21,
   "only": [
    15,
-   21
+   17,
+   18,
+   21,
+   30
   ]
  },
  {
@@ -915,7 +924,10 @@
    21,
    22,
    23,
-   28
+   28,
+   30,
+   34,
+   36
   ]
  },
  {
@@ -992,8 +1004,11 @@
   "only": [
    6,
    8,
+   20,
    25,
-   26
+   26,
+   34,
+   35
   ]
  },
  {
@@ -1121,5 +1136,2102 @@
   "f": "closed-loop accumulation of single scattering",
   "d": "Aberration-correction method from optical microscopy that iteratively estimates input and output phase corrections from the reflection matrix.",
   "m": 33
+ },
+ {
+  "t": "JND",
+  "f": "just-noticeable difference",
+  "d": "The smallest luminance change an average observer can detect under the DICOM standard viewing target; the GSDF spaces display levels in JND steps.",
+  "m": 34
+ },
+ {
+  "t": "GSDF",
+  "f": "Grayscale Standard Display Function (DICOM PS3.14)",
+  "d": "The DICOM curve that maps a JND index (1–1023, 0.05–4000 cd/m²) to luminance so that equal steps in input value are roughly equally visible; calibrating a monitor to it makes images look the same on different displays.",
+  "m": 34
+ },
+ {
+  "t": "DDL",
+  "f": "digital driving level",
+  "d": "The integer value sent to the display for a pixel; the calibration lookup table maps it to luminance.",
+  "m": 34
+ },
+ {
+  "t": "LUT",
+  "f": "lookup table",
+  "d": "A precomputed table that maps input values to output values, e.g. a gray map, a calibration curve or a scan-conversion index table.",
+  "m": 34
+ },
+ {
+  "t": "PACS",
+  "f": "picture archiving and communication system",
+  "d": "The hospital system that stores and displays DICOM images on reading workstations.",
+  "m": 34
+ },
+ {
+  "t": "LR",
+  "f": "luminance ratio",
+  "d": "Maximum over minimum luminance of a display, usually including reflected ambient light (written LR′ in that case).",
+  "m": 34,
+  "only": [
+   34
+  ]
+ },
+ {
+  "t": "HPRF",
+  "f": "high pulse repetition frequency (Doppler)",
+  "d": "PW Doppler with a PRF above the single-gate depth limit, so several sample volumes are insonated at once and the depth becomes ambiguous.",
+  "m": 29
+ },
+ {
+  "t": "RI",
+  "f": "resistive index",
+  "d": "(PSV − EDV)/PSV from the maximum-frequency envelope of a spectral Doppler waveform (Pourcelot).",
+  "m": 29,
+  "only": [
+   29
+  ]
+ },
+ {
+  "t": "TAMAX",
+  "f": "time-averaged maximum velocity",
+  "d": "The maximum-velocity envelope of the spectral Doppler waveform averaged over a cardiac cycle.",
+  "m": 29
+ },
+ {
+  "t": "TAMEAN",
+  "f": "time-averaged mean velocity",
+  "d": "The intensity-weighted mean velocity averaged over a cardiac cycle; multiplied by the vessel area it estimates volume flow.",
+  "m": 29
+ },
+ {
+  "t": "VTI",
+  "f": "velocity–time integral",
+  "d": "The integral of the velocity envelope over one ejection or cardiac cycle, in cm; times the area gives stroke volume.",
+  "m": 29
+ },
+ {
+  "t": "JS",
+  "f": "JavaScript",
+  "d": "The language the in-page demos run in; 'run in this page (JS)' marks results computed live in your browser rather than in the Octave scripts.",
+  "m": 1
+ },
+ {
+  "t": "LO",
+  "f": "local oscillator",
+  "d": "The reference sinusoid at the demodulation frequency that the RF signal is mixed with to shift it to baseband.",
+  "m": 8
+ },
+ {
+  "t": "DSP",
+  "f": "digital signal processing (or processor)",
+  "d": "Processing of sampled signals by algorithms; also the programmable chip that runs them in real time.",
+  "m": 4
+ },
+ {
+  "t": "FFTW",
+  "f": "Fastest Fourier Transform in the West",
+  "d": "Widely used open-source FFT library (Frigo and Johnson) that picks a fast algorithm for each transform size; MATLAB's fft is built on it.",
+  "m": 2
+ },
+ {
+  "t": "LU",
+  "f": "LU decomposition",
+  "d": "Factorization PA = LU into lower- and upper-triangular matrices; solving a linear system by two triangular solves is cheaper and more accurate than forming the inverse.",
+  "m": 5
+ },
+ {
+  "t": "LSQR",
+  "f": "LSQR (Paige–Saunders least-squares solver)",
+  "d": "Krylov iterative method for least-squares problems, mathematically equivalent to CGLS but more stable; early stopping regularizes.",
+  "m": 13
+ },
+ {
+  "t": "LSQ",
+  "f": "least squares",
+  "d": "Least-squares fitting, as in a quadratic LSQ fit of a correlation peak or a strain estimate from an LSQ slope of displacement.",
+  "m": 11
+ },
+ {
+  "t": "CG",
+  "f": "conjugate gradient (or coherent gain)",
+  "d": "In Modules 5 and 13: the conjugate-gradient iterative solver for symmetric positive-definite systems. In Module 4: the coherent gain of a window, its mean value, which scales a tone's spectral peak.",
+  "m": 13
+ },
+ {
+  "t": "BP",
+  "f": "band-pass (or basis pursuit)",
+  "d": "Usually a band-pass filter, which passes a band between two cut-offs. In Module 5 it also names basis pursuit, sparse recovery by L1-norm minimization.",
+  "m": 9
+ },
+ {
+  "t": "HP",
+  "f": "high-pass",
+  "d": "A filter that passes frequencies above a cut-off, such as a Doppler wall filter.",
+  "m": 9,
+  "only": [
+   9
+  ]
+ },
+ {
+  "t": "HPF",
+  "f": "high-pass filter",
+  "d": "Passes frequencies above a cut-off and attenuates those below; in Doppler it is the clutter (wall) filter.",
+  "m": 6
+ },
+ {
+  "t": "LP",
+  "f": "low-pass",
+  "d": "A filter that passes frequencies below a cut-off.",
+  "m": 14,
+  "only": [
+   14
+  ]
+ },
+ {
+  "t": "MUSIC",
+  "f": "multiple signal classification",
+  "d": "Subspace method that estimates directions or frequencies from the noise-subspace eigenvectors of a covariance matrix.",
+  "m": 5
+ },
+ {
+  "t": "IAA",
+  "f": "iterative adaptive approach",
+  "d": "Data-adaptive spectral and beamforming estimator that iterates weighted least squares to refine its covariance estimate from few snapshots.",
+  "m": 5
+ },
+ {
+  "t": "MP",
+  "f": "Marchenko–Pastur",
+  "d": "The distribution of eigenvalues of a large random (noise-only) covariance matrix; eigenvalues beyond its upper edge indicate signal.",
+  "m": 6,
+  "only": [
+   6
+  ]
+ },
+ {
+  "t": "BBP",
+  "f": "Baik–Ben Arous–Péché transition",
+  "d": "Threshold signal strength below which a low-rank signal's eigenvalue cannot be separated from the Marchenko–Pastur noise bulk.",
+  "m": 6,
+  "only": [
+   6
+  ]
+ },
+ {
+  "t": "PC",
+  "f": "principal component",
+  "d": "A direction of largest variance in the data, given by a right singular vector of the centred data matrix.",
+  "m": 6,
+  "only": [
+   6
+  ]
+ },
+ {
+  "t": "MAC",
+  "f": "multiply–accumulate",
+  "d": "One multiplication plus one addition; the unit of arithmetic cost for filters, beamformers and matrix products.",
+  "m": 6
+ },
+ {
+  "t": "CMAC",
+  "f": "complex multiply–accumulate",
+  "d": "A multiply–accumulate on complex numbers, about four real multiplications and four real additions.",
+  "m": 6,
+  "only": [
+   6
+  ]
+ },
+ {
+  "t": "GEMM",
+  "f": "general matrix–matrix multiplication",
+  "d": "The BLAS matrix-multiply routine; the operation GPUs execute most efficiently.",
+  "m": 6
+ },
+ {
+  "t": "CI",
+  "f": "confidence interval",
+  "d": "A range computed from data that contains the true parameter with a stated probability (e.g. 95 %) over repeated experiments.",
+  "m": 7
+ },
+ {
+  "t": "OLS",
+  "f": "ordinary least squares",
+  "d": "Least squares that assumes all error is in the dependent variable; when the regressor is noisy too, the slope is biased toward zero.",
+  "m": 7
+ },
+ {
+  "t": "MC",
+  "f": "Monte Carlo",
+  "d": "Estimating statistics by repeating a simulation with random noise many times; used throughout the demos to check theory.",
+  "m": 12
+ },
+ {
+  "t": "CV",
+  "f": "coefficient of variation",
+  "d": "Standard deviation divided by the mean, often in percent; a scale-free measure of repeatability.",
+  "m": 31
+ },
+ {
+  "t": "FM",
+  "f": "frequency modulation",
+  "d": "Variation of a signal's instantaneous frequency over time, as in a chirp.",
+  "m": 10
+ },
+ {
+  "t": "NLFM",
+  "f": "nonlinear frequency modulation",
+  "d": "A chirp whose sweep rate varies (slower near the band centre), shaping the spectrum to lower range sidelobes without a mismatched window.",
+  "m": 10
+ },
+ {
+  "t": "MF",
+  "f": "matched filter",
+  "d": "The filter whose impulse response is the time-reversed conjugate of the expected signal; it maximizes output SNR in white noise.",
+  "m": 10,
+  "only": [
+   10
+  ]
+ },
+ {
+  "t": "GCC",
+  "f": "generalized cross-correlation",
+  "d": "Cross-correlation computed with a frequency weighting (pre-whitening), such as PHAT, before the delay peak is picked.",
+  "m": 11
+ },
+ {
+  "t": "PHAT",
+  "f": "phase transform",
+  "d": "GCC weighting that divides the cross-spectrum by its magnitude, keeping only phase; it sharpens the peak but amplifies noisy frequencies.",
+  "m": 11
+ },
+ {
+  "t": "MAD",
+  "f": "median absolute deviation",
+  "d": "Median of the absolute deviations from the median; 1.48 × MAD estimates the standard deviation robustly for Gaussian data.",
+  "m": 11
+ },
+ {
+  "t": "SSD",
+  "f": "sum of squared differences",
+  "d": "Block-matching cost: the sum of squared differences between a kernel and shifted copies; minimized rather than maximized.",
+  "m": 11
+ },
+ {
+  "t": "PIV",
+  "f": "particle image velocimetry",
+  "d": "Optical flow measurement that tracks seeded particle patterns between frames by cross-correlation.",
+  "m": 11
+ },
+ {
+  "t": "MCMC",
+  "f": "Markov chain Monte Carlo",
+  "d": "Sampling from a posterior distribution with a random walk whose stationary distribution is that posterior.",
+  "m": 13
+ },
+ {
+  "t": "GSVD",
+  "f": "generalized singular value decomposition",
+  "d": "Joint decomposition of two matrices; it analyses general-form Tikhonov regularization with a penalty operator.",
+  "m": 13
+ },
+ {
+  "t": "LW",
+  "f": "Landweber iteration",
+  "d": "Gradient descent on the least-squares objective with a fixed step; the iteration count acts as the regularization parameter.",
+  "m": 13,
+  "only": [
+   13
+  ]
+ },
+ {
+  "t": "LMS",
+  "f": "least mean squares",
+  "d": "Stochastic-gradient adaptive filter update; also the name of the Landweber-type steepest-descent step.",
+  "m": 14
+ },
+ {
+  "t": "GN",
+  "f": "Gauss–Newton",
+  "d": "Least-squares optimizer that linearizes the residual and solves with JᵀJ in place of the Hessian.",
+  "m": 14,
+  "only": [
+   14
+  ]
+ },
+ {
+  "t": "AD",
+  "f": "automatic differentiation",
+  "d": "Computing exact derivatives of a program by applying the chain rule to each operation; reverse mode gives the full gradient at a small multiple of one evaluation's cost.",
+  "m": 14,
+  "only": [
+   14
+  ]
+ },
+ {
+  "t": "RK4",
+  "f": "fourth-order Runge–Kutta",
+  "d": "Classical explicit ODE integrator using four slope evaluations per step; local error scales as the fifth power of the step.",
+  "m": 28
+ },
+ {
+  "t": "RK45",
+  "f": "Runge–Kutta 4(5)",
+  "d": "Embedded Runge–Kutta pair that compares fourth- and fifth-order solutions to adapt the step size.",
+  "m": 28
+ },
+ {
+  "t": "CFAR",
+  "f": "constant false-alarm rate",
+  "d": "Detection threshold scaled by a local noise estimate so the false-alarm probability stays fixed as the background changes.",
+  "m": 26
+ },
+ {
+  "t": "MDL",
+  "f": "minimum description length",
+  "d": "Model-order selection criterion with a heavier penalty than AIC; more conservative for long records.",
+  "m": 27
+ },
+ {
+  "t": "NW",
+  "f": "time–half-bandwidth product",
+  "d": "Multitaper design parameter: N samples times half-bandwidth W; about 2NW − 1 DPSS tapers are well concentrated.",
+  "m": 27,
+  "only": [
+   27
+  ]
+ },
+ {
+  "t": "QL",
+  "f": "QL algorithm",
+  "d": "Eigenvalue iteration like QR but with a lower-triangular factor; the standard method for symmetric tridiagonal matrices such as the DPSS problem.",
+  "m": 27,
+  "only": [
+   27
+  ]
+ },
+ {
+  "t": "AF",
+  "f": "array factor",
+  "d": "The far-field beam pattern of the array weights alone (isotropic elements); for a uniform linear array it is the DTFT of the apodization.",
+  "m": 4
+ },
+ {
+  "t": "GL",
+  "f": "grating lobe",
+  "d": "A replica of the main lobe produced by spatial undersampling, when the pitch exceeds λ/(1 + |sin θ₀|) for steering angle θ₀.",
+  "m": 4
+ },
+ {
+  "t": "EF",
+  "f": "element factor",
+  "d": "The directivity of a single element; the array beam pattern is the array factor times the element factor.",
+  "m": 19,
+  "only": [
+   19
+  ]
+ },
+ {
+  "t": "BF",
+  "f": "beamforming (beamformer)",
+  "d": "Combining channel signals with delays and weights to focus on each image point.",
+  "m": 23
+ },
+ {
+  "t": "SL",
+  "f": "sidelobe (level)",
+  "d": "Energy outside the main lobe of a beam pattern; its level in dB relative to the peak.",
+  "m": 23,
+  "only": [
+   23
+  ]
+ },
+ {
+  "t": "EMI",
+  "f": "electromagnetic interference",
+  "d": "Unwanted electrical pickup from external sources; coherent across firings, so averaging does not remove it.",
+  "m": 23
+ },
+ {
+  "t": "ERM",
+  "f": "exploding reflector model",
+  "d": "Approximation (Garcia et al. 2013) that treats plane-wave data as if each scatterer emitted at time zero in a medium with an adjusted speed, so seismic f–k migration applies.",
+  "m": 24
+ },
+ {
+  "t": "ZO",
+  "f": "zero-offset",
+  "d": "Seismic term for coincident source and receiver (monostatic data), so delays are 2r/c.",
+  "m": 24,
+  "only": [
+   24
+  ]
+ },
+ {
+  "t": "INR",
+  "f": "interference-to-noise ratio",
+  "d": "Power of an interfering signal relative to the noise; adaptive nulls deepen as it rises.",
+  "m": 25,
+  "only": [
+   25
+  ]
+ },
+ {
+  "t": "ICA",
+  "f": "independent component analysis",
+  "d": "Blind decomposition of data into statistically independent components; used to compress ADMIRE's model matrices for speed.",
+  "m": 25,
+  "only": [
+   25
+  ]
+ },
+ {
+  "t": "iADMIRE",
+  "f": "iterative ADMIRE",
+  "d": "ADMIRE variant (Schlunk et al. 2021) that iterates the model fit so weak tissue next to bright targets is not shrunk away.",
+  "m": 25
+ },
+ {
+  "t": "CMPE",
+  "f": "common-midpoint phase error",
+  "d": "Sound-speed autofocus loss that compares transmit–receive pairs sharing a common midpoint, whose speckle should match when the speed map is right.",
+  "m": 32
+ },
+ {
+  "t": "QUASOS",
+  "f": "Quantitative Ultrasound estimation of Attenuation and Speed-Of-Sound",
+  "d": "IEEE IUS 2026 challenge that scored attenuation and sound-speed estimators on shared phantom and simulated data for bias, variance, detectability and robustness to aberration.",
+  "m": 32
+ },
+ {
+  "t": "IL",
+  "f": "insertion loss",
+  "d": "Loss in dB between the electrical power available to a transducer and the power delivered (one-way) or received back (two-way, pulse-echo).",
+  "m": 16
+ },
+ {
+  "t": "ML1",
+  "f": "matching layer 1",
+  "d": "The matching layer next to the piezoelectric plate (highest impedance of the stack).",
+  "m": 16
+ },
+ {
+  "t": "ML2",
+  "f": "matching layer 2",
+  "d": "The second matching layer, between ML1 and the tissue or lens.",
+  "m": 16
+ },
+ {
+  "t": "FE",
+  "f": "finite element",
+  "d": "Mesh-based numerical modelling (FEM/FEA); it captures lateral modes, kerf crosstalk and lens effects that 1D models miss.",
+  "m": 17
+ },
+ {
+  "t": "PZFlex",
+  "f": "PZFlex",
+  "d": "Commercial explicit time-domain finite-element code for piezoelectric transducers and wave propagation, now part of the OnScale/Ansys family.",
+  "m": 21
+ },
+ {
+  "t": "OnScale",
+  "f": "OnScale",
+  "d": "Cloud-based successor of PZFlex for explicit finite-element transducer simulation, now part of Ansys.",
+  "m": 21
+ },
+ {
+  "t": "COMSOL",
+  "f": "COMSOL Multiphysics",
+  "d": "Commercial multiphysics finite-element package used for coupled piezoelectric, structural and acoustic simulations.",
+  "m": 17
+ },
+ {
+  "t": "FOCUS",
+  "f": "Fast Object-oriented C++ Ultrasound Simulator",
+  "d": "Field simulator (McGough, Michigan State) using the fast nearfield method and time–space decomposition for fast, accurate linear pressure fields.",
+  "m": 21
+ },
+ {
+  "t": "TSD",
+  "f": "time–space decomposition",
+  "d": "FOCUS technique that separates the excitation's time dependence from the spatial integrals to compute transient fields quickly.",
+  "m": 21
+ },
+ {
+  "t": "FD2",
+  "f": "second-order finite difference",
+  "d": "Finite-difference stencil whose error falls as the square of the grid step; needs more points per wavelength than FD4.",
+  "m": 21
+ },
+ {
+  "t": "FD4",
+  "f": "fourth-order finite difference",
+  "d": "Wider finite-difference stencil whose error falls as the fourth power of the grid step, giving less numerical dispersion per grid point.",
+  "m": 21
+ },
+ {
+  "t": "AC",
+  "f": "alternating current",
+  "d": "Time-varying signal component; in a CMUT a small AC drive rides on the DC bias, and AC poling uses an alternating field to pole crystals.",
+  "m": 18
+ },
+ {
+  "t": "FOM",
+  "f": "figure of merit",
+  "d": "A single number combining material or device properties to rank options, e.g. transmit or receive merit of transducer materials.",
+  "m": 18
+ },
+ {
+  "t": "KNN",
+  "f": "potassium sodium niobate",
+  "d": "(K,Na)NbO₃, a lead-free piezoelectric ceramic studied as a PZT replacement.",
+  "m": 18,
+  "only": [
+   18
+  ]
+ },
+ {
+  "t": "BNT",
+  "f": "bismuth sodium titanate",
+  "d": "(Bi₀.₅Na₀.₅)TiO₃, a lead-free piezoelectric ceramic family.",
+  "m": 18
+ },
+ {
+  "t": "BKT",
+  "f": "bismuth potassium titanate",
+  "d": "(Bi₀.₅K₀.₅)TiO₃, a lead-free piezoelectric ceramic family.",
+  "m": 18
+ },
+ {
+  "t": "PMN",
+  "f": "lead magnesium niobate",
+  "d": "Pb(Mg₁/₃Nb₂/₃)O₃; in this course mostly shorthand for the PMN-PT single crystal.",
+  "m": 16,
+  "only": [
+   16,
+   18
+  ]
+ },
+ {
+  "t": "PIN",
+  "f": "lead indium niobate",
+  "d": "Pb(In₁/₂Nb₁/₂)O₃; added in ternary PIN-PMN-PT crystals to raise the Curie temperature and coercive field.",
+  "m": 16,
+  "only": [
+   16,
+   18
+  ]
+ },
+ {
+  "t": "PT",
+  "f": "lead titanate",
+  "d": "PbTiO₃; its fraction (about 28–33 % in PMN-PT) places the crystal near the morphotropic phase boundary, where coupling peaks.",
+  "m": 16,
+  "only": [
+   16,
+   18
+  ]
+ },
+ {
+  "t": "SOI",
+  "f": "silicon on insulator",
+  "d": "Wafer with a thin silicon device layer on a buried oxide over a handle wafer; in wafer-bonded CMUTs the device layer becomes the membrane.",
+  "m": 18
+ },
+ {
+  "t": "BOX",
+  "f": "buried oxide",
+  "d": "The oxide layer of an SOI wafer between the device layer and the handle.",
+  "m": 18,
+  "only": [
+   18
+  ]
+ },
+ {
+  "t": "BEOL",
+  "f": "back end of line",
+  "d": "The metal interconnect layers of a CMOS chip, built after the transistors; CMUTs can be fabricated on top of them.",
+  "m": 18
+ },
+ {
+  "t": "DRIE",
+  "f": "deep reactive ion etching",
+  "d": "Plasma etch that cuts deep, near-vertical features in silicon, e.g. PMUT cavities and through-wafer vias.",
+  "m": 18
+ },
+ {
+  "t": "LOCOS",
+  "f": "local oxidation of silicon",
+  "d": "Growing thick oxide only in selected areas; used in some CMUT processes to define the gap and posts.",
+  "m": 18
+ },
+ {
+  "t": "SEM",
+  "f": "scanning electron microscope",
+  "d": "Microscope that images surfaces with a focused electron beam at nanometre resolution.",
+  "m": 18
+ },
+ {
+  "t": "PCB",
+  "f": "printed circuit board",
+  "d": "Board with copper traces that carries and connects electronic components.",
+  "m": 18
+ },
+ {
+  "t": "ICE",
+  "f": "intracardiac echocardiography",
+  "d": "Cardiac imaging from a catheter placed inside the heart chambers.",
+  "m": 18
+ },
+ {
+  "t": "dBFS",
+  "f": "decibels relative to full scale",
+  "d": "Level in dB relative to the largest signal an ADC can represent without clipping; ADC SNR is usually quoted this way.",
+  "m": 20
+ },
+ {
+  "t": "dBV",
+  "f": "decibels relative to 1 volt",
+  "d": "Voltage level 20·log₁₀(V / 1 V); −96 dBV is about 16 µV.",
+  "m": 20
+ },
+ {
+  "t": "dBc",
+  "f": "decibels relative to the carrier",
+  "d": "Level of a harmonic or spurious tone in dB relative to the fundamental.",
+  "m": 20
+ },
+ {
+  "t": "MS",
+  "f": "megasamples",
+  "d": "MS/s means 10⁶ samples per second, the unit of ADC and oscilloscope sampling rates.",
+  "m": 20,
+  "only": [
+   20,
+   21
+  ]
+ },
+ {
+  "t": "AFE",
+  "f": "analog front end",
+  "d": "Integrated circuit combining LNA, VGA, anti-aliasing filter and ADC (often with a CW mixer) for 8–16 receive channels.",
+  "m": 20
+ },
+ {
+  "t": "LSB",
+  "f": "least significant bit",
+  "d": "The smallest step an ADC resolves: the full-scale range divided by 2 to the number of bits.",
+  "m": 20
+ },
+ {
+  "t": "SINAD",
+  "f": "signal-to-noise-and-distortion ratio",
+  "d": "Power of a test tone over all noise and distortion power; ENOB = (SINAD − 1.76 dB)/6.02 dB.",
+  "m": 20
+ },
+ {
+  "t": "IC",
+  "f": "integrated circuit",
+  "d": "A chip carrying many transistors and passive parts, such as an analog front end.",
+  "m": 20,
+  "only": [
+   20
+  ]
+ },
+ {
+  "t": "LVDS",
+  "f": "low-voltage differential signalling",
+  "d": "Serial digital interface standard used to stream ADC samples to the FPGA.",
+  "m": 20
+ },
+ {
+  "t": "JESD204B",
+  "f": "JEDEC JESD204B",
+  "d": "Serial interface standard for high-speed ADC and DAC data links, carrying several channels per multi-gigabit lane.",
+  "m": 20
+ },
+ {
+  "t": "PCIe",
+  "f": "PCI Express",
+  "d": "Serial point-to-point bus linking acquisition hardware to host memory and GPUs; bandwidth scales with generation and lane count (×8, ×16).",
+  "m": 20
+ },
+ {
+  "t": "PWM",
+  "f": "pulse-width modulation",
+  "d": "Shaping a waveform's average by varying the width of fixed-level pulses; lets switching pulsers approximate apodized or tapered transmits.",
+  "m": 20
+ },
+ {
+  "t": "RTZ",
+  "f": "return to zero",
+  "d": "Pulser drive that returns to 0 V between positive and negative half-cycles (three-level drive).",
+  "m": 20
+ },
+ {
+  "t": "SHE",
+  "f": "selective harmonic elimination",
+  "d": "Choosing the switching instants of a multi-level pulse so that chosen harmonics cancel.",
+  "m": 20,
+  "only": [
+   20
+  ]
+ },
+ {
+  "t": "EEPROM",
+  "f": "electrically erasable programmable read-only memory",
+  "d": "Non-volatile memory; in a probe it stores identification and calibration data.",
+  "m": 20
+ },
+ {
+  "t": "SARUS",
+  "f": "Synthetic Aperture Real-time Ultrasound System",
+  "d": "DTU research scanner with 1024 channels that stores all channel data for offline synthetic-aperture processing.",
+  "m": 20
+ },
+ {
+  "t": "UARP",
+  "f": "Ultrasound Array Research Platform",
+  "d": "University of Leeds open research scanner platform with FPGA-based transmit and receive.",
+  "m": 20
+ },
+ {
+  "t": "SPPA",
+  "f": "spatial-peak pulse-average",
+  "d": "Short for spatial-peak pulse-average intensity (ISPPA): the highest intensity averaged over the pulse duration; ISPPA.3 is the derated value.",
+  "m": 22
+ },
+ {
+  "t": "SP",
+  "f": "spatial peak",
+  "d": "Subscript for the maximum over the field, as in ISPTA.",
+  "m": 22,
+  "only": [
+   22
+  ]
+ },
+ {
+  "t": "TA",
+  "f": "temporal average",
+  "d": "Subscript for an average over the pulse repetition period, as in ISPTA.",
+  "m": 22,
+  "only": [
+   22
+  ]
+ },
+ {
+  "t": "PA",
+  "f": "pulse average",
+  "d": "Subscript for an average over the pulse duration, as in ISPPA or IPA.3.",
+  "m": 22,
+  "only": [
+   22,
+   36
+  ]
+ },
+ {
+  "t": "DF",
+  "f": "duty factor",
+  "d": "Fraction of time the transducer is transmitting: pulse duration times PRF.",
+  "m": 22,
+  "only": [
+   22
+  ]
+ },
+ {
+  "t": "OB",
+  "f": "obstetric",
+  "d": "Obstetric (pregnancy) imaging; output guidance is stricter for OB scans, especially after 10 weeks when fetal bone forms.",
+  "m": 22
+ },
+ {
+  "t": "LMP",
+  "f": "last menstrual period",
+  "d": "Reference date for gestational age; thermal-index guidance uses weeks after the LMP.",
+  "m": 22
+ },
+ {
+  "t": "ODS",
+  "f": "Output Display Standard",
+  "d": "AIUM/NEMA standard (NEMA UD 3) for real-time on-screen display of MI and TI; the basis of FDA Track 3.",
+  "m": 22
+ },
+ {
+  "t": "UD",
+  "f": "NEMA UD standards",
+  "d": "NEMA ultrasound standards: UD 2 for acoustic output measurement and UD 3, the Output Display Standard for MI and TI.",
+  "m": 22
+ },
+ {
+  "t": "BMUS",
+  "f": "British Medical Ultrasound Society",
+  "d": "UK professional society whose safety guidelines give MI and TI thresholds and scanning-time advice.",
+  "m": 22
+ },
+ {
+  "t": "ITRUSST",
+  "f": "International Transcranial Ultrasonic Stimulation Safety and Standards consortium",
+  "d": "Expert consortium that publishes consensus safety recommendations for transcranial ultrasound, including use of the cranial thermal index.",
+  "m": 22
+ },
+ {
+  "t": "PE",
+  "f": "peak enhancement",
+  "d": "Maximum of the time–intensity curve above baseline; a CEUS perfusion parameter.",
+  "m": 28,
+  "only": [
+   28
+  ]
+ },
+ {
+  "t": "WiR",
+  "f": "wash-in rate",
+  "d": "Maximum slope of the rising part of the time–intensity curve.",
+  "m": 28
+ },
+ {
+  "t": "AUC",
+  "f": "area under the curve",
+  "d": "In contrast imaging, the area under the time–intensity curve (a perfusion parameter); in detection studies, the area under the ROC curve.",
+  "m": 28
+ },
+ {
+  "t": "AMPI",
+  "f": "amplitude modulation plus pulse inversion",
+  "d": "Contrast sequence combining amplitude and polarity changes (e.g. +1 and −½) whose sum cancels linear echoes but keeps even-order echoes and odd-order echoes in the fundamental band.",
+  "m": 28
+ },
+ {
+  "t": "DPPG",
+  "f": "dipalmitoylphosphatidylglycerol",
+  "d": "A phospholipid used, with DSPC, in microbubble shells.",
+  "m": 28
+ },
+ {
+  "t": "PSV",
+  "f": "peak systolic velocity",
+  "d": "Highest velocity of the maximum-frequency Doppler envelope during systole.",
+  "m": 29
+ },
+ {
+  "t": "EDV",
+  "f": "end-diastolic velocity",
+  "d": "Velocity of the maximum-frequency Doppler envelope at the end of diastole.",
+  "m": 29
+ },
+ {
+  "t": "TO",
+  "f": "transverse oscillation",
+  "d": "Vector-flow method that shapes the receive apodization to create a lateral oscillation in the PSF, so lateral velocity can be estimated.",
+  "m": 29,
+  "only": [
+   29
+  ]
+ },
+ {
+  "t": "BPC",
+  "f": "blood power spectral Capon",
+  "d": "Spectral Doppler estimator using a Capon (minimum-variance) filter bank to sharpen spectra from short ensembles.",
+  "m": 29
+ },
+ {
+  "t": "BAPES",
+  "f": "blood amplitude and phase estimation",
+  "d": "Adaptive spectral Doppler estimator using a bank of matched filters to resolve spectra from few samples.",
+  "m": 29
+ },
+ {
+  "t": "CBR",
+  "f": "clutter-to-blood ratio",
+  "d": "Clutter power relative to blood-signal power, in dB; it sets the stopband attenuation the wall filter needs.",
+  "m": 29
+ },
+ {
+  "t": "fUS",
+  "f": "functional ultrasound",
+  "d": "Imaging of brain activity through blood-volume changes measured by ultrafast power Doppler.",
+  "m": 29
+ },
+ {
+  "t": "SV",
+  "f": "sample volume (or vertically polarized shear wave)",
+  "d": "In Doppler (Module 29): the range-gated region the spectrum comes from. In anisotropic elastography (Module 30): the vertically polarized shear wave, coupled to the tensile modulus.",
+  "m": 29,
+  "only": [
+   29,
+   30
+  ]
+ },
+ {
+  "t": "SH",
+  "f": "horizontally polarized shear wave",
+  "d": "In transversely isotropic tissue such as muscle, the shear wave polarized in the fibre plane; its speed depends on angle to the fibres.",
+  "m": 30
+ },
+ {
+  "t": "KV",
+  "f": "Kelvin–Voigt model",
+  "d": "Viscoelastic model of a spring and dashpot in parallel; it predicts shear-wave speed growing without bound with frequency.",
+  "m": 30
+ },
+ {
+  "t": "XC",
+  "f": "cross-correlation",
+  "d": "Cross-correlation time-delay estimate, e.g. of shear-wave arrival.",
+  "m": 30,
+  "only": [
+   30
+  ]
+ },
+ {
+  "t": "pSWE",
+  "f": "point shear wave elastography",
+  "d": "Shear-wave method that reports one speed from a small ROI after a push, rather than a 2D map.",
+  "m": 30
+ },
+ {
+  "t": "SRU",
+  "f": "Society of Radiologists in Ultrasound",
+  "d": "US society whose consensus statements, e.g. on liver elastography and carotid stenosis, set clinical criteria.",
+  "m": 30
+ },
+ {
+  "t": "cACLD",
+  "f": "compensated advanced chronic liver disease",
+  "d": "Advanced fibrosis or cirrhosis without decompensation; in the SRU consensus, a shear-wave liver stiffness above about 13 kPa suggests it.",
+  "m": 30
+ },
+ {
+  "t": "CSPH",
+  "f": "clinically significant portal hypertension",
+  "d": "Hepatic venous pressure gradient of 10 mmHg or more; in the SRU consensus, a shear-wave liver stiffness above about 17 kPa makes it probable.",
+  "m": 30
+ },
+ {
+  "t": "ECG",
+  "f": "electrocardiogram",
+  "d": "Recording of the heart's electrical activity, used to gate acquisitions to the cardiac cycle.",
+  "m": 30
+ },
+ {
+  "t": "IQR",
+  "f": "interquartile range",
+  "d": "Spread between the 25th and 75th percentiles; IQR/median ≤ 30 % is the usual reliability check for liver stiffness.",
+  "m": 30
+ },
+ {
+  "t": "SNRe",
+  "f": "elastographic signal-to-noise ratio",
+  "d": "Mean over standard deviation of the strain estimate in a uniform region.",
+  "m": 30
+ },
+ {
+  "t": "MRI",
+  "f": "magnetic resonance imaging",
+  "d": "Tomographic imaging of nuclear magnetic resonance signals; MR elastography uses it to image shear waves.",
+  "m": 30
+ },
+ {
+  "t": "MR",
+  "f": "magnetic resonance",
+  "d": "As in MR elastography, which images shear waves with MRI.",
+  "m": 30,
+  "only": [
+   30
+  ]
+ },
+ {
+  "t": "CT",
+  "f": "computed tomography",
+  "d": "X-ray tomographic imaging; in aberration correction, CT gives prior sound-speed and density maps of bone.",
+  "m": 33
+ },
+ {
+  "t": "fULM",
+  "f": "functional ULM",
+  "d": "ULM used to measure activity-driven blood-flow changes at microvascular scale.",
+  "m": 31
+ },
+ {
+  "t": "WA",
+  "f": "weighted average",
+  "d": "Centroid localization: the intensity-weighted mean position inside a small box.",
+  "m": 31,
+  "only": [
+   31
+  ]
+ },
+ {
+  "t": "RS",
+  "f": "radial symmetry",
+  "d": "Localization that finds the point closest to all lines along the local intensity gradients.",
+  "m": 31,
+  "only": [
+   31
+  ]
+ },
+ {
+  "t": "GAU",
+  "f": "Gaussian fit",
+  "d": "Localization by a three-point Gaussian (log-parabola) fit to the peak.",
+  "m": 31,
+  "only": [
+   31
+  ]
+ },
+ {
+  "t": "INT",
+  "f": "interpolation",
+  "d": "Localization by finding the peak of a cubically interpolated (upsampled) image.",
+  "m": 31,
+  "only": [
+   31
+  ]
+ },
+ {
+  "t": "SUSHI",
+  "f": "sparsity-based ultrasound super-resolution hemodynamic imaging",
+  "d": "Super-resolution method that recovers microbubble positions by sparse recovery rather than isolating single bubbles.",
+  "m": 31
+ },
+ {
+  "t": "DICOM",
+  "f": "Digital Imaging and Communications in Medicine",
+  "d": "The standard (NEMA PS3) for medical image files, networking and display, including ultrasound image objects, region calibration and the grayscale display function.",
+  "m": 34
+ },
+ {
+  "t": "PS3",
+  "f": "DICOM standard part designation",
+  "d": "The DICOM standard as published by NEMA; PS3.n is Part n, e.g. PS3.3 (information objects) and PS3.14 (Grayscale Standard Display Function).",
+  "m": 34
+ },
+ {
+  "t": "IOD",
+  "f": "information object definition",
+  "d": "DICOM specification of the attributes an object, such as an ultrasound image, must or may contain.",
+  "m": 34
+ },
+ {
+  "t": "MONOCHROME2",
+  "f": "MONOCHROME2",
+  "d": "DICOM photometric interpretation for grayscale images in which the minimum value is displayed as black.",
+  "m": 34
+ },
+ {
+  "t": "RGB",
+  "f": "red, green, blue",
+  "d": "Colour encoding with one value per primary; colour ultrasound stored as RGB takes three times the data of MONOCHROME2.",
+  "m": 34
+ },
+ {
+  "t": "sRGB",
+  "f": "standard RGB",
+  "d": "Standard colour space (IEC 61966-2-1) with defined primaries, white point and transfer curve; the default for consumer displays.",
+  "m": 34
+ },
+ {
+  "t": "YBR",
+  "f": "luminance–chrominance (Y, Cb, Cr)",
+  "d": "DICOM colour encoding with one luminance and two colour-difference channels; used with JPEG, where chroma can be subsampled.",
+  "m": 34
+ },
+ {
+  "t": "CIE",
+  "f": "International Commission on Illumination",
+  "d": "Body that defines colorimetry, including the XYZ colour space and the CIELAB lightness L*.",
+  "m": 34
+ },
+ {
+  "t": "CIELAB",
+  "f": "CIE 1976 L*a*b* colour space",
+  "d": "Approximately perceptually uniform colour space; L* is lightness, used to judge whether a colour map changes evenly.",
+  "m": 34
+ },
+ {
+  "t": "CVD",
+  "f": "colour vision deficiency",
+  "d": "Reduced ability to distinguish some colours (roughly 8 % of men, mostly red–green); colour maps should stay readable for it.",
+  "m": 34
+ },
+ {
+  "t": "LCD",
+  "f": "liquid-crystal display",
+  "d": "Display that modulates a backlight with liquid-crystal cells; luminance and contrast change with viewing angle.",
+  "m": 34
+ },
+ {
+  "t": "OLED",
+  "f": "organic light-emitting diode",
+  "d": "Emissive display technology whose pixels emit light and can switch fully off, giving a very low black level.",
+  "m": 34
+ },
+ {
+  "t": "JPEG",
+  "f": "Joint Photographic Experts Group",
+  "d": "Image compression standard; lossy JPEG quantizes 8 × 8 block DCT coefficients and can remove fine speckle and edge detail.",
+  "m": 34
+ },
+ {
+  "t": "DCT",
+  "f": "discrete cosine transform",
+  "d": "Real-valued Fourier-related transform; the block transform inside JPEG compression.",
+  "m": 34
+ },
+ {
+  "t": "QA",
+  "f": "quality assurance",
+  "d": "Planned, periodic tests (display, probe or array checks) that verify a system still meets its specifications.",
+  "m": 34
+ },
+ {
+  "t": "AAPM",
+  "f": "American Association of Physicists in Medicine",
+  "d": "Society whose task-group reports (e.g. TG18, Report 270) define display quality-control tests.",
+  "m": 34
+ },
+ {
+  "t": "TG18",
+  "f": "AAPM Task Group 18",
+  "d": "AAPM report (2005) and test patterns for assessing medical display performance: luminance response, uniformity, resolution and noise.",
+  "m": 34
+ },
+ {
+  "t": "ACR",
+  "f": "American College of Radiology",
+  "d": "Professional body that, with AAPM and SIIM, publishes the technical standard for electronic display of medical images.",
+  "m": 34
+ },
+ {
+  "t": "SIIM",
+  "f": "Society for Imaging Informatics in Medicine",
+  "d": "Professional society for imaging informatics; co-author of the ACR–AAPM–SIIM display standard.",
+  "m": 34
+ },
+ {
+  "t": "NEMA",
+  "f": "National Electrical Manufacturers Association",
+  "d": "US association that publishes DICOM (as NEMA PS3) and the ultrasound UD standards.",
+  "m": 34
+ },
+ {
+  "t": "US",
+  "f": "ultrasound (DICOM modality)",
+  "d": "DICOM modality code for ultrasound, as in the US Image and US Region Calibration modules.",
+  "m": 34,
+  "only": [
+   34
+  ]
+ },
+ {
+  "t": "PSNR",
+  "f": "peak signal-to-noise ratio",
+  "d": "10·log₁₀ of the squared peak value over the mean squared error to a reference image; misleading for speckle, which has no clean reference.",
+  "m": 35
+ },
+ {
+  "t": "SSIM",
+  "f": "structural similarity index",
+  "d": "Similarity measure combining local luminance, contrast and structure against a reference (Wang et al. 2004); like PSNR, it misleads for speckle.",
+  "m": 35
+ },
+ {
+  "t": "HE",
+  "f": "histogram equalization",
+  "d": "Mapping intensities through their cumulative distribution so the output histogram is approximately flat.",
+  "m": 35,
+  "only": [
+   35
+  ]
+ },
+ {
+  "t": "CLAHE",
+  "f": "contrast-limited adaptive histogram equalization",
+  "d": "Histogram equalization in tiles with a clip limit on each histogram, blended between tiles, to raise local contrast without excessive noise amplification.",
+  "m": 35
+ },
+ {
+  "t": "CDF",
+  "f": "cumulative distribution function",
+  "d": "Probability that a random variable is at or below a given value.",
+  "m": 35
+ },
+ {
+  "t": "SRAD",
+  "f": "speckle-reducing anisotropic diffusion",
+  "d": "Diffusion filter (Yu and Acton 2002) whose diffusion coefficient follows a local speckle statistic, smoothing homogeneous speckle while stopping at edges.",
+  "m": 35
+ },
+ {
+  "t": "NLM",
+  "f": "non-local means",
+  "d": "Denoiser that replaces each pixel by a weighted average of pixels whose surrounding patches look similar, wherever they are in the image.",
+  "m": 35
+ },
+ {
+  "t": "OBNLM",
+  "f": "optimized Bayesian non-local means",
+  "d": "NLM variant for ultrasound (Coupé et al. 2009) whose patch distance is derived from a speckle noise model.",
+  "m": 35
+ },
+ {
+  "t": "BM3D",
+  "f": "block-matching and 3D filtering",
+  "d": "Denoiser (Dabov et al. 2007) that groups similar patches into 3D stacks and shrinks them jointly in a transform domain.",
+  "m": 35
+ },
+ {
+  "t": "BM4D",
+  "f": "block-matching and 4D filtering",
+  "d": "Volumetric extension of BM3D (Maggioni et al. 2013) that groups similar 3D cubes.",
+  "m": 35
+ },
+ {
+  "t": "LMMSE",
+  "f": "linear minimum mean squared error",
+  "d": "Best linear estimator in the mean-squared sense; computed from local mean and variance it gives the Lee and Kuan speckle filters.",
+  "m": 35
+ },
+ {
+  "t": "ENL",
+  "f": "equivalent number of looks",
+  "d": "Squared mean over variance of intensity in a homogeneous region: 1 for fully developed speckle, larger after averaging or despeckling.",
+  "m": 35
+ },
+ {
+  "t": "ESF",
+  "f": "edge spread function",
+  "d": "Image of a sharp step edge; its 10–90 % width and its derivative (the LSF) measure resolution.",
+  "m": 35
+ },
+ {
+  "t": "LSF",
+  "f": "line spread function",
+  "d": "Image of a thin line, equal to the derivative of the edge spread function; its FWHM is a resolution measure.",
+  "m": 35
+ },
+ {
+  "t": "MIP",
+  "f": "maximum intensity projection",
+  "d": "Volume rendering that shows the largest voxel value along each ray; good for bright sparse targets such as contrast-filled vessels.",
+  "m": 35
+ },
+ {
+  "t": "TF",
+  "f": "transfer function (volume rendering)",
+  "d": "The mapping from voxel value to colour and opacity in volume rendering.",
+  "m": 35,
+  "only": [
+   35
+  ]
+ },
+ {
+  "t": "ROC",
+  "f": "receiver operating characteristic",
+  "d": "Curve of true-positive rate against false-positive rate as a decision threshold varies; its area (AUC) summarizes detectability.",
+  "m": 35
+ },
+ {
+  "t": "MRMC",
+  "f": "multi-reader multi-case",
+  "d": "Reader-study design in which several readers interpret the same cases, so conclusions generalize over both readers and cases.",
+  "m": 35
+ },
+ {
+  "t": "SAR",
+  "f": "synthetic-aperture radar",
+  "d": "Radar imaging from a moving antenna; its speckle filters (Lee, Kuan, Frost) were adopted by ultrasound.",
+  "m": 35,
+  "only": [
+   35
+  ]
+ },
+ {
+  "t": "DL",
+  "f": "deep learning",
+  "d": "Machine learning with many-layer neural networks trained on data.",
+  "m": 35,
+  "only": [
+   35
+  ]
+ },
+ {
+  "t": "GAN",
+  "f": "generative adversarial network",
+  "d": "A generator trained against a discriminator; as a loss it can create realistic-looking but false image detail.",
+  "m": 35
+ },
+ {
+  "t": "OOD",
+  "f": "out-of-distribution",
+  "d": "Inputs unlike the training data (other probes, sites or patients), on which learned filters can fail silently.",
+  "m": 35
+ },
+ {
+  "t": "OCT",
+  "f": "optical coherence tomography",
+  "d": "Interferometric optical imaging with micrometre resolution; it shares fully developed speckle with ultrasound.",
+  "m": 35
+ },
+ {
+  "t": "AI",
+  "f": "artificial intelligence; additional information (FDA)",
+  "d": "Two meanings: artificial intelligence (learned algorithms in device software, e.g. an AI view classifier), and FDA's additional-information request (AI letter) that puts a 510(k) on hold for up to 180 days.",
+  "m": 36
+ },
+ {
+  "t": "SE",
+  "f": "substantial equivalence (FDA); standard error (statistics)",
+  "d": "In 510(k) review: the finding that a device has the same intended use as a legally marketed predicate and is as safe and effective. In statistics (Module 5): the standard deviation of an estimate.",
+  "m": 36
+ },
+ {
+  "t": "NSE",
+  "f": "not substantially equivalent",
+  "d": "510(k) decision that a device is not substantially equivalent to its predicate; it then needs a De Novo request, a PMA or a new 510(k).",
+  "m": 36
+ },
+ {
+  "t": "SI",
+  "f": "SI units; Substantive Interaction (FDA)",
+  "d": "In physics: the International System of Units (metre, kilogram, second). In 510(k) review (Module 36): FDA's day-60 Substantive Interaction, which either requests additional information or continues interactive review.",
+  "m": 36
+ },
+ {
+  "t": "CFR",
+  "f": "Code of Federal Regulations",
+  "d": "Codified U.S. federal rules; Title 21 covers FDA, e.g. 21 CFR 892.1550 classifies ultrasound Doppler imaging systems and Part 820 holds the QMSR.",
+  "m": 36
+ },
+ {
+  "t": "CDRH",
+  "f": "Center for Devices and Radiological Health",
+  "d": "The FDA centre that regulates medical devices and radiation-emitting products, including ultrasound.",
+  "m": 36
+ },
+ {
+  "t": "IYN",
+  "f": "FDA product code IYN",
+  "d": "Ultrasonic pulsed Doppler imaging system (21 CFR 892.1550, Class II); the usual primary code of a general-purpose scanner.",
+  "m": 36
+ },
+ {
+  "t": "IYO",
+  "f": "FDA product code IYO",
+  "d": "Ultrasonic pulsed echo imaging system (21 CFR 892.1560, Class II).",
+  "m": 36
+ },
+ {
+  "t": "ITX",
+  "f": "FDA product code ITX",
+  "d": "Diagnostic ultrasonic transducer (21 CFR 892.1570, Class II).",
+  "m": 36
+ },
+ {
+  "t": "QIH",
+  "f": "FDA product code QIH",
+  "d": "Automated radiological image processing software (21 CFR 892.2050, Class II); often listed for software and AI functions of an imaging system.",
+  "m": 36
+ },
+ {
+  "t": "CADe",
+  "f": "computer-aided detection",
+  "d": "Software that marks image regions likely to contain a lesion for the reader to review.",
+  "m": 36
+ },
+ {
+  "t": "MDUFA",
+  "f": "Medical Device User Fee Amendments",
+  "d": "U.S. user-fee agreements that fund device review and set FDA performance goals, e.g. MDUFA V: a 510(k) decision within 90 FDA days for 95 % of submissions.",
+  "m": 36
+ },
+ {
+  "t": "TTD",
+  "f": "Total Time to Decision",
+  "d": "MDUFA metric: calendar days from receipt to the 510(k) decision, including time on hold, unlike FDA days.",
+  "m": 36
+ },
+ {
+  "t": "eSTAR",
+  "f": "electronic Submission Template And Resource",
+  "d": "FDA's interactive submission template, required for 510(k)s since 1 October 2023; incomplete eSTARs are put on hold at technical screening.",
+  "m": 36
+ },
+ {
+  "t": "PreSTAR",
+  "f": "PreSTAR template",
+  "d": "FDA's voluntary electronic template, analogous to eSTAR, for Pre-Submissions and other Q-Submission types.",
+  "m": 36
+ },
+ {
+  "t": "RTA",
+  "f": "refuse to accept",
+  "d": "FDA acceptance review that could reject an incomplete 510(k); eSTAR submissions get technical screening instead.",
+  "m": 36
+ },
+ {
+  "t": "PMA",
+  "f": "premarket approval",
+  "d": "FDA's most stringent route, for Class III devices, requiring valid scientific evidence (usually clinical) of safety and effectiveness.",
+  "m": 36
+ },
+ {
+  "t": "IDE",
+  "f": "investigational device exemption",
+  "d": "FDA approval that lets an unapproved significant-risk device be used in a U.S. clinical study.",
+  "m": 36
+ },
+ {
+  "t": "PCCP",
+  "f": "predetermined change control plan",
+  "d": "Plan authorized in a marketing submission that specifies future device changes (e.g. AI retraining) and how they will be validated, so they need no new submission.",
+  "m": 36
+ },
+ {
+  "t": "QMS",
+  "f": "quality management system",
+  "d": "The organization's documented processes for design, production and post-market activities; ISO 13485 in the EU and the QMSR in the U.S.",
+  "m": 36
+ },
+ {
+  "t": "QMSR",
+  "f": "Quality Management System Regulation",
+  "d": "FDA's 21 CFR 820, effective 2 February 2026, which incorporates ISO 13485:2016 by reference and replaced the Quality System Regulation.",
+  "m": 36
+ },
+ {
+  "t": "QSIT",
+  "f": "Quality System Inspection Technique",
+  "d": "FDA's former inspection method under the Quality System Regulation, retired when the QMSR took effect.",
+  "m": 36
+ },
+ {
+  "t": "DHF",
+  "f": "design history file",
+  "d": "Records showing a device was developed under design controls; under ISO 13485 and the QMSR it is the design and development file.",
+  "m": 36
+ },
+ {
+  "t": "CAPA",
+  "f": "corrective and preventive action",
+  "d": "QMS process that investigates nonconformities and complaints, fixes their causes and prevents recurrence.",
+  "m": 36
+ },
+ {
+  "t": "SOUP",
+  "f": "software of unknown provenance",
+  "d": "IEC 62304 term for off-the-shelf software not developed under the manufacturer's process; it must be listed, specified and risk-assessed.",
+  "m": 36
+ },
+ {
+  "t": "SBOM",
+  "f": "software bill of materials",
+  "d": "List of the software components (commercial, open-source, off-the-shelf) in a device; FDA requires it for cyber devices.",
+  "m": 36
+ },
+ {
+  "t": "HF",
+  "f": "human factors",
+  "d": "How users interact with a device; FDA expects a use-related risk analysis and, if critical tasks exist, validation testing (IEC 62366-1).",
+  "m": 36,
+  "only": [
+   36
+  ]
+ },
+ {
+  "t": "HFE",
+  "f": "human factors engineering",
+  "d": "Applying knowledge of human abilities and limits to device design and validation; documented in the HFE/usability engineering report.",
+  "m": 36
+ },
+ {
+  "t": "URRA",
+  "f": "use-related risk analysis",
+  "d": "Analysis of user tasks, possible use errors and their harms that identifies the critical tasks for human-factors validation.",
+  "m": 36
+ },
+ {
+  "t": "SW",
+  "f": "software",
+  "d": "Device software, documented and verified per IEC 62304 and FDA's software guidance.",
+  "m": 36,
+  "only": [
+   36
+  ]
+ },
+ {
+  "t": "UI",
+  "f": "user interface",
+  "d": "The controls and displays through which a user operates the device.",
+  "m": 36,
+  "only": [
+   36
+  ]
+ },
+ {
+  "t": "DB",
+  "f": "database",
+  "d": "As in the FDA 510(k), recall and MAUDE databases.",
+  "m": 36,
+  "only": [
+   36
+  ]
+ },
+ {
+  "t": "ASCA",
+  "f": "Accreditation Scheme for Conformity Assessment",
+  "d": "FDA program in which accredited labs test to eligible standards (e.g. the IEC 60601 series) and issue summary reports reviewers can rely on.",
+  "m": 36
+ },
+ {
+  "t": "MAUDE",
+  "f": "Manufacturer and User Facility Device Experience",
+  "d": "FDA database of medical device reports (MDRs); a source of failure modes, not of failure rates.",
+  "m": 36
+ },
+ {
+  "t": "TPLC",
+  "f": "Total Product Life Cycle",
+  "d": "FDA database that links premarket clearances, device reports (MDRs) and recalls by product code.",
+  "m": 36
+ },
+ {
+  "t": "cfRES",
+  "f": "FDA Medical Device Recalls database",
+  "d": "FDA's recall database (cfRES in its web address); each record gives the product, the FDA-determined cause and the corrective action.",
+  "m": 36
+ },
+ {
+  "t": "openFDA",
+  "f": "openFDA",
+  "d": "FDA's public data interface (web API and downloads) for device clearances, recalls and adverse-event reports.",
+  "m": 36
+ },
+ {
+  "t": "ISO",
+  "f": "International Organization for Standardization",
+  "d": "Standards body behind, e.g., ISO 13485 (quality management) and ISO 14971 (risk management) used in device regulation.",
+  "m": 36
+ },
+ {
+  "t": "ANSI",
+  "f": "American National Standards Institute",
+  "d": "U.S. body that accredits standards developers and designates American National Standards, e.g. ANSI/AAMI ES60601-1.",
+  "m": 36
+ },
+ {
+  "t": "AAMI",
+  "f": "Association for the Advancement of Medical Instrumentation",
+  "d": "U.S. standards organization; publishes national adoptions such as ANSI/AAMI ES60601-1 and technical reports such as TIR69.",
+  "m": 36
+ },
+ {
+  "t": "EMC",
+  "f": "electromagnetic compatibility",
+  "d": "Ability of equipment to work in its electromagnetic environment without causing or suffering interference; tested to IEC 60601-1-2.",
+  "m": 36
+ },
+ {
+  "t": "AMD1",
+  "f": "Amendment 1",
+  "d": "First amendment to an IEC or ISO standard edition; a test plan must cite the edition plus amendment it uses.",
+  "m": 36
+ },
+ {
+  "t": "AMD2",
+  "f": "Amendment 2",
+  "d": "Second amendment to an IEC or ISO standard edition.",
+  "m": 36
+ },
+ {
+  "t": "EU",
+  "f": "European Union",
+  "d": "Union of European states whose Medical Device Regulation (MDR) sets the route to the CE mark.",
+  "m": 36
+ },
+ {
+  "t": "MDR",
+  "f": "Medical Device Regulation (EU); medical device report (U.S.)",
+  "d": "In EU context: Regulation (EU) 2017/745 on classification, technical documentation and CE marking. In U.S. postmarket context: a report of a death, serious injury or malfunction under 21 CFR 803, stored in MAUDE.",
+  "m": 36
+ },
+ {
+  "t": "IVDR",
+  "f": "In Vitro Diagnostic Medical Devices Regulation",
+  "d": "Regulation (EU) 2017/746, the IVD counterpart of the MDR.",
+  "m": 36
+ },
+ {
+  "t": "IVD",
+  "f": "in vitro diagnostic",
+  "d": "A device that examines specimens taken from the body, such as blood tests.",
+  "m": 36
+ },
+ {
+  "t": "MPEG",
+  "f": "Moving Picture Experts Group",
+  "d": "Family of video coding standards (MPEG-2, H.264/MPEG-4 AVC, H.265) that DICOM allows for lossy cine storage.",
+  "m": 34
+ },
+ {
+  "t": "QC",
+  "f": "quality control",
+  "d": "Routine checks that a device or display still meets its specification, as in the AAPM TG18-QC test pattern.",
+  "m": 34
+ },
+ {
+  "t": "Tx",
+  "f": "transmit",
+  "d": "Short for the transmit side or transmit event of an imaging sequence (as in Tx apodization or Tx focus).",
+  "m": 23,
+  "only": [
+   19,
+   20,
+   23,
+   24,
+   25
+  ]
+ },
+ {
+  "t": "Rx",
+  "f": "receive",
+  "d": "Short for the receive side of an imaging sequence (as in Rx aperture or Rx beamforming).",
+  "m": 23,
+  "only": [
+   19,
+   20,
+   23,
+   24,
+   25
+  ]
+ },
+ {
+  "t": "f-k",
+  "f": "frequency–wavenumber",
+  "d": "Domain of the 2D Fourier transform over time and array position; f-k (Stolt) migration images by remapping this spectrum.",
+  "m": 24
+ },
+ {
+  "t": "S/D",
+  "f": "systolic-to-diastolic ratio",
+  "d": "Doppler index: peak systolic velocity divided by end-diastolic velocity.",
+  "m": 29
+ },
+ {
+  "t": "F#",
+  "f": "F-number",
+  "d": "Focal depth divided by aperture width; sets lateral resolution (about λ·F#) and the receive aperture growth with depth.",
+  "m": 23
+ },
+ {
+  "t": "F-DMAS",
+  "f": "filtered delay-multiply-and-sum",
+  "d": "DMAS followed by a band-pass around 2f₀ to keep the second-harmonic-like component of the pairwise products.",
+  "m": 25
+ },
+ {
+  "t": "SATA",
+  "f": "spatial-average temporal-average intensity",
+  "d": "Temporal-average intensity averaged over the beam cross-section; lower than ISPTA.",
+  "m": 22
+ },
+ {
+  "t": "PDFF",
+  "f": "proton-density fat fraction",
+  "d": "MRI-based fraction of liver signal from fat; the usual reference standard for ultrasound steatosis measures.",
+  "m": 32
+ },
+ {
+  "t": "FOV",
+  "f": "field of view",
+  "d": "The region of tissue the image covers (depth × width or sector angle).",
+  "m": 31
+ },
+ {
+  "t": "FA",
+  "f": "false alarm",
+  "d": "A detection declared where no true target exists; traded against missed detections by the threshold.",
+  "m": 31,
+  "only": [
+   31
+  ]
+ },
+ {
+  "t": "FR",
+  "f": "frame rate",
+  "d": "Images formed per second; limited by depth, lines or transmits per frame and processing.",
+  "m": 31,
+  "only": [
+   28,
+   31
+  ]
+ },
+ {
+  "t": "PEG",
+  "f": "polyethylene glycol",
+  "d": "Polymer brush grafted to lipid microbubble shells to stabilize them and reduce clearance.",
+  "m": 28
+ },
+ {
+  "t": "A0",
+  "f": "zeroth-order antisymmetric Lamb mode",
+  "d": "Flexural guided wave in a plate; its dispersion is used in shear-wave elastography of thin tissues.",
+  "m": 30,
+  "only": [
+   30
+  ]
+ },
+ {
+  "t": "CAF",
+  "f": "coarse array factor",
+  "d": "Array factor of the subarray centres in a micro-beamformed array; its grating lobes are set by the subarray pitch.",
+  "m": 19,
+  "only": [
+   19
+  ]
+ },
+ {
+  "t": "SF",
+  "f": "subarray factor",
+  "d": "Beam pattern of one subarray; multiplies the coarse array factor in a micro-beamformed array.",
+  "m": 19,
+  "only": [
+   19
+  ]
+ },
+ {
+  "t": "GB",
+  "f": "gigabyte",
+  "d": "10⁹ bytes; used for channel-data volumes and memory sizes.",
+  "m": 20
+ },
+ {
+  "t": "FDORA",
+  "f": "Food and Drug Omnibus Reform Act of 2022",
+  "d": "U.S. law whose section 3308 added FD&C Act section 515C, the statutory basis for predetermined change control plans (PCCPs).",
+  "m": 36
+ },
+ {
+  "t": "GMLP",
+  "f": "good machine learning practice",
+  "d": "FDA, Health Canada and MHRA guiding principles (2021) for developing machine-learning-enabled medical devices.",
+  "m": 36
+ },
+ {
+  "t": "MHRA",
+  "f": "Medicines and Healthcare products Regulatory Agency",
+  "d": "The UK regulator for medicines and medical devices.",
+  "m": 36
+ },
+ {
+  "t": "GUDID",
+  "f": "Global Unique Device Identification Database",
+  "d": "FDA database of device-identifier records that labelers submit under 21 CFR 830.",
+  "m": 36
+ },
+ {
+  "t": "UDI-DI",
+  "f": "UDI device identifier",
+  "d": "Static part of a UDI that identifies the labeler and the model or version; the EU's Basic UDI-DI is the model-level key in EUDAMED.",
+  "m": 36
+ },
+ {
+  "t": "DoC",
+  "f": "declaration of conformity",
+  "d": "The manufacturer's signed EU statement that a device meets the MDR (Article 19, Annex IV).",
+  "m": 36
+ },
+ {
+  "t": "SRN",
+  "f": "single registration number",
+  "d": "EUDAMED identifier assigned to a registered economic operator.",
+  "m": 36
+ },
+ {
+  "t": "CPT",
+  "f": "Current Procedural Terminology",
+  "d": "AMA code set used for billing U.S. procedures; Category I codes for established services, Category III for emerging ones.",
+  "m": 36
+ },
+ {
+  "t": "OS",
+  "f": "operating system",
+  "d": "Platform software of a scanner or workstation; OS updates are treated as software changes in FDA's change guidance.",
+  "m": 36,
+  "only": [
+   36
+  ]
+ },
+ {
+  "t": "OTC",
+  "f": "over-the-counter",
+  "d": "Use without a prescription; moving a device from prescription to OTC use is an intended-use change.",
+  "m": 36
+ },
+ {
+  "t": "BMI",
+  "f": "body mass index",
+  "d": "Weight divided by height squared (kg/m²); a key covariate of ultrasound image quality in subgroup analyses.",
+  "m": 36
+ },
+ {
+  "t": "AIB",
+  "f": "Artificial Intelligence Board",
+  "d": "EU board under the AI Act; issues guidance jointly with the MDCG on AI medical devices.",
+  "m": 36
+ },
+ {
+  "t": "VCTE",
+  "f": "vibration-controlled transient elastography",
+  "d": "Liver stiffness method that tracks a shear wave launched by a mechanical vibrator (the FibroScan principle), reported in kPa.",
+  "m": 30
+ },
+ {
+  "t": "MASH",
+  "f": "metabolic dysfunction-associated steatohepatitis",
+  "d": "Inflammatory form of metabolic fatty liver disease (formerly NASH); a key target for elastography and attenuation imaging.",
+  "m": 30
+ },
+ {
+  "t": "WFUMB",
+  "f": "World Federation for Ultrasound in Medicine and Biology",
+  "d": "International federation that publishes ultrasound guidelines, e.g. on liver elastography and contrast ultrasound.",
+  "m": 30
+ },
+ {
+  "t": "LVOT",
+  "f": "left ventricular outflow tract",
+  "d": "Region just below the aortic valve; its diameter and Doppler VTI give stroke volume and, with the continuity equation, valve area.",
+  "m": 29
+ },
+ {
+  "t": "AVA",
+  "f": "aortic valve area",
+  "d": "Effective orifice area of the aortic valve, usually computed with the continuity equation from LVOT diameter and two VTIs.",
+  "m": 29
+ },
+ {
+  "t": "NASCET",
+  "f": "North American Symptomatic Carotid Endarterectomy Trial",
+  "d": "Trial whose angiographic method of grading carotid stenosis underlies the Doppler velocity criteria.",
+  "m": 29
+ },
+ {
+  "t": "ASE",
+  "f": "American Society of Echocardiography",
+  "d": "Professional society that publishes echocardiography guidelines and measurement conventions.",
+  "m": 29
+ },
+ {
+  "t": "EACVI",
+  "f": "European Association of Cardiovascular Imaging",
+  "d": "European society that co-publishes echocardiography guidelines with the ASE.",
+  "m": 29
+ },
+ {
+  "t": "LI-RADS",
+  "f": "Liver Imaging Reporting and Data System",
+  "d": "ACR system for categorizing liver observations in patients at risk of hepatocellular carcinoma; a CEUS version defines enhancement-based categories.",
+  "m": 28
+ },
+ {
+  "t": "APHE",
+  "f": "arterial phase hyperenhancement",
+  "d": "Enhancement in the arterial phase greater than the surrounding liver; a major LI-RADS feature.",
+  "m": 28
+ },
+ {
+  "t": "HCC",
+  "f": "hepatocellular carcinoma",
+  "d": "Primary liver cancer; the main target of LI-RADS categorization.",
+  "m": 28
+ },
+ {
+  "t": "DCE-US",
+  "f": "dynamic contrast-enhanced ultrasound",
+  "d": "Quantitative contrast ultrasound: time–intensity curves are fitted to derive perfusion parameters.",
+  "m": 28
+ },
+ {
+  "t": "GUM",
+  "f": "Guide to the Expression of Uncertainty in Measurement",
+  "d": "The JCGM/ISO reference method for combining measurement uncertainties; used for tolerance and test-limit budgets.",
+  "m": 17
+ },
+ {
+  "t": "FMEA",
+  "f": "failure mode and effects analysis",
+  "d": "Structured review of how each part or process step can fail, its effect and its detectability; used in design and process risk management.",
+  "m": 17
+ },
+ {
+  "t": "P–E",
+  "f": "polarization–electric field (loop)",
+  "d": "Hysteresis loop of a ferroelectric's polarization versus applied field; gives the coercive field and remanent polarization.",
+  "m": 16
+ },
+ {
+  "t": "ISSCC",
+  "f": "International Solid-State Circuits Conference",
+  "d": "IEEE conference where integrated ultrasound front-end and probe ASICs are often first reported.",
+  "m": 18
+ },
+ {
+  "t": "nIVD",
+  "f": "non-IVD",
+  "d": "FDA eSTAR version for devices other than in vitro diagnostics.",
+  "m": 36
+ },
+ {
+  "t": "MDCG",
+  "f": "Medical Device Coordination Group",
+  "d": "EU group of national authorities that issues MDR guidance documents (MDCG yyyy-n), e.g. on classification, clinical evaluation and PSURs.",
+  "m": 36
+ },
+ {
+  "t": "IIa",
+  "f": "EU device class IIa",
+  "d": "Medium-risk class under MDR Annex VIII; diagnostic ultrasound is IIa by Rule 10, so a notified body must assess the QMS and technical documentation.",
+  "m": 36
+ },
+ {
+  "t": "IIb",
+  "f": "EU device class IIb",
+  "d": "Higher-risk class under MDR Annex VIII; Rule 10 puts devices for monitoring vital parameters, where variations could mean immediate danger, in IIb.",
+  "m": 36
+ },
+ {
+  "t": "NB",
+  "f": "notified body",
+  "d": "Organization designated by an EU member state to assess conformity of Class IIa and higher devices (QMS audit and technical-documentation review).",
+  "m": 36
+ },
+ {
+  "t": "NANDO",
+  "f": "New Approach Notified and Designated Organisations",
+  "d": "European Commission database listing notified bodies and the MDR scope each is designated for.",
+  "m": 36
+ },
+ {
+  "t": "CE",
+  "f": "CE marking",
+  "d": "Mark showing conformity with EU legislation; for Class IIa and higher devices it requires a notified-body certificate.",
+  "m": 36,
+  "only": [
+   36
+  ]
+ },
+ {
+  "t": "EN",
+  "f": "European Norm",
+  "d": "European version of a standard (e.g. EN 60601-1); harmonised ENs give a presumption of conformity with the MDR.",
+  "m": 36,
+  "only": [
+   36
+  ]
+ },
+ {
+  "t": "GSPR",
+  "f": "general safety and performance requirements",
+  "d": "MDR Annex I requirements every device must meet; the technical documentation shows conformity, usually in a GSPR checklist citing standards and evidence.",
+  "m": 36
+ },
+ {
+  "t": "TD",
+  "f": "technical documentation",
+  "d": "The MDR Annex II and III file (description, GSPR checklist, risk, verification, clinical evaluation, PMS) that the notified body assesses.",
+  "m": 36,
+  "only": [
+   36
+  ]
+ },
+ {
+  "t": "CER",
+  "f": "clinical evaluation report",
+  "d": "Document that appraises clinical data (own studies, literature, equivalence) to show conformity with the safety and performance requirements.",
+  "m": 36
+ },
+ {
+  "t": "PMS",
+  "f": "post-market surveillance",
+  "d": "The manufacturer's system for collecting and analysing data on devices in use and feeding it back into risk management and design.",
+  "m": 36
+ },
+ {
+  "t": "PMCF",
+  "f": "post-market clinical follow-up",
+  "d": "MDR activity that collects clinical data on a CE-marked device in use to confirm its safety and performance over its life.",
+  "m": 36
+ },
+ {
+  "t": "PSUR",
+  "f": "periodic safety update report",
+  "d": "MDR Article 86 report of post-market data and benefit–risk conclusions: at least every two years for Class IIa, yearly for IIb and III.",
+  "m": 36
+ },
+ {
+  "t": "MDSW",
+  "f": "medical device software",
+  "d": "EU term for software with a medical purpose, standalone or driving a device; classified by MDR Rule 11.",
+  "m": 36
+ },
+ {
+  "t": "UDI",
+  "f": "unique device identification",
+  "d": "System of device identifiers on labels, held in GUDID (U.S.) and EUDAMED (EU), that traces a device model and production lot.",
+  "m": 36
+ },
+ {
+  "t": "EUDAMED",
+  "f": "European database on medical devices",
+  "d": "EU database for actor and device (UDI) registration, certificates, vigilance and clinical investigations.",
+  "m": 36
+ },
+ {
+  "t": "BPG",
+  "f": "best practice guidance",
+  "d": "Team-NB documents describing what notified bodies expect, e.g. in technical documentation.",
+  "m": 36
+ },
+ {
+  "t": "IFU",
+  "f": "instructions for use",
+  "d": "Labeling that tells users how to operate the device safely, with indications, warnings and, for ultrasound, acoustic-output information.",
+  "m": 36
+ },
+ {
+  "t": "ICU",
+  "f": "intensive care unit",
+  "d": "Hospital unit for critically ill patients; continuous monitoring there can raise an ultrasound device's EU class.",
+  "m": 36
+ },
+ {
+  "t": "RMS",
+  "f": "root mean square",
+  "d": "Square root of the mean of the squared values; for a zero-mean signal, its standard deviation.",
+  "m": 12
+ },
+ {
+  "t": "ML",
+  "f": "maximum likelihood (or machine learning)",
+  "d": "Usually maximum likelihood: the estimate that makes the observed data most probable (see MLE). In 'ML texts' (Module 13) it means machine learning.",
+  "m": 12
+ },
+ {
+  "t": "ASTM",
+  "f": "ASTM International",
+  "d": "Standards body; ASTM E1065 specifies how ultrasonic transducers are characterized (centre frequency, bandwidth).",
+  "m": 21
+ },
+ {
+  "t": "RSNA",
+  "f": "Radiological Society of North America",
+  "d": "Radiology society that hosts QIBA, the Quantitative Imaging Biomarkers Alliance.",
+  "m": 30
+ },
+ {
+  "t": "PVC",
+  "f": "premature ventricular contraction",
+  "d": "An early heartbeat triggered in the ventricles; reported as a contrast-agent bioeffect at elevated MI.",
+  "m": 22
  }
 ]

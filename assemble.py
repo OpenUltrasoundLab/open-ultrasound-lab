@@ -6,7 +6,7 @@ Usage: python3 assemble.py b1..b5     -> build/part1-foundations.html ... build/
 """
 import re, sys, pathlib
 root = pathlib.Path(__file__).parent
-BATCH = {1: list(range(1, 8)), 2: list(range(8, 15)), 3: list(range(15, 23)), 4: list(range(23, 28)), 5: list(range(28, 34))}
+BATCH = {1: list(range(1, 8)), 2: list(range(8, 15)), 3: list(range(15, 23)), 4: list(range(23, 28)), 5: list(range(28, 34)), 6: list(range(34, 41))}
 OUT = {1: 'part1-foundations.html', 2: 'part2-signal-processing.html', 3: 'part3-physics-hardware.html',
        4: 'part4-image-formation.html', 5: 'part5-modes-capstones.html'}
 TITLE = {1: 'Part I · Math & Signal Foundations', 2: 'Part II · Ultrasound Signal Processing & Estimation',

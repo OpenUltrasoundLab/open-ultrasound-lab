@@ -21,6 +21,9 @@
   </header>
   <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>numerical computation run in this page (JS) or in the MATLAB/Octave scripts; solver named under the badge</span><span><span class="prov model">Approx. model</span>simplified physics; assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not computed</span><span>Echoes are Gaussian-envelope pulses or sums of them; channel data for the beamforming demo come from this page's own straight-ray point-target code. No Field II, k-Wave or scanner output is shown.</span></div>
 
+  <div class="k60"><span class="label">In 60 seconds</span><ol><li><b>A real signal carries its spectrum twice:</b> A real signal’s negative frequencies mirror its positive ones, so half the spectrum is redundant. A real sample also cannot tell a positive angle from a negative one: cos 60° equals cos(−60°). Keeping one rotating arrow (phasor) instead of the mirrored pair resolves the sign, which flow direction needs. <a class="sref" href="#m8-s8-1">§08.1</a></li><li><b>The analytic signal keeps the positive half:</b> Deleting negative frequencies and doubling the rest gives the analytic signal \(x_a = x + j\mathcal{H}\{x\}\), \(\mathcal{H}\) being the Hilbert transform (a 90° phase shifter). Its magnitude is the envelope, its angle the phase. The envelope is exact only while it varies slower than the carrier: error 4 × 10⁻⁵ at 5 MHz, 60 % bandwidth. <a class="sref" href="#m8-s8-2">§08.2</a></li><li><b>IQ is the analytic signal minus the carrier:</b> Demodulation shifts the analytic signal down by \(f_d\), the demodulation frequency, so IQ needs sampling only for the bandwidth. The complex rate must exceed \(B + 2\lvert\Delta\rvert\), with B the bandwidth and Δ the echo-centre offset from \(f_d\): 8–10 MHz for a 5 MHz, 80 % echo, against 17 MHz real. <a class="sref" href="#m8-s8-3">§08.3</a></li><li><b>Phase carries delay:</b> A shift in echo arrival rotates the IQ phase, so phase measures sub-sample delay: \(\hat\tau = -\Delta\varphi/(2\pi f_0)\), with Δφ the phase change and f₀ the echo centre frequency. At 5 MHz one radian is 31.8 ns, or 24.5 µm of depth. An error in f₀ scales every delay by the same fraction. <a class="sref" href="#m8-s8-4">§08.4</a></li><li><b>Beamforming on IQ needs a phase rotation:</b> Delaying IQ data moves the envelope but not the removed carrier, so each channel must be rotated back by \(e^{+j2\pi f_d\tau_n}\), with τₙ its delay and \(f_d\) the demodulation frequency. This is exact, not a narrowband approximation. Without it, 32 elements focused at 20 mm lose 13.4 dB. <a class="sref" href="#m8-s8-5">§08.5</a></li><li><b>Attenuation lowers the centre frequency with depth:</b> Tissue absorbs high frequencies faster, so the echo spectrum slides down with depth. For a Gaussian spectrum the shift grows with attenuation, with bandwidth squared and with depth: about −0.187 MHz/cm at 5 MHz, 60 % bandwidth and 0.5 dB/cm/MHz. The phase of the lag-one autocorrelation of IQ samples measures it. <a class="sref" href="#m8-s8-6">§08.6</a></li><li><b>Two frequencies, two jobs:</b> Rotate IQ data with the demodulation frequency, exactly what the demodulator removed. Convert phase to delay with the local echo centre frequency, which attenuation lowers with depth. Swapping them either defocuses the beamformed sum or biases every displacement and velocity by the ratio of the two frequencies. <a class="sref" href="#m8-s8-7">§08.7</a></li></ol></div>
+  <div class="field"><span class="label">From the field</span><ul><li><b>Convert phase to delay or velocity with the received centre frequency at that depth, not the demodulation frequency.</b> <span class="why">Attenuation pulls the echo centre down with depth, and a frequency mismatch scales every delay by the same fraction. Using a 5.3 MHz demodulation frequency for a 5.0 MHz echo biases delays by −5.7 %. <a class="sref" href="#m8-s8-6">§08.6</a> <a class="sref" href="#m8-s8-7">§08.7</a></span></li><li><b>Keep the demodulation frequency and its time origin identical in every frame of an ensemble.</b> <span class="why">Phases compared across the repeated frames (the ensemble) are unbiased only because the leftover carrier rotation is the same in each frame at a given depth. A per-frame change appears as a phase step that looks like motion. <a class="sref" href="#m8-s8-4">§08.4</a></span></li><li><b>Size the low-pass filter and IQ rate for the whole band in use, harmonic modes and offset included.</b> <span class="why">Aliasing during decimation (sample-rate reduction) leaves kept samples looking fine and corrupts everything between them, irreversibly. Take bandwidth at −20 to −40 dB; decimating a 5 MHz, 60 % echo to 5 MHz already overlaps the replicas. <a class="sref" href="#m8-s8-3">§08.3</a></span></li><li><b>Rotate IQ data with the demodulation frequency stored with the data, never the nominal transmit frequency.</b> <span class="why">The rotation must undo exactly what the demodulator removed; any other frequency leaves a depth-dependent phase error across the aperture. The symptom is gain oscillating with depth; with no rotation, 32 elements focused at 20 mm lose 13.4 dB. <a class="sref" href="#m8-s8-5">§08.5</a></span></li></ul></div>
+
   <!-- ===================== 08.1 ===================== -->
   <div class="prose">
     <h2><span class="sec">08.1</span>Real signals carry their spectrum twice</h2>
@@ -44,22 +47,27 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m8-ph-cv" aria-label="Rotating phasors in the complex plane, the time trace they generate, and their two-sided line spectrum"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>+f phasor / real part</span><span><i style="background:var(--sig2)"></i>−f phasor / imaginary part</span><span><i style="background:var(--ink)"></i>sum (real cosine)</span></div>
+        <div class="legend" id="m8-ph-leg"><span data-s="pf"><i class="dash" style="color:var(--accent)"></i>+f half-phasor, Im (cos mode)</span><span data-s="re"><i style="background:var(--accent)"></i>real part (analytic modes)</span><span data-s="nf"><i class="dot" style="color:var(--sig2)"></i>−f phasor / imaginary part</span><span data-s="sum"><i style="background:var(--ink)"></i>sum (real cosine)</span><span data-s="lines"><i class="stem" style="background:var(--accent)"></i>spectral lines</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m8-ph-mode">Signal</label>
+        <div class="ctrl"><label for="m8-ph-mode"><span>Signal type<span class="hint">real cosine, or one of the two complex phasors</span></span></label>
           <select id="m8-ph-mode"><option value="cos">real cos(2πft+φ)</option><option value="ana">analytic e^{+j(2πft+φ)}</option><option value="neg">conjugate e^{−j(2πft+φ)}</option></select></div>
-        <div class="ctrl"><label for="m8-ph-f">Frequency f <output id="m8-ph-f-out">2 MHz</output></label><input type="range" id="m8-ph-f" min="0.5" max="5" step="0.1" value="2"></div>
-        <div class="ctrl"><label for="m8-ph-phi">Phase φ <output id="m8-ph-phi-out">30°</output></label><input type="range" id="m8-ph-phi" min="-180" max="180" step="1" value="30"></div>
-        <div class="ctrl"><label for="m8-ph-t">Time t <output id="m8-ph-t-out">0 ns</output></label><input type="range" id="m8-ph-t" min="0" max="1000" step="1" value="0"></div>
+        <div class="ctrl"><label for="m8-ph-f"><span>Frequency f (MHz)</span> <output id="m8-ph-f-out">2 MHz</output></label><input type="range" id="m8-ph-f" min="0.5" max="5" step="0.1" value="2"></div>
+        <div class="ctrl"><label for="m8-ph-phi"><span>Phase offset φ (degrees)</span> <output id="m8-ph-phi-out">30°</output></label><input type="range" id="m8-ph-phi" min="-180" max="180" step="1" value="30"></div>
+        <div class="ctrl"><label for="m8-ph-t"><span>Time t (ns)<span class="hint">moves the phasor and the time cursor</span></span> <output id="m8-ph-t-out">0 ns</output></label><input type="range" id="m8-ph-t" min="0" max="1000" step="1" value="0"></div>
         <div class="btn-row"><button class="btn solid" id="m8-ph-play" type="button">Play</button></div>
         <div class="readout" id="m8-ph-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> in "real cos" mode, scrub \(t\) and watch the two dashed imaginary traces cancel. Set \(\varphi = +60°\) and \(-60°\) at \(t = 0\): the real value is identical, the phasor is not. Switch to "analytic": the spectrum loses its \(-f\) line and the amplitude of the \(+f\) line doubles from ½ to 1.</div>
+    <div class="demo-foot"><strong>Try:</strong> in "real cos" mode, scrub \(t\) and watch the two dashed imaginary traces cancel. Set \(\varphi = +60°\) and \(-60°\) at \(t = 0\): the real value is identical, the phasor is not. Switch to "analytic": the spectrum loses its \(-f\) line and the amplitude of the \(+f\) line doubles from ½ to 1.<span class="symnote">Symbols used here: f, the frequency in MHz; φ, the phase offset in degrees; t, the time in ns; θ = 2πft + φ, the total phase; I and Q, the real and imaginary parts (in-phase and quadrature); e<sup>jθ</sup>, the unit phasor; z, the complex value shown.</span></div>
   </div>
 
   <div class="callout intuit"><span class="label">Intuition</span><p>Think of the real RF trace as the shadow of a rotating phasor on the real axis. The shadow alone does not reveal which way the phasor turns or where it is on the circle. The analytic signal recovers the phasor from its shadow; IQ demodulation then stops it from spinning at \(f_0\) so only the slow envelope and phase changes remain.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>For real x, X(−f) = X*(f): the negative-frequency half carries no information the positive half lacks.</li>
+    <li>cos θ = ½e<sup>jθ</sup> + ½e<sup>−jθ</sup>: cos 60° = cos(−60°), so a real sample has no sign of phase; keeping one phasor resolves it.</li>
+  </ul></div>
 
   <!-- ===================== 08.2 ===================== -->
   <div class="prose">
@@ -97,7 +105,7 @@
   </div>
   <div class="rf-grid" id="m8-vis52"></div>
   <div class="prose">
-    <p>The mask is multiplication in the DFT domain, hence <strong>circular</strong> convolution in time with the discrete Hilbert kernel \(h_{\mathcal{H}}[n] = 2/(\pi n)\) for odd \(n\), 0 for even \(n\). That kernel decays only as \(1/n\), so an echo truncated by the record edge rings across the record, and energy at one end leaks into the other end.</p>
+    <p>The mask is multiplication in the DFT domain, hence circular convolution in time with the discrete Hilbert kernel \(h_{\mathcal{H}}[n] = 2/(\pi n)\) for odd \(n\), 0 for even \(n\). That kernel decays only as \(1/n\), so an echo truncated by the record edge rings across the record, and energy at one end leaks into the other end.</p>
   </div>
 
   <div class="demo">
@@ -105,27 +113,34 @@
     <div class="demo-body stack">
       <div class="stage">
         <canvas id="m8-hb-t" aria-label="RF signal, its Hilbert transform and envelope"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>x(t) RF</span><span><i style="background:var(--sig2)"></i>ℋ{x}(t)</span><span><i style="background:var(--ink)"></i>±|x<sub>a</sub>| envelope</span><span><i style="background:var(--sig4)"></i>true Gaussian envelope</span></div>
+        <div class="legend" id="m8-hb-leg1"><span data-s="x"><i style="background:var(--accent)"></i>x(t) RF</span><span data-s="h"><i class="dot" style="color:var(--sig2)"></i>ℋ{x}(t)</span><span data-s="env"><i class="dash" style="color:var(--ink)"></i>±|x<sub>a</sub>| envelope</span><span data-s="true"><i style="background:var(--sig4)"></i>true Gaussian envelope (thick)</span></div>
         <canvas id="m8-hb-if" aria-label="Instantaneous frequency"></canvas>
         <canvas id="m8-hb-sp" aria-label="Two-sided spectrum before and one-sided spectrum after"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>|X(f)| two-sided</span><span><i style="background:var(--sig2)"></i>|X<sub>a</sub>(f)| one-sided (×2)</span><span><i style="background:var(--sig3)"></i>centroid</span></div>
+        <div class="legend" id="m8-hb-leg2"><span data-s="X"><i class="dash" style="color:var(--accent)"></i>|X(f)| two-sided</span><span data-s="Xa"><i style="background:var(--sig2)"></i>|X<sub>a</sub>(f)| one-sided (×2)</span><span data-s="cen"><i class="dot" style="color:var(--sig3)"></i>centroid</span><span data-s="mfi"><i class="dash" style="color:var(--sig5)"></i>A²-weighted mean f<sub>i</sub> (middle panel)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m8-hb-type">Signal</label><select id="m8-hb-type"><option value="pulse">Gaussian-modulated pulse</option><option value="speckle">speckle RF line (160 scatterers)</option></select></div>
-        <div class="ctrl"><label for="m8-hb-f0">Center f<sub>0</sub> <output id="m8-hb-f0-out">5 MHz</output></label><input type="range" id="m8-hb-f0" min="1" max="10" step="0.1" value="5"></div>
-        <div class="ctrl"><label for="m8-hb-bw">−6 dB fractional BW <output id="m8-hb-bw-out">60 %</output></label><input type="range" id="m8-hb-bw" min="10" max="150" step="5" value="60"></div>
-        <div class="ctrl"><label for="m8-hb-noise">Noise σ <output id="m8-hb-noise-out">0 % of peak</output></label><input type="range" id="m8-hb-noise" min="0" max="30" step="1" value="0"></div>
-        <div class="ctrl"><label for="m8-hb-pos">Pulse position <output id="m8-hb-pos-out">12.8 µs</output></label><input type="range" id="m8-hb-pos" min="0" max="25.6" step="0.05" value="12.8"></div>
+        <div class="ctrl"><label for="m8-hb-type"><span>Signal type</span></label><select id="m8-hb-type"><option value="pulse">Gaussian-modulated pulse</option><option value="speckle">speckle RF line (160 scatterers)</option></select></div>
+        <div class="ctrl"><label for="m8-hb-f0"><span>Centre frequency f<sub>0</sub> (MHz)</span> <output id="m8-hb-f0-out">5 MHz</output></label><input type="range" id="m8-hb-f0" min="1" max="10" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m8-hb-bw"><span>Fractional bandwidth BW (−6 dB, %)</span> <output id="m8-hb-bw-out">60 %</output></label><input type="range" id="m8-hb-bw" min="10" max="150" step="5" value="60"></div>
+        <div class="ctrl"><label for="m8-hb-noise"><span>Noise standard deviation σ (% of peak)</span> <output id="m8-hb-noise-out">0 % of peak</output></label><input type="range" id="m8-hb-noise" min="0" max="30" step="1" value="0"></div>
+        <div class="ctrl"><label for="m8-hb-pos"><span>Pulse position (µs)<span class="hint">near either end the echo is truncated</span></span> <output id="m8-hb-pos-out">12.8 µs</output></label><input type="range" id="m8-hb-pos" min="0" max="25.6" step="0.05" value="12.8"></div>
         <div class="ctrl"><label class="check"><input type="checkbox" id="m8-hb-zoom" checked> zoom to echo</label><div class="btn-row"><button class="btn" id="m8-hb-reseed" type="button">Reseed</button></div></div>
         <div class="readout" id="m8-hb-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> (1) default settings: the envelope sits on the true Gaussian (error ≈ 0 %). (2) \(f_0 = 2\) MHz, BW = 120 %: the Gaussian lobe crosses 0 Hz, the analytic spectrum is clipped at DC, and the envelope error grows (Bedrosian). (3) Drag the pulse to 0.3 µs with zoom off: the truncated echo rings, and the ringing appears at the far end of the record (circularity). (4) Add noise: the instantaneous frequency becomes erratic wherever the envelope is small, while the power-weighted mean stays stable.</div>
+    <div class="demo-foot"><strong>Try:</strong> (1) default settings: the envelope sits on the true Gaussian (error ≈ 0 %). (2) \(f_0 = 2\) MHz, BW = 120 %: the Gaussian lobe crosses 0 Hz, the analytic spectrum is clipped at DC, and the envelope error grows (Bedrosian). (3) Drag the pulse to 0.3 µs with zoom off: the truncated echo rings, and the ringing appears at the far end of the record (circularity). (4) Add noise: the instantaneous frequency becomes erratic wherever the envelope is small, while the power-weighted mean stays stable.<span class="symnote">Symbols used here: x(t), the real RF signal; ℋ{x}, its Hilbert transform; x<sub>a</sub> = x + jℋ{x}, the analytic signal and |x<sub>a</sub>| its envelope; X(f), X<sub>a</sub>(f), their spectra; f<sub>0</sub>, the centre frequency in MHz; BW, the −6 dB fractional bandwidth in %; f<sub>i</sub>, the instantaneous frequency in MHz; f<sub>c</sub>, the mean (centroid) frequency; σ<sub>f</sub>, the Gaussian spectral width.</span></div>
   </div>
 
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Instantaneous frequency is undefined at envelope nulls. In speckle, the phase jumps by up to π where \(\lvert x_a\rvert\) passes near zero, so \(f_i\) spikes far outside the transducer band (even negative). Never average \(f_i\) unweighted; weight by \(A^2\) (which gives the spectral centroid) or use the lag-one autocorrelation estimator of Section 08.6. The same applies to phase-based displacement: phase is unreliable where the echo is weak.</p></div>
-  <div class="callout pitfall"><span class="label">Pitfall</span><p>Applying hilbert() to a beamformed frame along the wrong dimension (lateral instead of axial) or to a record that cuts an echo at the edge corrupts the first and last few hundred nanoseconds. Pad with zeros (at least the pulse length) or taper the record before the FFT, and discard the edges.</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Applying hilbert() to a beamformed frame along the wrong dimension (lateral instead of axial) or to a record that cuts an echo at the edge corrupts the first and last few hundred nanoseconds. Pad with zeros (at least the pulse length) or taper the record before the FFT, then discard the edges.</p></div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>The B-mode envelope is \(\lvert x_a\rvert\); ULM localizes bubbles on \(\lvert \mathrm{IQ}\rvert\), which is the same quantity (Section 08.3). The axial Hilbert transform is also the reason a beamformed RF image and a beamformed IQ image give the same envelope: both are the same analytic signal, one built after beamforming and one before (Section 08.5).</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>X<sub>a</sub>(f) = 2u(f)X(f) and x<sub>a</sub> = x + jℋ{x}, with H(f) = −j sgn f: −90° for every positive frequency.</li>
+    <li>A = |x<sub>a</sub>| is the envelope; the A²-weighted instantaneous frequency equals the spectral centroid of the one-sided spectrum.</li>
+    <li>Bedrosian: |x<sub>a</sub>| equals a(t) only if the envelope spectrum stays below f<sub>0</sub>; the spill is 4×10<sup>−5</sup> at 5 MHz, 60 %, but 2.5 % at 2 MHz, 120 %.</li>
+    <li>The FFT mask is circular convolution with the 2/(πn) kernel: pad or taper the record and discard its edges.</li>
+  </ul></div>
 
   <!-- ===================== 08.3 ===================== -->
   <div class="prose">
@@ -194,23 +209,30 @@
         </div>
         <p class="muted" id="m8-iq-cap" style="margin:0;font-size:0.9rem"></p>
         <canvas id="m8-iq-sp" aria-label="Four stacked spectra: RF, after mixing, after low-pass filter, after decimation"></canvas>
+        <div class="legend" id="m8-iq-leg1"><span data-s="rf"><i style="background:var(--accent)"></i>RF spectrum (stage 1)</span><span data-s="after"><i style="background:var(--sig2)"></i>spectrum after mixing / LPF / decimation</span><span data-s="lpf"><i class="dash" style="color:var(--sig3)"></i>LPF response</span><span data-s="img"><i class="dot" style="color:var(--sig5)"></i>copy and image positions</span><span data-s="alias"><i style="background:var(--muted)"></i>aliased replicas</span><span data-s="fs"><i class="dash" style="color:var(--sig4)"></i>±f<sub>s,IQ</sub>/2</span></div>
         <canvas id="m8-iq-t" aria-label="IQ envelope versus analytic-signal envelope in time"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>Hilbert envelope |x<sub>a</sub>| (reference)</span><span><i style="background:var(--sig2)"></i>2|IQ|: kept samples (dots) and band-limited reconstruction</span><span><i style="background:var(--sig3)"></i>2·Re{IQ} = I (shows residual rotation)</span></div>
+        <div class="legend" id="m8-iq-leg2"><span data-s="eh"><i style="background:var(--accent)"></i>Hilbert envelope |x<sub>a</sub>| (reference)</span><span data-s="er"><i class="dash" style="color:var(--sig2)"></i>2|IQ|, band-limited reconstruction</span><span data-s="ek"><i class="mark" style="background:var(--sig2)"></i>2|IQ|, kept samples</span><span data-s="i"><i style="background:var(--sig3)"></i>2·Re{IQ} = I (shows residual rotation)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m8-iq-f0">Center f<sub>0</sub> <output id="m8-iq-f0-out">5 MHz</output></label><input type="range" id="m8-iq-f0" min="2" max="10" step="0.1" value="5"></div>
-        <div class="ctrl"><label for="m8-iq-bw">−6 dB fractional BW <output id="m8-iq-bw-out">60 %</output></label><input type="range" id="m8-iq-bw" min="20" max="120" step="5" value="60"></div>
-        <div class="ctrl"><label for="m8-iq-dd">Mismatch f<sub>d</sub> − f<sub>0</sub> <output id="m8-iq-dd-out">0 MHz</output></label><input type="range" id="m8-iq-dd" min="-2" max="2" step="0.05" value="0"></div>
-        <div class="ctrl"><label for="m8-iq-fc">LPF cutoff f<sub>c</sub> <output id="m8-iq-fc-out">4 MHz</output></label><input type="range" id="m8-iq-fc" min="0.5" max="10" step="0.25" value="4"></div>
-        <div class="ctrl"><label for="m8-iq-m">Decimation M <output id="m8-iq-m-out">4</output></label><input type="range" id="m8-iq-m" min="1" max="16" step="1" value="4"></div>
+        <div class="ctrl"><label for="m8-iq-f0"><span>Centre frequency f<sub>0</sub> (MHz)</span> <output id="m8-iq-f0-out">5 MHz</output></label><input type="range" id="m8-iq-f0" min="2" max="10" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m8-iq-bw"><span>Fractional bandwidth (−6 dB, %)</span> <output id="m8-iq-bw-out">60 %</output></label><input type="range" id="m8-iq-bw" min="20" max="120" step="5" value="60"></div>
+        <div class="ctrl"><label for="m8-iq-dd"><span>Mixing mismatch f<sub>d</sub> − f<sub>0</sub> (MHz)<span class="hint">f<sub>d</sub> = demodulation frequency</span></span> <output id="m8-iq-dd-out">0 MHz</output></label><input type="range" id="m8-iq-dd" min="-2" max="2" step="0.05" value="0"></div>
+        <div class="ctrl"><label for="m8-iq-fc"><span>Low-pass cutoff f<sub>c</sub> (MHz)</span> <output id="m8-iq-fc-out">4 MHz</output></label><input type="range" id="m8-iq-fc" min="0.5" max="10" step="0.25" value="4"></div>
+        <div class="ctrl"><label for="m8-iq-m"><span>Decimation factor M<span class="hint">keeps every M-th sample: f<sub>s,IQ</sub> = 40 MHz/M</span></span> <output id="m8-iq-m-out">4</output></label><input type="range" id="m8-iq-m" min="1" max="16" step="1" value="4"></div>
         <div class="readout" id="m8-iq-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> (1) defaults: error &lt; 1 %. (2) Raise \(M\) to 8 (5 MHz): the LPF output extends beyond ±2.5 MHz, the replicas overlap, the alias flag trips and the reconstructed envelope ripples, yet the kept samples still match. (3) Set mismatch to +1 MHz: the band moves to −1 MHz, \(I\) oscillates at 1 MHz under a still-correct envelope; with \(f_c = 2\) MHz the shifted band is clipped and the envelope error rises. (4) Drop \(f_c\) to 1 MHz: the envelope is smoothed (axial resolution lost) with no aliasing at all.</div>
+    <div class="demo-foot"><strong>Try:</strong> (1) defaults: error &lt; 1 %. (2) Raise \(M\) to 8 (5 MHz): the LPF output extends beyond ±2.5 MHz, the replicas overlap, the alias flag trips and the reconstructed envelope ripples, yet the kept samples still match. (3) Set mismatch to +1 MHz: the band moves to −1 MHz, \(I\) oscillates at 1 MHz under a still-correct envelope; with \(f_c = 2\) MHz the shifted band is clipped and the envelope error rises. (4) Drop \(f_c\) to 1 MHz: the envelope is smoothed (axial resolution lost) with no aliasing at all.<span class="symnote">Symbols used here: f<sub>0</sub>, the echo centre frequency; f<sub>d</sub>, the demodulation (mixing) frequency, so f<sub>d</sub> − f<sub>0</sub> is the mismatch; f<sub>c</sub>, the low-pass filter (LPF) cutoff; M, the decimation factor; f<sub>s,IQ</sub> = 40 MHz/M, the complex IQ sample rate; B<sub>−6dB</sub>, B<sub>−20dB</sub>, the signal bandwidths; all frequencies in MHz.</span></div>
   </div>
 
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Aliasing at decimation does not change the samples you keep. It corrupts everything you compute <em>between</em> them: fractional-delay interpolation in the beamformer, upsampling for display, axial phase-based delay estimation and any spectral estimate. A decimated IQ set can look fine in a sample-by-sample comparison and still beamform badly.</p></div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>IQ exports and research pipelines usually fix \(f_d\) per acquisition, commonly at or near the nominal transmit frequency rather than the received center frequency (Section 08.7 covers concrete pipelines). Because attenuation lowers the received center frequency with depth (Section 08.6), real data always has some depth-dependent \(\Delta\). The envelope is unaffected; anything converting phase to time must account for it (Section 08.4).</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>IQ = 2·LPF{x e<sup>−j2πf<sub>d</sub>t</sup>} = x<sub>a</sub>e<sup>−j2πf<sub>d</sub>t</sup>: with an ideal LPF |IQ| = |x<sub>a</sub>| and the phase is the analytic phase minus 2πf<sub>d</sub>t.</li>
+    <li>f<sub>s,IQ</sub> &gt; B + 2|Δ| with B taken at −20 to −40 dB: 8 to 10 MHz complex for 5 MHz, 80 %, against ≥ 17 MHz real RF.</li>
+    <li>The LPF must pass |Δ| + B/2 and reject the image at −(f<sub>0</sub> + f<sub>d</sub>); decimation aliasing leaves the kept samples intact and corrupts everything computed between them.</li>
+  </ul></div>
 
   <!-- ===================== 08.4 ===================== -->
   <div class="prose">
@@ -243,25 +265,31 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m8-dl-cv" aria-label="Reference and delayed RF echoes, and phase-estimated delay versus true delay"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>reference echo</span><span><i style="background:var(--sig2)"></i>delayed echo</span><span><i style="background:var(--sig3)"></i>τ̂ from phase</span><span><i style="background:var(--muted)"></i>τ̂ = τ</span></div>
+        <div class="legend" id="m8-dl-leg"><span data-s="ref"><i style="background:var(--accent)"></i>reference echo</span><span data-s="del"><i class="dash" style="color:var(--sig2)"></i>delayed echo</span><span data-s="env"><i class="dot" style="color:var(--sig5)"></i>envelopes (thin)</span><span data-s="th"><i style="background:var(--sig3)"></i>τ̂ from phase</span><span data-s="id"><i class="dash" style="color:var(--muted)"></i>τ̂ = τ</span><span data-s="un"><i class="fill" style="background:var(--sig4)"></i>unambiguous range</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m8-dl-tau">True delay τ <output id="m8-dl-tau-out">20 ns</output></label><input type="range" id="m8-dl-tau" min="-300" max="300" step="1" value="20"></div>
-        <div class="ctrl"><label for="m8-dl-f0">Center f<sub>0</sub> <output id="m8-dl-f0-out">5 MHz</output></label><input type="range" id="m8-dl-f0" min="2" max="10" step="0.1" value="5"></div>
-        <div class="ctrl"><label for="m8-dl-bw">−6 dB fractional BW <output id="m8-dl-bw-out">60 %</output></label><input type="range" id="m8-dl-bw" min="20" max="100" step="5" value="60"></div>
-        <div class="ctrl"><label for="m8-dl-fe">Conversion freq. error <output id="m8-dl-fe-out">0 %</output></label><input type="range" id="m8-dl-fe" min="-20" max="20" step="1" value="0"></div>
+        <div class="ctrl"><label for="m8-dl-tau"><span>True delay τ (ns)</span> <output id="m8-dl-tau-out">20 ns</output></label><input type="range" id="m8-dl-tau" min="-300" max="300" step="1" value="20"></div>
+        <div class="ctrl"><label for="m8-dl-f0"><span>Centre frequency f<sub>0</sub> (MHz)</span> <output id="m8-dl-f0-out">5 MHz</output></label><input type="range" id="m8-dl-f0" min="2" max="10" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m8-dl-bw"><span>Fractional bandwidth (−6 dB, %)</span> <output id="m8-dl-bw-out">60 %</output></label><input type="range" id="m8-dl-bw" min="20" max="100" step="5" value="60"></div>
+        <div class="ctrl"><label for="m8-dl-fe"><span>Conversion frequency error (% of f<sub>0</sub>)<span class="hint">phase-to-delay uses a wrong f<sub>0</sub></span></span> <output id="m8-dl-fe-out">0 %</output></label><input type="range" id="m8-dl-fe" min="-20" max="20" step="1" value="0"></div>
         <div class="readout" id="m8-dl-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> sweep \(\tau\) through ±100 ns at 5 MHz and watch \(\hat{\tau}\) jump by \(1/f_0\) = 200 ns. Raise \(f_0\) to 10 MHz: twice the sensitivity, half the unambiguous range. Set the conversion error to +10 % (a downshifted echo converted with the nominal \(f_0\)): the slope of the sawtooth drops by 1/1.1.</div>
+    <div class="demo-foot"><strong>Try:</strong> sweep \(\tau\) through ±100 ns at 5 MHz and watch \(\hat{\tau}\) jump by \(1/f_0\) = 200 ns. Raise \(f_0\) to 10 MHz: twice the sensitivity, half the unambiguous range. Set the conversion error to +10 % (a downshifted echo converted with the nominal \(f_0\)): the slope of the sawtooth drops by 1/1.1.<span class="symnote">Symbols used here: τ, the true delay in ns; τ̂, the delay estimated from the phase; f<sub>0</sub>, the centre frequency in MHz; Δφ, the phase difference between the two IQ signals in rad; c = 1540 m/s, the sound speed, so cτ̂/2 is the axial displacement in µm; the conversion frequency error is in % of f<sub>0</sub>.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p><strong>Module 11</strong> treats phase-based delay estimators properly: the lag-one autocorrelator of Kasai et al. (slow time, Doppler), its 2-D extension by Loupas et al. (which estimates the mean RF frequency from the fast-time lag and so removes the conversion bias above), and their variance versus cross-correlation. <strong>Sound-speed target:</strong> computed ultrasound tomography in echo mode (CUTE, Jaeger et al.) measures the phase shift between IQ images beamformed from different steering angles; a wrong assumed \(c\) produces angle-dependent echo delays, so the phase map \(\Delta\varphi(x,z) = -2\pi f_0\, \Delta\tau(x,z)\) is inverted for \(c(x,z)\). <strong>Aberration target:</strong> a phase screen is a per-element delay error, estimated as the phase of the correlation between neighboring channels' IQ signals and wrapped at \(\lambda/2\) of path difference.</p></div>
 
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>τ̂ = −Δφ/(2πf<sub>0</sub>) and d̂ = cτ̂/2: 31.8 ns and 24.5 µm per radian at 5 MHz; 10 ns is 18°.</li>
+    <li>The phase wraps at |τ| = 1/(2f<sub>0</sub>) = 100 ns, i.e. |d| = λ/4 = 77 µm (Kasai Nyquist velocity 0.385 m/s at PRF 5 kHz).</li>
+    <li>Convert with the echo mean frequency: if it is 10 % below the value used, every delay comes out 10 % low.</li>
+  </ul></div>
+
   <!-- ===================== 08.5 ===================== -->
   <div class="prose">
     <h2><span class="sec">08.5</span>Beamforming on IQ</h2>
-    <p>You know DAS on RF: sample channel \(n\) at the focusing delay \(\tau_n(\mathbf{r})\) and sum. On IQ, the carrier has been removed, and that is what changes. Channel \(n\) receives an echo from a scatterer at round-trip time \(t_n\). Demodulated with \(f_d\):</p>
+    <p>You know DAS on RF: sample channel \(n\) at the focusing delay \(\tau_n(\mathbf{r})\) and sum. On IQ the carrier has been removed, and that is what changes. Channel \(n\) receives an echo from a scatterer at round-trip time \(t_n\). Demodulated with \(f_d\):</p>
     <div class="eqn" id="m8-eq14">
       <div class="eqn-body"><div class="eqn-math">\[ \mathrm{IQ}_n(t) = b(t - t_n)\; e^{-j2\pi f_d t_n}\; e^{\,j2\pi \Delta (t - t_n)} \]</div><span class="eqn-no">(08.14)</span></div>
       <dl class="where"><dt>\(t_n\)</dt><dd>round-trip time of the echo on channel \(n\), s</dd><dt>\(\tau_n(\mathbf{r})\)</dt><dd>focusing delay of channel \(n\) for image point \(\mathbf{r}\), s</dd><dt>\(\mathrm{IQ}_n(t)\)</dt><dd>baseband IQ signal of channel \(n\)</dd><dt>\(b(t)\)</dt><dd>complex envelope, <span class="eqref">(08.8)</span></dd><dt>\(f_d,\ \Delta\)</dt><dd>demodulation frequency and offset, <span class="eqref">(08.10)</span></dd><dt>\(t\)</dt><dd>time, µs</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(n\)</dt><dd>channel (element) index</dd></dl>
@@ -287,22 +315,28 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m8-bf-cv" aria-label="Point spread function image and lateral profiles for three beamformers"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>(a) RF DAS + Hilbert</span><span><i style="background:var(--sig4)"></i>(b) IQ: interp + rotation</span><span><i style="background:var(--sig2)"></i>(c) IQ: interp only</span></div>
+        <div class="legend" id="m8-bf-leg"><span data-s="a"><i style="background:var(--accent)"></i>(a) RF DAS + Hilbert</span><span data-s="b"><i class="dash" style="color:var(--sig4)"></i>(b) IQ: interp + rotation</span><span data-s="c"><i class="dot" style="color:var(--sig2)"></i>(c) IQ: interp only</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m8-bf-img">Image shows</label><select id="m8-bf-img"><option value="0">(a) RF DAS reference</option><option value="1">(b) IQ + phase rotation</option><option value="2" selected>(c) IQ, no rotation</option></select></div>
-        <div class="ctrl"><label for="m8-bf-z">Target depth z <output id="m8-bf-z-out">20 mm</output></label><input type="range" id="m8-bf-z" min="5" max="60" step="1" value="20"></div>
-        <div class="ctrl"><label for="m8-bf-n">Active elements N</label><select id="m8-bf-n"><option>16</option><option selected>32</option><option>64</option><option>128</option></select></div>
-        <div class="ctrl"><label for="m8-bf-f0">Center f<sub>0</sub> = f<sub>d</sub> <output id="m8-bf-f0-out">5 MHz</output></label><input type="range" id="m8-bf-f0" min="3" max="7.5" step="0.1" value="5"></div>
-        <div class="ctrl"><label for="m8-bf-fs">IQ sample rate</label><select id="m8-bf-fs"><option value="20">20 MHz (M = 2)</option><option value="10" selected>10 MHz (M = 4)</option><option value="5">5 MHz (M = 8)</option></select></div>
+        <div class="ctrl"><label for="m8-bf-img"><span>Image shown</span></label><select id="m8-bf-img"><option value="0">(a) RF DAS reference</option><option value="1">(b) IQ + phase rotation</option><option value="2" selected>(c) IQ, no rotation</option></select></div>
+        <div class="ctrl"><label for="m8-bf-z"><span>Target depth z (mm)</span> <output id="m8-bf-z-out">20 mm</output></label><input type="range" id="m8-bf-z" min="5" max="60" step="1" value="20"></div>
+        <div class="ctrl"><label for="m8-bf-n"><span>Active elements N<span class="hint">0.3 mm pitch, so aperture D = 0.3 N mm</span></span></label><select id="m8-bf-n"><option>16</option><option selected>32</option><option>64</option><option>128</option></select></div>
+        <div class="ctrl"><label for="m8-bf-f0"><span>Centre frequency f<sub>0</sub> = f<sub>d</sub> (MHz)</span> <output id="m8-bf-f0-out">5 MHz</output></label><input type="range" id="m8-bf-f0" min="3" max="7.5" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m8-bf-fs"><span>IQ sample rate f<sub>s,IQ</sub> (MHz)<span class="hint">M = decimation factor from 40 MHz</span></span></label><select id="m8-bf-fs"><option value="20">20 MHz (M = 2)</option><option value="10" selected>10 MHz (M = 4)</option><option value="5">5 MHz (M = 8)</option></select></div>
         <div class="readout" id="m8-bf-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> compare (b) with (a): identical PSF to within interpolation error. Then (c): the main lobe breaks up, and the peak loss tracks the Fresnel prediction as you change depth (non-monotonic). Drop the IQ rate to 5 MHz: (b) degrades slightly because linear interpolation of a 3 MHz-wide baseband at 5 MHz is coarse. Plane-wave transmit at 0°, 0.3 mm pitch, \(c\) = 1540 m/s, no apodization.</div>
+    <div class="demo-foot"><strong>Try:</strong> compare (b) with (a): identical PSF to within interpolation error. Then (c): the main lobe breaks up, and the peak loss tracks the Fresnel prediction as you change depth (non-monotonic). Drop the IQ rate to 5 MHz: (b) degrades slightly because linear interpolation of a 3 MHz-wide baseband at 5 MHz is coarse. Plane-wave transmit at 0°, 0.3 mm pitch, \(c\) = 1540 m/s, no apodization.<span class="symnote">Symbols used here: z, the target depth in mm; N, the number of active elements; f<sub>0</sub> = f<sub>d</sub>, the centre and demodulation frequency in MHz; M, the decimation factor; τ<sub>n</sub>, the focusing delay of element n; x<sub>max</sub>, the half-aperture; λ, the wavelength; ψ = πx<sub>max</sub>²/(λz), the Fresnel phase in rad; D, the aperture width in mm; F#, the f-number z/D.</span></div>
   </div>
 
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Rotating by \(e^{j2\pi f_0\tau}\) with the nominal transmit \(f_0\) when the data were demodulated at a different \(f_d\) leaves a residual \(e^{j2\pi(f_d - f_0)\tau_n}\) across the aperture. Use the demodulation frequency stored with the data. The same rule applies to any IQ re-delay: synthetic aperture, retrospective transmit focusing, coherent compounding of IQ frames with different steering delays, and motion compensation.</p></div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>Most ULM, functional ultrasound and ultrafast Doppler pipelines beamform IQ, because the compounded IQ frames feed the SVD clutter filter (Module 06) and the slow-time phase is the Doppler signal. A missing or wrong rotation shows up as a depth-dependent loss of SNR and a broadened PSF, which directly worsens localization precision in ULM. In the differentiable-beamforming sound-speed methods, the phase term \(e^{j2\pi f_d \tau_n(c)}\) is the part of the forward model most sensitive to \(c\): a delay error of \(1/(2\pi f_d)\) is one radian of incoherence.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>y<sub>IQ</sub> = Σw<sub>n</sub>IQ<sub>n</sub>(τ<sub>n</sub>)e<sup>+j2πf<sub>d</sub>τ<sub>n</sub></sup> is exact, not narrowband: only the interpolator and the LPF cost (0.4 dB with linear interpolation at 10 MHz, 0.1 dB at 20 MHz).</li>
+    <li>Without the rotation the aperture adds a quadratic phase ψ = πx<sub>max</sub>²/(λz): 32 elements at 20 mm lose 13.4 dB (Fresnel estimate 12.5 dB), oscillating with depth.</li>
+    <li>Rotate with the f<sub>d</sub> stored with the data, not the nominal transmit f<sub>0</sub>.</li>
+  </ul></div>
 
   <!-- ===================== 08.6 ===================== -->
   <div class="prose">
@@ -338,23 +372,29 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m8-bm-cv" aria-label="Log-compressed speckle image, center frequency versus depth and envelope histogram"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>f̂<sub>c</sub>(z) from R(1), 64 lines</span><span><i style="background:var(--sig2)"></i>theory f<sub>0</sub> − 2α<sub>0</sub>σ<sub>f</sub>²z</span><span><i style="background:var(--sig4)"></i>Rayleigh pdf</span></div>
+        <div class="legend" id="m8-bm-leg"><span data-s="fc"><i style="background:var(--accent)"></i>f̂<sub>c</sub>(z) from R(1), 64 lines</span><span data-s="th"><i class="dash" style="color:var(--sig2)"></i>theory f<sub>0</sub> − 2α<sub>0</sub>σ<sub>f</sub>²z</span><span data-s="hist"><i class="fill" style="background:var(--accent)"></i>envelope histogram</span><span data-s="ray"><i style="background:var(--sig4)"></i>Rayleigh pdf</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m8-bm-dr">Dynamic range <output id="m8-bm-dr-out">50 dB</output></label><input type="range" id="m8-bm-dr" min="20" max="80" step="1" value="50"></div>
-        <div class="ctrl"><label for="m8-bm-a">Attenuation α<sub>0</sub> <output id="m8-bm-a-out">0.5 dB/cm/MHz</output></label><input type="range" id="m8-bm-a" min="0" max="1" step="0.05" value="0.5"></div>
-        <div class="ctrl"><label for="m8-bm-f0">Center f<sub>0</sub> <output id="m8-bm-f0-out">5 MHz</output></label><input type="range" id="m8-bm-f0" min="3" max="7.5" step="0.1" value="5"></div>
-        <div class="ctrl"><label for="m8-bm-bw">−6 dB fractional BW <output id="m8-bm-bw-out">60 %</output></label><input type="range" id="m8-bm-bw" min="40" max="100" step="5" value="60"></div>
+        <div class="ctrl"><label for="m8-bm-dr"><span>Display dynamic range DR (dB)</span> <output id="m8-bm-dr-out">50 dB</output></label><input type="range" id="m8-bm-dr" min="20" max="80" step="1" value="50"></div>
+        <div class="ctrl"><label for="m8-bm-a"><span>Attenuation slope α<sub>0</sub> (dB/cm/MHz)</span> <output id="m8-bm-a-out">0.5 dB/cm/MHz</output></label><input type="range" id="m8-bm-a" min="0" max="1" step="0.05" value="0.5"></div>
+        <div class="ctrl"><label for="m8-bm-f0"><span>Centre frequency f<sub>0</sub> (MHz)</span> <output id="m8-bm-f0-out">5 MHz</output></label><input type="range" id="m8-bm-f0" min="3" max="7.5" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m8-bm-bw"><span>Fractional bandwidth (−6 dB, %)<span class="hint">recomputes when you release the slider</span></span> <output id="m8-bm-bw-out">60 %</output></label><input type="range" id="m8-bm-bw" min="40" max="100" step="5" value="60"></div>
         <label class="check"><input type="checkbox" id="m8-bm-tgc" checked> TGC (undo amplitude loss)</label>
         <div class="btn-row"><button class="btn" id="m8-bm-reseed" type="button">Reseed</button></div>
         <div class="readout" id="m8-bm-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> turn TGC off: at 0.5 dB/cm/MHz and 5 MHz the round trip to 5 cm costs 25 dB, and the deep image falls below a 40 dB window. Double \(\alpha_0\) or the bandwidth and watch the slope of \(\hat{f}_c(z)\) follow \(-2\alpha_0\sigma_f^2\). The histogram stays Rayleigh (mean/std ≈ 1.91) regardless of \(\alpha_0\).</div>
+    <div class="demo-foot"><strong>Try:</strong> turn TGC off: at 0.5 dB/cm/MHz and 5 MHz the round trip to 5 cm costs 25 dB, and the deep image falls below a 40 dB window. Double \(\alpha_0\) or the bandwidth and watch the slope of \(\hat{f}_c(z)\) follow \(-2\alpha_0\sigma_f^2\). The histogram stays Rayleigh (mean/std ≈ 1.91) regardless of \(\alpha_0\).<span class="symnote">Symbols used here: α<sub>0</sub>, the attenuation slope in dB/cm/MHz (shown in Np/cm/MHz in the readout); f<sub>0</sub>, the centre frequency in MHz; σ<sub>f</sub>, the Gaussian spectral width in MHz; z, the depth in cm; f̂<sub>c</sub>(z), the centre frequency estimated from the IQ lag-one autocorrelation R(1); DR, the display dynamic range in dB; TGC, time-gain compensation.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>This is the spectral-shift branch of QUS attenuation imaging. In practice the measured shift is contaminated by diffraction (the focal gain is frequency dependent), by the depth-dependent \(f_d/f_0\) mismatch of the IQ export, and by non-Gaussian transducer spectra; reference-phantom methods divide these out. The same downshift biases phase-to-delay conversion (Section 08.4) and the \(f_d\) used for IQ beamforming phase, so deep phase-based sound-speed and displacement estimates should use a locally estimated \(\hat{f}_c\).</p></div>
   <div class="callout intuit"><span class="label">Intuition</span><p>Attenuation is a low-pass filter whose slope grows with depth. Multiply a Gaussian by a decaying exponential and you get a Gaussian shifted toward the decaying side; nothing else changes. That is why one number (the slope) summarizes the effect, and why it scales with \(\sigma_f^2\).</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>B-mode = 20 log<sub>10</sub>|IQ| (amplitude) in a 40 to 60 dB window; Rayleigh speckle has mean/std 1.91 and a 5.57 dB std after log compression.</li>
+    <li>f<sub>c</sub>(z) = f<sub>0</sub> − 2α<sub>0</sub>σ<sub>f</sub>²z = f<sub>0</sub> − 4α<sub>0</sub>σ<sub>p</sub>²z, with α<sub>0</sub> in Np/(cm·MHz) (dB ÷ 8.686), z one-way, width unchanged.</li>
+    <li>5 MHz, 60 %, 0.5 dB/cm/MHz: −0.187 MHz/cm, −0.75 MHz at 4 cm; estimate f̂<sub>c</sub> = f<sub>d</sub> + (f<sub>s,IQ</sub>/2π) arg R(1).</li>
+  </ul></div>
 
   <!-- ===================== 08.7 ===================== -->
   <div class="prose">
@@ -374,7 +414,7 @@
       <span class="note">Pairing \(x[n]\) with \(x[n+1]\) gives I and Q taken \(1/(4f_d)\) apart (50 ns at 5 MHz), half the \(2f_d\) output period. For a narrowband echo the envelope barely changes in 50 ns. For a 5 MHz, 60 % Gaussian echo the pair-wise IQ has 18 % rms complex error averaged over echo positions (up to 28 %). Averaging the two odd neighbors (the 3-tap LPF [¼ ½ ¼] after mixing, which also nulls the image at \(f_s/2 = 2f_d\)) centers Q on the I sample and cuts the error to 4 % (up to 7 %).</span>
     </div>
     <p><strong>IQ rate versus bandwidth.</strong> Two reals per complex sample means IQ at \(f_s/4\) carries the same number of reals as RF at \(f_s/2\). The saving is relative to oversampled RF, not to RF at its Nyquist rate. The real advantage of channel IQ is that the carrier phase is restored analytically by \(e^{j2\pi f_d \tau}\), so the interpolator only has to follow the slow envelope. RF DAS must interpolate the carrier itself: with nearest-sample delays the phase error is uniform in \(\pm\pi f_0/f_s\) and the coherent gain is \(\sin(a)/a\) with \(a = \pi f_0/f_s\), −0.22 dB at 40 MHz and 5 MHz, plus quantization sidelobes. Hence RF beamformers oversample or interpolate.</p>
-    <p><strong>Choosing \(f_d\) when the spectrum downshifts.</strong> Attenuation moves the echo center from \(f_0\) toward \(f_0 - 2\alpha_0\sigma_f^2 z\) <span class="eqref">(08.19)</span>, 0.75 MHz at 4 cm in liver at 5 MHz, 60 %. A fixed \(f_d = f_0\) then leaves a depth-growing \(\Delta\), which must fit under the LPF and inside \(f_{s,\mathrm{IQ}} &gt; B + 2\lvert\Delta\rvert\) <span class="eqref">(08.11)</span>. Options: put \(f_d\) at the center frequency expected at mid-depth of interest; or let \(f_d\) track depth. If \(f_d\) varies, the demodulator phase is \(\theta_d(t) = 2\pi\int_0^t f_d(t')\,dt'\), and the IQ beamformer must rotate by \(e^{j\theta_d(\tau)}\), which equals \(e^{j2\pi f_d \tau}\) only for constant \(f_d\). In every case: rotate with what the demodulator removed, convert phase to delay with the local echo frequency \(\hat{f}_c\).</p>
+    <p><strong>Choosing \(f_d\) when the spectrum downshifts.</strong> Attenuation moves the echo center from \(f_0\) toward \(f_0 - 2\alpha_0\sigma_f^2 z\) <span class="eqref">(08.19)</span>, 0.75 MHz at 4 cm in liver at 5 MHz, 60 %. A fixed \(f_d = f_0\) then leaves a depth-growing \(\Delta\), which must fit under the LPF and inside \(f_{s,\mathrm{IQ}} &gt; B + 2\lvert\Delta\rvert\) <span class="eqref">(08.11)</span>. Either put \(f_d\) at the center frequency expected at mid-depth of interest, or let \(f_d\) track depth. If \(f_d\) varies, the demodulator phase is \(\theta_d(t) = 2\pi\int_0^t f_d(t')\,dt'\), and the IQ beamformer must rotate by \(e^{j\theta_d(\tau)}\), which equals \(e^{j2\pi f_d \tau}\) only for constant \(f_d\). In every case, rotate with what the demodulator removed and convert phase to delay with the local echo frequency \(\hat{f}_c\).</p>
     <p><strong>RF or IQ beamforming?</strong> Beamform RF when you need the full real spectrum after beamforming (harmonic or spectral QUS processing that wants the band untouched by a demodulation LPF) or when the hardware already does it. Beamform IQ when data rate and GPU memory dominate (ultrafast plane-wave, ULM, functional ultrasound), when the outputs feed slow-time phase processing, or when you will re-beamform the same channel data many times (sound-speed sweeps, autofocus): the rotation makes re-delaying exact at a low sample rate.</p>
   </div>
 
@@ -383,20 +423,26 @@
     <div class="demo-body stack">
       <div class="stage">
         <canvas id="m8-qs-cv" aria-label="RF echo sampled at four times the center frequency, with I-carrying and Q-carrying samples marked, and the IQ envelope"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>RF x(t)</span><span><i style="background:var(--sig4)"></i>even samples (±I)</span><span><i style="background:var(--sig2)"></i>odd samples (∓Q)</span><span><i style="background:var(--ink)"></i>true envelope</span><span><i style="background:var(--sig3)"></i>|IQ| at even samples / IQ estimate</span><span><i style="background:var(--bad)"></i>error vector</span></div>
+        <div class="legend" id="m8-qs-leg"><span data-s="rf"><i style="background:var(--accent)"></i>RF x(t)</span><span data-s="even"><i class="stem" style="background:var(--sig4)"></i>even samples (±I)</span><span data-s="odd"><i class="stem" style="background:var(--sig2)"></i>odd samples (∓Q)</span><span data-s="env"><i class="dash" style="color:var(--ink)"></i>true envelope</span><span data-s="est"><i class="mark" style="background:var(--sig3)"></i>|IQ| at even samples / IQ estimate</span><span data-s="tiq"><i class="mark" style="background:var(--ink)"></i>true IQ</span><span data-s="err"><i style="background:var(--bad)"></i>error vector</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m8-qs-tau">Echo delay τ <output id="m8-qs-tau-out">13 ns</output></label><input type="range" id="m8-qs-tau" min="-100" max="100" step="1" value="13"></div>
-        <div class="ctrl"><label for="m8-qs-bw">−6 dB fractional BW <output id="m8-qs-bw-out">60 %</output></label><input type="range" id="m8-qs-bw" min="20" max="100" step="5" value="60"></div>
-        <div class="ctrl"><label for="m8-qs-mode">IQ formation</label><select id="m8-qs-mode"><option value="pair">pairs: I = x[n], Q from x[n+1]</option><option value="lpf" selected>mix + LPF [¼ ½ ¼] (Q centered)</option></select></div>
+        <div class="ctrl"><label for="m8-qs-tau"><span>Echo delay τ (ns)</span> <output id="m8-qs-tau-out">13 ns</output></label><input type="range" id="m8-qs-tau" min="-100" max="100" step="1" value="13"></div>
+        <div class="ctrl"><label for="m8-qs-bw"><span>Fractional bandwidth (−6 dB, %)</span> <output id="m8-qs-bw-out">60 %</output></label><input type="range" id="m8-qs-bw" min="20" max="100" step="5" value="60"></div>
+        <div class="ctrl"><label for="m8-qs-mode"><span>IQ formation method</span></label><select id="m8-qs-mode"><option value="pair">pairs: I = x[n], Q from x[n+1]</option><option value="lpf" selected>mix + LPF [¼ ½ ¼] (Q centered)</option></select></div>
         <div class="readout" id="m8-qs-read"></div>
       </div>
     </div>
     <div class="tbl-wrap" id="m8-qs-tbl"></div>
-    <div class="demo-foot"><strong>Try:</strong> \(f_0\) = 5 MHz, \(f_s\) = 20 MHz, Gaussian echo centered at 0.8 µs + \(\tau\). At \(\tau = 0\) every odd sample is zero (\(Q = 0\)) and both methods are exact. At \(\tau\) = 13 ns (23.4° of phase) compare the two formations: pairs give 11 % rms complex error at 60 % bandwidth, the centered LPF 2.7 %. Raise the bandwidth to 100 %: both errors grow, which is why broadband systems interpolate properly instead. The phase at the envelope peak converts to \(\hat{\tau} = -\angle\mathrm{IQ}/(2\pi f_0)\) and to axial displacement \(c\hat{\tau}/2\).</div>
+    <div class="demo-foot"><strong>Try:</strong> \(f_0\) = 5 MHz, \(f_s\) = 20 MHz, Gaussian echo centered at 0.8 µs + \(\tau\). At \(\tau = 0\) every odd sample is zero (\(Q = 0\)) and both methods are exact. At \(\tau\) = 13 ns (23.4° of phase) compare the two formations: pairs give 11 % rms complex error at 60 % bandwidth, the centered LPF 2.7 %. Raise the bandwidth to 100 %: both errors grow, which is why broadband systems interpolate properly instead. The phase at the envelope peak converts to \(\hat{\tau} = -\angle\mathrm{IQ}/(2\pi f_0)\) and to axial displacement \(c\hat{\tau}/2\).<span class="symnote">Symbols used here: f<sub>0</sub> = 5 MHz, the centre frequency; f<sub>s</sub> = 20 MHz, the sample rate; x[n], the n-th RF sample; I and Q, the in-phase and quadrature parts; τ, the echo delay in ns; τ̂, its estimate from the IQ phase ∠IQ; c = 1540 m/s, so cτ̂/2 is the displacement in µm; LPF, low-pass filter.</span></div>
   </div>
 
   <div class="callout pitfall"><span class="label">Pitfall</span><p>IQ data from different systems differ in sign convention (\(e^{-j2\pi f_d t}\) versus \(e^{+j2\pi f_d t}\), i.e. \(I - jQ\) versus \(I + jQ\)), in the factor 2 after the LPF, and in whether \(f_d\) is stored at all. Before any phase-based processing, check with one synthetic echo: delay it by a known \(\tau\) and confirm the measured phase is \(-2\pi f_c \tau\) with your sign, and that the Doppler of a target moving toward the probe comes out positive.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Channel IQ restores the carrier phase analytically, so the interpolator only follows the envelope; nearest-sample RF DAS loses sin(a)/a with a = πf<sub>0</sub>/f<sub>s</sub> (−0.22 dB at 40 MHz for 5 MHz).</li>
+    <li>At f<sub>s</sub> = 4f<sub>d</sub> the samples cycle I, −Q, −I, +Q; pairing neighbours leaves a 1/(4f<sub>d</sub>) offset (18 % rms error at 60 %), the [¼ ½ ¼] filter cuts it to 4 %.</li>
+    <li>Rotate with what the demodulator removed (f<sub>d</sub>, or its integral if it tracks depth); convert phase to delay with the local f̂<sub>c</sub>.</li>
+  </ul></div>
 
   <!-- ===================== 08.8 Visual summary ===================== -->
   <div class="prose"><h2><span class="sec">08.8</span>Visual summary</h2>
@@ -426,28 +472,16 @@
       <div class="limits">Gaussian spectra are not band-limited: pick \(B\) at the level your interpolator and estimators tolerate (−20 to −40 dB), not at −6 dB.</div>
     </div>
     <div class="rule">
-      <div class="say">IQ beamforming is envelope interpolation plus phase rotation \(e^{+j2\pi f_d\tau}\). Forget the rotation and the point target loses 6 to 14 dB (32 elements) and smears.</div>
-      <div class="keynum"><span>\(\psi = \pi x_{\max}^2/(\lambda z)\)</span><span>32 el, 20 mm: −13.4 dB</span></div>
-      <div class="why"><p>After demodulation, channel \(n\) sampled at its focusing delay carries \(b(0)\,e^{-j2\pi f_d \tau_n}\). Without rotation the aperture sum is a Fresnel integral \(\bigl\lvert\int_0^1 e^{-j\psi s^2} ds\bigr\rvert\) <span class="eqref">(08.16)</span>. 32 elements, 0.3 mm pitch, 5 MHz, \(z\) = 20 mm: \(\psi\) = 11.0 rad, Fresnel −12.5 dB, exact sum −13.4 dB, simulated −13.3 dB. The loss oscillates with depth (−14 to −6.4 dB from 10 to 60 mm) and the PSF smears laterally over millimetres.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Discrete 32-element phase sum with exact straight-ray delays.</span><canvas id="m8-rf-2" aria-label="Coherent loss without phase rotation versus depth for 32 elements"></canvas></div></div>
-      <div class="limits">The Fresnel form assumes \(x \ll z\); the exact discrete sum always applies. Large \(\psi\): \(\lvert G\rvert \approx \tfrac{1}{2}\sqrt{\pi/\psi}\).</div>
+      <div class="say">IQ DAS is exact, not narrowband, as long as you shift the envelope and rotate by \(e^{+j2\pi f_d\tau}\); forget the rotation and a 32-element point target loses 6 to 14 dB and smears.</div>
+      <div class="keynum"><span>\(\psi = \pi x_{\max}^2/(\lambda z)\)</span><span>no rotation, 32 el, 20 mm: −13.4 dB</span><span>rotated, linear interp.: 10 MHz −0.4 dB, 20 MHz −0.1 dB</span></div>
+      <div class="why"><p>After demodulation, channel \(n\) sampled at its focusing delay carries \(b(0)\,e^{-j2\pi f_d \tau_n}\), and \(\mathrm{IQ}_n(\tau)\,e^{j2\pi f_d \tau} = x_{a,n}(\tau)\) holds identically for every frequency in the band, so rotated IQ DAS equals the analytic signal of RF DAS. Residual errors come only from interpolating the baseband envelope and from LPF droop: in m08_iq_beamforming.m (49-tap LPF, \(f_c\) = 4 MHz) the peak is 0.4 dB below RF DAS with linear interpolation at 10 MHz and 0.1 dB below at 20 MHz. Without the rotation the aperture sum is a Fresnel integral \(\bigl\lvert\int_0^1 e^{-j\psi s^2} ds\bigr\rvert\) <span class="eqref">(08.16)</span>: 32 elements, 0.3 mm pitch, 5 MHz, \(z\) = 20 mm give \(\psi\) = 11.0 rad, Fresnel −12.5 dB, exact sum −13.4 dB, simulated −13.3 dB. The loss oscillates with depth (−14 to −6.4 dB from 10 to 60 mm) and the PSF smears laterally over millimetres.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Discrete 32-element phase sum with exact straight-ray delays.</span><canvas id="m8-rf-2" aria-label="Coherent loss without phase rotation versus depth for 32 elements"></canvas></div><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m8-rf-3" aria-label="Linear interpolation of the baseband envelope at 10 and 20 MHz"></canvas></div></div>
+      <div class="limits">The Fresnel form assumes \(x \ll z\); the exact discrete sum always applies, and for large \(\psi\), \(\lvert G\rvert \approx \tfrac{1}{2}\sqrt{\pi/\psi}\). Phase-shift-only beamforming (rotation without envelope shift) is the narrowband approximation and fails when the aperture delay spread nears the pulse length.</div>
     </div>
     <div class="rule">
-      <div class="say">IQ DAS is exact, not narrowband: only the interpolator and the LPF cost you.</div>
-      <div class="keynum"><span>10 MHz linear: −0.4 dB</span><span>20 MHz: −0.1 dB</span></div>
-      <div class="why"><p>\(\mathrm{IQ}_n(\tau)\,e^{j2\pi f_d \tau} = x_{a,n}(\tau)\) holds identically for every frequency in the band, so rotated IQ DAS equals the analytic signal of RF DAS. Residual errors come from interpolating the baseband envelope and from LPF droop. In m08_iq_beamforming.m (49-tap LPF, \(f_c\) = 4 MHz) the peak is 0.4 dB below RF DAS with linear interpolation at 10 MHz and 0.1 dB below at 20 MHz.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m8-rf-3" aria-label="Linear interpolation of the baseband envelope at 10 and 20 MHz"></canvas></div></div>
-      <div class="limits">Phase-shift-only beamforming (rotation without envelope shift) is the narrowband approximation and fails when the aperture delay spread nears the pulse length.</div>
-    </div>
-    <div class="rule">
-      <div class="say">One radian at 5 MHz is 32 ns, or 24.5 µm of axial displacement.</div>
-      <div class="keynum"><span>\(1/(2\pi f_0)\) = 31.8 ns</span><span>\(\lambda/(4\pi)\) = 24.5 µm</span><span>10 ns = 18°</span></div>
-      <div class="why"><p>A delay \(\tau\) rotates IQ by \(-2\pi f_0\tau\). Round trip: \(\tau = 2d/c\), so \(d\) per radian \(= c/(4\pi f_0) = \lambda/(4\pi)\) = 0.308 mm/12.57 = 24.5 µm. One degree is 0.43 µm. This is why phase tracking resolves sub-micrometre motion while the envelope shift of 10 ns (0.4 samples at 40 MHz) is invisible in the magnitude.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m8-rf-4" aria-label="IQ phase versus axial displacement at 5 MHz"></canvas></div></div>
-      <div class="limits">Uses the echo's mean frequency; scale by \(f_0/\hat{f}_c\) when the spectrum is downshifted.</div>
-    </div>
-    <div class="rule">
-      <div class="say">Phase wraps at a quarter wavelength of displacement.</div>
-      <div class="keynum"><span>\(\lvert d\rvert &lt; \lambda/4\) = 77 µm</span><span>\(\lvert\tau\rvert &lt; 1/(2f_0)\) = 100 ns</span><span>\(v_N = c\cdot\mathrm{PRF}/(4f_0)\)</span></div>
-      <div class="why"><p>arg returns \((-\pi, \pi]\), so \(\lvert 2\pi f_0\tau\rvert &lt; \pi\), i.e. \(\lvert\tau\rvert &lt; 1/(2f_0)\), and round trip halves it again: \(\lvert d\rvert &lt; \lambda/4\). Between frames at PRF 5 kHz that is 77 µm × 5000 s⁻¹ = 0.385 m/s, the Kasai Nyquist velocity at 5 MHz.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m8-rf-5" aria-label="Phase-estimated displacement wrapping at a quarter wavelength"></canvas></div></div>
-      <div class="limits">Unwrapping in space or time, or envelope-based coarse delay first, extends the range; the wrap itself never moves.</div>
+      <div class="say">At 5 MHz one radian of IQ phase is 32 ns, or 24.5 µm of axial displacement, so phase resolves sub-micrometre motion, but it wraps at a quarter wavelength (77 µm).</div>
+      <div class="keynum"><span>\(1/(2\pi f_0)\) = 31.8 ns</span><span>\(\lambda/(4\pi)\) = 24.5 µm; 10 ns = 18°</span><span>\(\lvert d\rvert &lt; \lambda/4\) = 77 µm, \(\lvert\tau\rvert &lt; 1/(2f_0)\) = 100 ns</span><span>\(v_N = c\cdot\mathrm{PRF}/(4f_0)\)</span></div>
+      <div class="why"><p>A delay \(\tau\) rotates IQ by \(-2\pi f_0\tau\). Round trip, \(\tau = 2d/c\), so \(d\) per radian \(= c/(4\pi f_0) = \lambda/(4\pi)\) = 0.308 mm/12.57 = 24.5 µm, and one degree is 0.43 µm. That is why phase tracking sees motion while the envelope shift of 10 ns (0.4 samples at 40 MHz) is invisible in the magnitude. arg returns \((-\pi, \pi]\), so \(\lvert 2\pi f_0\tau\rvert &lt; \pi\), i.e. \(\lvert\tau\rvert &lt; 1/(2f_0)\), and the round trip halves it again: \(\lvert d\rvert &lt; \lambda/4\). Between frames at PRF 5 kHz that is 77 µm × 5000 s⁻¹ = 0.385 m/s, the Kasai Nyquist velocity at 5 MHz.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m8-rf-4" aria-label="IQ phase versus axial displacement at 5 MHz"></canvas></div><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m8-rf-5" aria-label="Phase-estimated displacement wrapping at a quarter wavelength"></canvas></div></div>
+      <div class="limits">Uses the echo\'s mean frequency; scale by \(f_0/\hat{f}_c\) when the spectrum is downshifted. Unwrapping in space or time, or an envelope-based coarse delay first, extends the range; the wrap itself never moves.</div>
     </div>
     <div class="rule">
       <div class="say">Rotate with \(f_d\), convert with \(\hat{f}_c\).</div>
@@ -468,7 +502,7 @@
       <div class="limits">Some papers quote \(\alpha\) in dB/cm/MHz and absorb 8.686 into the formula; read the definitions, not the symbols.</div>
     </div>
     <div class="rule">
-      <div class="say">B-mode is \(20\log_{10}\) of the envelope, shown over 40 to 60 dB.</div>
+      <div class="say">Log compression turns multiplicative speckle into a fixed 5.57 dB jitter whatever the echogenicity, which is why speckle looks equally grainy at every grey level of a 40 to 60 dB display.</div>
       <div class="keynum"><span>20 log (amplitude)</span><span>DR 40–60 dB</span><span>speckle σ = 5.57 dB</span></div>
       <div class="why"><p>The envelope is an amplitude, so dB = \(20\log_{10}\); \(10\log_{10}\) applies to \(\lvert\mathrm{IQ}\rvert^2\). Echoes span 60 to 80 dB, so the display window clips. Log compression turns multiplicative Rayleigh speckle into an additive term of fixed std 5.57 dB, independent of echogenicity; mean/std of the linear envelope is 1.91.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m8-rf-9" aria-label="Probability density of log-compressed Rayleigh speckle for two echo levels"></canvas></div></div>
       <div class="limits">Not fully developed speckle (few scatterers, specular structure) breaks the Rayleigh numbers; a display LUT after log compression changes apparent contrast.</div>
@@ -504,7 +538,7 @@
       <div class="limits">The threshold depends on the error you tolerate: the −20 dB half-width (2.7 MHz here) sets the onset, the −40 dB width sets the floor.</div>
     </div>
     <div class="rule">
-      <div class="say">The phase of the lag-one autocorrelation is the mean frequency.</div>
+      <div class="say">The phase of the lag-one autocorrelation is the mean frequency: in fast time it gives the local centre frequency, in slow time it is Kasai Doppler.</div>
       <div class="keynum"><span>\(\hat{f} = f_d + (f_{s,\mathrm{IQ}}/2\pi)\arg R(1)\)</span><span>unbiased for Gaussian PSD</span></div>
       <div class="why"><p>\(R(1) = \sum \mathrm{IQ}^*[k]\,\mathrm{IQ}[k+1]\) estimates \(\int P(f)\, e^{j2\pi f/f_{s,\mathrm{IQ}}}\, df\). For a Gaussian PSD that is a real Gaussian times \(e^{j2\pi(f_c - f_d)/f_{s,\mathrm{IQ}}}\), so the argument is exact. In fast time it gives the local \(\hat{f}_c\) (spectral-shift QUS, phase-to-delay conversion); in slow time it is Kasai's Doppler estimator.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m8-rf-15" aria-label="Power spectrum offset from the demodulation frequency and the lag-one autocorrelation phasor"></canvas></div></div>
       <div class="limits">Wraps when \(\lvert f_c - f_d\rvert &gt; f_{s,\mathrm{IQ}}/2\); skewed spectra bias it slightly; average \(R(1)\) over lines before taking the argument.</div>
@@ -727,56 +761,57 @@
     $('m8-ph-f-out').textContent = fmt(f, 1) + ' MHz'; $('m8-ph-phi-out').textContent = phiD + '°'; $('m8-ph-t-out').textContent = Math.round(t * 1000) + ' ns';
     const W = cv.clientWidth || cv.parentElement.clientWidth || 600, wide = W >= 560;
     let H, P, T, S;
-    if (wide) { H = 316; const s = H - 64; P = { x: 46, y: 16, w: s, h: s }; const x0 = P.x + s + 66; T = { x: x0, y: 16, w: W - x0 - 12, h: 136 }; S = { x: x0, y: 16 + 136 + 50, w: W - x0 - 12, h: 66 }; }
-    else { const s = Math.min(W - 66, 250); P = { x: Math.round((W - s) / 2) + 14, y: 16, w: s, h: s }; let y = 16 + s + 52; T = { x: 50, y, w: W - 62, h: 120 }; y += 120 + 52; S = { x: 50, y, w: W - 62, h: 62 }; H = y + 62 + 42; }
+    if (wide) { H = 330; const s = H - 78; P = { x: 58, y: 16, w: s, h: s }; const x0 = P.x + s + 66; T = { x: x0, y: 16, w: W - x0 - 12, h: 136 }; S = { x: x0, y: 16 + 136 + 50, w: W - x0 - 12, h: 80 }; }
+    else { const s = Math.min(W - 66, 250); P = { x: Math.round((W - s) / 2) + 20, y: 16, w: s, h: s }; let y = 16 + s + 52; T = { x: 50, y, w: W - 62, h: 120 }; y += 120 + 52; S = { x: 50, y, w: W - 62, h: 80 }; H = y + 80 + 42; }
     const { ctx } = Lab.canvas(cv, H);
     const th = TAU * f * t + phi, co = Math.cos(th), si = Math.sin(th);
     // complex plane
-    const ax = Lab.axes(ctx, P, [-1.25, 1.25], [-1.25, 1.25], { xlabel: 'Re', ylabel: 'Im', xticks: [-1, -0.5, 0, 0.5, 1], yticks: [-1, -0.5, 0, 0.5, 1], title: 'complex plane' });
+    const on = k => Lab.on('m8-ph-leg', k);
+    const ax = Lab.axes(ctx, P, [-1.25, 1.25], [-1.25, 1.25], { xlabel: 'Re (normalized)', ylabel: 'Im (normalized)', xticks: [-1, -0.5, 0, 0.5, 1], yticks: [-1, -0.5, 0, 0.5, 1], title: 'complex plane' });
     const ox = ax.X(0), oy = ax.Y(0), R = ax.X(1) - ox;
     ctx.save(); ctx.strokeStyle = c.muted; ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(ox, oy, R, 0, TAU); ctx.stroke();
     if (mode === 'cos') { ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(ox, oy, R / 2, 0, TAU); ctx.stroke(); }
     ctx.restore();
     if (mode === 'cos') {
       const p1 = [0.5 * co, 0.5 * si], p2 = [0.5 * co, -0.5 * si];
-      ctx.save(); ctx.globalAlpha = 0.3; Lab.arrow(ctx, ox, oy, ax.X(p2[0]), ax.Y(p2[1]), c.sig2, 2); ctx.restore();
-      Lab.arrow(ctx, ox, oy, ax.X(p1[0]), ax.Y(p1[1]), c.accent, 2.4);
-      Lab.arrow(ctx, ax.X(p1[0]), ax.Y(p1[1]), ax.X(p1[0] + p2[0]), ax.Y(p1[1] + p2[1]), c.sig2, 2.4);
-      ctx.save(); ctx.strokeStyle = c.fg; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ax.X(co), oy); ctx.stroke(); ctx.restore();
-      Lab.dots(ctx, ax, [co], [0], c.fg, 4.5);
+      if (on('nf')) { ctx.save(); ctx.globalAlpha = 0.3; Lab.arrow(ctx, ox, oy, ax.X(p2[0]), ax.Y(p2[1]), c.sig2, 2); ctx.restore(); }
+      if (on('pf')) Lab.arrow(ctx, ox, oy, ax.X(p1[0]), ax.Y(p1[1]), c.accent, 2.4);
+      if (on('nf')) Lab.arrow(ctx, ax.X(p1[0]), ax.Y(p1[1]), ax.X(p1[0] + p2[0]), ax.Y(p1[1] + p2[1]), c.sig2, 2.4);
+      if (on('sum')) { ctx.save(); ctx.strokeStyle = c.fg; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ax.X(co), oy); ctx.stroke(); ctx.restore();
+      Lab.dots(ctx, ax, [co], [0], c.fg, 4.5); }
       lbl(ctx, c, '+f', ax.X(p1[0] * 0.55) + 4, ax.Y(p1[1] * 0.55) - 4, c.accent);
     } else {
       const s2 = mode === 'ana' ? si : -si;
-      ctx.save(); ctx.setLineDash([3, 3]); ctx.strokeStyle = c.accent; ctx.beginPath(); ctx.moveTo(ax.X(co), ax.Y(s2)); ctx.lineTo(ax.X(co), oy); ctx.stroke();
-      ctx.strokeStyle = c.sig2; ctx.beginPath(); ctx.moveTo(ax.X(co), ax.Y(s2)); ctx.lineTo(ox, ax.Y(s2)); ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.setLineDash([3, 3]); ctx.strokeStyle = c.accent; if (on('re')) { ctx.beginPath(); ctx.moveTo(ax.X(co), ax.Y(s2)); ctx.lineTo(ax.X(co), oy); ctx.stroke(); }
+      ctx.strokeStyle = c.sig2; if (on('nf')) { ctx.beginPath(); ctx.moveTo(ax.X(co), ax.Y(s2)); ctx.lineTo(ox, ax.Y(s2)); ctx.stroke(); } ctx.restore();
       Lab.arrow(ctx, ox, oy, ax.X(co), ax.Y(s2), c.accent, 2.6);
       Lab.dots(ctx, ax, [co, 0], [0, s2], c.fg, 3);
       // rotation direction cue
       ctx.save(); ctx.strokeStyle = c.muted; ctx.lineWidth = 1.2; const a0 = -th, dir = mode === 'ana' ? -1 : 1; ctx.beginPath(); ctx.arc(ox, oy, R * 1.12, mode === 'ana' ? a0 : -a0, (mode === 'ana' ? a0 : -a0) + dir * 0.6, dir < 0); ctx.stroke(); ctx.restore();
     }
     // time trace
-    const at = Lab.axes(ctx, T, [0, 1], [-1.25, 1.25], { nx: T.w < 320 ? 3 : 5, xlabel: 'time t (µs)', ylabel: 'amplitude', yticks: [-1, 0, 1], title: mode === 'cos' ? 'cos = ½e^{+jθ} + ½e^{−jθ}: imaginary parts cancel' : 'Re (I) and Im (Q) of the phasor' });
+    const at = Lab.axes(ctx, T, [0, 1], [-1.25, 1.25], { nx: T.w < 320 ? 3 : 5, xlabel: 'time t (µs)', ylabel: 'amplitude (normalized)', yticks: [-1, 0, 1], title: mode === 'cos' ? 'cos = ½e^{+jθ} + ½e^{−jθ}: imaginary parts cancel' : 'Re (I) and Im (Q) of the phasor' });
     const xs = [], yc = [], ys1 = [], ys2 = [];
     for (let i = 0; i <= 300; i++) { const tt = i / 300, a = TAU * f * tt + phi; xs.push(tt); yc.push(Math.cos(a)); ys1.push(Math.sin(a)); ys2.push(-Math.sin(a)); }
     at.clip();
     if (mode === 'cos') {
-      Lab.line(ctx, at, xs, ys1.map(v => v / 2), c.accent, 1.4, [4, 3]);
-      Lab.line(ctx, at, xs, ys2.map(v => v / 2), c.sig2, 1.4, [4, 3]);
-      Lab.line(ctx, at, xs, yc, c.fg, 2);
+      if (on('pf')) Lab.line(ctx, at, xs, ys1.map(v => v / 2), c.accent, 1.4, [4, 3]);
+      if (on('nf')) Lab.line(ctx, at, xs, ys2.map(v => v / 2), c.sig2, 1.6, [2, 3]);
+      if (on('sum')) Lab.line(ctx, at, xs, yc, c.fg, 2);
     } else {
-      Lab.line(ctx, at, xs, yc, c.accent, 2);
-      Lab.line(ctx, at, xs, mode === 'ana' ? ys1 : ys2, c.sig2, 2);
+      if (on('re')) Lab.line(ctx, at, xs, yc, c.accent, 2);
+      if (on('nf')) Lab.line(ctx, at, xs, mode === 'ana' ? ys1 : ys2, c.sig2, 2, [2, 3]);
     }
     vline(ctx, at, t, c.muted, [2, 2]);
     if (mode === 'cos') Lab.dots(ctx, at, [t], [co], c.fg, 4); else Lab.dots(ctx, at, [t, t], [co, mode === 'ana' ? si : -si], c.fg, 3.5);
     at.unclip();
     // spectrum
-    const as = Lab.axes(ctx, S, [-6, 6], [0, 1.2], { xlabel: 'frequency (MHz)', yticks: [0, 0.5, 1], title: 'two-sided line spectrum (amplitude)' });
+    const as = Lab.axes(ctx, S, [-6, 6], [0, 1.2], { xlabel: 'frequency (MHz)', ylabel: 'amplitude', yticks: [0, 0.5, 1], title: 'two-sided line spectrum (normalized amplitude)' });
     const stem = (fx, a, col) => { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(as.X(fx), as.Y(0)); ctx.lineTo(as.X(fx), as.Y(a)); ctx.stroke(); ctx.restore(); Lab.dots(ctx, as, [fx], [a], col, 4); lbl(ctx, c, fmt(a, 1), as.X(fx) + 6, as.Y(a) + 4, col); };
-    if (mode === 'cos') { stem(f, 0.5, c.accent); stem(-f, 0.5, c.sig2); }
+    if (!on('lines')) {} else if (mode === 'cos') { stem(f, 0.5, c.accent); stem(-f, 0.5, c.sig2); }
     else if (mode === 'ana') stem(f, 1, c.accent); else stem(-f, 1, c.sig2);
     const thD = ((th * 180 / Math.PI) % 360 + 540) % 360 - 180;
-    $('m8-ph-read').innerHTML = 'θ = 2πft+φ = <b>' + fmt(thD, 0) + '°</b><br>' + (mode === 'cos'
+    $('m8-ph-read').innerHTML = 'total phase θ = 2πft+φ = <b>' + fmt(thD, 0) + '°</b><br>' + (mode === 'cos'
       ? '½e^{jθ} = ' + fmt(co / 2, 3) + (si >= 0 ? ' + j' : ' − j') + fmt(Math.abs(si / 2), 3) + '<br>½e^{−jθ} = ' + fmt(co / 2, 3) + (si >= 0 ? ' − j' : ' + j') + fmt(Math.abs(si / 2), 3) + '<br>sum = <b>' + fmt(co, 3) + '</b> + j0'
       : 'Re = I = <b>' + fmt(co, 3) + '</b><br>Im = Q = <b>' + fmt(mode === 'ana' ? si : -si, 3) + '</b><br>|z| = 1, arg z = ' + (mode === 'ana' ? '' : '−') + 'θ');
     $('m8-ph-read').innerHTML += '<br>period = ' + fmt(1000 / f, 0) + ' ns';
@@ -794,7 +829,7 @@
     if (ph.play) { phStop(); return; }
     ph.play = true; ph.tv = +$('m8-ph-t').value; ph.last = 0; $('m8-ph-play').textContent = 'Pause'; ph.raf = requestAnimationFrame(phTick);
   });
-  ['m8-ph-mode', 'm8-ph-f', 'm8-ph-phi'].forEach(id => $(id).addEventListener('input', drawPh));
+  ['m8-ph-mode', 'm8-ph-f', 'm8-ph-phi'].forEach(id => $(id).addEventListener('input', drawPh)); Lab.legendToggle('m8-ph-leg', drawPh);
   $('m8-ph-t').addEventListener('input', () => { ph.tv = +$('m8-ph-t').value; drawPh(); });
 
   /* ======================= Demo 08.2: Hilbert ======================= */
@@ -837,12 +872,12 @@
     const ymax = Math.max(1.15, emax * 1.1);
     // time plot
     let g = Lab.canvas($('m8-hb-t'), 230), ctx = g.ctx;
-    let ax = Lab.axes(ctx, { x: 52, y: 20, w: g.w - 64, h: g.h - 62 }, [w0, w1], [-ymax, ymax], { xlabel: 'time (µs)', ylabel: 'amplitude', title: 'x, ℋ{x} and envelope |x_a|' });
-    ax.clip();
-    Lab.line(ctx, ax, ts, sl(x), c.accent, 1.2);
-    Lab.line(ctx, ax, ts, sl(A.im), c.sig2, 1.1);
-    if (tr) { Lab.line(ctx, ax, ts, sl(tr), c.sig4, 3); Lab.line(ctx, ax, ts, sl(tr).map(v => -v), c.sig4, 3); }
-    Lab.line(ctx, ax, ts, sl(env), c.fg, 1.6); Lab.line(ctx, ax, ts, sl(env).map(v => -v), c.fg, 1.6);
+    let ax = Lab.axes(ctx, { x: 52, y: 20, w: g.w - 64, h: g.h - 62 }, [w0, w1], [-ymax, ymax], { xlabel: 'time (µs)', ylabel: 'amplitude (a.u.)', title: 'x, ℋ{x} and envelope |x_a|' });
+    ax.clip(); const H1 = k => Lab.on('m8-hb-leg1', k), H2 = k => Lab.on('m8-hb-leg2', k);
+    if (H1('x')) Lab.line(ctx, ax, ts, sl(x), c.accent, 1.2);
+    if (H1('h')) Lab.line(ctx, ax, ts, sl(A.im), c.sig2, 1.3, [2, 2]);
+    if (tr && H1('true')) { Lab.line(ctx, ax, ts, sl(tr), c.sig4, 3); Lab.line(ctx, ax, ts, sl(tr).map(v => -v), c.sig4, 3); }
+    if (H1('env')) { Lab.line(ctx, ax, ts, sl(env), c.fg, 1.6, [6, 4]); Lab.line(ctx, ax, ts, sl(env).map(v => -v), c.fg, 1.6, [6, 4]); }
     ax.unclip();
     // instantaneous frequency
     g = Lab.canvas($('m8-hb-if'), 160); ctx = g.ctx;
@@ -851,19 +886,19 @@
     ax.clip();
     const fis = sl(fi), es = sl(env); const fiM = fis.map((v, i) => es[i] > 0.1 * emax ? v : NaN);
     vline(ctx, ax, 0, c.rule);
-    ctx.save(); ctx.strokeStyle = c.sig3; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(ax.box.x, ax.Y(fIF)); ctx.lineTo(ax.box.x + ax.box.w, ax.Y(fIF)); ctx.stroke(); ctx.restore();
+    if (H2('mfi')) { ctx.save(); ctx.strokeStyle = c.sig5; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(ax.box.x, ax.Y(fIF)); ctx.lineTo(ax.box.x + ax.box.w, ax.Y(fIF)); ctx.stroke(); ctx.restore(); }
     seg(ctx, ax, ts, fiM, c.accent, 1.6);
     ax.unclip();
-    lbl(ctx, c, 'A²-weighted mean ' + fmt(fIF, 2) + ' MHz', ax.box.x + ax.box.w - 4, ax.Y(fIF) - 4, c.sig3, 'right');
+    if (H2('mfi')) lbl(ctx, c, 'A²-weighted mean ' + fmt(fIF, 2) + ' MHz', ax.box.x + ax.box.w - 4, ax.Y(fIF) - 4, c.sig5, 'right');
     // spectrum
     g = Lab.canvas($('m8-hb-sp'), 190); ctx = g.ctx;
-    ax = Lab.axes(ctx, { x: 52, y: 20, w: g.w - 64, h: g.h - 62 }, [-20, 20], [0, 1.08], { xlabel: 'frequency (MHz)', ylabel: '|X| (norm.)', yticks: [0, 0.5, 1], title: 'spectrum: two-sided |X| and one-sided |X_a| = 2u(f)|X|' });
+    ax = Lab.axes(ctx, { x: 52, y: 20, w: g.w - 64, h: g.h - 62 }, [-20, 20], [0, 1.08], { xlabel: 'frequency (MHz)', ylabel: '|X| (normalized)', yticks: [0, 0.5, 1], title: 'spectrum: two-sided |X| and one-sided |X_a| = 2u(f)|X|' });
     const fx = [], m1 = [], m2 = []; let mref = 0;
     for (let k = 0; k < N; k++) { const kk = (k + N / 2) % N, fk = (kk < N / 2 ? kk : kk - N) * FS / N, mag = Math.hypot(A.Xre[kk], A.Xim[kk]); fx.push(fk); m1.push(mag); const h = kk === 0 || kk === N / 2 ? 1 : kk < N / 2 ? 2 : 0; m2.push(mag * h); if (mag * h > mref) mref = mag * h; }
     ax.clip();
-    Lab.line(ctx, ax, fx, m2.map(v => v / mref), c.sig2, 2.2);
-    Lab.line(ctx, ax, fx, m1.map(v => v / mref), c.accent, 1.5);
-    vline(ctx, ax, fC, c.sig3, [5, 4], 1.4); vline(ctx, ax, 0, c.muted);
+    if (H2('Xa')) Lab.line(ctx, ax, fx, m2.map(v => v / mref), c.sig2, 2.2);
+    if (H2('X')) Lab.line(ctx, ax, fx, m1.map(v => v / mref), c.accent, 1.5, [6, 4]);
+    if (H2('cen')) vline(ctx, ax, fC, c.sig3, [2, 3], 1.6); vline(ctx, ax, 0, c.muted);
     ax.unclip();
     // readout
     let errTxt = 'n/a (speckle)';
@@ -879,6 +914,7 @@
     $('m8-hb-read').dataset.fc = fC; $('m8-hb-read').dataset.fif = fIF;
   }
   ['m8-hb-type', 'm8-hb-f0', 'm8-hb-bw', 'm8-hb-noise', 'm8-hb-pos', 'm8-hb-zoom'].forEach(id => $(id).addEventListener('input', drawHB));
+  Lab.legendToggle('m8-hb-leg1', drawHB); Lab.legendToggle('m8-hb-leg2', drawHB);
   $('m8-hb-reseed').addEventListener('click', () => { hb.seed = (hb.seed * 1103515245 + 12345) % 2147483647 || 3; drawHB(); });
 
   /* ======================= Demo 08.3: IQ pipeline ======================= */
@@ -957,31 +993,32 @@
       const box = { x: bx.x, y: top + i * (ph + gap), w: bx.w, h: ph };
       const active = iq.stage === 0 || iq.stage === i + 1;
       ctx.save(); ctx.globalAlpha = active ? 1 : 0.3;
-      const ax = Lab.axes(ctx, box, [-20, 20], [-75, 5], { yticks: [-60, -30, 0], noXLabels: i < 3, xlabel: i === 3 ? 'frequency (MHz)' : '', ylabel: i === 1 ? 'dB re RF peak' : '' });
+      const ax = Lab.axes(ctx, box, [-20, 20], [-75, 5], { yticks: [-60, -30, 0], noXLabels: i < 3, xlabel: i === 3 ? 'frequency (MHz)' : '', ylabel: '' });
       lbl(ctx, c, pn.t, box.x, box.y - 6, i === 3 && aliased ? c.bad : (active && iq.stage ? c.accent : c.fg), 'left', 'alphabetic', '600 12px ' + c.display);
-      ax.clip();
+      ax.clip(); const Q1 = k => Lab.on('m8-iq-leg1', k);
       if (i === 3) {
-        ctx.save(); ctx.fillStyle = c.sig4; ctx.globalAlpha = 0.08 * (active ? 1 : 0.3); ctx.fillRect(ax.X(-fso / 2), box.y, ax.X(fso / 2) - ax.X(-fso / 2), box.h); ctx.restore();
-        seg(ctx, ax, fg, d4.map((v, j) => prin[j] ? NaN : v), c.muted, 1.2);
-        seg(ctx, ax, fg, d4.map((v, j) => prin[j] ? v : NaN), c.sig2, 1.8);
-        vline(ctx, ax, -fso / 2, c.sig4, [4, 3], 1.2); vline(ctx, ax, fso / 2, c.sig4, [4, 3], 1.2);
+        if (Q1('fs')) { ctx.save(); ctx.fillStyle = c.sig4; ctx.globalAlpha = 0.08 * (active ? 1 : 0.3); ctx.fillRect(ax.X(-fso / 2), box.y, ax.X(fso / 2) - ax.X(-fso / 2), box.h); ctx.restore(); }
+        if (Q1('alias')) seg(ctx, ax, fg, d4.map((v, j) => prin[j] ? NaN : v), c.muted, 1.2);
+        if (Q1('after')) seg(ctx, ax, fg, d4.map((v, j) => prin[j] ? v : NaN), c.sig2, 1.8);
+        if (Q1('fs')) { vline(ctx, ax, -fso / 2, c.sig4, [4, 3], 1.2); vline(ctx, ax, fso / 2, c.sig4, [4, 3], 1.2); }
       } else {
-        Lab.line(ctx, ax, pn.S.f, pn.S.d, i === 0 ? c.accent : c.sig2, 1.6);
-        if (i === 1) { const fb = R.f0 - R.fd, fim = (((-(R.f0 + R.fd) + 20) % 40) + 40) % 40 - 20; vline(ctx, ax, fb, c.sig3, [3, 3]); vline(ctx, ax, fim, c.sig3, [3, 3]); }
-        if (i === 2) {
+        if (Q1(i === 0 ? 'rf' : 'after')) Lab.line(ctx, ax, pn.S.f, pn.S.d, i === 0 ? c.accent : c.sig2, 1.6);
+        if (i === 1 && Q1('img')) { const fb = R.f0 - R.fd, fim = (((-(R.f0 + R.fd) + 20) % 40) + 40) % 40 - 20; vline(ctx, ax, fb, c.sig5, [2, 3], 1.4); vline(ctx, ax, fim, c.sig5, [2, 3], 1.4); }
+        if (i === 2 && Q1('lpf')) {
           const hf = [], hd = []; const Mh = (iq.L - 1) / 2;
           for (let j = 0; j <= 400; j++) { const f = -20 + 40 * j / 400; let s = 0; for (let m = 0; m < iq.L; m++) s += R.h[m] * Math.cos(TAU * f * (m - Mh) / FS); hf.push(f); hd.push(Math.max(floor, 20 * Math.log10(Math.abs(s) + 1e-30))); }
           Lab.line(ctx, ax, hf, hd, c.sig3, 1.3, [5, 3]);
         }
       }
       ax.unclip();
-      if (i === 1 && W >= 400) { const fb = R.f0 - R.fd, fim = (((-(R.f0 + R.fd) + 20) % 40) + 40) % 40 - 20; lbl(ctx, c, 'copy', ax.X(fb) + 4, box.y + 12, c.sig3); lbl(ctx, c, 'image', ax.X(fim) + 4, box.y + 12, c.sig3); }
+      if (i === 1 && W >= 400 && Q1('img')) { const fb = R.f0 - R.fd, fim = (((-(R.f0 + R.fd) + 20) % 40) + 40) % 40 - 20; lbl(ctx, c, 'copy', ax.X(fb) + 4, box.y + 12, c.sig5); lbl(ctx, c, 'image', ax.X(fim) + 4, box.y + 12, c.sig5); }
       ctx.restore();
     });
+    ctx.save(); ctx.translate(14, top + (4 * ph + 3 * gap) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = c.fg; ctx.font = '11px ' + c.mono; ctx.fillText('level (dB re RF peak), all four panels', 0, 0); ctx.restore();
     // time panel
     const g = Lab.canvas($('m8-iq-t'), 230), tc = g.ctx;
     const hw = Math.max(1, 5 * R.st), w0 = R.t0 - hw, w1 = R.t0 + hw;
-    const ax = Lab.axes(tc, { x: 52, y: 20, w: g.w - 64, h: g.h - 62 }, [w0, w1], [-1.15, 1.15], { xlabel: 'time (µs)', ylabel: 'amplitude', title: 'envelope: Hilbert reference vs decimated IQ' });
+    const ax = Lab.axes(tc, { x: 52, y: 20, w: g.w - 64, h: g.h - 62 }, [w0, w1], [-1.15, 1.15], { xlabel: 'time (µs)', ylabel: 'amplitude (a.u.)', title: 'envelope: Hilbert reference vs decimated IQ' });
     const n0 = Math.floor(w0 * FS), n1 = Math.ceil(w1 * FS), ts = [], eH = [], eR = [];
     for (let n = Math.max(0, n0); n <= Math.min(N - 1, n1); n++) { ts.push(n / FS); eH.push(R.envH[n]); eR.push(R.envR[n]); }
     ax.clip();
@@ -990,10 +1027,11 @@
     for (let k = 0; k < R.K; k++) { const tk = k * R.M / FS; if (tk < w0 - 0.5 || tk > w1 + 0.5) continue; ti.push(tk); iv.push(2 * R.zr[k]); ed.push(2 * Math.hypot(R.zr[k], R.zi[k])); }
     // I from reconstruction (smooth)
     const iRec = []; { const Rr = R; for (let n = Math.max(0, n0); n <= Math.min(N - 1, n1); n++) { const tt = n / Rr.M; let ar = 0; if (n % Rr.M === 0) ar = Rr.zr[n / Rr.M]; else { const s = Math.sin(Math.PI * tt) / Math.PI; for (let k = 0; k < Rr.K; k++) ar += (k & 1 ? -s : s) / (tt - k) * Rr.zr[k]; } iRec.push(2 * ar); } }
-    Lab.line(tc, ax, ts, iRec, c.sig3, 1.1);
-    Lab.line(tc, ax, ts, eH, c.accent, 3);
-    Lab.line(tc, ax, ts, eR, c.sig2, 1.6);
-    Lab.dots(tc, ax, ti, ed, c.sig2, 3.2);
+    const Q2 = k => Lab.on('m8-iq-leg2', k);
+    if (Q2('i')) Lab.line(tc, ax, ts, iRec, c.sig3, 1.1);
+    if (Q2('eh')) Lab.line(tc, ax, ts, eH, c.accent, 3);
+    if (Q2('er')) Lab.line(tc, ax, ts, eR, c.sig2, 1.6, [6, 4]);
+    if (Q2('ek')) Lab.dots(tc, ax, ti, ed, c.sig2, 3.2);
     ax.unclip();
     const B6 = R.bw * R.f0, B20 = 2 * sigF(R.f0, R.bw) * Math.sqrt(2 * Math.log(10));
     const need = B20 + 2 * Math.abs(R.dd);
@@ -1008,7 +1046,7 @@
       'envelope err, reconstructed = <b>' + fmt(R.errRec, 2) + ' %</b>';
     const ro = $('m8-iq-read').dataset; ro.errs = R.errSmp; ro.errr = R.errRec; ro.alias = aliasDB;
   }
-  ['m8-iq-f0', 'm8-iq-bw', 'm8-iq-dd', 'm8-iq-fc', 'm8-iq-m'].forEach(id => $(id).addEventListener('input', drawIQ));
+  ['m8-iq-f0', 'm8-iq-bw', 'm8-iq-dd', 'm8-iq-fc', 'm8-iq-m'].forEach(id => $(id).addEventListener('input', drawIQ)); Lab.legendToggle('m8-iq-leg1', drawIQ, ['img']); Lab.legendToggle('m8-iq-leg2', drawIQ);
   [0, 1, 2, 3, 4].forEach(i => $('m8-iq-s' + i).addEventListener('click', () => { iq.stage = i; [0, 1, 2, 3, 4].forEach(j => $('m8-iq-s' + j).setAttribute('aria-pressed', j === i ? 'true' : 'false')); drawIQ(); }));
 
   /* ======================= Demo 08.4: phase ↔ delay ======================= */
@@ -1031,10 +1069,10 @@
     else { H = 20 + 180 + 54 + 200 + 42; B1 = { x: 52, y: 20, w: W - 64, h: 180 }; B2 = { x: 52, y: 20 + 180 + 54, w: W - 64, h: 200 }; }
     const { ctx } = Lab.canvas(cv, H);
     const hw = Math.max(0.5, 3 * st) + Math.abs(tau);
-    let ax = Lab.axes(ctx, B1, [-hw * 1000, hw * 1000], [-1.15, 1.15], { xlabel: 'time re reference (ns)', ylabel: 'amplitude', title: 'RF echoes', nx: 4 });
+    let ax = Lab.axes(ctx, B1, [-hw * 1000, hw * 1000], [-1.15, 1.15], { xlabel: 'time re reference (ns)', ylabel: 'amplitude (a.u.)', title: 'RF echoes', nx: 4 });
     const ts = [], y1 = [], y2 = [], e1 = [], e2 = [];
     for (let n = Math.floor((t0 - hw) * FS); n <= Math.ceil((t0 + hw) * FS); n++) { ts.push((n / FS - t0) * 1000); y1.push(x1[n]); y2.push(x2[n]); e1.push(Math.hypot(A1.re[n], A1.im[n])); e2.push(Math.hypot(A2.re[n], A2.im[n])); }
-    ax.clip(); Lab.line(ctx, ax, ts, e1, c.accent, 1, [3, 3]); Lab.line(ctx, ax, ts, e2, c.sig2, 1, [3, 3]); Lab.line(ctx, ax, ts, y1, c.accent, 1.6); Lab.line(ctx, ax, ts, y2, c.sig2, 1.6); ax.unclip();
+    const D = k => Lab.on('m8-dl-leg', k); ax.clip(); if (D('env')) { Lab.line(ctx, ax, ts, e1, c.sig5, 1, [2, 3]); Lab.line(ctx, ax, ts, e2, c.sig5, 1, [2, 3]); } if (D('ref')) Lab.line(ctx, ax, ts, y1, c.accent, 1.6); if (D('del')) Lab.line(ctx, ax, ts, y2, c.sig2, 1.6, [6, 4]); ax.unclip();
     // sawtooth
     const tr = 300, tx = [], ty = [];
     for (let i = 0; i <= 1200; i++) { const tt = -tr + 2 * tr * i / 1200; const p = wrapPi(-TAU * f0 * tt / 1000); tx.push(tt); ty.push(-p / (TAU * fconv) * 1000); }
@@ -1042,9 +1080,9 @@
     ax = Lab.axes(ctx, B2, [-tr, tr], [-tr, tr], { xlabel: 'true delay τ (ns)', ylabel: 'τ̂ from phase (ns)', title: 'phase estimate wraps at ±1/(2f₀)', nx: 4, ny: 4 });
     ax.clip();
     const wl = 1000 / (2 * f0);
-    ctx.save(); ctx.fillStyle = c.sig4; ctx.globalAlpha = 0.08; ctx.fillRect(ax.X(-wl), ax.box.y, ax.X(wl) - ax.X(-wl), ax.box.h); ctx.restore();
-    Lab.line(ctx, ax, [-tr, tr], [-tr, tr], c.muted, 1, [4, 4]);
-    seg(ctx, ax, tx, tyN, c.sig3, 2);
+    if (D('un')) { ctx.save(); ctx.fillStyle = c.sig4; ctx.globalAlpha = 0.08; ctx.fillRect(ax.X(-wl), ax.box.y, ax.X(wl) - ax.X(-wl), ax.box.h); ctx.restore(); }
+    if (D('id')) Lab.line(ctx, ax, [-tr, tr], [-tr, tr], c.muted, 1, [4, 4]);
+    if (D('th')) seg(ctx, ax, tx, tyN, c.sig3, 2);
     Lab.dots(ctx, ax, [tau * 1000], [tauHat * 1000], c.fg, 5);
     ax.unclip();
     $('m8-dl-read').innerHTML =
@@ -1058,7 +1096,7 @@
       'envelope overlap |ρ| = ' + fmt(rho, 3);
     const d = $('m8-dl-read').dataset; d.dphi = dphi; d.theory = wrapPi(-TAU * f0 * tau);
   }
-  ['m8-dl-tau', 'm8-dl-f0', 'm8-dl-bw', 'm8-dl-fe'].forEach(id => $(id).addEventListener('input', drawDL));
+  ['m8-dl-tau', 'm8-dl-f0', 'm8-dl-bw', 'm8-dl-fe'].forEach(id => $(id).addEventListener('input', drawDL)); Lab.legendToggle('m8-dl-leg', drawDL, ['env']);
 
   /* ======================= Demo 08.5: IQ beamforming ======================= */
   const C = 1.54; // mm/µs
@@ -1133,22 +1171,22 @@
     Lab.axes(ctx, box1, [-R.xr, R.xr], [R.z0 + R.zr, R.z0 - R.zr], { xlabel: 'lateral x (mm)', ylabel: 'depth (mm)', grid: false, title: ['(a) RF DAS', '(b) IQ + rotation', '(c) IQ, no rotation'][which] + ' · PSF, 40 dB, re (a) peak', ny: 3 });
     // lateral profiles
     const box2 = { x: 52, y: 20 + ih + 56, w: W - 64, h: 180 };
-    const ax = Lab.axes(ctx, box2, [-R.xr, R.xr], [-50, 3], { xlabel: 'lateral x (mm)', ylabel: 'dB re (a) peak', title: 'lateral profile (max over depth)', yticks: [-40, -20, 0] });
+    const ax = Lab.axes(ctx, box2, [-R.xr, R.xr], [-50, 3], { xlabel: 'lateral x (mm)', ylabel: 'level (dB re (a) peak)', title: 'lateral profile (max over depth)', yticks: [-40, -20, 0] });
     const xs = []; for (let ix = 0; ix < NX; ix++) xs.push(-R.xr + 2 * R.xr * ix / (NX - 1));
     const cols = [c.accent, c.sig4, c.sig2];
     ax.clip();
-    [0, 1, 2].forEach(m => { const ys = []; for (let ix = 0; ix < NX; ix++) { let mx = 0; for (let iz = 0; iz < NZ; iz++) mx = Math.max(mx, R.imgs[m][iz * NX + ix]); ys.push(Math.max(-60, 20 * Math.log10(mx / ref + 1e-12))); } Lab.line(ctx, ax, xs, ys, cols[m], m === 1 ? 3.2 : 1.8, m === 1 ? [6, 4] : null); });
+    [0, 1, 2].forEach(m => { if (!Lab.on('m8-bf-leg', 'abc'[m])) return; const ys = []; for (let ix = 0; ix < NX; ix++) { let mx = 0; for (let iz = 0; iz < NZ; iz++) mx = Math.max(mx, R.imgs[m][iz * NX + ix]); ys.push(Math.max(-60, 20 * Math.log10(mx / ref + 1e-12))); } Lab.line(ctx, ax, xs, ys, cols[m], m === 1 ? 3.2 : 1.8, m === 1 ? [6, 4] : m === 2 ? [2, 3] : null); });
     ax.unclip();
     const dB = v => 20 * Math.log10(v / ref);
     $('m8-bf-read').innerHTML =
-      'peak (b) vs (a) = <b>' + fmt(dB(pk[1]), 2) + ' dB</b><br>' +
-      'peak (c) vs (a) = <b>' + fmt(dB(pk[2]), 2) + ' dB</b><br>' +
+      'peak level (b) vs (a) = <b>' + fmt(dB(pk[1]), 2) + ' dB</b><br>' +
+      'peak level (c) vs (a) = <b>' + fmt(dB(pk[2]), 2) + ' dB</b><br>' +
       'narrowband prediction (c):<br>&nbsp;|(1/N)Σe^{−j2πf₀τₙ}| = <b>' + fmt(R.pred, 2) + ' dB</b><br>' +
       'Fresnel ψ = πx²<sub>max</sub>/(λz) = ' + fmt(R.psi, 1) + ' rad<br>' +
       'aperture D = ' + fmt(R.D, 1) + ' mm, F# = ' + fmt(z0 / R.D, 2);
     const d = $('m8-bf-read').dataset; d.lossc = dB(pk[2]); d.lossb = dB(pk[1]); d.pred = R.pred;
   }
-  ['m8-bf-z', 'm8-bf-n', 'm8-bf-f0', 'm8-bf-fs', 'm8-bf-img'].forEach(id => $(id).addEventListener('input', drawBF));
+  ['m8-bf-z', 'm8-bf-n', 'm8-bf-f0', 'm8-bf-fs', 'm8-bf-img'].forEach(id => $(id).addEventListener('input', drawBF)); Lab.legendToggle('m8-bf-leg', drawBF);
 
   /* ======================= Demo 08.6: B-mode + downshift ======================= */
   const bm = { seed: 21, field: null, fieldSeed: -1, L: 64, fs: 20, z0: 0.5, z1: 5.0, key: '', R: null };
@@ -1221,33 +1259,33 @@
     // f_c vs depth
     const fl = f0 - 2 * R.a * R.sf * R.sf * bm.z1 - 0.4;
     let ax = Lab.axes(ctx, BF, [bm.z0, bm.z1], [Math.min(fl, f0 - 0.5), f0 + 0.4], { xlabel: 'depth z (cm)', ylabel: 'f_c (MHz)', title: 'center frequency from IQ lag-one autocorrelation', ny: 4 });
-    ax.clip();
-    Lab.line(ctx, ax, [bm.z0, bm.z1], [f0 - 2 * R.a * R.sf * R.sf * bm.z0, f0 - 2 * R.a * R.sf * R.sf * bm.z1], c.sig2, 2, [6, 4]);
-    Lab.line(ctx, ax, R.zs, R.fh, c.accent, 1.2); Lab.dots(ctx, ax, R.zs, R.fh, c.accent, 2.6);
+    ax.clip(); const BM = k => Lab.on('m8-bm-leg', k);
+    if (BM('th')) Lab.line(ctx, ax, [bm.z0, bm.z1], [f0 - 2 * R.a * R.sf * R.sf * bm.z0, f0 - 2 * R.a * R.sf * R.sf * bm.z1], c.sig2, 2, [6, 4]);
+    if (BM('fc')) { Lab.line(ctx, ax, R.zs, R.fh, c.accent, 1.2); Lab.dots(ctx, ax, R.zs, R.fh, c.accent, 2.6); }
     ax.unclip();
     // histogram
-    ax = Lab.axes(ctx, BH, [0, R.hmax], [0, 1.0], { xlabel: 'envelope / rms', ylabel: 'pdf', title: 'envelope histogram (TGC-normalized)', yticks: [0, 0.5, 1], nx: 3 });
+    ax = Lab.axes(ctx, BH, [0, R.hmax], [0, 1.0], { xlabel: 'envelope / rms (dimensionless)', ylabel: 'pdf', title: 'envelope histogram (TGC-normalized)', yticks: [0, 0.5, 1], nx: 3 });
     ax.clip();
     ctx.save(); ctx.fillStyle = c.accent; ctx.globalAlpha = 0.35; const bwid = R.hmax / R.NB;
-    for (let b = 0; b < R.NB; b++) { const x0 = ax.X(b * bwid), x1 = ax.X((b + 1) * bwid), y = ax.Y(R.hist[b]); ctx.fillRect(x0, y, x1 - x0 - 0.5, ax.Y(0) - y); }
+    if (BM('hist')) for (let b = 0; b < R.NB; b++) { const x0 = ax.X(b * bwid), x1 = ax.X((b + 1) * bwid), y = ax.Y(R.hist[b]); ctx.fillRect(x0, y, x1 - x0 - 0.5, ax.Y(0) - y); }
     ctx.restore();
     const rx = [], ry = []; for (let i = 0; i <= 120; i++) { const v = R.hmax * i / 120; rx.push(v); ry.push(2 * v * Math.exp(-v * v)); }
-    Lab.line(ctx, ax, rx, ry, c.sig4, 2.2);
+    if (BM('ray')) Lab.line(ctx, ax, rx, ry, c.sig4, 2.2);
     ax.unclip();
     const th = -2 * R.a * R.sf * R.sf, aHat = -R.slope / (2 * R.sf * R.sf) * 8.686;
     $('m8-bm-read').innerHTML =
-      'σ<sub>f</sub> = ' + fmt(R.sf, 3) + ' MHz, α₀ = ' + fmt(R.a, 4) + ' Np/cm/MHz<br>' +
+      'spectral width σ<sub>f</sub> = ' + fmt(R.sf, 3) + ' MHz, α₀ = ' + fmt(R.a, 4) + ' Np/cm/MHz<br>' +
       'theory slope −2α₀σ<sub>f</sub>² = <b>' + fmt(th, 3) + '</b> MHz/cm<br>' +
       'fitted slope = <b>' + fmt(R.slope, 3) + '</b> MHz/cm<br>' +
       'Δf at 4 cm (theory) = ' + fmt(4 * th, 2) + ' MHz<br>' +
       'α̂₀ = −slope/(2σ<sub>f</sub>²) = <b>' + fmt(aHat, 3) + '</b> dB/cm/MHz<br>' +
-      'mean/std = <b>' + fmt(R.mr, 3) + '</b> (Rayleigh 1.913)<br>' +
+      'envelope mean/std = <b>' + fmt(R.mr, 3) + '</b> (Rayleigh 1.913)<br>' +
       'std of 20log A = <b>' + fmt(R.lsd, 2) + ' dB</b> (5.57)<br>' +
       'round-trip loss at 5 cm ≈ ' + fmt(2 * adb * f0 * 5, 0) + ' dB';
     const d = $('m8-bm-read').dataset; d.slope = R.slope; d.theory = th; d.mr = R.mr; d.lsd = R.lsd;
   }
   ['m8-bm-a', 'm8-bm-f0', 'm8-bm-bw', 'm8-bm-tgc'].forEach(id => $(id).addEventListener('change', drawBM));
-  $('m8-bm-dr').addEventListener('input', drawBM);
+  $('m8-bm-dr').addEventListener('input', drawBM); Lab.legendToggle('m8-bm-leg', drawBM);
   ['m8-bm-a', 'm8-bm-f0', 'm8-bm-bw'].forEach(id => $(id).addEventListener('input', () => { // live labels; recompute on release
     $('m8-bm-a-out').textContent = fmt(+$('m8-bm-a').value, 2) + ' dB/cm/MHz'; $('m8-bm-f0-out').textContent = fmt(+$('m8-bm-f0').value, 1) + ' MHz'; $('m8-bm-bw-out').textContent = $('m8-bm-bw').value + ' %';
   }));
@@ -1286,36 +1324,36 @@
     else { const cw = Math.min(W - 64, 240); BT = { x: 52, y: 20, w: W - 64, h: 190 }; let y = 20 + 190 + 58; BE = { x: 52, y, w: W - 64, h: 160 }; y += 160 + 58; BC = { x: 52 + (W - 64 - cw) / 2, y, w: cw, h: cw }; H = y + cw + 42; }
     const { ctx } = Lab.canvas(cv, H);
     // top: RF, envelope, samples with their role
-    let ax = Lab.axes(ctx, BT, [0, T1], [-1.25, 1.25], { xlabel: 'time (µs)', ylabel: 'amplitude', title: 'RF echo sampled at fs = 4f₀ = 20 MHz', nx: 8 });
-    ax.clip();
+    let ax = Lab.axes(ctx, BT, [0, T1], [-1.25, 1.25], { xlabel: 'time (µs)', ylabel: 'amplitude (normalized)', title: 'RF echo sampled at fs = 4f₀ = 20 MHz', nx: 8 });
+    ax.clip(); const QS_ = k => Lab.on('m8-qs-leg', k);
     const ft = [], fx = [], fe = [], fen = [];
     for (let i = 0; i <= 640; i++) { const t = T1 * i / 640, d = t - R.t0, gg = Math.exp(-d * d / (2 * R.st * R.st)); ft.push(t); fx.push(gg * Math.cos(TAU * QS.f0 * d)); fe.push(gg); fen.push(-gg); }
-    Lab.line(ctx, ax, ft, fe, c.fg, 1, [4, 3]); Lab.line(ctx, ax, ft, fen, c.fg, 1, [4, 3]); Lab.line(ctx, ax, ft, fx, c.accent, 1.4);
+    if (QS_('env')) { Lab.line(ctx, ax, ft, fe, c.fg, 1, [4, 3]); Lab.line(ctx, ax, ft, fen, c.fg, 1, [4, 3]); } if (QS_('rf')) Lab.line(ctx, ax, ft, fx, c.accent, 1.4);
     const roles = ['+I', '−Q', '−I', '+Q'], showLbl = BT.w / (T1 * QS.fs) > 22;
     for (let i = 0; i < R.x.length; i++) {
       const n = QS.n0 + i, t = n / QS.fs; if (t < 0 || t > T1) continue;
-      const m = ((n % 4) + 4) % 4, col = m % 2 ? c.sig2 : c.sig4, px = ax.X(t), py = ax.Y(R.x[i]);
+      const m = ((n % 4) + 4) % 4, col = m % 2 ? c.sig2 : c.sig4, px = ax.X(t), py = ax.Y(R.x[i]); if (!QS_(m % 2 ? 'odd' : 'even')) continue;
       ctx.save(); ctx.strokeStyle = col; ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(px, ax.Y(0)); ctx.lineTo(px, py); ctx.stroke(); ctx.restore();
       Lab.dots(ctx, ax, [t], [R.x[i]], col, 3.2);
       if (showLbl && R.g[i] > 0.12) lbl(ctx, c, roles[m], px, R.x[i] >= 0 ? py - 7 : py + 15, col, 'center');
     }
     ax.unclip();
     // bottom-left: |IQ| at even samples vs true envelope
-    ax = Lab.axes(ctx, BE, [0, T1], [0, 1.25], { xlabel: 'time (µs)', ylabel: '|IQ|', title: '|IQ| at even samples (' + (mode === 'pair' ? 'pairs' : 'mix + [¼ ½ ¼]') + ')', nx: 8, ny: 5 });
+    ax = Lab.axes(ctx, BE, [0, T1], [0, 1.25], { xlabel: 'time (µs)', ylabel: '|IQ| (normalized)', title: '|IQ| at even samples (' + (mode === 'pair' ? 'pairs' : 'mix + [¼ ½ ¼]') + ')', nx: 8, ny: 5 });
     ax.clip();
-    Lab.line(ctx, ax, ft, fe, c.fg, 1.4);
+    if (QS_('env')) Lab.line(ctx, ax, ft, fe, c.fg, 1.4, [4, 3]);
     const et = [], ev = [];
     est.forEach((p, k) => { if (R.t[k] >= 0 && R.t[k] <= T1) { et.push(R.t[k]); ev.push(Math.hypot(p[0], p[1])); } });
-    Lab.dots(ctx, ax, et, ev, c.sig3, 3.4);
+    if (QS_('est')) Lab.dots(ctx, ax, et, ev, c.sig3, 3.4);
     ax.unclip();
     // bottom-right: complex plane, true IQ (on a ray at angle −2πf0τ) vs estimate
-    ax = Lab.axes(ctx, BC, [-1.2, 1.2], [-1.2, 1.2], { xlabel: 'I', ylabel: 'Q', title: 'IQ in the complex plane', nx: 4, ny: 4 });
+    ax = Lab.axes(ctx, BC, [-1.2, 1.2], [-1.2, 1.2], { xlabel: 'I (normalized)', ylabel: 'Q (normalized)', title: 'IQ in the complex plane', nx: 4, ny: 4 });
     ax.clip();
     Lab.line(ctx, ax, [0, 1.2 * Math.cos(R.ph)], [0, 1.2 * Math.sin(R.ph)], c.fg, 1, [4, 3]);
     const sx = [], sy = [], tx = [], ty = [];
     est.forEach((p, k) => { if (R.tru[k][0] ** 2 + R.tru[k][1] ** 2 > 0.0025) { sx.push(p[0]); sy.push(p[1]); tx.push(R.tru[k][0]); ty.push(R.tru[k][1]); } });
-    for (let k = 0; k < sx.length; k++) { ctx.save(); ctx.strokeStyle = c.bad; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(ax.X(tx[k]), ax.Y(ty[k])); ctx.lineTo(ax.X(sx[k]), ax.Y(sy[k])); ctx.stroke(); ctx.restore(); }
-    Lab.dots(ctx, ax, tx, ty, c.fg, 2.2); Lab.dots(ctx, ax, sx, sy, c.sig3, 3);
+    if (QS_('err')) for (let k = 0; k < sx.length; k++) { ctx.save(); ctx.strokeStyle = c.bad; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(ax.X(tx[k]), ax.Y(ty[k])); ctx.lineTo(ax.X(sx[k]), ax.Y(sy[k])); ctx.stroke(); ctx.restore(); }
+    if (QS_('tiq')) Lab.dots(ctx, ax, tx, ty, c.fg, 2.2); if (QS_('est')) Lab.dots(ctx, ax, sx, sy, c.sig3, 3);
     ax.unclip();
     // phase at the envelope peak: nearest even sample to t0
     let kp = 0; R.t.forEach((t, k) => { if (Math.abs(t - R.t0) < Math.abs(R.t[kp] - R.t0)) kp = k; });
@@ -1338,7 +1376,7 @@
     }
     $('m8-qs-tbl').innerHTML = h + '</tbody></table>';
   }
-  ['m8-qs-tau', 'm8-qs-bw', 'm8-qs-mode'].forEach(id => $(id).addEventListener('input', drawQS));
+  ['m8-qs-tau', 'm8-qs-bw', 'm8-qs-mode'].forEach(id => $(id).addEventListener('input', drawQS)); Lab.legendToggle('m8-qs-leg', drawQS, ['env', 'err']);
 
   function drawAll() { drawPh(); drawHB(); drawIQ(); drawDL(); drawBF(); drawBM(); drawQS(); }
   Lab.onShow('m8', drawAll);
@@ -1365,7 +1403,7 @@
       re += a * c; im += a * sn; dre += da * c - a * w * sn; dim += da * sn + a * w * c; }); return { re, im, dre, dim }; }
 
   const VIS = [
-    { prov: 'exact', q: 'Why does a real RF sample not give the phase?', a: '<b>cos θ = ½e<sup>jθ</sup> + ½e<sup>−jθ</sup></b>: two half-amplitude phasors turning in opposite directions (head to tail here). Their imaginary parts cancel, so cos 50° = 0.64 is also cos(−50°). Keeping one phasor (the analytic signal) resolves the sign.',
+    { prov: 'exact', leg: [['+f₀ phasor', 'a', 'solid'], ['−f₀ phasor', 'b', 'solid'], ['cos θ', 'a', 'solid'], ['θ = ±50°', 'mu', 'dash']], q: 'Why does a real RF sample not give the phase?', a: '<b>cos θ = ½e<sup>jθ</sup> + ½e<sup>−jθ</sup></b>: two half-amplitude phasors turning in opposite directions (head to tail here). Their imaginary parts cancel, so cos 50° = 0.64 is also cos(−50°). Keeping one phasor (the analytic signal) resolves the sign.',
       draw: (cv) => { const c = col(), { x, w, h } = size(cv, 140); const th = 50 * PI / 180, bh = h - 30, L = { x: 6, y: 14, w: bh, h: bh };
         const m = panel(x, L, [-1.1, 1.1], [-1.1, 1.1], { yaxis: true });
         const r = m.X(0.5) - m.X(0); x.save(); x.strokeStyle = c.rule; x.setLineDash([2, 3]); x.beginPath(); x.arc(m.X(0), m.Y(0), r, 0, TAU); x.stroke(); x.restore();
@@ -1377,78 +1415,78 @@
         curve(x, mr, t => Math.cos(t), c.a); x.save(); x.strokeStyle = c.mu; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(mr.X(-th), mr.Y(Math.cos(th))); x.lineTo(mr.X(th), mr.Y(Math.cos(th))); x.stroke(); x.restore();
         dots(x, mr, [[th, Math.cos(th)], [-th, Math.cos(th)]], c.fg, 3.2); } },
 
-    { prov: 'exact', q: 'What does the analytic signal do to the spectrum?', a: '<b>X<sub>a</sub>(f) = 2u(f)X(f)</b>: drop the negative lobe, double the positive one. Re x<sub>a</sub> = x and |x<sub>a</sub>| is the envelope (dashed). Slider = envelope width T: a longer pulse has a narrower lobe.',
-      tr: [-2, 2], ty: [-1.2, 1.2], fr: [-4, 4], fy: [0, 2.3], tl: 'x(t) and ±|xₐ(t)|', fl: '|X| and |Xₐ|', tt: T => [[T / 2, 'T/2']], ft: () => [[2, 'f₀'], [-2, '−f₀']],
+    { prov: 'exact', leg: [['x(t)', 'a', 'solid'], ['±|xₐ(t)|', 'b', 'dash'], ['|X(f)|', 'mu', 'dash'], ['|Xₐ(f)| = 2u(f)|X|', 'b', 'fill']], q: 'What does the analytic signal do to the spectrum?', a: '<b>X<sub>a</sub>(f) = 2u(f)X(f)</b>: drop the negative lobe, double the positive one. Re x<sub>a</sub> = x and |x<sub>a</sub>| is the envelope (dashed). Slider = envelope width T: a longer pulse has a narrower lobe.',
+      tr: [-2, 2], ty: [-1.2, 1.2], fr: [-4, 4], fy: [0, 2.3], tl: 'x, ±|xₐ| vs t', fl: '|X|, |Xₐ| vs f', tt: T => [[T / 2, 'T/2']], ft: () => [[2, 'f₀'], [-2, '−f₀']],
       time: (x, m, c, T) => { const e = t => Math.exp(-PI * (t / T) ** 2); curve(x, m, e, c.b, { w: 1, dash: [3, 3] }); curve(x, m, t => -e(t), c.b, { w: 1, dash: [3, 3] }); curve(x, m, t => e(t) * Math.cos(TAU * 2 * t), c.a, { w: 1.4 }); },
       freq: (x, m, c, T) => { const X = f => 0.5 * T * (Math.exp(-PI * ((f - 2) * T) ** 2) + Math.exp(-PI * ((f + 2) * T) ** 2)); curve(x, m, X, c.mu, { w: 1.2, dash: [3, 3] }); curve(x, m, f => f > 0 ? 2 * X(f) : 0, c.b, { fill: true }); } },
 
-    { prov: 'exact', q: 'What happens to the spectrum at each IQ stage?', a: 'Mixing by e<sup>−j2πf<sub>d</sub>t</sup> shifts everything left (the image lands at −2f<sub>0</sub>); 2·LPF keeps the baseband lobe at unit gain; ↓4 from 40 MHz replicates it every <b>f<sub>s,IQ</sub> = 10 MHz</b>. Legal while <b>f<sub>s,IQ</sub> &gt; B + 2|Δ|</b>. 5 MHz, 60 %.',
+    { prov: 'exact', leg: [['spectrum, stages 1–3', 'a', 'fill'], ['after ↓4 with replicas', 'd', 'fill'], ['LPF passband', 'mu', 'dash']], q: 'What happens to the spectrum at each IQ stage?', a: 'Mixing by e<sup>−j2πf<sub>d</sub>t</sup> shifts everything left (the image lands at −2f<sub>0</sub>); 2·LPF keeps the baseband lobe at unit gain; ↓4 from 40 MHz replicates it every <b>f<sub>s,IQ</sub> = 10 MHz</b>. Legal while <b>f<sub>s,IQ</sub> &gt; B + 2|Δ|</b>. 5 MHz, 60 %.',
       draw: (cv) => { const c = col(), { x, w } = size(cv, 214); const f0 = 5, sf = 0.6 * f0 / 2.355, fc = 4, Lp = f => Math.abs(f) < fc ? 1 : 0, xr = [-17, 17];
         const st = [['1 RF', f => 0.5 * (G(f, f0, sf) + G(f, -f0, sf))], ['2 × e^(−j2πf₀t)', f => 0.5 * (G(f, 0, sf) + G(f, -2 * f0, sf))], ['3 2·LPF (|f| < 4 MHz)', f => G(f, 0, sf) * Lp(f)],
           ['4 ↓4 → 10 MHz', f => { let s = 0; for (let k = -2; k <= 2; k++) s += G(f - 10 * k, 0, sf) * Lp(f - 10 * k); return s; }]];
-        st.forEach(([lab, fn], i) => { const m = panel(x, { x: 4, y: 16 + i * 46, w: w - 8, h: 28 }, xr, [0, 1.1], { lab, ticks: i === 3 ? [[-10, '−10'], [-5, '−5'], [5, '5'], [10, '10 MHz']] : [] });
+        st.forEach(([lab, fn], i) => { const m = panel(x, { x: 4, y: 16 + i * 46, w: w - 8, h: 28 }, xr, [0, 1.1], { lab: lab + ': |S| vs f (MHz)', ticks: i === 3 ? [[-10, '−10'], [-5, '−5'], [5, '5'], [10, '10 MHz']] : [] });
           if (i === 2) { x.save(); x.strokeStyle = c.mu; x.setLineDash([3, 3]); x.strokeRect(m.X(-fc), m.Y(1.05), m.X(fc) - m.X(-fc), m.Y(0) - m.Y(1.05)); x.restore(); }
           curve(x, m, fn, i === 3 ? c.d : c.a, { fill: true }); }); } },
 
-    { prov: 'exact', q: 'What is the B-mode envelope, precisely?', a: '<b>A(t) = |x<sub>a</sub>(t)| = √(x² + ℋ{x}²)</b> rides on the RF peaks. Where echoes overlap it dips or swells with their relative phase. B-mode, ULM localization and speckle statistics all work on A (or |IQ|, the same quantity), not on x.',
+    { prov: 'exact', leg: [['RF x(t)', 'a', 'solid'], ['±A(t)', 'b', 'dash']], q: 'What is the B-mode envelope, precisely?', a: '<b>A(t) = |x<sub>a</sub>(t)| = √(x² + ℋ{x}²)</b> rides on the RF peaks. Where echoes overlap it dips or swells with their relative phase. B-mode, ULM localization and speckle statistics all work on A (or |IQ|, the same quantity), not on x.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const s = sigT(5, 0.6), E = [[0.8, 1, 0], [1.05, 0.7, 2.2], [1.6, 0.55, 0.9]];
-        const m = panel(x, B, [0.3, 2.1], [-1.25, 1.25], { lab: 'RF x(t) and ±A(t), 5 MHz, 60 % (t in µs)', yaxis: false, ticks: [[0.8, '0.8'], [1.05, '1.05'], [1.6, '1.6']] });
+        const m = panel(x, B, [0.3, 2.1], [-1.25, 1.25], { lab: 'RF x(t), ±A(t) vs t (µs); 5 MHz, 60 %', yaxis: false, ticks: [[0.8, '0.8'], [1.05, '1.05'], [1.6, '1.6']] });
         const A = t => { const e = echoes(t, E, 5, s); return Math.hypot(e.re, e.im); };
-        curve(x, m, t => echoes(t, E, 5, s).re, c.a, { w: 1.2 }); curve(x, m, A, c.b, { w: 1.6 }); curve(x, m, t => -A(t), c.b, { w: 1.6 }); } },
+        curve(x, m, t => echoes(t, E, 5, s).re, c.a, { w: 1.2 }); curve(x, m, A, c.b, { w: 1.6, dash: [6, 4] }); curve(x, m, t => -A(t), c.b, { w: 1.6, dash: [6, 4] }); } },
 
-    { prov: 'exact', q: 'How far can phase track a displacement?', a: 'The phase Δφ = −4πf<sub>0</sub>d/c is known only modulo 2π, so <b>|d| &lt; λ/4 = 77 µm</b> at 5 MHz (|τ| &lt; 100 ns). Past it the estimate jumps by λ/2 = 154 µm. One radian = λ/(4π) = 24.5 µm.',
+    { prov: 'exact', leg: [['phase estimate d̂', 'a', 'solid'], ['d̂ = d', 'mu', 'dash']], q: 'How far can phase track a displacement?', a: 'The phase Δφ = −4πf<sub>0</sub>d/c is known only modulo 2π, so <b>|d| &lt; λ/4 = 77 µm</b> at 5 MHz (|τ| &lt; 100 ns). Past it the estimate jumps by λ/2 = 154 µm. One radian = λ/(4π) = 24.5 µm.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const f0 = 5, q = C_UM / (4 * PI * f0), l4 = C_UM / f0 / 4;
         const m = panel(x, B, [-240, 240], [-100, 100], { lab: 'phase estimate d̂ vs true d (µm)', ticks: [[-2 * l4, '−154'], [-l4, '−77'], [l4, '77'], [2 * l4, '154']] });
         curve(x, m, d => d, c.mu, { w: 1, dash: [3, 3] }); curve(x, m, d => -q * wrap(-d / q), c.a, { w: 1.8 }); } },
 
-    { prov: 'exact', q: 'What does skipping the IQ phase rotation cost?', a: 'Without e<sup>+j2πf<sub>d</sub>τ<sub>n</sub></sup> the channels add with a quadratic phase of edge excursion <b>ψ = πx<sub>max</sub>²/(λz)</b>. 32 elements, 0.3 mm, 5 MHz, plane wave: exact sum (blue) <b>−13.4 dB at 20 mm</b>, Fresnel estimate (dashed) −12.5 dB. The loss oscillates with depth (Fresnel zones).',
+    { prov: 'exact', leg: [['exact 32-element sum', 'a', 'solid'], ['Fresnel estimate', 'mu', 'dash'], ['20 mm', 'b', 'mark']], q: 'What does skipping the IQ phase rotation cost?', a: 'Without e<sup>+j2πf<sub>d</sub>τ<sub>n</sub></sup> the channels add with a quadratic phase of edge excursion <b>ψ = πx<sub>max</sub>²/(λz)</b>. 32 elements, 0.3 mm, 5 MHz, plane wave: exact sum (blue) <b>−13.4 dB at 20 mm</b>, Fresnel estimate (dashed) −12.5 dB. The loss oscillates with depth (Fresnel zones).',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const f0 = 5, lam = 1.54 / f0, xs = []; for (let n = 0; n < 32; n++) xs.push((n - 15.5) * 0.3);
         const exact = z => { let re = 0, im = 0; xs.forEach(xn => { const tau = (z + Math.sqrt(z * z + xn * xn)) / 1.54; re += Math.cos(TAU * f0 * tau); im -= Math.sin(TAU * f0 * tau); }); return Math.hypot(re, im) / 32; };
         const fres = z => { const psi = PI * 4.65 * 4.65 / (lam * z); let re = 0, im = 0; const n = 200; for (let i = 0; i < n; i++) { const s = (i + 0.5) / n; re += Math.cos(psi * s * s); im -= Math.sin(psi * s * s); } return Math.hypot(re, im) / n; };
         const m = panel(x, B, [4, 60], [-30, 0], { lab: 'coherent gain without rotation (dB) vs depth z (mm)', base: -30, yaxis: false, ticks: [[10, '10'], [20, '20'], [40, '40'], [60, '60']] });
         curve(x, m, z => db(fres(z), -30), c.mu, { w: 1.2, dash: [4, 3] }); curve(x, m, z => db(exact(z), -30), c.a); dots(x, m, [[20, db(exact(20), -30)]], c.b, 3.4); } },
 
-    { prov: 'model', q: 'Why does the echo get "redder" with depth?', a: 'A Gaussian spectrum times e<sup>−2α<sub>0</sub>fz</sup> is a Gaussian of the same width, shifted: <b>f<sub>c</sub>(z) = f<sub>0</sub> − 2α<sub>0</sub>σ<sub>f</sub>²z</b>. 5 MHz, 60 %, 0.5 dB/cm/MHz: −0.187 MHz/cm, <b>4.25 MHz at 4 cm</b> (spectra at 0, 2, 4, 6 cm, each normalized; model: Gaussian spectrum, α ∝ f, no diffraction).',
+    { prov: 'model', leg: [['z = 0', 'a', 'solid'], ['2 cm', 'c', 'dash'], ['4 cm', 'b', 'dot'], ['6 cm (dash-dot)', 'd', 'dash']], q: 'Why does the echo get "redder" with depth?', a: 'A Gaussian spectrum times e<sup>−2α<sub>0</sub>fz</sup> is a Gaussian of the same width, shifted: <b>f<sub>c</sub>(z) = f<sub>0</sub> − 2α<sub>0</sub>σ<sub>f</sub>²z</b>. 5 MHz, 60 %, 0.5 dB/cm/MHz: −0.187 MHz/cm, <b>4.25 MHz at 4 cm</b> (spectra at 0, 2, 4, 6 cm, each normalized; model: Gaussian spectrum, α ∝ f, no diffraction).',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const f0 = 5, sf = 3 / 2.355, a0 = 0.5 / 8.686, cols = [c.a, c.c, c.b, c.d];
-        const m = panel(x, B, [0, 10], [0, 1.12], { lab: 'normalized |S(f)| at z = 0, 2, 4, 6 cm (MHz)', yaxis: false, ticks: [[2, '2'], [f0 - 2 * a0 * sf * sf * 4, '4.25'], [5, '5'], [8, '8']] });
+        const m = panel(x, B, [0, 10], [0, 1.12], { lab: 'normalized |S(f)| vs f (MHz); z = 0, 2, 4, 6 cm', yaxis: false, ticks: [[2, '2'], [f0 - 2 * a0 * sf * sf * 4, '4.25'], [5, '5'], [8, '8']] });
         [0, 2, 4, 6].forEach((z, i) => { const S = f => G(f, f0, sf) * Math.exp(-2 * a0 * f * z); let mx = 0; for (let f = 0; f <= 10; f += 0.01) mx = Math.max(mx, S(f));
-          curve(x, m, f => S(f) / mx, cols[i], { w: 1.5 }); vline(x, m, f0 - 2 * a0 * sf * sf * z, cols[i], [2, 3]); }); } },
+          curve(x, m, f => S(f) / mx, cols[i], { w: 1.5, dash: [null, [6, 4], [2, 3], [9, 3, 2, 3]][i] || undefined }); vline(x, m, f0 - 2 * a0 * sf * sf * z, cols[i], [2, 3]); }); } },
 
-    { prov: 'exact', q: 'What does the display dynamic range do?', a: '<b>gray = clip((20 log<sub>10</sub>A + DR)/DR, 0, 1)</b>. With a 40 dB window (blue) an echo at 10 % of A<sub>ref</sub> is already half gray and 1 % is black; a 60 dB window (pink) still shows 1 % at 33 % gray. That compression is what lets weak speckle sit next to bright interfaces.',
+    { prov: 'exact', leg: [['40 dB window', 'a', 'solid'], ['60 dB window', 'b', 'dash'], ['half gray', 'mu', 'dash']], q: 'What does the display dynamic range do?', a: '<b>gray = clip((20 log<sub>10</sub>A + DR)/DR, 0, 1)</b>. With a 40 dB window (blue) an echo at 10 % of A<sub>ref</sub> is already half gray and 1 % is black; a 60 dB window (pink) still shows 1 % at 33 % gray. That compression is what lets weak speckle sit next to bright interfaces.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const g = (A, DR) => Math.max(0, Math.min(1, (20 * Math.log10(Math.max(A, 1e-9)) + DR) / DR));
         const m = panel(x, B, [0, 1], [0, 1.1], { lab: 'display gray vs amplitude A/A_ref', yaxis: false, hlines: [[0.5, 'half gray']], ticks: [[0.1, '0.1'], [0.5, '0.5'], [1, '1']] });
-        curve(x, m, A => g(A, 40), c.a); curve(x, m, A => g(A, 60), c.b); } },
+        curve(x, m, A => g(A, 40), c.a); curve(x, m, A => g(A, 60), c.b, { dash: [6, 4] }); } },
 
-    { prov: 'exact', q: 'How does 4f<sub>0</sub> sampling give I and Q for free?', a: 'At f<sub>s</sub> = 4f<sub>0</sub> the carrier phase steps by π/2, so samples cycle <b>I, −Q, −I, +Q</b>: even samples (blue) carry ±I, odd samples (pink) ∓Q, 1/(4f<sub>0</sub>) = 50 ns apart at 5 MHz. The mixer is (1, −j, −1, +j): sign flips only. Here φ = 30°.',
+    { prov: 'exact', leg: [['RF echo', 'mu', 'solid'], ['even samples ±I', 'a', 'stem'], ['odd samples ∓Q', 'b', 'stem']], q: 'How does 4f<sub>0</sub> sampling give I and Q for free?', a: 'At f<sub>s</sub> = 4f<sub>0</sub> the carrier phase steps by π/2, so samples cycle <b>I, −Q, −I, +Q</b>: even samples (blue) carry ±I, odd samples (pink) ∓Q, 1/(4f<sub>0</sub>) = 50 ns apart at 5 MHz. The mixer is (1, −j, −1, +j): sign flips only. Here φ = 30°.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const f0 = 5, s = sigT(5, 0.6), ph = PI / 6, xf = t => Math.exp(-t * t / (2 * s * s)) * Math.cos(TAU * f0 * t + ph);
-        const m = panel(x, B, [-0.42, 0.42], [-1.15, 1.15], { lab: 'echo at 5 MHz sampled at 20 MHz (t in µs)', yaxis: false, ticks: [[-0.2, '−0.2'], [0, '0'], [0.2, '0.2']] });
+        const m = panel(x, B, [-0.42, 0.42], [-1.15, 1.15], { lab: '5 MHz echo, fs = 20 MHz vs t (µs)', yaxis: false, ticks: [[-0.2, '−0.2'], [0, '0'], [0.2, '0.2']] });
         curve(x, m, xf, c.mu, { w: 1.2 }); const ev = [], od = []; for (let n = -8; n <= 8; n++) (n % 2 === 0 ? ev : od).push([n / 20, xf(n / 20)]);
         dots(x, m, ev, c.a, 3, true); dots(x, m, od, c.b, 3, true); } },
 
-    { prov: 'exact', q: 'Why is instantaneous frequency unreliable in speckle?', a: '<b>f<sub>i</sub> = (1/2π) dφ/dt</b> is steady where A(t) is large and <b>spikes where A(t) → 0</b>, here where two 5 MHz echoes 100 ns apart nearly cancel (A drops to 0.09 of the peak amplitude of one echo) and f<sub>i</sub> swings to <b>−5.2 MHz</b>, far outside the band. Weight by A² (spectral centroid) or use the lag-one autocorrelation.',
+    { prov: 'exact', leg: [['envelope A(t)', 'b', 'fill'], ['fᵢ(t)', 'a', 'solid'], ['f₀ = 5 MHz', 'mu', 'dash']], q: 'Why is instantaneous frequency unreliable in speckle?', a: '<b>f<sub>i</sub> = (1/2π) dφ/dt</b> is steady where A(t) is large and <b>spikes where A(t) → 0</b>, here where two 5 MHz echoes 100 ns apart nearly cancel (A drops to 0.09 of the peak amplitude of one echo) and f<sub>i</sub> swings to <b>−5.2 MHz</b>, far outside the band. Weight by A² (spectral centroid) or use the lag-one autocorrelation.',
       draw: (cv) => { const c = col(), { x, w } = size(cv, 172); const s = sigT(5, 0.6), E = [[0, 1, 0], [0.1, 0.95, 0.1]];
         const A = t => { const e = echoes(t, E, 5, s); return Math.hypot(e.re, e.im); }, fi = t => { const e = echoes(t, E, 5, s); return (e.re * e.dim - e.im * e.dre) / (TAU * (e.re * e.re + e.im * e.im)); };
-        const m1 = panel(x, { x: 4, y: 16, w: w - 8, h: 42 }, [-0.4, 0.5], [0, 1.2], { lab: 'envelope A(t)', yaxis: false });
+        const m1 = panel(x, { x: 4, y: 16, w: w - 8, h: 42 }, [-0.4, 0.5], [0, 1.2], { lab: 'envelope A(t) vs t (µs)', yaxis: false });
         curve(x, m1, A, c.b, { fill: true });
-        const m2 = panel(x, { x: 4, y: 82, w: w - 8, h: 70 }, [-0.4, 0.5], [-8, 10], { lab: 'fᵢ(t) (MHz), t in µs', yaxis: false, hlines: [[5, 'f₀ = 5']], ticks: [[-0.2, '−0.2'], [0.058, '0.058'], [0.3, '0.3']] });
+        const m2 = panel(x, { x: 4, y: 82, w: w - 8, h: 70 }, [-0.4, 0.5], [-8, 10], { lab: 'fᵢ(t) (MHz) vs t (µs)', yaxis: false, hlines: [[5, 'f₀ = 5']], ticks: [[-0.2, '−0.2'], [0.058, '0.058'], [0.3, '0.3']] });
         curve(x, m2, fi, c.a, { w: 1.5 }); } },
 
-    { prov: 'exact', q: 'When is |x<sub>a</sub>| not the true envelope?', a: 'Bedrosian: a(t)e<sup>j2πf<sub>0</sub>t</sup> is analytic only if the lobe stays above 0 Hz. The spilled fraction is <b>Φ(−f<sub>0</sub>/σ<sub>f</sub>)</b>: 4×10<sup>−5</sup> at 5 MHz, 60 % (dashed), but <b>2.5 %</b> at 2 MHz, 120 % (blue, spill shaded), and the envelope is then off by about 2.5 % rms.',
+    { prov: 'exact', leg: [['2 MHz, 120 %', 'a', 'solid'], ['spill below 0 Hz', 'b', 'fill'], ['5 MHz, 60 %', 'mu', 'dash']], q: 'When is |x<sub>a</sub>| not the true envelope?', a: 'Bedrosian: a(t)e<sup>j2πf<sub>0</sub>t</sup> is analytic only if the lobe stays above 0 Hz. The spilled fraction is <b>Φ(−f<sub>0</sub>/σ<sub>f</sub>)</b>: 4×10<sup>−5</sup> at 5 MHz, 60 % (dashed), but <b>2.5 %</b> at 2 MHz, 120 % (blue, spill shaded), and the envelope is then off by about 2.5 % rms.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const s2 = 1.2 * 2 / 2.355, s5 = 0.6 * 5 / 2.355;
-        const m = panel(x, B, [-3, 9], [0, 1.12], { lab: 'positive-frequency lobe |X(f)| (MHz)', ticks: [[-2, '−2'], [2, '2'], [5, '5'], [8, '8']] });
+        const m = panel(x, B, [-3, 9], [0, 1.12], { lab: 'lobe |X(f)| vs f (MHz)', ticks: [[-2, '−2'], [2, '2'], [5, '5'], [8, '8']] });
         curve(x, m, f => f < 0 ? G(f, 2, s2) : 0, c.b, { fill: true, alpha: 0.5, w: 0.01 }); curve(x, m, f => G(f, 2, s2), c.a); curve(x, m, f => G(f, 5, s5), c.mu, { w: 1.2, dash: [3, 3] }); } }
   ];
 
   const N52 = 16;
   const V52 = [
-    { prov: 'exact', q: 'What exactly does hilbert() multiply the FFT by?', a: '<b>h[k] = 1 at k = 0 and N/2, 2 for 1 ≤ k &lt; N/2, 0 above</b> (N = 16). DC and Nyquist are their own mirror images, so they are kept once. With this mask Re x<sub>a</sub> = x exactly.',
+    { prov: 'exact', leg: [['h[k] = 1 or 2', 'a', 'stem'], ['h[k] = 0', 'mu', 'mark']], q: 'What exactly does hilbert() multiply the FFT by?', a: '<b>h[k] = 1 at k = 0 and N/2, 2 for 1 ≤ k &lt; N/2, 0 above</b> (N = 16). DC and Nyquist are their own mirror images, so they are kept once. With this mask Re x<sub>a</sub> = x exactly.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140);
-        const m = panel(x, B, [-0.8, N52 - 0.2], [0, 2.3], { lab: 'mask h[k], N = 16', yaxis: false, ticks: [[0, '0'], [8, 'N/2'], [15, '15']] });
+        const m = panel(x, B, [-0.8, N52 - 0.2], [0, 2.3], { lab: 'mask h[k] vs bin k, N = 16', yaxis: false, ticks: [[0, '0'], [8, 'N/2'], [15, '15']] });
         const p = []; for (let k = 0; k < N52; k++) p.push([k, k === 0 || k === N52 / 2 ? 1 : k < N52 / 2 ? 2 : 0]);
         dots(x, m, p.filter(q => q[1] > 0), c.a, 3, true); dots(x, m, p.filter(q => q[1] === 0), c.mu, 2.4); } },
-    { prov: 'exact', q: 'Why does a truncated echo ring across the record?', a: 'The mask is circular convolution with the discrete Hilbert kernel <b>h<sub>ℋ</sub>[n] = 2/(πn)</b> for odd n, 0 for even n (dashed: 2/(πn)). It decays only as 1/n, so energy at one end of the record leaks into the other end.',
+    { prov: 'exact', leg: [['hℋ[n]', 'a', 'stem'], ['2/(πn)', 'mu', 'dash']], q: 'Why does a truncated echo ring across the record?', a: 'The mask is circular convolution with the discrete Hilbert kernel <b>h<sub>ℋ</sub>[n] = 2/(πn)</b> for odd n, 0 for even n (dashed: 2/(πn)). It decays only as 1/n, so energy at one end of the record leaks into the other end.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140);
-        const m = panel(x, B, [-15.5, 15.5], [-0.75, 0.75], { lab: 'hℋ[n]', ticks: [[-15, '−15'], [-1, '−1'], [1, '1'], [15, '15']] });
+        const m = panel(x, B, [-15.5, 15.5], [-0.75, 0.75], { lab: 'hℋ[n] vs sample n', ticks: [[-15, '−15'], [-1, '−1'], [1, '1'], [15, '15']] });
         [[-15.5, -0.85], [0.85, 15.5]].forEach(r => curve(x, Object.assign({}, m, { xr: r }), n => 2 / (PI * n), c.mu, { w: 1, dash: [3, 3] }));
         const p = []; for (let n = -15; n <= 15; n++) p.push([n, n % 2 ? 2 / (PI * n) : 0]); dots(x, m, p, c.a, 2.6, true); } }
   ];
@@ -1503,9 +1541,9 @@
     curve(x, m, t => env(t) * Math.cos(TAU * 2 * t), c.b, { w: 1.3 }); curve(x, m, env, c.a, { w: 2.6 }); curve(x, m, env, c.mu, { dash: [4, 3], w: 1.2 }); curve(x, m, t => -env(t), c.mu, { dash: [4, 3], w: 1 }); };
   /* 1: complex vs real sampling */
   F[1] = cv => { const c = col(), s = 4 / 2.3548, e20 = s * Math.sqrt(2 * Math.LN10), { x, w, top } = frame(cv, 160, [[null, '5 MHz, 80 %: −20 dB half-width 3.65 MHz']], null);
-    const m1 = panel(x, { x: 4, y: top + 14, w: w - 8, h: 30 }, [-12, 12], [0, 1.1], { lab: 'RF (real): fs > 2·8.65 = 17.3 MHz', hlines: [[0.1, '']], ticks: [[-8.65, '−8.65'], [8.65, '8.65']] });
+    const m1 = panel(x, { x: 4, y: top + 14, w: w - 8, h: 30 }, [-12, 12], [0, 1.1], { yl: 'RF (real): fs > 2·8.65 = 17.3 MHz', xl: 'f (MHz)', hlines: [[0.1, '']], ticks: [[-8.65, '−8.65'], [8.65, '8.65']] });
     curve(x, m1, f => gauss(f, 5, s) + gauss(f, -5, s), c.b, { fill: true });
-    const m2 = panel(x, { x: 4, y: top + 76, w: w - 8, h: 30 }, [-12, 12], [0, 1.1], { lab: 'IQ (complex): fs,IQ > 7.3 MHz', hlines: [[0.1, '']], ticks: [[-e20, '−3.65'], [e20, '3.65']] });
+    const m2 = panel(x, { x: 4, y: top + 76, w: w - 8, h: 30 }, [-12, 12], [0, 1.1], { yl: 'IQ (complex): fs,IQ > 7.3 MHz', xl: 'f (MHz)', hlines: [[0.1, '']], ticks: [[-e20, '−3.65'], [e20, '3.65']] });
     curve(x, m2, f => gauss(f, 0, s), c.a, { fill: true }); };
   /* 2: loss without phase rotation, 32 elements */
   F[2] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'exact 32-element sum'], [c.b, '20 mm: −13.4 dB']], 'loss without rotation (dB) vs depth z (mm), 0.3 mm pitch, 5 MHz');
@@ -1514,10 +1552,10 @@
     const m = panel(x, B, [9.5, 62], [-17, 0], { base: -17, yaxis: false, hlines: [[-6, '−6'], [-12, '−12']], ticks: [[10, '10'], [20, '20'], [40, '40'], [60, '60']] });
     curve(x, part(m, 10, 62), G, c.a); dots(x, m, [[20, G(20)]], c.b, 3.4); };
   /* 3: IQ DAS error = envelope interpolation */
-  F[3] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.mu, '|b(t)|'], [c.a, 'linear, 10 MHz'], [c.b, 'linear, 20 MHz']], 'baseband envelope vs t (µs), peak midway between samples');
+  F[3] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.mu, '|b(t)|'], [c.a, 'linear, 10 MHz'], [c.b, 'linear, 20 MHz', [6, 4]]], 'baseband envelope vs t (µs), peak midway between samples');
     const m = panel(x, B, [-0.35, 0.35], [0, 1.1], { yaxis: false, ticks: [[-0.25, '−0.25'], [0, '0'], [0.25, '0.25']] });
     curve(x, m, env, c.mu, { w: 1.2 });
-    [[0.1, c.a, 3], [0.05, c.b, 2.4]].forEach(([dt, cc, r]) => { const p = []; for (let t = -0.4 + dt / 2; t <= 0.4; t += dt) p.push([t, env(t)]); poly(x, m, p, cc, { w: 1.4 }); dots(x, m, p, cc, r); }); };
+    [[0.1, c.a, 3], [0.05, c.b, 2.4]].forEach(([dt, cc, r]) => { const p = []; for (let t = -0.4 + dt / 2; t <= 0.4; t += dt) p.push([t, env(t)]); poly(x, m, p, cc, { w: 1.4, dash: dt < 0.08 ? [6, 4] : null }); dots(x, m, p, cc, r); }); };
   /* 4: phase per displacement */
   F[4] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'φ = −4πd/λ, λ = 308 µm'], [c.b, '1 rad = 24.5 µm = 31.8 ns']], 'IQ phase (rad) vs axial displacement d (µm), 5 MHz');
     const m = panel(x, B, [0, 84], [-3.4, 0.2], { base: -3.4, hlines: [[-1, '−1 rad'], [-PI, '−π']], ticks: [[24.5, '24.5'], [50, '50'], [77, '77 = λ/4']] });
@@ -1528,23 +1566,23 @@
     curve(x, m, d => d, c.mu, { dash: [4, 3], w: 1 }); const wr = d => d - 154 * Math.round(d / 154);
     for (let k = -2; k <= 1; k++) { const a = Math.max(-200, -77 + 154 * k), b = Math.min(200, 77 + 154 * k); if (b > a) curve(x, part(m, a + 0.01, b - 0.01), wr, c.a); } };
   /* 6: conversion with fd vs fc */
-  F[6] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'convert with f̂c = 5.0'], [c.b, 'with f_d = 5.3: −5.7 %']], 'estimated vs true delay (ns), echo at 5.0 MHz');
+  F[6] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'convert with f̂c = 5.0'], [c.b, 'with f_d = 5.3: −5.7 %', [6, 4]]], 'estimated vs true delay (ns), echo at 5.0 MHz');
     const m = panel(x, B, [0, 82], [0, 86], { ticks: [[20, '20'], [40, '40'], [60, '60'], [80, '80']] });
-    curve(x, m, t => t, c.a); curve(x, m, t => t * 5.0 / 5.3, c.b); dots(x, m, [[80, 80 * 5 / 5.3]], c.b, 3); };
+    curve(x, m, t => t, c.a); curve(x, m, t => t * 5.0 / 5.3, c.b, { dash: [6, 4] }); dots(x, m, [[80, 80 * 5 / 5.3]], c.b, 3); };
   /* 7: attenuation downshift */
-  F[7] = cv => { const c = col(), sl = 2 * 0.0576 * SF * SF, { x, B } = frame(cv, 145, [[c.a, 'z = 0'], [c.c, '2 cm'], [c.b, '4 cm']], 'peak-normalized |P(f)| vs f (MHz), 0.5 dB/cm/MHz');
+  F[7] = cv => { const c = col(), sl = 2 * 0.0576 * SF * SF, { x, B } = frame(cv, 145, [[c.a, 'z = 0'], [c.c, '2 cm', [6, 4]], [c.b, '4 cm', [2, 3]]], 'peak-normalized |P(f)| vs f (MHz), 0.5 dB/cm/MHz');
     const m = panel(x, B, [0, 10], [0, 1.1], { ticks: [[4.25, '4.25'], [5, '5'], [8, '8']] });
-    [[0, c.a], [2, c.c], [4, c.b]].forEach(([z, cc]) => curve(x, m, f => gauss(f, 5 - sl * z, SF), cc, { fill: z === 4 })); };
+    [[0, c.a], [2, c.c], [4, c.b]].forEach(([z, cc]) => curve(x, m, f => gauss(f, 5 - sl * z, SF), cc, { fill: z === 4, dash: z === 2 ? [6, 4] : z === 4 ? [2, 3] : null })); };
   /* 8: amplitude vs power sigma */
-  F[8] = cv => { const c = col(), sp = SF / Math.SQRT2, { x, B } = frame(cv, 145, [[c.a, '|P|: σf = 1.274'], [c.b, '|P|²: σp = σf/√2 = 0.901 MHz']], 'amplitude and power spectra vs f (MHz), 5 MHz, 60 %');
+  F[8] = cv => { const c = col(), sp = SF / Math.SQRT2, { x, B } = frame(cv, 145, [[c.a, '|P|: σf = 1.274'], [c.b, '|P|²: σp = σf/√2 = 0.901 MHz', [6, 4]]], 'amplitude and power spectra vs f (MHz), 5 MHz, 60 %');
     const m = panel(x, B, [0, 10], [0, 1.1], { ticks: [[5, '5'], [2, '2'], [8, '8']] });
-    curve(x, m, f => gauss(f, 5, SF), c.a); curve(x, m, f => gauss(f, 5, SF) ** 2, c.b); const y = Math.exp(-0.5);
+    curve(x, m, f => gauss(f, 5, SF), c.a); curve(x, m, f => gauss(f, 5, SF) ** 2, c.b, { dash: [6, 4] }); const y = Math.exp(-0.5);
     poly(x, m, [[5 - SF, y], [5 + SF, y]], c.a, { w: 2 }); poly(x, m, [[5 - sp, y], [5 + sp, y]], c.b, { w: 3 }); };
   /* 9: log-compressed Rayleigh speckle */
-  F[9] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'σ = 1'], [c.b, 'σ = 0.1 (−20 dB)'], [null, 'same shape, std 5.57 dB']], 'pdf of 20 log₁₀ A (dB)');
+  F[9] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'σ = 1'], [c.b, 'σ = 0.1 (−20 dB)', [6, 4]], [null, 'same shape, std 5.57 dB']], 'pdf vs 20 log₁₀ A (dB)');
     const pL = (L, s) => { const r = Math.pow(10, L / 20); return r / (s * s) * Math.exp(-r * r / (2 * s * s)) * r * Math.LN10 / 20; };
     const m = panel(x, B, [-45, 15], [0, 0.095], { yaxis: false, ticks: [[-40, '−40'], [-20, '−20'], [0, '0'], [10, '10']] });
-    curve(x, m, L => pL(L, 1), c.a, { fill: true }); curve(x, m, L => pL(L, 0.1), c.b, { fill: true }); };
+    curve(x, m, L => pL(L, 1), c.a, { fill: true }); curve(x, m, L => pL(L, 0.1), c.b, { fill: true, dash: [6, 4] }); };
   /* 10: discrete Hilbert kernel */
   F[10] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'h[n] = 2/(πn), n odd'], [c.mu, '±2/(π|n|): decays as 1/n', [4, 3]]], 'discrete Hilbert kernel vs n');
     const m = panel(x, B, [-16.5, 16.5], [-0.75, 0.75], { yaxis: false, ticks: [[-15, '−15'], [-1, '−1'], [1, '1'], [15, '15']] });
@@ -1552,7 +1590,7 @@
     const p = []; for (let n = -16; n <= 16; n++) p.push([n, n % 2 ? 2 / (PI * n) : 0]); dots(x, m, p, c.a, 2.4, true); };
   /* 11: instantaneous frequency in speckle */
   let SP = null;
-  F[11] = cv => { const c = col(), { x, w, top } = frame(cv, 162, [[c.a, 'A(t)'], [c.b, 'f_i(t)'], [c.c, 'A < 10 %']], 'speckle echo, 5 MHz, 60 %, t in µs');
+  F[11] = cv => { const c = col(), { x, w, top } = frame(cv, 162, [[c.a, 'A(t)'], [c.b, 'f_i(t)'], [c.c, 'A < 10 %']], 'A(t) (top) and f_i(t) in MHz (bottom) vs t (µs); speckle echo, 5 MHz, 60 %');
     if (!SP) { const r = Lab.rng(17), sc = []; for (let k = 0; k < 9; k++) sc.push([0.15 + 1.7 * r.u(), r.g(), TAU * r.u()]);
       const n = 800, t0 = 0, t1 = 2, re = [], im = []; for (let i = 0; i <= n; i++) { const t = t0 + (t1 - t0) * i / n; let a = 0, b = 0; sc.forEach(([tk, ak, pk]) => { const e = ak * env(t - tk), p = TAU * 5 * (t - tk) + pk; a += e * Math.cos(p); b += e * Math.sin(p); }); re.push(a); im.push(b); }
       const A = re.map((v, i) => Math.hypot(v, im[i])), mx = Math.max(...A), dt = (t1 - t0) / n, fi = [];
@@ -1564,7 +1602,7 @@
     for (let i = 0; i < SP.n; i++) if (SP.A[i] < 0.1) { const t = i * SP.dt; shade(x, m1, t, t + SP.dt, c.c, 0.35); shade(x, m2, t, t + SP.dt, c.c, 0.35); }
     curve(x, m1, t => at(SP.A, t), c.a, { fill: true }); curve(x, m2, t => at(SP.fi, t), c.b, { w: 1.2 }); text(x, 'MHz', m2.b.x + 2, m2.b.y + 6, c.mu); };
   /* 12: fs = 4 f0 */
-  F[12] = cv => { const c = col(), ph = 0.6, { x, B } = frame(cv, 145, [[c.mu, 'RF cos(2πf₀t + φ)'], [c.a, 'I samples'], [c.b, 'Q samples']], 't in RF periods (200 ns at 5 MHz), samples 50 ns apart');
+  F[12] = cv => { const c = col(), ph = 0.6, { x, B } = frame(cv, 145, [[c.mu, 'RF cos(2πf₀t + φ)'], [c.a, 'I samples'], [c.b, 'Q samples']], 'RF amplitude vs t in RF periods (200 ns at 5 MHz), samples 50 ns apart');
     const m = panel(x, B, [-0.1, 2.15], [-1.35, 1.35], { yaxis: false, ticks: [[1, '1'], [2, '2']] });
     curve(x, m, t => Math.cos(TAU * t + ph), c.mu, { w: 1.2 }); const labs = ['I', '−Q', '−I', 'Q'];
     for (let n = 0; n <= 8; n++) { const v = Math.cos(PI * n / 2 + ph), cc = n % 2 ? c.b : c.a; dots(x, m, [[n / 4, v]], cc, 3.2, true); text(x, labs[n % 4], m.X(n / 4), m.Y(v) + (v >= 0 ? -10 : 10), cc, 'center'); } };
@@ -1574,7 +1612,7 @@
     curve(x, part(m, -3, 0), f => gauss(f, 2, s2), c.b, { fill: true, alpha: 0.55, w: 0.01 }); curve(x, m, f => gauss(f, 2, s2), c.a); curve(x, m, f => gauss(f, 5, SF), c.mu, { dash: [4, 3], w: 1.2 }); };
   /* 14: decimation aliasing */
   F[14] = cv => { const c = col(), { x, w, top } = frame(cv, 160, [[c.a, 'IQ band (5 MHz, 60 %)'], [c.b, 'overlap']], null);
-    [[8, top + 14], [5, top + 76]].forEach(([fs, y]) => { const m = panel(x, { x: 4, y, w: w - 8, h: 30 }, [-10, 10], [0, 1.1], { lab: 'fs,IQ = ' + fs + ' MHz' + (fs === 5 ? ': replicas overlap' : ''), yaxis: false, ticks: [[-fs, '−fs'], [0, '0'], [fs, 'fs']] });
+    [[8, top + 14], [5, top + 76]].forEach(([fs, y]) => { const m = panel(x, { x: 4, y, w: w - 8, h: 30 }, [-10, 10], [0, 1.1], { yl: 'fs,IQ = ' + fs + ' MHz' + (fs === 5 ? ': replicas overlap' : ''), xl: 'f (MHz)', yaxis: false, ticks: [[-fs, '−fs'], [0, '0'], [fs, 'fs']] });
       for (let k = -2; k <= 2; k++) if (k) curve(x, m, f => gauss(f, k * fs, SF), c.mu, { w: 1 });
       curve(x, m, f => gauss(f, 0, SF), c.a, { fill: true });
       curve(x, m, f => { const v = []; for (let k = -2; k <= 2; k++) v.push(gauss(f, k * fs, SF)); v.sort((a, b) => b - a); return v[1]; }, c.b, { fill: true, alpha: 0.6, w: 0.01 }); }); };

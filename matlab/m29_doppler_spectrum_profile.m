@@ -102,7 +102,8 @@ fprintf('Part 5: STFT at PRF = 5 kHz, Hann window\n   Nw   bin(Hz)  -6dB width(H
 PRF5 = 5e3;
 for Nw = [32 64 128 256]
     w = 0.5 - 0.5*cos(2*pi*(0:Nw-1)'/Nw);  Z = 64*Nw;
-    W = abs(fft(w, Z));  W = W / W(1);  k6 = find(W < 0.5, 1) - 1;   % first bin below -6 dB
+    W = abs(fft(w, Z));  W = W / W(1);  i6 = find(W < 0.5, 1);       % first grid point below -6 dB
+    k6 = i6 - 2 + (W(i6-1) - 0.5)/(W(i6-1) - W(i6));                   % interpolated -6 dB crossing (grid points)
     w6 = 2 * k6 / Z * PRF5;                                            % two-sided -6 dB width (Hz)
     fprintf('  %4d   %6.1f     %6.1f        %5.1f     %6.1f\n', Nw, PRF5/Nw, w6, Nw/PRF5*1e3, c*w6/(2*f0)*1e3);
 end

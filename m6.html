@@ -18,6 +18,8 @@
     </div>
   </header>
   <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>numerical solution run in this page (JS) or in the module's Octave scripts</span><span><span class="prov model">Approx. model</span>simplified physics; assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not computed</span><span>Simulated ensembles (Demo 06.6, the clutter-spectrum card) come from this page’s own Gaussian-PSF IQ simulator or from m06_svd_clutter_filter.m (Octave); quoted numbers in rule figures are those printed by the MATLAB lab scripts. No Field II or k-Wave output is shown.</span></div>
+  <div class="k60"><span class="label">In 60 seconds</span><ol><li><b>Hermitian matrices have perpendicular axes:</b> A covariance matrix, like any Hermitian (conjugate-symmetric) matrix, has real eigenvalues and perpendicular eigenvectors, so its eigenvalues are variances along perpendicular directions. Eigenvalues of non-symmetric matrices can be hypersensitive, while singular values move no more than the perturbation itself, which is why robust methods use the singular value decomposition (SVD). <a class="sref" href="#m6-s6-1">§06.1</a></li><li><b>The SVD is rotate, stretch, rotate:</b> Every matrix factors as \(A = U\Sigma V^H\): rotate by V, stretch by the singular values σ in Σ, rotate by U. The largest σ is the maximum gain, and largest over smallest is the condition number. In a transmit–receive matrix, V’s first column is the transmit law returning most energy. <a class="sref" href="#m6-s6-2">§06.2</a></li><li><b>Truncation is the best low-rank model:</b> Keeping only the k largest singular terms gives the best rank-k approximation, and its worst-case error equals the first discarded singular value (the Eckart–Young theorem). This pays only when singular values fall fast. Random noise and fully developed speckle are full rank, so truncation cannot compress them without loss. <a class="sref" href="#m6-s6-3">§06.3</a></li><li><b>Small singular values carry the noise:</b> Inverting through the SVD divides each data component by its singular value, so noise grows along weak directions. Truncated SVD and Tikhonov regularization suppress those terms. Set the cutoff where data components sink into the noise floor, as a Picard plot shows, not at the default pseudo-inverse tolerance meant for exact data. <a class="sref" href="#m6-s6-4">§06.4</a></li><li><b>The SVD clutter filter separates by spatial coherence:</b> Stack frames as columns of a pixels × frames matrix; each SVD rank is a spatial map times a time course. Tissue usually fills the first ranks, blood the middle, noise the tail; motion, slow flow and noise make the groups overlap, so cutoffs must adapt. This works where a fixed wall filter fails, since moving tissue and slow flow can share a Doppler frequency. <a class="sref" href="#m6-s6-5">§06.5</a></li><li><b>Cutoffs depend on motion and noise:</b> There is rarely a clean knee: a low cutoff leaves moving tissue, a high one removes slow flow. Pure noise of level σₙ in an m × n matrix stays below \(\sigma_n(\sqrt m + \sqrt n)\), which sets the upper cutoff. Non-rigid motion spreads tissue over more ranks, so use short ensembles or block-wise SVD. <a class="sref" href="#m6-s6-5">§06.5</a></li><li><b>Rank 1 means one aberration law:</b> Within an isoplanatic patch, a region where tissue distorts focusing the same way everywhere, the distortion matrix of focusing errors is nearly rank 1, and its first singular vector is the aberration phase law. A larger patch averages more speckle but is less likely to share one law, so patch size is a trade-off. <a class="sref" href="#m6-s6-6">§06.6</a></li></ol></div>
+  <div class="field"><span class="label">From the field</span><ul><li><b>Set SVD clutter cutoffs per ensemble (frame stack) and block, not as fixed ranks.</b> <span class="why">Moving tissue spreads over more ranks as displacement grows. In the module’s simulation 0.1 mm of motion needs 3 ranks to reach −50 dB and 1 mm needs 13, so a rank tuned on a still phantom shows false flow. <a class="sref" href="#m6-s6-5">§06.5</a></span></li><li><b>Set the blood/noise cutoff from a noise model before picking a rank.</b> <span class="why">The largest singular value pure noise can reach, \(\sigma_n(\sqrt m + \sqrt n)\) for noise level σₙ in an m × n matrix, places that cutoff objectively. The tissue/blood cutoff needs a tissue criterion instead, such as spatial similarity of singular vectors. <a class="sref" href="#m6-s6-5">§06.5</a></span></li><li><b>For real time, compute only the leading singular vectors.</b> <span class="why">Use the small frames × frames Gram matrix (data times its conjugate transpose), block-wise processing or a randomized SVD. For 128 × 128 pixels and 300 frames, forming the Gram matrix costs 1.5 × 10⁹ complex multiply-adds and its eigendecomposition only 2.7 × 10⁷. <a class="sref" href="#m6-s6-10">§06.10</a></span></li><li><b>Keep the Gram matrix in double precision.</b> <span class="why">Forming it squares the condition number, so single precision corrupts singular values more than about 65–75 dB below the largest. On the module’s simulated ensemble the first error above 1 % appears at −66.8 dB, right at the blood/noise boundary. <a class="sref" href="#m6-s6-5">§06.5</a> <a class="sref" href="#m6-s6-10">§06.10</a></span></li></ul></div>
 
   <!-- ============ 06.1 ============ -->
   <div class="prose">
@@ -51,7 +53,7 @@ e\lambda_2\)</dd><dt>\(\lambda_1,\ \lambda_2\)</dt><dd>distinct real eigenvalues
       <dl class="where"><dt>\(\mathbf{A} = \mathbf{A}^{H}\)</dt><dd>Hermitian n × n matrix (e.g. a channel covariance)</dd><dt>\(\mathbf{q}_i\)</dt><dd>orthonormal eigenvectors (columns of \(\mathbf{Q}\))</dd><dt>\(\lambda_i\)</dt><dd>real eigenvalues; variances along \(\mathbf{q}_i\) for a covariance</dd><dt>\(\Lambda\)</dt><dd>diagonal matrix of the \(\lambda_i\)</dd><dt>\(\mathbf{Q}\)</dt><dd>unitary matrix whose columns are \(\mathbf{q}_i\)</dd><dt>\(\mathbf{I}\)</dt><dd>identity matrix</dd><dt>\(\mathbf{q}_i\mathbf{q}_i^{H}\)</dt><dd>rank-one projector onto \(\mathbf{q}_i\)</dd><dt>\((\cdot)^{H}\)</dt><dd>conjugate transpose</dd><dt>\(\mathbb{R}\)</dt><dd>the real numbers</dd></dl>
       <span class="note">Spectral theorem: a Hermitian matrix is a weighted sum of orthogonal rank-1 projectors. Repeated eigenvalues still admit an orthonormal eigenbasis (choose one inside the eigenspace). If additionally \(\mathbf{A} \succeq 0\) (all \(\lambda_{i} \ge 0\)), as for \(\mathbf{A}^{H}\mathbf{A}\) or any covariance, the eigenvalues are variances along \(\mathbf{q}_{i}\).</span>
     </div>
-    <p>For a non-symmetric matrix none of this is guaranteed: eigenvectors can be oblique (the angle between them can approach 0°, making \(\mathbf{X}\) ill-conditioned), eigenvalues can be complex, and the matrix can be defective (fewer than n eigenvectors). Shears and propagation operators with loss are typical examples. That fragility is why the SVD, which always exists with orthonormal bases on both sides, is the workhorse.</p>
+    <p>For a non-symmetric matrix none of this is guaranteed: eigenvectors can be oblique (the angle between them can approach 0°, making \(\mathbf{X}\) ill-conditioned), eigenvalues can be complex, and the matrix can be defective (fewer than n eigenvectors). Shears and lossy propagation operators are typical examples. That fragility is why the SVD, which always exists with orthonormal bases on both sides, is the workhorse.</p>
   </div>
 
   <div class="demo">
@@ -59,19 +61,19 @@ e\lambda_2\)</dd><dt>\(\lambda_1,\ \lambda_2\)</dt><dd>distinct real eigenvalues
     <div class="demo-body">
       <div class="stage">
         <canvas id="m6-eig-cv" aria-label="Unit circle and its image under A with eigen-directions"></canvas>
-        <div class="legend"><span><i style="background:var(--muted)"></i>unit circle, ring of <span class="v">v</span></span><span><i style="background:var(--accent)"></i>image <span class="v">Av</span> (ellipse)</span><span><i style="background:var(--sig2)"></i>eigen-direction</span><span><i style="background:var(--sig3)"></i>probe <span class="v">v</span> (drag) → <span class="v">Av</span></span></div>
+        <div class="legend" id="m6-eig-leg"><span data-s="circ"><i style="background:var(--muted)"></i>unit circle, ring of <span class="v">v</span></span><span data-s="img"><i style="background:var(--accent)"></i>image <span class="v">Av</span> (ellipse)</span><span data-s="eig"><i class="dash" style="color:var(--sig2)"></i>eigen-directions (lines) and λ<span class="v">v</span> (arrows)</span><span data-s="probe"><i style="background:var(--sig3)"></i>probe <span class="v">v</span> (drag)</span><span data-s="pimg"><i style="background:var(--ink)"></i>its image <span class="v">Av</span></span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m6-eig-pre">Preset</label>
+        <div class="ctrl"><label for="m6-eig-pre"><span>Matrix preset<span class="hint">loads the four entries a, b, c, d</span></span></label>
           <select id="m6-eig-pre"><option value="sym">symmetric</option><option value="gen">non-symmetric (oblique)</option><option value="shear">shear (defective)</option><option value="def">defective, λ = 1 double</option><option value="rot">rotation 35° × 1.1</option></select></div>
-        <div class="ctrl"><label for="m6-ea"><span>a = A<sub>11</sub></span> <output id="m6-ea-o"></output></label><input type="range" id="m6-ea" min="-2" max="2" step="0.05" value="1.5"></div>
-        <div class="ctrl"><label for="m6-eb"><span>b = A<sub>12</sub></span> <output id="m6-eb-o"></output></label><input type="range" id="m6-eb" min="-2" max="2" step="0.05" value="0.5"></div>
-        <div class="ctrl"><label for="m6-ec"><span>c = A<sub>21</sub></span> <output id="m6-ec-o"></output></label><input type="range" id="m6-ec" min="-2" max="2" step="0.05" value="0.5"></div>
-        <div class="ctrl"><label for="m6-ed"><span>d = A<sub>22</sub></span> <output id="m6-ed-o"></output></label><input type="range" id="m6-ed" min="-2" max="2" step="0.05" value="0.8"></div>
+        <div class="ctrl"><label for="m6-ea"><span>Matrix entry a = A<sub>11</sub> (dimensionless)<span class="hint">A = [a b; c d] maps the probe v to Av</span></span> <output id="m6-ea-o"></output></label><input type="range" id="m6-ea" min="-2" max="2" step="0.05" value="1.5"></div>
+        <div class="ctrl"><label for="m6-eb"><span>Matrix entry b = A<sub>12</sub> (dimensionless)</span> <output id="m6-eb-o"></output></label><input type="range" id="m6-eb" min="-2" max="2" step="0.05" value="0.5"></div>
+        <div class="ctrl"><label for="m6-ec"><span>Matrix entry c = A<sub>21</sub> (dimensionless)</span> <output id="m6-ec-o"></output></label><input type="range" id="m6-ec" min="-2" max="2" step="0.05" value="0.5"></div>
+        <div class="ctrl"><label for="m6-ed"><span>Matrix entry d = A<sub>22</sub> (dimensionless)</span> <output id="m6-ed-o"></output></label><input type="range" id="m6-ed" min="-2" max="2" step="0.05" value="0.8"></div>
         <div class="readout" id="m6-eig-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> drag the probe until \(\mathbf{Av}\) lines up with \(\mathbf{v}\); you have found an eigen-direction. Set c = b (symmetric) and the two eigen-directions lock at 90°. Pull c away from b: they become oblique, merge at Δ = 0 (defective) and vanish when Δ &lt; 0 (rotation): every probe direction then turns.</div>
+    <div class="demo-foot"><strong>Try:</strong> drag the probe until \(\mathbf{Av}\) lines up with \(\mathbf{v}\); you have found an eigen-direction. Set c = b (symmetric) and the two eigen-directions lock at 90°. Pull c away from b: they become oblique, merge at Δ = 0 (defective) and vanish when Δ &lt; 0 (rotation): every probe direction then turns.<span class="symnote">Symbols used here: a, b, c, d, the entries of the 2×2 matrix A (dimensionless); v, the unit probe vector; λ, an eigenvalue (Av = λv); τ = a + d, the trace; δ = ad − bc, the determinant; Δ = τ² − 4δ, the discriminant (Δ &lt; 0 means complex λ); σ₁ ≥ σ₂, the singular values (longest and shortest semi-axes of the ellipse).</span></div>
   </div>
 
   <div class="prose">
@@ -91,20 +93,26 @@ vert\ge\dots\)) and eigenvectors, as in <span class="eqref">(06.5)</span></dd><d
     <div class="demo-body">
       <div class="stage">
         <canvas id="m6-pow-cv" aria-label="Power iteration error versus iteration"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>tan∠(<span class="v">x</span><sub>k</sub>, <span class="v">q</span><sub>1</sub>)</span><span><i style="background:var(--sig2)"></i>|λ<sub>1</sub> − Rayleigh quotient|</span><span><i style="background:var(--muted)"></i>theory r<sup>k</sup>, r<sup>2k</sup> (dashed)</span></div>
+        <div class="legend" id="m6-pow-leg"><span data-s="tan"><i style="background:var(--accent)"></i>tan∠(<span class="v">x</span><sub>k</sub>, <span class="v">q</span><sub>1</sub>)</span><span data-s="ray"><i class="dash" style="color:var(--sig2)"></i>|λ<sub>1</sub> − Rayleigh quotient|</span><span data-s="thk"><i class="dash" style="color:var(--muted)"></i>theory r<sup>k</sup></span><span data-s="th2k"><i class="dot" style="color:var(--sig5)"></i>theory r<sup>2k</sup></span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m6-pow-r"><span>gap ratio r = |λ<sub>2</sub>/λ<sub>1</sub>|</span> <output id="m6-pow-r-o"></output></label><input type="range" id="m6-pow-r" min="0.05" max="0.99" step="0.01" value="0.7"></div>
+        <div class="ctrl"><label for="m6-pow-r"><span>Eigenvalue ratio r = |λ<sub>2</sub>/λ<sub>1</sub>| (dimensionless)<span class="hint">closer to 1 means slower convergence</span></span> <output id="m6-pow-r-o"></output></label><input type="range" id="m6-pow-r" min="0.05" max="0.99" step="0.01" value="0.7"></div>
         <label class="check"><input type="checkbox" id="m6-pow-neg"> λ<sub>2</sub> negative (−r)</label>
         <div class="btn-row"><button class="btn" id="m6-pow-seed">Reseed start vector</button></div>
         <div class="readout" id="m6-pow-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> r = 0.99 needs about 3400 iterations for \(10^{-15}\); r = 0.1 needs 15. The measured slopes match \(\log_{10}r\) and \(2\cdot \log_{10}r\). A negative \(\lambda_{2}\) gives the same rate (only |r| matters) but the iterate sign alternates.</div>
+    <div class="demo-foot"><strong>Try:</strong> r = 0.99 needs about 3400 iterations for \(10^{-15}\); r = 0.1 needs 15. The measured slopes match \(\log_{10}r\) and \(2\cdot \log_{10}r\). A negative \(\lambda_{2}\) gives the same rate (only |r| matters) but the iterate sign alternates.<span class="symnote">Symbols used here: λ₁ = 1 and λ₂, the two largest eigenvalues; r = |λ₂/λ₁|, their ratio; k, the iteration number; x<sub>k</sub>, the iterate; q₁, the dominant eigenvector; tan∠(x<sub>k</sub>, q₁), the eigenvector error; the Rayleigh quotient x<sub>k</sub>ᴴAx<sub>k</sub>, the eigenvalue estimate.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>The eigenvectors of the channel covariance matrix \(\mathbf{R} = E[\mathbf{x} \mathbf{x}^{H}]\) (Hermitian, Module 07) split the aperture data into a coherent signal subspace and an incoherent noise subspace. Eigenspace-based beamformers project the minimum-variance weights onto the dominant eigenvectors, and the fraction \(\lambda_{1}/\sum \lambda_{i}\) is a coherence measure (the eigenvalue analogue of the coherence factor). Because \(\mathbf{R}\) is Hermitian, those eigenvalues are real powers and the eigenvectors are orthogonal aperture patterns.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Eigenvalues of a non-symmetric matrix can be hypersensitive. The shear [[1, ε],[0, 1]] has a double eigenvalue 1 for every ε, but [[1, ε],[δ, 1]] has \(\lambda = 1 \pm \sqrt{\varepsilon \delta}\): a perturbation \(\delta = 10^{-10}\) with ε = 1 moves λ by \(10^{-5}\). Singular values never do this: \(\lvert \sigma_{i}(\mathbf{A}+\mathbf{E}) - \sigma_{i}(\mathbf{A})\rvert \le \lVert \mathbf{E}\rVert_{2}\) (Weyl).</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Eigenvalues solve det(A − λI) = 0, with Σλ<sub>i</sub> = tr A and Πλ<sub>i</sub> = det A; for 2 × 2 the discriminant τ² − 4δ decides real, repeated or complex.</li>
+    <li>Hermitian A: real λ, orthonormal eigenvectors, A = Σλ<sub>i</sub>q<sub>i</sub>q<sub>i</sub>ᴴ; for a covariance the λ<sub>i</sub> are variances.</li>
+    <li>Power iteration converges as |λ₂/λ₁|<sup>k</sup> and the Rayleigh quotient as |λ₂/λ₁|<sup>2k</sup>: r = 0.99 needs about 3400 iterations for 10⁻¹⁵, r = 0.1 needs 15.</li>
+    <li>Non-symmetric eigenvalues can be hypersensitive ([[1, 1], [10⁻¹⁰, 1]] moves λ by 10⁻⁵); singular values move by at most ‖E‖₂ (Weyl).</li>
+  </ul></div>
 
   <!-- ============ 06.2 ============ -->
   <div class="prose">
@@ -129,19 +137,19 @@ vert\ge\dots\)) and eigenvectors, as in <span class="eqref">(06.5)</span></dd><d
     <div class="demo-body">
       <div class="stage">
         <canvas id="m6-svd-cv" aria-label="SVD stages animation"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>current shape</span><span><i style="background:var(--muted)"></i>input circle, final ellipse (dashed)</span><span><i style="background:var(--sig2)"></i><span class="v">v</span><sub>1</sub> → σ<sub>1</sub><span class="v">u</span><sub>1</sub></span><span><i style="background:var(--sig4)"></i><span class="v">v</span><sub>2</sub> → σ<sub>2</sub><span class="v">u</span><sub>2</sub></span></div>
+        <div class="legend" id="m6-svd-leg"><span data-s="cur"><i style="background:var(--accent)"></i>current shape</span><span data-s="circ"><i class="dash" style="color:var(--muted)"></i>input circle</span><span data-s="fin"><i class="dot" style="color:var(--sig5)"></i>final ellipse</span><span data-s="a1"><i style="background:var(--sig2)"></i><span class="v">v</span><sub>1</sub> → σ<sub>1</sub><span class="v">u</span><sub>1</sub></span><span data-s="a2"><i style="background:var(--sig4)"></i><span class="v">v</span><sub>2</sub> → σ<sub>2</sub><span class="v">u</span><sub>2</sub></span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m6-st">Stage <output id="m6-st-o"></output></label><input type="range" id="m6-st" min="0" max="3" step="0.01" value="3"></div>
+        <div class="ctrl"><label for="m6-st"><span>Stage (0 to 3)<span class="hint">0 circle, 1 after Vᴴ, 2 after Σ, 3 = A applied</span></span> <output id="m6-st-o"></output></label><input type="range" id="m6-st" min="0" max="3" step="0.01" value="3"></div>
         <div class="btn-row"><button class="btn solid" id="m6-st-play">Play 0 → 3</button></div>
-        <div class="ctrl"><label for="m6-sa">a <output id="m6-sa-o"></output></label><input type="range" id="m6-sa" min="-2" max="2" step="0.05" value="1.2"></div>
-        <div class="ctrl"><label for="m6-sb">b <output id="m6-sb-o"></output></label><input type="range" id="m6-sb" min="-2" max="2" step="0.05" value="0.9"></div>
-        <div class="ctrl"><label for="m6-sc">c <output id="m6-sc-o"></output></label><input type="range" id="m6-sc" min="-2" max="2" step="0.05" value="-0.3"></div>
-        <div class="ctrl"><label for="m6-sd">d <output id="m6-sd-o"></output></label><input type="range" id="m6-sd" min="-2" max="2" step="0.05" value="0.6"></div>
+        <div class="ctrl"><label for="m6-sa"><span>Matrix entry a = A<sub>11</sub> (dimensionless)</span> <output id="m6-sa-o"></output></label><input type="range" id="m6-sa" min="-2" max="2" step="0.05" value="1.2"></div>
+        <div class="ctrl"><label for="m6-sb"><span>Matrix entry b = A<sub>12</sub> (dimensionless)</span> <output id="m6-sb-o"></output></label><input type="range" id="m6-sb" min="-2" max="2" step="0.05" value="0.9"></div>
+        <div class="ctrl"><label for="m6-sc"><span>Matrix entry c = A<sub>21</sub> (dimensionless)</span> <output id="m6-sc-o"></output></label><input type="range" id="m6-sc" min="-2" max="2" step="0.05" value="-0.3"></div>
+        <div class="ctrl"><label for="m6-sd"><span>Matrix entry d = A<sub>22</sub> (dimensionless)</span> <output id="m6-sd-o"></output></label><input type="range" id="m6-sd" min="-2" max="2" step="0.05" value="0.6"></div>
         <div class="readout" id="m6-svd-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> step the stage slider through 1 and 2: the first rotation puts \(\mathbf{v}_{1}, \mathbf{v}_{2}\) on the axes, the stretch scales them by \(\sigma_{1}, \sigma_{2}\), the last rotation sends them to \(\sigma_{i}\mathbf{u}_{i}\). Make \(\det \mathbf{A} &lt; 0\) and the stretch flips one axis through zero (a reflection, shown as a signed \(\sigma_{2}\); the true \(\sigma_{2}\) stays positive and the sign moves into \(\mathbf{U}\)). Make the rows proportional (e.g. a = 1, b = 1, c = 0.5, d = 0.5): \(\sigma_{2} = 0\), the ellipse collapses to a segment, rank 1.</div>
+    <div class="demo-foot"><strong>Try:</strong> step the stage slider through 1 and 2: the first rotation puts \(\mathbf{v}_{1}, \mathbf{v}_{2}\) on the axes, the stretch scales them by \(\sigma_{1}, \sigma_{2}\), the last rotation sends them to \(\sigma_{i}\mathbf{u}_{i}\). Make \(\det \mathbf{A} &lt; 0\) and the stretch flips one axis through zero (a reflection, shown as a signed \(\sigma_{2}\); the true \(\sigma_{2}\) stays positive and the sign moves into \(\mathbf{U}\)). Make the rows proportional (e.g. a = 1, b = 1, c = 0.5, d = 0.5): \(\sigma_{2} = 0\), the ellipse collapses to a segment, rank 1.<span class="symnote">Symbols used here: a, b, c, d, the entries of A (dimensionless); A = UΣVᴴ, its SVD with rotations U and Vᴴ and stretch Σ = diag(σ₁, σ₂); v<sub>i</sub>, u<sub>i</sub>, the input and output singular directions; κ = σ₁/σ₂, the condition number; ‖A‖₂ and ‖A‖<sub>F</sub>, the spectral and Frobenius norms.</span></div>
   </div>
 
   <div class="prose">
@@ -151,7 +159,7 @@ vert\ge\dots\)) and eigenvectors, as in <span class="eqref">(06.5)</span></dd><d
       <tbody>
         <tr><td>\(\sigma_{i}^{2}\)</td><td>\(\operatorname{eig} (\mathbf{A}^{H}\mathbf{A})\) = non-zero \(\operatorname{eig} (\mathbf{AA}^{H})\)</td><td>\(\mathbf{A}^{H}\mathbf{A}\) \(= \mathbf{V}\Sigma^{H}\Sigma \mathbf{V}^{H}\), \(\mathbf{AA}^{H} = \mathbf{U}\Sigma \Sigma^{H}\mathbf{U}^{H}\)</td></tr>
         <tr><td>Column / row spaces</td><td>\(\operatorname{range} \mathbf{A}\) \(= \operatorname{span} (\mathbf{u}_{1..r})\), \(\operatorname{null} \mathbf{A}\) \(= \operatorname{span} (\mathbf{v}_{r+1..n})\)</td><td>the four fundamental subspaces of Module 05, with orthonormal bases</td></tr>
-        <tr><td>rank</td><td>number of \(\sigma_{i} &gt; 0\) (numerically: &gt; \(\mathrm{tol} \cdot \sigma_{1}\))</td><td>each term \(\sigma_{i}\mathbf{u}_{i}\mathbf{v}_{i}^{H}\) is rank 1</td></tr>
+        <tr><td>rank</td><td>number of \(\sigma_{i} &gt; 0\) (numerically: &gt; \(\mathrm{tol} \cdot \sigma_{1}\), with tol a small relative tolerance)</td><td>each term \(\sigma_{i}\mathbf{u}_{i}\mathbf{v}_{i}^{H}\) is rank 1</td></tr>
         <tr><td>\(\lVert \mathbf{A}\rVert_{2}\)</td><td>\(\sigma_{1}\)</td><td>max gain over unit inputs = longest ellipse axis</td></tr>
         <tr><td>\(\lVert \mathbf{A}\rVert_{F}^{2}\)</td><td>\(\sum \sigma_{i}^{2}\)</td><td>\(\lVert \cdot \rVert_{F}\) is unitarily invariant: \(\lVert \mathbf{U}\Sigma \mathbf{V}^{H}\rVert_{F}\) \(= \lVert \Sigma \rVert_{F}\)</td></tr>
         <tr><td>\(\kappa_{2}(\mathbf{A})\)</td><td>\(\sigma_{1}/\sigma_{n}\) (full column rank, \(m \ge n\))</td><td>ellipse aspect ratio; relative error amplification in least squares (Module 05)</td></tr>
@@ -162,6 +170,12 @@ vert\ge\dots\)) and eigenvectors, as in <span class="eqref">(06.5)</span></dd><d
   </div>
 
   <div class="callout intuit"><span class="label">Intuition</span><p>Think of \(\mathbf{A}\) as a bank of n orthogonal “input beams” \(\mathbf{v}_{i}\), each received on its own orthogonal “output beam” \(\mathbf{u}_{i}\) with gain \(\sigma_{i}\) and no cross-talk. The SVD is the only basis pair that fully decouples the operator. For a transmit-receive matrix this is literally the DORT picture: \(\mathbf{v}_{1}\) is the transmit apodization-and-phase law that delivers the most energy back to the array, and \(\mathbf{u}_{1}\) is its received wavefront.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>A = UΣVᴴ exists for every matrix; Av<sub>i</sub> = σ<sub>i</sub>u<sub>i</sub>, and σ<sub>i</sub>² are the eigenvalues of AᴴA.</li>
+    <li>‖A‖₂ = σ₁, ‖A‖<sub>F</sub>² = Σσ<sub>i</sub>², κ₂ = σ₁/σ<sub>n</sub>, |det A| = Πσ<sub>i</sub>, and the rank is the number of σ<sub>i</sub> above a tolerance.</li>
+    <li>SVD and eigendecomposition coincide only for Hermitian positive semidefinite matrices; the shear has λ = 1, 1 but σ = 1.62, 0.62.</li>
+    <li>For a transmit–receive matrix, v₁ is the transmit law that returns the most energy and u₁ its received wavefront (DORT).</li>
+  </ul></div>
 
   <!-- ============ 06.3 ============ -->
   <div class="prose">
@@ -178,7 +192,7 @@ Vert_2\) or Frobenius \(\lVert\cdot
 Vert_F\)</dd></dl>
       <span class="note">Proof sketch for \(\lVert \cdot \rVert_{2}\): \(\operatorname{rank} \mathbf{B} \le k\) means \(\operatorname{null} \mathbf{B}\) has dimension ≥ n − k, so it intersects the (k+1)-dimensional \(\operatorname{span} (\mathbf{v}_{1..k+1})\) in some unit \(\mathbf{w}\). Then \(\lVert (\mathbf{A}-\mathbf{B})\mathbf{w}\rVert\) \(= \lVert \mathbf{Aw}\rVert \ge \sigma_{k+1}\).</span>
     </div>
-    <p>Energy captured is \(\sum_{i\le k}\sigma_{i}^{2}/\sum \sigma_{i}^{2}\). Storage drops from mn to k(m + n + 1) numbers. A matrix is compressible exactly when its singular values decay fast; a matrix of i.i.d. noise has no dominant singular values (for entries of standard deviation \(\sigma\) and \(m \ge n\) they fill the Marchenko–Pastur bulk \(\sigma (\sqrt{m}- \sqrt{n}) \dots \sigma (\sqrt{m}+ \sqrt{n})\) with no gap) and cannot be compressed. The demo makes that point with speckle.</p>
+    <p>Energy captured is \(\sum_{i\le k}\sigma_{i}^{2}/\sum \sigma_{i}^{2}\). Storage drops from mn to k(m + n + 1) numbers. A matrix is compressible exactly when its singular values decay fast; a matrix of i.i.d. noise has no dominant singular values (for entries of standard deviation \(\sigma\) and \(m \ge n\) they fill the Marchenko–Pastur bulk \(\sigma (\sqrt{m}- \sqrt{n}) \dots \sigma (\sqrt{m}+ \sqrt{n})\) with no gap) and cannot be compressed. The demo shows this with speckle.</p>
   </div>
 
   <div class="demo">
@@ -187,18 +201,24 @@ Vert_F\)</dd></dl>
       <div class="stage">
         <canvas id="m6-lr-img" aria-label="Original, rank-k reconstruction and residual images"></canvas>
         <canvas id="m6-lr-sv" aria-label="Singular value spectrum with cut"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>σ<sub>i</sub> kept</span><span><i style="background:var(--muted)"></i>σ<sub>i</sub> discarded</span><span><i style="background:var(--sig2)"></i>cut at k</span><span><i style="background:var(--sig3)"></i>energy captured (right axis, %)</span></div>
+        <div class="legend" id="m6-lr-leg"><span data-s="kept"><i class="mark" style="background:var(--accent)"></i>σ<sub>i</sub> kept</span><span data-s="disc"><i class="mark" style="background:var(--muted)"></i>σ<sub>i</sub> discarded</span><span data-s="cut"><i class="dash" style="color:var(--sig2)"></i>cut at k</span><span data-s="en"><i style="background:var(--sig3)"></i>energy captured (right axis, %)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m6-lr-k">rank k <output id="m6-lr-k-o"></output></label><input type="range" id="m6-lr-k" min="1" max="96" step="1" value="8"></div>
+        <div class="ctrl"><label for="m6-lr-k">Rank k (singular values kept, of 96) <output id="m6-lr-k-o"></output></label><input type="range" id="m6-lr-k" min="1" max="96" step="1" value="8"></div>
         <label class="check"><input type="checkbox" id="m6-lr-spk" checked> speckle (fully developed, log-compressed 40 dB)</label>
         <div class="readout" id="m6-lr-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> turn speckle off: the layered phantom is captured to 99 % energy within a few ranks because horizontal layers are nearly rank 1 (a depth profile times a constant lateral profile); only the cyst and point targets need more. With speckle on, the tail is long and flat: speckle is a random, full-rank matrix, so low rank removes it along with detail. The readout compares the measured \(\lVert \mathbf{A}-\mathbf{A}_{k}\rVert_{F}^{2}\) with \(\sum_{i&gt;k}\sigma_{i}^{2}\).</div>
+    <div class="demo-foot"><strong>Try:</strong> turn speckle off: the layered phantom is captured to 99 % energy within a few ranks because horizontal layers are nearly rank 1 (a depth profile times a constant lateral profile); only the cyst and point targets need more. With speckle on, the tail is long and flat: speckle is a random, full-rank matrix, so low rank removes it along with detail. The readout compares the measured \(\lVert \mathbf{A}-\mathbf{A}_{k}\rVert_{F}^{2}\) with \(\sum_{i&gt;k}\sigma_{i}^{2}\).<span class="symnote">Symbols used here: A, the 96×96 image (m = n = 96 pixels); σ<sub>i</sub>, its i-th singular value; k, the rank kept; A<sub>k</sub>, the rank-k approximation; ‖·‖<sub>F</sub>, the Frobenius norm (root of the sum of squared pixels); energy captured, the fraction of Σσ<sub>i</sub>² in the first k terms.</span></div>
   </div>
 
-  <div class="callout us"><span class="label">Ultrasound link</span><p>A rank-1 term is a separable pattern: spatial map × temporal course, or depth profile × lateral profile. Tissue moving rigidly is close to separable over a short ensemble; that single observation is the basis of the SVD clutter filter in 06.5. Conversely, “rank” is basis-dependent: a slanted layer or a lateral translation spreads energy over many ranks, which is the failure mode you will see when tissue moves fast.</p></div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>A rank-1 term is a separable pattern: spatial map × temporal course, or depth profile × lateral profile. Rigidly moving tissue is close to separable over a short ensemble, and that single observation underlies the SVD clutter filter in 06.5. But “rank” is basis-dependent: a slanted layer or a lateral translation spreads energy over many ranks, which is the failure mode you will see when tissue moves fast.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>‖A − A<sub>k</sub>‖<sub>F</sub>² = Σ<sub>i&gt;k</sub> σ<sub>i</sub>² and ‖A − A<sub>k</sub>‖₂ = σ<sub>k+1</sub>; no rank-k matrix does better (Eckart–Young–Mirsky).</li>
+    <li>Storage drops from mn to k(m + n + 1) numbers, which pays only when the σ<sub>i</sub> decay fast.</li>
+    <li>I.i.d. noise fills the Marchenko–Pastur bulk σ(√m − √n) to σ(√m + √n) with no gap; fully developed speckle is likewise full rank.</li>
+    <li>Horizontal layers and rigidly moving tissue are nearly rank 1; slanted layers and fast lateral translation spread over many ranks.</li>
+  </ul></div>
 
   <!-- ============ 06.4 ============ -->
   <div class="prose">
@@ -231,22 +251,28 @@ Vert_F\)</dd></dl>
     <div class="demo-body stack">
       <div class="stage">
         <canvas id="m6-ts-x" aria-label="True and reconstructed reflectivity"></canvas>
-        <div class="legend"><span><i style="background:var(--muted)"></i>true reflectivity <span class="v">x</span></span><span><i style="background:var(--sig3)"></i>blurred, noisy data <span class="v">b</span></span><span><i style="background:var(--accent)"></i>TSVD estimate <span class="v">x</span><sub>k</sub></span></div>
+        <div class="legend" id="m6-ts-leg1"><span data-s="x"><i class="dash" style="color:var(--muted)"></i>true reflectivity <span class="v">x</span></span><span data-s="b"><i class="dot" style="color:var(--sig3)"></i>blurred, noisy data <span class="v">b</span></span><span data-s="xk"><i style="background:var(--accent)"></i>TSVD estimate <span class="v">x</span><sub>k</sub></span></div>
         <canvas id="m6-ts-p" aria-label="Picard plot"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>σ<sub>i</sub></span><span><i style="background:var(--sig2)"></i>|<span class="v">u</span><sub>i</sub><sup>H</sup><span class="v">b</span>|</span><span><i style="background:var(--sig3)"></i>|<span class="v">u</span><sub>i</sub><sup>H</sup><span class="v">b</span>|/σ<sub>i</sub></span><span><i style="background:var(--sig4)"></i>cut k</span></div>
+        <div class="legend" id="m6-ts-leg2"><span data-s="s"><i class="mark" style="background:var(--accent)"></i>σ<sub>i</sub></span><span data-s="ub"><i class="mark" style="background:var(--sig2)"></i>|<span class="v">u</span><sub>i</sub><sup>H</sup><span class="v">b</span>|</span><span data-s="q"><i class="mark" style="background:var(--sig3)"></i>|<span class="v">u</span><sub>i</sub><sup>H</sup><span class="v">b</span>|/σ<sub>i</sub></span><span data-s="nl"><i class="dot" style="color:var(--sig2)"></i>noise level</span><span data-s="cut"><i class="dash" style="color:var(--sig4)"></i>cut k</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m6-ts-k">truncation k <output id="m6-ts-k-o"></output></label><input type="range" id="m6-ts-k" min="1" max="64" step="1" value="20"></div>
-        <div class="ctrl"><label for="m6-ts-n">noise re signal RMS <output id="m6-ts-n-o"></output></label><input type="range" id="m6-ts-n" min="-80" max="-10" step="1" value="-40"></div>
+        <div class="ctrl"><label for="m6-ts-k">Truncation k (singular values kept, of 64) <output id="m6-ts-k-o"></output></label><input type="range" id="m6-ts-k" min="1" max="64" step="1" value="20"></div>
+        <div class="ctrl"><label for="m6-ts-n"><span>Noise level re signal RMS (dB)<span class="hint">white noise added to the blurred data b</span></span> <output id="m6-ts-n-o"></output></label><input type="range" id="m6-ts-n" min="-80" max="-10" step="1" value="-40"></div>
         <div class="btn-row"><button class="btn" id="m6-ts-seed">Reseed noise</button></div>
         <div class="readout" id="m6-ts-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> slide k to 64 (the plain pseudo-inverse): the estimate explodes because \(\sigma_{64} \approx 1.8\times 10^{-13}\sigma_{1} (\kappa \approx 5.7\times 10^{12})\). The best k sits where \(\lvert \mathbf{u}_{i}^{H}\mathbf{b}\rvert\) (pink) meets its noise floor. Lower the noise by 20 dB: the floor drops and the optimum k moves right, but only by a few terms, because \(\sigma_{i}\) of a Gaussian blur decays super-exponentially.</div>
+    <div class="demo-foot"><strong>Try:</strong> slide k to 64 (the plain pseudo-inverse): the estimate explodes because \(\sigma_{64} \approx 1.8\times 10^{-13}\sigma_{1} (\kappa \approx 5.7\times 10^{12})\). The best k sits where \(\lvert \mathbf{u}_{i}^{H}\mathbf{b}\rvert\) (pink) meets its noise floor. Lower the noise by 20 dB: the floor drops and the optimum k moves right, but only by a few terms, because \(\sigma_{i}\) of a Gaussian blur decays super-exponentially.<span class="symnote">Symbols used here: x, the true reflectivity (64 depth samples); A, the Gaussian blur matrix; b = Ax + noise, the data; σ<sub>i</sub>, u<sub>i</sub>, the singular values and left singular vectors of A; u<sub>i</sub>ᴴb, the data coefficient on u<sub>i</sub>; k, the number of terms kept; x<sub>k</sub>, the TSVD (truncated SVD) estimate; κ = σ₁/σ<sub>n</sub>, the condition number.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>Model-based sound-speed tomography and aberration estimation solve \(\mathbf{b} = \mathbf{Ax}\) with an \(\mathbf{A}\) whose singular values decay fast (limited angular aperture, smooth slowness kernels). Truncated SVD and Tikhonov are the baseline regularizers; their spectral-filter form is how you reason about which slowness patterns a given aperture can and cannot recover.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>“Rank” in floating point is a threshold decision. MATLAB's <code>rank</code> and <code>pinv</code> default to tol = \(\max (m,n)\cdot \varepsilon \cdot \sigma_{1} \approx 10^{-14}\sigma_{1}\), which suits exact data and is far too small for measured data. Set the threshold from the noise level, not from machine precision.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>PCA is the SVD of the centered data: axes v<sub>i</sub>, variances σ<sub>i</sub>²/(N − 1); working on X avoids κ(C) = κ(X)².</li>
+    <li>x⁺ = Σ(u<sub>i</sub>ᴴb/σ<sub>i</sub>)v<sub>i</sub>: noise of standard deviation s adds s/σ<sub>i</sub> along v<sub>i</sub>, so the smallest σ<sub>i</sub> dominate.</li>
+    <li>Truncated SVD (0/1 filter) and Tikhonov (σ<sub>i</sub>²/(σ<sub>i</sub>² + α²)) should stop where |u<sub>i</sub>ᴴb| reaches the noise floor (discrete Picard condition).</li>
+    <li>Default rank and pinv tolerances (≈ 10⁻¹⁴σ₁) suit exact data only; set the threshold from the noise level.</li>
+  </ul></div>
 
   <!-- ============ 06.5 ============ -->
   <div class="prose">
@@ -301,7 +327,7 @@ Vert_F\)</dd></dl>
       <tbody>
         <tr><td>Tissue clutter</td><td>40–60 dB above blood</td><td>large region moves together, slowly (mm/s) → nearly separable</td><td>first few \(\sigma_{k}\), low-Doppler \(\mathbf{v}_{k}\)</td></tr>
         <tr><td>Blood / microbubbles</td><td>low</td><td>small structures, fast (cm/s), decorrelate over a few frames</td><td>middle ranks, higher-Doppler \(\mathbf{v}_{k}\)</td></tr>
-        <tr><td>Electronic noise</td><td>lowest</td><td>i.i.d. in space and time → no coherent structure</td><td>tail: a slowly sloping plateau (the Marchenko–Pastur bulk, edge \(\sigma_{\mathrm{noise}}(\sqrt{N_xN_z}+ \sqrt{n})\))</td></tr>
+        <tr><td>Electronic noise</td><td>lowest</td><td>i.i.d. in space and time → no coherent structure</td><td>tail: a slowly sloping plateau (the Marchenko–Pastur bulk, edge \(\sigma_{\mathrm{noise}}(\sqrt{N_xN_z}+ \sqrt{n})\), with \(\sigma_{\mathrm{noise}}\) the noise standard deviation, \(N_xN_z\) the number of pixels and n the number of frames)</td></tr>
       </tbody>
     </table></div>
     <p>The filter keeps the band \([k_{\mathrm{lo}}, k_{\mathrm{hi}}]\). With \(\mathbf{V}_{b}\) the band's right singular vectors:</p>
@@ -324,25 +350,31 @@ Vert_F\)</dd></dl>
       <div class="stage">
         <canvas id="m6-cf-img" aria-label="Power Doppler images: raw, SVD filtered, high-pass filtered"></canvas>
         <canvas id="m6-cf-sv" aria-label="Singular value curve in dB with band cutoffs, drag to move cutoffs"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>σ<sub>k</sub> (dB re σ<sub>1</sub>)</span><span><i style="background:var(--sig2)"></i>band [k<sub>lo</sub>, k<sub>hi</sub>] (drag)</span><span><i style="background:var(--sig3)"></i>RMS Doppler of <span class="v">v</span><sub>k</sub> (right axis, Hz)</span><span><i style="background:var(--sig4)"></i>tissue peak Doppler 2v<sub>t</sub>/λ</span></div>
+        <div class="legend" id="m6-cf-leg"><span data-s="sv"><i style="background:var(--accent)"></i>σ<sub>k</sub> (dB re σ<sub>1</sub>)</span><span data-s="band"><i class="fill" style="background:var(--sig2)"></i>band [k<sub>lo</sub>, k<sub>hi</sub>] (drag)</span><span data-s="dop"><i class="dot" style="color:var(--sig3)"></i>RMS Doppler of <span class="v">v</span><sub>k</sub> (right axis, Hz)</span><span data-s="tis"><i class="dash" style="color:var(--sig4)"></i>tissue peak Doppler 2v<sub>t</sub>/λ</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m6-cf-vt">tissue peak axial velocity <output id="m6-cf-vt-o"></output></label><input type="range" id="m6-cf-vt" min="0" max="20" step="1" value="6"></div>
-        <div class="ctrl"><label for="m6-cf-bd">blood scatterer level re tissue <output id="m6-cf-bd-o"></output></label><input type="range" id="m6-cf-bd" min="-40" max="-20" step="1" value="-30"></div>
-        <div class="ctrl"><label for="m6-cf-nd">noise re mean tissue pixel power <output id="m6-cf-nd-o"></output></label><input type="range" id="m6-cf-nd" min="-60" max="-30" step="1" value="-50"></div>
-        <div class="ctrl"><label for="m6-cf-nt">ensemble length</label><select id="m6-cf-nt"><option value="64">64 frames (64 ms)</option><option value="80" selected>80 frames (80 ms)</option><option value="100">100 frames (100 ms)</option></select></div>
+        <div class="ctrl"><label for="m6-cf-vt"><span>Tissue peak axial velocity v<sub>t</sub> (mm/s)<span class="hint">sets the tissue Doppler 2v<sub>t</sub>/λ</span></span> <output id="m6-cf-vt-o"></output></label><input type="range" id="m6-cf-vt" min="0" max="20" step="1" value="6"></div>
+        <div class="ctrl"><label for="m6-cf-bd">Blood scatterer level re tissue (dB) <output id="m6-cf-bd-o"></output></label><input type="range" id="m6-cf-bd" min="-40" max="-20" step="1" value="-30"></div>
+        <div class="ctrl"><label for="m6-cf-nd">Noise level re mean tissue pixel power (dB) <output id="m6-cf-nd-o"></output></label><input type="range" id="m6-cf-nd" min="-60" max="-30" step="1" value="-50"></div>
+        <div class="ctrl"><label for="m6-cf-nt"><span>Ensemble length n (frames at PRF 1 kHz)<span class="hint">press Simulate + SVD after changing</span></span></label><select id="m6-cf-nt"><option value="64">64 frames (64 ms)</option><option value="80" selected>80 frames (80 ms)</option><option value="100">100 frames (100 ms)</option></select></div>
         <div class="btn-row"><button class="btn solid" id="m6-cf-go">Simulate + SVD</button><button class="btn" id="m6-cf-seed">Reseed</button><button class="btn" id="m6-cf-best">Best-contrast band</button></div>
-        <div class="ctrl"><label for="m6-cf-lo"><span>k<sub>lo</sub> (first kept)</span> <output id="m6-cf-lo-o"></output></label><input type="range" id="m6-cf-lo" min="1" max="100" step="1" value="6"></div>
-        <div class="ctrl"><label for="m6-cf-hi"><span>k<sub>hi</sub> (last kept)</span> <output id="m6-cf-hi-o"></output></label><input type="range" id="m6-cf-hi" min="1" max="100" step="1" value="45"></div>
-        <div class="ctrl"><label for="m6-cf-fc">high-pass cutoff (Butterworth, order 2, zero-phase) <output id="m6-cf-fc-o"></output></label><input type="range" id="m6-cf-fc" min="10" max="200" step="5" value="50"></div>
+        <div class="ctrl"><label for="m6-cf-lo"><span>First kept index k<sub>lo</sub><span class="hint">ranks below it are treated as tissue</span></span> <output id="m6-cf-lo-o"></output></label><input type="range" id="m6-cf-lo" min="1" max="100" step="1" value="6"></div>
+        <div class="ctrl"><label for="m6-cf-hi"><span>Last kept index k<sub>hi</sub><span class="hint">ranks above it are treated as noise</span></span> <output id="m6-cf-hi-o"></output></label><input type="range" id="m6-cf-hi" min="1" max="100" step="1" value="45"></div>
+        <div class="ctrl"><label for="m6-cf-fc"><span>High-pass cutoff f<sub>c</sub> (Hz)<span class="hint">the comparison filter: Butterworth, order 2, zero phase</span></span> <output id="m6-cf-fc-o"></output></label><input type="range" id="m6-cf-fc" min="10" max="200" step="5" value="50"></div>
         <div class="readout" id="m6-cf-read">computing…</div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Setup:</strong> 40×40 pixels (4×4 mm, 0.1 mm grid), \(f_{0} = 5\) MHz, PRF = 1 kHz, Gaussian PSF (\(\sigma_{x}\) 0.17 mm, \(\sigma_{z}\) 0.10 mm) with IQ phase \(e^{-j4\pi z/\lambda}\). Tissue: 2600 scatterers with a 4 Hz sinusoidal bulk motion (axial, plus 35 % lateral). Three vessels (radius 0.15–0.22 mm, parabolic flow, peak 12–25 mm/s at 80°, 35° and 5° to the lateral axis) ride on the tissue motion. Images are PD in dB, each normalized to its own maximum, 35 dB range. Contrast = mean PD in vessel cores / mean PD in background (&gt; 2.5 radii from any vessel); \(\mathrm{CNR} = (\mathrm{mean} - \mathrm{mean}_{\mathrm{bg}})/\mathrm{std}_{\mathrm{bg}}\) on the dB image. “Best-contrast band” searches all bands at least n/4 ranks wide using the ground-truth masks, an oracle you do not have in vivo. <strong>Try:</strong> set velocity to 0: both filters work. Raise it to 12 mm/s: the high-pass image fills with tissue at any cutoff that still passes the slow vessel, while the SVD keeps contrast after you raise \(k_{\mathrm{lo}}\) by a few ranks. Drag \(k_{\mathrm{lo}}\) to 1 to see the raw (B-mode-like) PD inside the band panel.</div>
+    <div class="demo-foot"><strong>Setup:</strong> 40×40 pixels (4×4 mm, 0.1 mm grid), \(f_{0} = 5\) MHz, PRF = 1 kHz, Gaussian PSF (\(\sigma_{x}\) 0.17 mm, \(\sigma_{z}\) 0.10 mm) with IQ phase \(e^{-j4\pi z/\lambda}\). Tissue: 2600 scatterers with a 4 Hz sinusoidal bulk motion (axial, plus 35 % lateral). Three vessels (radius 0.15–0.22 mm, parabolic flow, peak 12–25 mm/s at 80°, 35° and 5° to the lateral axis) ride on the tissue motion. Images are PD in dB, each normalized to its own maximum, 35 dB range. Contrast = mean PD in vessel cores / mean PD in background (&gt; 2.5 radii from any vessel); \(\mathrm{CNR} = (\mathrm{mean} - \mathrm{mean}_{\mathrm{bg}})/\mathrm{std}_{\mathrm{bg}}\) on the dB image. “Best-contrast band” searches all bands at least n/4 ranks wide using the ground-truth masks, an oracle you do not have in vivo. <strong>Try:</strong> set velocity to 0: both filters work. Raise it to 12 mm/s: the high-pass image fills with tissue at any cutoff that still passes the slow vessel, while the SVD keeps contrast after you raise \(k_{\mathrm{lo}}\) by a few ranks. Drag \(k_{\mathrm{lo}}\) to 1 to see the raw (B-mode-like) PD inside the band panel.<span class="symnote">Symbols used here: k, the singular value index (1 = most energy); σ<sub>k</sub>, in dB re σ₁; k<sub>lo</sub>, k<sub>hi</sub>, the first and last kept index; v<sub>k</sub>, the k-th temporal singular vector; v<sub>t</sub>, the tissue peak axial velocity in mm/s; λ = 0.308 mm, the wavelength at 5 MHz; PD, power Doppler; CNR, contrast-to-noise ratio.</span></div>
   </div>
 
   <div class="callout pitfall"><span class="label">Pitfall: choosing the cutoffs</span><p>The singular value curve rarely shows a clean knee. Failure modes: \((1) k_{\mathrm{lo}}\) too low leaves tissue residue that looks like flow, worst near bright, moving interfaces; \((2) k_{\mathrm{lo}}\) too high removes slow flow and large vessels, whose spatial singular vectors are themselves coherent; (3) tissue motion that is non-rigid (cardiac, breathing over a long ensemble) spreads tissue over many ranks so no single \(k_{\mathrm{lo}}\) works, which is why practice uses short ensembles, blockwise (local) SVD, or motion correction first; \((4) k_{\mathrm{hi}}\) too high adds noise, which also inflates PD at depth where noise dominates. Data-driven rules exist: the knee of the curve, the temporal singular vectors' Doppler content (as in this demo), or the similarity of the spatial singular vectors (Baranger et al. 2018), which groups ranks whose \(\lvert \mathbf{u}_{k}\rvert\) maps look alike.</p></div>
   <div class="callout us"><span class="label">Ultrasound link: ULM</span><p>In ULM the same filter runs on 200–800 frames at 0.5–1 kHz with microbubbles in the middle ranks. The filtered ensemble \(\mathbf{S}_{f}\) (not its power) is what the localization step sees: each frame of \(\mathbf{S}_{f}\) should contain isolated bubble PSFs on a tissue-free background. Residual tissue produces false localizations; an aggressive \(k_{\mathrm{lo}}\) deletes slow bubbles in capillaries, biasing velocity maps toward fast vessels. Computationally, n is small (hundreds) while \(N_{x}N_{z}\) is large (\(10^{5}\)), so implementations take the eigendecomposition of the n×n Gram matrix \(\mathbf{S}^{H}\mathbf{S} = \mathbf{V}\Sigma^{2}\mathbf{V}^{H}\) and then form \(\mathbf{S} \mathbf{V}_{b}\mathbf{V}_{b}^{H}\). This squares κ: in double precision it is harmless (\(\sigma_{k}\) reliable down to \(\sqrt{\varepsilon}\approx -156\) dB re \(\sigma_{1}\)), but in single precision, the default on GPUs, \(\sigma_{k}\) below roughly −65 to −75 dB re \(\sigma_{1}\) is corrupted, which is where the blood/noise boundary of a high-dynamic-range ensemble sits (see the MATLAB lab).</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Reshape n frames into the (N<sub>x</sub>N<sub>z</sub>) × n Casorati matrix; each rank is a spatial map u<sub>k</sub> times a time course v<sub>k</sub> with energy σ<sub>k</sub>².</li>
+    <li>Tissue usually takes the first ranks, blood the middle, noise the tail, with overlap under motion, slow or sparse flow and high noise, so set cutoffs adaptively (noise edge σ<sub>noise</sub>(√(N<sub>x</sub>N<sub>z</sub>) + √n)); the filter keeps S<sub>f</sub> = SV<sub>b</sub>V<sub>b</sub>ᴴ.</li>
+    <li>There is rarely a clean knee: k<sub>lo</sub> too low leaves moving tissue, too high removes slow flow; non-rigid motion calls for short ensembles, blockwise SVD or motion correction.</li>
+    <li>The Gram-matrix shortcut squares κ: harmless in double precision (√ε ≈ −156 dB), but in single precision σ<sub>k</sub> below about −65 to −75 dB re σ₁ is corrupted.</li>
+  </ul></div>
 
   <!-- ============ 06.6 ============ -->
   <div class="prose">
@@ -386,12 +418,18 @@ Vert_F\)</dd></dl>
 </svg></div>
   </figure>
   <div class="rf-grid" id="m6-dm"></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Eigenspace beamforming projects the minimum-variance weights onto the dominant eigenvectors of the sample covariance.</li>
+    <li>Over an isoplanatic patch the distortion matrix is ≈ rank 1 and u₁ is the aberration law; patch size trades speckle averaging against isoplanatism.</li>
+    <li>DORT: one significant σ per point scatterer, and v<sub>i</sub> focuses on scatterer i.</li>
+    <li>ULM chains SVD filtering, localization, tracking and rendering; the Picard plot and truncated SVD read the resolving power of sound-speed inversions.</li>
+  </ul></div>
 
   <!-- ============ 06.7 ============ -->
   <div class="prose"><h2><span class="sec">06.7</span>Visual summary</h2>
     <p>Twelve pictures an expert carries for eigen- and singular-value problems, each with its five-second answer. Every curve is computed: the 2×2 decompositions with <code>Lab.eigSym</code>, the clutter spectrum from a simulated Casorati matrix, the noise spectrum from a random draw. The slider sets the noise level, which moves the noise plateau of the clutter spectrum, the Picard floor and the truncated-SVD optimum together.</p></div>
   <div class="demo"><div class="demo-body stack"><div class="controls">
-    <div class="ctrl"><label for="m6-vis-T">Noise level η re tissue <output id="m6-vis-T-o">−46 dB</output></label><input type="range" id="m6-vis-T" min="-70" max="-20" step="2" value="-46"></div>
+    <div class="ctrl"><label for="m6-vis-T">Noise level η re tissue (dB) <output id="m6-vis-T-o">−46 dB</output></label><input type="range" id="m6-vis-T" min="-70" max="-20" step="2" value="-46"></div>
     <div class="readout" id="m6-vis-read"></div>
   </div></div></div>
   <div class="rf-grid" id="m6-vis"></div>
@@ -431,35 +469,29 @@ Vert_F\)</dd></dl>
     <div class="rule">
       <div class="say">Noise singular values follow Marchenko–Pastur: the noise floor edge is \(\sigma_{\mathrm{noise}}(\sqrt{M}+ \sqrt{N})\).</div>
       <div class="keynum"><span>1600×80: 31.1σ … 48.9σ</span><span>spread 4.0 dB (3.8 measured)</span><span>BBP: \(\theta_{c} = \sigma (MN)^{1/4}\)</span></div>
-      <div class="why"><p>For an M×N matrix of i.i.d. entries with variance \(\sigma^{2}\) (complex: \(E\lvert z\rvert^{2} = \sigma^{2}\)), the singular values fill \([\sigma (\sqrt{M}- \sqrt{N}), \sigma (\sqrt{M}+ \sqrt{N})]\) as M, N grow. A tall Casorati matrix has a narrow bulk (1600×80: measured 31.5–48.5σ vs 31.1–48.9σ predicted), a square one a wide one (96×96: 0–19.6σ, 42 dB spread). A rank-1 signal of strength θ (= its σ without noise) separates from the bulk only when \(\theta &gt; \sigma (MN)^{1/4} = 18.9\sigma\) for 1600×80, well below the edge 48.9σ; then \(\sigma_{1} \approx \sqrt{(\theta^{2}+\sigma^{2}M)(\theta^{2}+\sigma^{2}N)}/\theta\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Marchenko–Pastur singular-value densities for 1600×80 and 96×96 and the BBP threshold σ(MN)^(1/4).</span><canvas id="m6-rf-5" aria-label="Figure for rule 5"></canvas></div></div>
+      <div class="why"><p>For an M×N matrix of i.i.d. entries with variance \(\sigma^{2}\) (complex: \(E\lvert z\rvert^{2} = \sigma^{2}\)), the singular values fill \([\sigma (\sqrt{M}- \sqrt{N}), \sigma (\sqrt{M}+ \sqrt{N})]\) as M, N grow. A tall Casorati matrix has a narrow bulk (1600×80: measured 31.5–48.5σ vs 31.1–48.9σ predicted), a square one a wide one (96×96: 0–19.6σ, 42 dB spread). A rank-1 signal of strength θ (= its σ without noise) separates from the bulk only when \(\theta &gt; \sigma (MN)^{1/4} = 18.9\sigma\) for 1600×80, well below the edge 48.9σ; then \(\sigma_{1} \approx \sqrt{(\theta^{2}+\sigma^{2}M)(\theta^{2}+\sigma^{2}N)}/\theta\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Marchenko–Pastur singular-value densities for 1600×80 and 96×96 and the BBP threshold σ(MN)^(1/4).</span><canvas id="m6-rf-5" aria-label="Figure for rule 5"></canvas><div class="legend"><span><i style="background:var(--accent)"></i>1600 × 80 noise</span><span><i class="dash" style="color:var(--sig2)"></i>96 × 96 noise</span><span><i class="dash" style="color:var(--sig4)"></i>BBP threshold</span></div></div></div>
       <div class="limits">Needs i.i.d. noise of known σ. Beamformed noise is spatially correlated (PSF-shaped), which lowers the effective M; depth-dependent TGC makes σ non-uniform. Estimate σ from the median singular value or a no-transmit acquisition.</div>
     </div>
     <div class="rule">
-      <div class="say">Eckart–Young: the truncated SVD is the optimal rank-k approximation in both the Frobenius and the spectral norm.</div>
+      <div class="say">The truncated SVD is the best rank-k fit there is in both Frobenius and spectral norm (Eckart–Young), which is why an SVD clutter filter captures more tissue per rank than any fixed basis.</div>
       <div class="keynum"><span>\(\lVert A-A_{k}\rVert_{F}^{2} = \sum_{i&gt;k}\sigma_{i}^{2}\)</span><span>\(\lVert A-A_{k}\rVert_{2} = \sigma_{k+1}\)</span><span>rival loses 1.5–2.2×</span></div>
-      <div class="why"><p>Unitary invariance gives the error <span class="eqref">(06.9)</span> of \(A_{k}\); optimality follows from a dimension count (§06.3) or from Weyl's inequality \(\sigma_{k+i}(A) \le \sigma_{i}(A - B)\) for rank B ≤ k. In <code>m06_svd_cyst.m</code> both identities hold to round-off at every printed k from 1 to 256 (Frobenius relative difference ≤ \(1.1\times 10^{-14}\)), and projecting the image onto its k strongest columns gives 1.55×, 1.85×, 2.24×, 2.13× the SVD error for k = 1, 5, 20, 60. The SVD tissue estimate in a clutter filter is therefore the best rank \((k_{\mathrm{lo}} - 1)\) fit to the ensemble, which is why it captures more tissue per rank than any fixed basis.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Left: illustrative σ_i = e^(−(i−1)/5), exact tail sums. Right: error ratios printed by m06_svd_cyst.m (Octave).</span><canvas id="m6-rf-6" aria-label="Figure for rule 6"></canvas></div></div>
+      <div class="why"><p>Unitary invariance gives the error <span class="eqref">(06.9)</span> of \(A_{k}\); optimality follows from a dimension count (§06.3) or from Weyl's inequality \(\sigma_{k+i}(A) \le \sigma_{i}(A - B)\) for rank B ≤ k. In <code>m06_svd_cyst.m</code> both identities hold to round-off at every printed k from 1 to 256 (Frobenius relative difference ≤ \(1.1\times 10^{-14}\)), and projecting the image onto its k strongest columns gives 1.55×, 1.85×, 2.24×, 2.13× the SVD error for k = 1, 5, 20, 60. The SVD tissue estimate in a clutter filter is therefore the best rank \((k_{\mathrm{lo}} - 1)\) fit to the ensemble, which is why it captures more tissue per rank than any fixed basis.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Left: illustrative σ_i = e^(−(i−1)/5), exact tail sums. Right: error ratios printed by m06_svd_cyst.m (Octave).</span><canvas id="m6-rf-6" aria-label="Figure for rule 6"></canvas><div class="legend"><span><i class="stem" style="background:var(--accent)"></i>kept, i ≤ 5</span><span><i class="stem" style="background:var(--sig2)"></i>discarded</span></div></div></div>
       <div class="limits">Optimal for squared error on the given matrix, not for the task: a low-rank image can have better CNR (9.4 at k = 2 vs 3.8 at full rank in the cyst script) and still be useless (separable streaks, a square cyst).</div>
     </div>
     <div class="rule">
       <div class="say">Judge a low-rank fit by its residual, not by "energy captured".</div>
       <div class="keynum"><span>rank 1 = 97.3 % energy</span><span>99 % at k = 20</span><span>99.9 % at k = 95</span></div>
-      <div class="why"><p>\(\sum \sigma_{i}^{2}\) includes the mean level. A log-compressed B-mode image sits around −30 dB everywhere, so the rank-1 term (roughly the mean depth profile times a constant lateral profile) holds 97.3 % of the energy in the cyst script while barely showing the cyst (contrast −6 dB instead of −21 dB). Subtract the mean, or quote \(\lVert A - A_{k}\rVert_{F}/\lVert A - \text{mean}\rVert_{F}\), before talking about compression.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Jacobi SVD (JS) of a seeded 48×48 log-compressed speckle image with a −15 dB cyst.</span><canvas id="m6-rf-7" aria-label="Figure for rule 7"></canvas></div></div>
+      <div class="why"><p>\(\sum \sigma_{i}^{2}\) includes the mean level. A log-compressed B-mode image sits around −30 dB everywhere, so the rank-1 term (roughly the mean depth profile times a constant lateral profile) holds 97.3 % of the energy in the cyst script while barely showing the cyst (contrast −6 dB instead of −21 dB). Subtract the mean, or quote \(\lVert A - A_{k}\rVert_{F}/\lVert A - \text{mean}\rVert_{F}\), before talking about compression.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Jacobi SVD (JS) of a seeded 48×48 log-compressed speckle image with a −15 dB cyst.</span><canvas id="m6-rf-7" aria-label="Figure for rule 7"></canvas><div class="legend"><span><i style="background:var(--accent)"></i>energy captured</span><span><i class="dash" style="color:var(--sig2)"></i>residual ‖A − A<sub>k</sub>‖/‖A − mean‖</span></div></div></div>
       <div class="limits">For zero-mean data (IQ, noise-like speckle) energy fractions are meaningful; for power or dB images they are dominated by the DC term.</div>
     </div>
     <div class="rule">
-      <div class="say">\(\sigma^{2}\) are the eigenvalues of \(S^{H}S\), but never form \(S^{H}S\) in floating point when κ is large.</div>
-      <div class="keynum"><span>\(\kappa (S^{H}S) = \kappa (S)^{2}\)</span><span>single: lost below ≈ −69 dB</span><span>double: ≈ −156 dB</span></div>
-      <div class="why"><p>Round-off in \(\mathbf{S}^{H}\mathbf{S}\) is about \(\varepsilon \lVert \mathbf{S}\rVert_{2}^{2}\) \(= \varepsilon \sigma_{1}^{2}\), so eigenvalues \(\sigma_{k}^{2}\) below that level, i.e. \(\sigma_{k}/\sigma_{1} &lt; \sqrt{\varepsilon}\), carry no information. \(\sqrt{\varepsilon}\) is \(3.5\times 10^{-4}\) (−69 dB) in single and \(1.5\times 10^{-8}\) (−156 dB) in double. Measured on the simulated ensemble: double matches <code>svd</code> to \(2.5\times 10^{-11}\); single first errs by &gt; 1 % at k = 46, −66.8 dB re \(\sigma_{1}\), exactly the blood/noise boundary.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Illustrative linear spectrum; thresholds √ε for IEEE single (2⁻²³) and double (2⁻⁵²).</span><canvas id="m6-rf-8" aria-label="Figure for rule 8"></canvas></div></div>
-      <div class="limits">For a clutter filter in double precision the Gram route is safe (the band sits far above −156 dB). It matters for single-precision GPU code, for regularized inversions where small σ are the point, and for least squares via the normal equations (Module 05).</div>
+      <div class="say">Fast SVD filters get V from the frames × frames Gram matrix and never form U; that is safe in double precision, but in single precision everything below about −69 dB re σ₁ is lost, which is exactly where the blood/noise boundary sits.</div>
+      <div class="keynum"><span>cost \(O(MN^{2}) + O(N^{3})\)</span><span>16384×300: \(1.5\times 10^{9}\) CMAC vs \(N^{3} = 2.7\times 10^{7}\)</span><span>\(\kappa (S^{H}S) = \kappa (S)^{2}\)</span><span>lost below ≈ −69 dB (single), −156 dB (double)</span></div>
+      <div class="why"><p>With M pixels ≫ N frames, forming \(\mathbf{S}^{H}\mathbf{S}\) (N×N) costs \(MN^{2}\), its eigendecomposition \(N^{3}\), and the filtered ensemble \(\mathbf{S}_{f} = (\mathbf{S} \mathbf{V}_{b})\mathbf{V}_{b}^{H}\) another 2MNb. A thin SVD of S is also \(O(MN^{2})\) but with a larger constant and less parallelism, and power Doppler alone, PD = \((1/N)\sum_{k\in \mathrm{band}}\lvert \mathbf{S} \mathbf{v}_{k}\rvert^{2}\), needs only \(\mathbf{S} \mathbf{V}_{b}\). The catch is round-off: in \(\mathbf{S}^{H}\mathbf{S}\) it is about \(\varepsilon \lVert \mathbf{S}\rVert_{2}^{2} = \varepsilon \sigma_{1}^{2}\), so eigenvalues with \(\sigma_{k}/\sigma_{1} &lt; \sqrt{\varepsilon}\) carry no information; \(\sqrt{\varepsilon}\) is \(3.5\times 10^{-4}\) (−69 dB) in single and \(1.5\times 10^{-8}\) (−156 dB) in double. Measured on the simulated ensemble: the double-precision Gram route matches <code>svd</code> to \(2.5\times 10^{-11}\) (PD to \(1.8\times 10^{-11}\)); single first errs by &gt; 1 % at k = 46, −66.8 dB re \(\sigma_{1}\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Illustrative linear spectrum; thresholds √ε for IEEE single (2⁻²³) and double (2⁻⁵²).</span><canvas id="m6-rf-8" aria-label="Figure for rule 8"></canvas></div><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Operation counts MN² and N³ for M = 16 384.</span><canvas id="m6-rf-9" aria-label="Figure for rule 9"></canvas></div></div>
+      <div class="limits">For a clutter filter in double precision the Gram route is safe (the band sits far above −156 dB); precision matters for single-precision GPU code, for regularized inversions where small σ are the point, and for least squares via the normal equations (Module 05). For very long ensembles (N in the thousands) the \(N^{3}\) step and memory dominate; then randomized or block-Krylov methods that compute only the leading \(k_{\mathrm{hi}}\) vectors, or sliding-window updates, win.</div>
     </div>
     <div class="rule">
-      <div class="say">Use the frames × frames Gram matrix to get V, then U = SV/σ, or skip U entirely: that is how fast SVD filters run.</div>
-      <div class="keynum"><span>cost \(O(MN^{2}) + O(N^{3})\)</span><span>16384×300: \(1.5\times 10^{9}\) CMAC</span><span>\(N^{3} = 2.7\times 10^{7}\)</span></div>
-      <div class="why"><p>With M pixels ≫ N frames, forming \(\mathbf{S}^{H}\mathbf{S} (N\times N)\) costs \(MN^{2}\), its eigendecomposition \(N^{3}\), and the filtered ensemble \(\mathbf{S}_{f} = (\mathbf{S} \mathbf{V}_{b})\mathbf{V}_{b}^{H}\) another 2MNb. A thin SVD of S is also \(O(MN^{2})\) but with a larger constant and less parallelism. For power Doppler alone, PD = \((1/N)\sum_{k\in \mathrm{band}}\lvert \mathbf{S} \mathbf{v}_{k}\rvert^{2}\) needs only \(\mathbf{S} \mathbf{V}_{b}\). In the MATLAB check the Gram-route PD matches the <code>svd</code> PD to \(1.8\times 10^{-11}\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Operation counts MN² and N³ for M = 16 384.</span><canvas id="m6-rf-9" aria-label="Figure for rule 9"></canvas></div></div>
-      <div class="limits">Precision (previous rule). For very long ensembles (N in the thousands) the \(N^{3}\) step and memory dominate; then randomized or block-Krylov methods that compute only the leading \(k_{\mathrm{hi}}\) vectors, or sliding-window updates, win.</div>
-    </div>
-    <div class="rule">
-      <div class="say">Block-wise (local) SVD helps when clutter is spatially non-stationary.</div>
+      <div class="say">When tissue motion or brightness varies across the field, any single global cutoff is wrong somewhere; block-wise SVD gives each region its own.</div>
       <div class="keynum"><span>rank ≤ \(\min (m_{\mathrm{block}}, N)\)</span><span>cost × overlap factor</span></div>
       <div class="why"><p>A global SVD assumes one set of temporal singular vectors serves the whole field. When tissue motion, brightness or noise level varies with position (near a pulsating artery, across depth with TGC), the tissue at one location needs ranks that are blood elsewhere, and a single \(k_{\mathrm{lo}}\) cannot fit both. Processing overlapping spatial blocks, each with its own cutoffs, makes the clutter locally closer to low rank (Song et al. 2017). The cost scales with the block overlap factor, and each block must still have many more pixels than the number of tissue plus blood ranks it has to hold.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Assumes blood σ ∝ √m (energy proportional to block pixels) and the MP edge σ(√m + √N); relative to the 2304-pixel global SVD.</span><canvas id="m6-rf-10" aria-label="Figure for rule 10"></canvas></div></div>
       <div class="limits">Small blocks raise the noise floor relative to signal (a smaller M shrinks the MP edge less than it shrinks blood energy) and leave block seams; cutoffs must be automatic because there are hundreds of blocks.</div>
@@ -471,27 +503,21 @@ Vert_F\)</dd></dl>
       <div class="limits">Δf is a resolution, not an accuracy: the mean frequency of a temporal vector can be estimated far more finely than PRF/N at high SNR (Batch 2, estimation theory).</div>
     </div>
     <div class="rule">
-      <div class="say">Power iteration converges as \(\lvert \lambda_{2}/\lambda_{1}\rvert^{k}\); the Rayleigh quotient twice as fast.</div>
+      <div class="say">Power iteration, and iterative time reversal with it, converges as \(\lvert \lambda_{2}/\lambda_{1}\rvert^{k}\): a ratio of 0.5 needs 50 iterations, 0.99 thousands (the Rayleigh quotient converges twice as fast).</div>
       <div class="keynum"><span>r = 0.5: 50 iterations to \(10^{-15}\)</span><span>r = 0.99: ≈ 3400</span></div>
-      <div class="why"><p>As in <span class="eqref">(06.6)</span>, expanding \(\mathbf{x}_{0}\) in the eigenbasis, the non-dominant components shrink by \((\lambda_{i}/\lambda_{1})^{k}\), so k ≈ ln(tol)/ln r iterations reach tol: 50 for r = 0.5, 97 for r = 0.7, 674 for r = 0.95 (measured slopes in <code>m06_svd_geometry.m</code> match \(\log_{10}r\) to 4 digits). Iterative time reversal is physical power iteration on the time-reversal operator: it converges to the strongest scatterer at the rate \(\lvert \lambda_{2}/\lambda_{1}\rvert = (\sigma_{2}/\sigma_{1})^{2}\) of \(\mathbf{K}^{H}\mathbf{K}\), about the squared reflectivity ratio of the two strongest well-resolved scatterers.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Error r^k and Rayleigh-quotient r^(2k) lines; iterations to 10⁻¹⁵ = ln(10⁻¹⁵)/ln r.</span><canvas id="m6-rf-12" aria-label="Figure for rule 12"></canvas></div></div>
+      <div class="why"><p>As in <span class="eqref">(06.6)</span>, expanding \(\mathbf{x}_{0}\) in the eigenbasis, the non-dominant components shrink by \((\lambda_{i}/\lambda_{1})^{k}\), so k ≈ ln(tol)/ln r iterations reach tol: 50 for r = 0.5, 97 for r = 0.7, 674 for r = 0.95 (measured slopes in <code>m06_svd_geometry.m</code> match \(\log_{10}r\) to 4 digits). Iterative time reversal is physical power iteration on the time-reversal operator: it converges to the strongest scatterer at the rate \(\lvert \lambda_{2}/\lambda_{1}\rvert = (\sigma_{2}/\sigma_{1})^{2}\) of \(\mathbf{K}^{H}\mathbf{K}\), about the squared reflectivity ratio of the two strongest well-resolved scatterers.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Error r^k and Rayleigh-quotient r^(2k) lines; iterations to 10⁻¹⁵ = ln(10⁻¹⁵)/ln r.</span><canvas id="m6-rf-12" aria-label="Figure for rule 12"></canvas><div class="legend"><span><i style="background:var(--accent)"></i>r = 0.5</span><span><i class="dash" style="color:var(--sig2)"></i>r = 0.7</span><span><i style="background:var(--sig3)"></i>r = 0.95</span><span><i class="dash" style="color:var(--sig3)"></i>Rayleigh quotient, r = 0.95</span><span><i class="dot" style="color:var(--sig4)"></i>r = 0.99</span></div></div></div>
       <div class="limits">Needs a gap; a start vector with \(c_{1} = 0\) never converges in exact arithmetic. The doubled Rayleigh-quotient rate needs a Hermitian (or normal) A; for a non-normal A it converges only at \(\lvert \lambda_{2}/\lambda_{1}\rvert^{k}\). Subspace iteration, Lanczos and randomized SVD extend the idea to several vectors and accelerate it.</div>
     </div>
     <div class="rule">
-      <div class="say">Singular values are perfectly conditioned; eigenvalues of non-normal matrices are not.</div>
-      <div class="keynum"><span>\(\lvert \Delta \sigma_{i}\rvert \le \lVert E\rVert_{2}\) (Weyl)</span><span>[[1,1],[δ,1]]: \(\Delta \lambda = \sqrt{\delta}\)</span></div>
-      <div class="why"><p>Perturbing any matrix by \(\mathbf{E}\) moves each \(\sigma_{i}\) by at most \(\lVert \mathbf{E}\rVert_{2}\). For a non-normal matrix an eigenvalue can move by far more: the shear [[1, 1],[0, 1]] has λ = 1, 1, but [[1, 1],[δ, 1]] has \(\lambda = 1 \pm \sqrt{\delta}\), so \(\delta = 10^{-10}\) moves λ by \(10^{-5}\). Use singular values for gains, ranks and thresholds; use eigenvalues of Hermitian matrices (covariances), where they coincide with singular values up to sign.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Closed-form eigenvalues 1 ± √δ and singular values of [[1, 1], [δ, 1]].</span><canvas id="m6-rf-13" aria-label="Figure for rule 13"></canvas></div></div>
-      <div class="limits">Singular vectors are not equally robust: their sensitivity scales with 1/gap between neighbouring σ (next rule).</div>
-    </div>
-    <div class="rule">
-      <div class="say">Singular vectors are unique only up to a phase, and only when σ is isolated: compare subspaces, not vectors.</div>
-      <div class="keynum"><span>(\(\mathbf{u}e^{j\varphi}, \mathbf{v}e^{j\varphi}\)) is as valid</span><span>\(\sin \theta \lesssim \lVert E\rVert /\text{gap}\)</span></div>
-      <div class="why"><p>\(\sigma \mathbf{u}\mathbf{v}^{H}\) is unchanged when both vectors take the same phase (a sign in the real case), and for a repeated σ any unitary mix of the vectors is valid. What is unique is the projector \(\mathbf{V}_{b}\mathbf{V}_{b}^{H}\) onto a band separated from its neighbours by a gap; a perturbation \(\mathbf{E}\) tilts that subspace by an angle of order \(\lVert \mathbf{E}\rVert /\text{gap}\) (Wedin, Davis–Kahan). The clutter filter \(\mathbf{SV}_{b}\mathbf{V}_{b}^{H}\) and PD are therefore well defined; an individual temporal vector's phase is not.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Closed-form tilt ½·atan(2‖E‖/gap) of the top singular vector of diag(1, 1 − gap) + E, and the bound asin(‖E‖/gap).</span><canvas id="m6-rf-14" aria-label="Figure for rule 14"></canvas></div></div>
+      <div class="say">Trust singular values, distrust individual singular vectors: a σ moves by at most ‖E‖, but a vector is defined only up to a phase and tilts by ‖E‖/gap, so compare subspaces and projectors, not vectors.</div>
+      <div class="keynum"><span>\(\lvert \Delta \sigma_{i}\rvert \le \lVert E\rVert_{2}\) (Weyl)</span><span>[[1,1],[δ,1]]: \(\Delta \lambda = \sqrt{\delta}\)</span><span>\(\sin \theta \lesssim \lVert E\rVert /\text{gap}\)</span></div>
+      <div class="why"><p>Perturbing any matrix by \(\mathbf{E}\) moves each \(\sigma_{i}\) by at most \(\lVert \mathbf{E}\rVert_{2}\). Eigenvalues of a non-normal matrix can move far more: the shear [[1, 1],[0, 1]] has λ = 1, 1, but [[1, 1],[δ, 1]] has \(\lambda = 1 \pm \sqrt{\delta}\), so \(\delta = 10^{-10}\) moves λ by \(10^{-5}\). Use singular values for gains, ranks and thresholds, and eigenvalues only of Hermitian matrices (covariances), where they coincide with singular values up to sign. Vectors are another matter: \(\sigma \mathbf{u}\mathbf{v}^{H}\) is unchanged when both vectors take the same phase (a sign in the real case), and for a repeated σ any unitary mix is valid. What is unique is the projector \(\mathbf{V}_{b}\mathbf{V}_{b}^{H}\) onto a band separated from its neighbours by a gap, and a perturbation tilts it by an angle of order \(\lVert \mathbf{E}\rVert /\text{gap}\) (Wedin, Davis–Kahan). The clutter filter \(\mathbf{SV}_{b}\mathbf{V}_{b}^{H}\) and PD are therefore well defined; an individual temporal vector\'s phase is not.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Closed-form eigenvalues 1 ± √δ and singular values of [[1, 1], [δ, 1]].</span><canvas id="m6-rf-13" aria-label="Figure for rule 13"></canvas><div class="legend"><span><i style="background:var(--sig2)"></i>|Δλ| = √δ</span><span><i class="dot" style="color:var(--accent)"></i>max |Δσ<sub>i</sub>| (computed)</span><span><i class="dash" style="color:var(--muted)"></i>Weyl bound δ</span></div></div><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Closed-form tilt ½·atan(2‖E‖/gap) of the top singular vector of diag(1, 1 − gap) + E, and the bound asin(‖E‖/gap).</span><canvas id="m6-rf-14" aria-label="Figure for rule 14"></canvas></div></div>
       <div class="limits">Averaging singular vectors across blocks, ensembles or sliding windows requires phase alignment (or working with \(\lvert u_{k}\rvert\) or projectors). Inside the flat noise bulk the gaps are tiny, so individual vectors there are meaningless.</div>
     </div>
     <div class="rule">
       <div class="say">An eigenvector of the spatial covariance or the time-reversal operator is a focusing law: one significant σ per resolved scatterer (DORT).</div>
       <div class="keynum"><span>2 scatterers → σ 1, 0.47, then 0.002</span><span>foci −2.08, 2.92 mm (true −2, 3)</span></div>
-      <div class="why"><p>For one point scatterer the received aperture vector is \(a\cdot \mathbf{g}\) (\(\mathbf{g}\) its Green's function), so \(\mathbf{R}\) \(= E\lvert a\rvert^{2}\mathbf{gg}^{H} + \sigma_{n}^{2}\mathbf{I}\): rank 1 plus noise, dominant eigenvector \(\mathbf{g}\), and its phase conjugate refocuses on the scatterer. With several well-resolved scatterers the inter-element matrix \(\mathbf{K} = \mathbf{G} \operatorname{diag} (r) \mathbf{G}^{T}\) has one σ per scatterer (Prada &amp; Fink 1994). In <code>m06_svd_geometry.m</code>, 64 elements and two scatterers 5 mm apart laterally (reflectivities 1 and 0.5, depths 30 and 32 mm) give \(\sigma_{2}/\sigma_{1} = 0.47\) and a floor at 0.002, which is the 0.1 % noise the script adds (the in-page figure of this rule uses 0.47 as the reflectivity ratio and no noise). With an aberrator, the dominant eigenvector carries the aberration phase law: that is the distortion-matrix idea (§06.6).</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Monochromatic (5 MHz) free-space Green’s functions, 64 elements, two point scatterers at 30 mm, no noise; SVD and refocused fields computed in the page.</span><canvas id="m6-rf-15" aria-label="Figure for rule 15"></canvas></div></div>
+      <div class="why"><p>For one point scatterer the received aperture vector is \(a\cdot \mathbf{g}\) (\(\mathbf{g}\) its Green's function), so \(\mathbf{R}\) \(= E\lvert a\rvert^{2}\mathbf{gg}^{H} + \sigma_{n}^{2}\mathbf{I}\): rank 1 plus noise, dominant eigenvector \(\mathbf{g}\), and its phase conjugate refocuses on the scatterer. With several well-resolved scatterers the inter-element matrix \(\mathbf{K} = \mathbf{G} \operatorname{diag} (r) \mathbf{G}^{T}\) has one σ per scatterer (Prada &amp; Fink 1994). In <code>m06_svd_geometry.m</code>, 64 elements and two scatterers 5 mm apart laterally (reflectivities 1 and 0.5, depths 30 and 32 mm) give \(\sigma_{2}/\sigma_{1} = 0.47\) and a floor at 0.002, which is the 0.1 % noise the script adds (the in-page figure of this rule uses 0.47 as the reflectivity ratio and no noise). With an aberrator, the dominant eigenvector carries the aberration phase law: that is the distortion-matrix idea (§06.6).</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Monochromatic (5 MHz) free-space Green’s functions, 64 elements, two point scatterers at 30 mm, no noise; SVD and refocused fields computed in the page.</span><canvas id="m6-rf-15" aria-label="Figure for rule 15"></canvas><div class="legend"><span><i style="background:var(--accent)"></i>pattern of v₁</span><span><i class="dash" style="color:var(--sig2)"></i>pattern of v₂</span></div></div></div>
       <div class="limits">Scatterers closer than about a resolution cell (λz/D = 0.5 mm here) mix in the eigenvectors; in speckle there is no dominant scatterer and only a patch average (distortion matrix) restores a rank-1 structure.</div>
     </div>
     <div class="rule">
@@ -843,36 +869,36 @@ Vert_F\)</dd></dl>
     const { ctx, w, h } = Lab.canvas(cv, Math.min(340, Math.max(260, cv.clientWidth * 0.75)));
     const [a, b, cc, d] = eIds.map(id => +$(id).value); eIds.forEach(id => $(id + '-o').textContent = fmt(+$(id).value, 2));
     const S = svd2(a, b, cc, d), R = Math.max(1.4, S.s1 * 1.12);
-    const side = Math.min(w - 60, h - 40), asp = (w - 60) / (h - 40);
-    const box = { x: 46, y: 10, w: w - 60, h: h - 40 };
+    const side = Math.min(w - 72, h - 46), asp = (w - 72) / (h - 46);
+    const box = { x: 58, y: 10, w: w - 72, h: h - 46 };
     const xr = asp >= 1 ? [-R * asp, R * asp] : [-R, R], yr = asp >= 1 ? [-R, R] : [-R / asp, R / asp];
-    const ax = Lab.axes(ctx, box, xr, yr, { nx: 6, ny: 4 }); eigAx = ax; void side;
+    const ax = Lab.axes(ctx, box, xr, yr, { nx: 6, ny: 4, xlabel: 'component 1 (dimensionless)', ylabel: 'component 2 (dimensionless)' }); eigAx = ax; const LE = 'm6-eig-leg'; void side;
     ax.clip();
     const E = eig2(a, b, cc, d);
-    if (!E.complex) { [E.v1, E.v2].forEach((v, i) => { if (i === 1 && Math.abs(E.disc) < 1e-9 && Math.abs(v[0] * E.v1[1] - v[1] * E.v1[0]) < 1e-6) return;
+    if (!E.complex && Lab.on(LE, 'eig')) { [E.v1, E.v2].forEach((v, i) => { if (i === 1 && Math.abs(E.disc) < 1e-9 && Math.abs(v[0] * E.v1[1] - v[1] * E.v1[0]) < 1e-6) return;
       Lab.line(ctx, ax, [-v[0] * R * 3, v[0] * R * 3], [-v[1] * R * 3, v[1] * R * 3], c.sig2, 1.4, [6, 4]); }); }
     const N = 24;
     for (let i = 0; i < N; i++) { const t = 2 * Math.PI * i / N, x = Math.cos(t), y = Math.sin(t); const X = a * x + b * y, Y = cc * x + d * y;
-      Lab.line(ctx, ax, [x, X], [y, Y], c.rule, 1); Lab.dots(ctx, ax, [x], [y], c.muted, 2); Lab.dots(ctx, ax, [X], [Y], c.accent, 2.2); }
+      if (Lab.on(LE, 'circ') && Lab.on(LE, 'img')) Lab.line(ctx, ax, [x, X], [y, Y], c.rule, 1); if (Lab.on(LE, 'circ')) Lab.dots(ctx, ax, [x], [y], c.muted, 2); if (Lab.on(LE, 'img')) Lab.dots(ctx, ax, [X], [Y], c.accent, 2.2); }
     const cx = [], cy = [], ex = [], ey = []; for (let i = 0; i <= 200; i++) { const t = 2 * Math.PI * i / 200, x = Math.cos(t), y = Math.sin(t); cx.push(x); cy.push(y); ex.push(a * x + b * y); ey.push(cc * x + d * y); }
-    Lab.line(ctx, ax, cx, cy, c.muted, 1.2); Lab.line(ctx, ax, ex, ey, c.accent, 2);
-    if (!E.complex) [[E.v1, E.l1], [E.v2, E.l2]].forEach(([v, l]) => { Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(v[0] * l), ax.Y(v[1] * l), c.sig2, 2.4); });
+    if (Lab.on(LE, 'circ')) Lab.line(ctx, ax, cx, cy, c.muted, 1.2); if (Lab.on(LE, 'img')) Lab.line(ctx, ax, ex, ey, c.accent, 2);
+    if (!E.complex && Lab.on(LE, 'eig')) [[E.v1, E.l1], [E.v2, E.l2]].forEach(([v, l]) => { Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(v[0] * l), ax.Y(v[1] * l), c.sig2, 2.4); });
     const pv = [Math.cos(probe), Math.sin(probe)], pa = [a * pv[0] + b * pv[1], cc * pv[0] + d * pv[1]];
-    Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(pa[0]), ax.Y(pa[1]), c.sig3, 2.2);
-    Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(pv[0]), ax.Y(pv[1]), c.fg, 1.6);
+    if (Lab.on(LE, 'pimg')) Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(pa[0]), ax.Y(pa[1]), c.fg, 2.2);
+    if (Lab.on(LE, 'probe')) Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(pv[0]), ax.Y(pv[1]), c.sig3, 1.8);
     ctx.save(); ctx.fillStyle = c.sig3; ctx.beginPath(); ctx.arc(ax.X(pv[0]), ax.Y(pv[1]), 6, 0, 6.283); ctx.fill(); ctx.restore();
     ax.unclip();
     const turn = wrap(Math.atan2(pa[1], pa[0]) - probe) * 180 / Math.PI;
-    let s = 'trace τ = <b>' + fmt(E.tr, 3) + '</b>  det δ = <b>' + fmt(E.det, 3) + '</b>\nΔ = τ²−4δ = <b>' + fmt(E.disc, 3) + '</b>\n';
-    if (E.complex) s += 'λ = <b>' + fmt(E.re, 3) + ' ± ' + fmt(E.im, 3) + 'j</b>\n|λ| = ' + fmt(Math.hypot(E.re, E.im), 3) + '\n<b>no real eigenvector</b>\n';
+    let s = 'trace τ = <b>' + fmt(E.tr, 3) + '</b>\ndeterminant δ = <b>' + fmt(E.det, 3) + '</b>\ndiscriminant Δ = τ²−4δ = <b>' + fmt(E.disc, 3) + '</b>\n';
+    if (E.complex) s += 'eigenvalues λ = <b>' + fmt(E.re, 3) + ' ± ' + fmt(E.im, 3) + 'j</b>\n|λ| = ' + fmt(Math.hypot(E.re, E.im), 3) + '\n<b>no real eigenvector</b>\n';
     else { const ang = Math.acos(Math.min(1, Math.abs(E.v1[0] * E.v2[0] + E.v1[1] * E.v2[1]))) * 180 / Math.PI;
-      s += 'λ₁ = <b>' + fmt(E.l1, 3) + '</b>  λ₂ = <b>' + fmt(E.l2, 3) + '</b>\n';
-      s += Math.abs(E.disc) < 1e-9 ? (Math.abs(b) + Math.abs(cc) < 1e-9 ? 'λ repeated, A = λI\n' : '<b>defective</b>: one eigenvector\n') : '∠(v₁, v₂) = <b>' + fmt(ang, 1) + '°</b>\n'; }
-    s += 'σ₁, σ₂ = ' + fmt(S.s1, 3) + ', ' + fmt(Math.abs(S.s2), 3) + '\nprobe: Av turns by <b>' + fmt(turn, 1) + '°</b>';
+      s += 'eigenvalue λ₁ = <b>' + fmt(E.l1, 3) + '</b>\neigenvalue λ₂ = <b>' + fmt(E.l2, 3) + '</b>\n';
+      s += Math.abs(E.disc) < 1e-9 ? (Math.abs(b) + Math.abs(cc) < 1e-9 ? 'λ repeated, A = λI\n' : '<b>defective</b>: one eigenvector\n') : 'eigenvector angle <b>' + fmt(ang, 1) + '°</b>\n'; }
+    s += 'singular value σ₁ = ' + fmt(S.s1, 3) + '\nsingular value σ₂ = ' + fmt(Math.abs(S.s2), 3) + '\nturn from v to Av: <b>' + fmt(turn, 1) + '°</b>';
     $('m6-eig-read').innerHTML = s;
   }
   $('m6-eig-pre').addEventListener('change', e => { EP[e.target.value].forEach((v, i) => $(eIds[i]).value = v); drawEig(); });
-  eIds.forEach(id => $(id).addEventListener('input', drawEig));
+  eIds.forEach(id => $(id).addEventListener('input', drawEig)); Lab.legendToggle('m6-eig-leg', drawEig);
   (function () { const cv = $('m6-eig-cv'); let drag = false;
     const set = ev => { if (!eigAx) return; const r = cv.getBoundingClientRect(); const px = ev.clientX - r.left, py = ev.clientY - r.top;
       const x = (px - eigAx.box.x), y = (eigAx.box.y + eigAx.box.h - py); const X0 = eigAx.X(0) - eigAx.box.x, Y0 = eigAx.box.y + eigAx.box.h - eigAx.Y(0);
@@ -895,17 +921,17 @@ Vert_F\)</dd></dl>
     const meas = () => { const nn = Math.hypot(...x); x = x.map(v => v / nn); const cs = Q[0].reduce((s, q, i) => s + q * x[i], 0), cth = Math.abs(cs); const sth = Math.hypot(...x.map((v, i) => v - cs * Q[0][i])); const Ax = A.map(row => row.reduce((s, a, j) => s + a * x[j], 0)); const ray = x.reduce((s, v, i) => s + v * Ax[i], 0); return [sth / cth, Math.abs(1 - ray), Ax]; };
     let m0 = meas(); const t0 = m0[0], r0 = m0[1];
     for (let k = 0; k <= K; k++) { const m = meas(); ks.push(k); tn.push(m[0] > 3e-16 ? Math.log10(m[0]) : NaN); rq.push(m[1] > 3e-16 ? Math.log10(m[1]) : NaN); x = m[2]; }
-    const ax = Lab.axes(ctx, { x: 52, y: 12, w: w - 66, h: h - 52 }, [0, K], [-16, 2], { xlabel: 'iteration k', ylabel: 'log₁₀ error', yfmt: v => '1e' + v });
-    ax.clip();
-    Lab.line(ctx, ax, ks, ks.map(k => Math.max(-17, Math.log10(t0) + k * Math.log10(r))), c.muted, 1.2, [5, 4]);
-    Lab.line(ctx, ax, ks, ks.map(k => Math.max(-17, Math.log10(r0) + 2 * k * Math.log10(r))), c.muted, 1.2, [2, 3]);
+    const ax = Lab.axes(ctx, { x: 66, y: 12, w: w - 80, h: h - 52 }, [0, K], [-16, 2], { xlabel: 'iteration k (count)', ylabel: 'error (dimensionless, log scale)', yfmt: v => '1e' + v });
+    ax.clip(); const LP = 'm6-pow-leg';
+    if (Lab.on(LP, 'thk')) Lab.line(ctx, ax, ks, ks.map(k => Math.max(-17, Math.log10(t0) + k * Math.log10(r))), c.muted, 1.2, [5, 4]);
+    if (Lab.on(LP, 'th2k')) Lab.line(ctx, ax, ks, ks.map(k => Math.max(-17, Math.log10(r0) + 2 * k * Math.log10(r))), c.sig5, 1.4, [2, 3]);
     const cut = (ys) => { const i = ys.findIndex(v => isNaN(v)); return i < 0 ? ys.length : i; }; const n1 = cut(tn), n2 = cut(rq);
-    Lab.line(ctx, ax, ks.slice(0, n1), tn.slice(0, n1), c.accent, 2); Lab.line(ctx, ax, ks.slice(0, n2), rq.slice(0, n2), c.sig2, 2); ax.unclip();
+    if (Lab.on(LP, 'tan')) Lab.line(ctx, ax, ks.slice(0, n1), tn.slice(0, n1), c.accent, 2); if (Lab.on(LP, 'ray')) Lab.line(ctx, ax, ks.slice(0, n2), rq.slice(0, n2), c.sig2, 2, [6, 4]); ax.unclip();
     const fit = (ys) => { const pts = ys.map((y, k) => [k, y]).filter(p => p[0] >= 3 && p[1] > -13 && !isNaN(p[1])); if (pts.length < 3) return NaN; const mx = pts.reduce((s, p) => s + p[0], 0) / pts.length, my = pts.reduce((s, p) => s + p[1], 0) / pts.length; let sxy = 0, sxx = 0; pts.forEach(p => { sxy += (p[0] - mx) * (p[1] - my); sxx += (p[0] - mx) ** 2; }); return sxy / sxx; };
     const s1 = fit(tn), s2 = fit(rq); const its = Math.ceil(-15 / Math.log10(r));
-    $('m6-pow-read').innerHTML = 'λ = 1, ' + (neg ? '−' : '') + fmt(r, 2) + ', …\nslope tan∠  meas <b>' + (isNaN(s1) ? '–' : fmt(s1, 3)) + '</b>\n            theory <b>' + fmt(Math.log10(r), 3) + '</b>\nslope Rayleigh meas <b>' + (isNaN(s2) ? '–' : fmt(s2, 3)) + '</b>\n            theory <b>' + fmt(2 * Math.log10(r), 3) + '</b>\niterations to 1e−15: ≈ <b>' + its + '</b>';
+    $('m6-pow-read').innerHTML = 'eigenvalues λ = 1, ' + (neg ? '−' : '') + fmt(r, 2) + ', …\neigenvector error slope\n  measured <b>' + (isNaN(s1) ? '–' : fmt(s1, 3)) + '</b>\n  theory   <b>' + fmt(Math.log10(r), 3) + '</b>\nRayleigh error slope\n  measured <b>' + (isNaN(s2) ? '–' : fmt(s2, 3)) + '</b>\n  theory   <b>' + fmt(2 * Math.log10(r), 3) + '</b>\n(decades per iteration)\niterations to 1e−15: ≈ <b>' + its + '</b>';
   }
-  $('m6-pow-r').addEventListener('input', drawPow); $('m6-pow-neg').addEventListener('change', drawPow);
+  $('m6-pow-r').addEventListener('input', drawPow); Lab.legendToggle('m6-pow-leg', drawPow); $('m6-pow-neg').addEventListener('change', drawPow);
   $('m6-pow-seed').addEventListener('click', () => { powSeed++; drawPow(); });
 
   /* ================= Demo 06.3: SVD stages ================= */
@@ -922,30 +948,30 @@ Vert_F\)</dd></dl>
       const s1 = Math.min(1, st), s2 = Math.min(1, Math.max(0, st - 1)), s3 = Math.min(1, Math.max(0, st - 2));
       const Vh = rot(-S.tv * s1); const Sg = [1 + (S.s1 - 1) * s2, 0, 0, 1 + (S.s2 - 1) * s2]; const U = rot(S.tu * s3);
       return mul(U, mul(Sg, Vh)); })();
-    const Rr = Math.max(1.4, S.s1 * 1.12), asp = (w - 60) / (h - 40);
-    const box = { x: 46, y: 10, w: w - 60, h: h - 40 };
-    const ax = Lab.axes(ctx, box, asp >= 1 ? [-Rr * asp, Rr * asp] : [-Rr, Rr], asp >= 1 ? [-Rr, Rr] : [-Rr / asp, Rr / asp], { nx: 6, ny: 4 });
-    ax.clip();
+    const Rr = Math.max(1.4, S.s1 * 1.12), asp = (w - 72) / (h - 46);
+    const box = { x: 58, y: 10, w: w - 72, h: h - 46 };
+    const ax = Lab.axes(ctx, box, asp >= 1 ? [-Rr * asp, Rr * asp] : [-Rr, Rr], asp >= 1 ? [-Rr, Rr] : [-Rr / asp, Rr / asp], { nx: 6, ny: 4, xlabel: 'component 1 (dimensionless)', ylabel: 'component 2 (dimensionless)' });
+    ax.clip(); const LS = 'm6-svd-leg';
     const cx = [], cy = [], ex = [], ey = [], mx = [], my = [];
     for (let i = 0; i <= 200; i++) { const t = 2 * Math.PI * i / 200, x = Math.cos(t), y = Math.sin(t); cx.push(x); cy.push(y); ex.push(a * x + b * y); ey.push(cc * x + d * y); mx.push(M[0] * x + M[1] * y); my.push(M[2] * x + M[3] * y); }
-    Lab.line(ctx, ax, cx, cy, c.muted, 1, [4, 4]); Lab.line(ctx, ax, ex, ey, c.muted, 1, [2, 3]);
+    if (Lab.on(LS, 'circ')) Lab.line(ctx, ax, cx, cy, c.muted, 1, [4, 4]); if (Lab.on(LS, 'fin')) Lab.line(ctx, ax, ex, ey, c.sig5, 1.3, [2, 3]);
     /* spokes to show rotation */
     for (let i = 0; i < 12; i++) { const t = 2 * Math.PI * i / 12, x = Math.cos(t), y = Math.sin(t); Lab.line(ctx, ax, [0, M[0] * x + M[1] * y], [0, M[2] * x + M[3] * y], c.grid, 1); }
-    Lab.line(ctx, ax, mx, my, c.accent, 2.2);
-    const tip = [M[0], M[2]]; Lab.dots(ctx, ax, [tip[0]], [tip[1]], c.fg, 3.5);
+    if (Lab.on(LS, 'cur')) { Lab.line(ctx, ax, mx, my, c.accent, 2.2);
+    const tip = [M[0], M[2]]; Lab.dots(ctx, ax, [tip[0]], [tip[1]], c.fg, 3.5); }
     const mv = v => [M[0] * v[0] + M[1] * v[1], M[2] * v[0] + M[3] * v[1]];
     const p1 = mv(S.v1), p2 = mv(S.v2);
-    Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(p1[0]), ax.Y(p1[1]), c.sig2, 2.4); Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(p2[0]), ax.Y(p2[1]), c.sig4, 2.4);
-    if (st > 0.02) { Lab.line(ctx, ax, [0, S.v1[0]], [0, S.v1[1]], c.sig2, 1, [3, 3]); Lab.line(ctx, ax, [0, S.v2[0]], [0, S.v2[1]], c.sig4, 1, [3, 3]); }
+    if (Lab.on(LS, 'a1')) Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(p1[0]), ax.Y(p1[1]), c.sig2, 2.4); if (Lab.on(LS, 'a2')) Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(p2[0]), ax.Y(p2[1]), c.sig4, 2.4);
+    if (st > 0.02) { if (Lab.on(LS, 'a1')) Lab.line(ctx, ax, [0, S.v1[0]], [0, S.v1[1]], c.sig2, 1, [3, 3]); if (Lab.on(LS, 'a2')) Lab.line(ctx, ax, [0, S.v2[0]], [0, S.v2[1]], c.sig4, 1, [3, 3]); }
     ax.unclip();
     const s2a = Math.abs(S.s2), rank = (S.s1 > 1e-9 ? 1 : 0) + (s2a > 1e-9 * Math.max(1, S.s1) ? 1 : 0);
     const deg = t => fmt(t * 180 / Math.PI, 1) + '°';
-    $('m6-svd-read').innerHTML = 'σ₁ = <b>' + fmt(S.s1, 3) + '</b>  σ₂ = <b>' + fmt(s2a, 3) + '</b>' + (S.s2 < 0 ? ' (det<0)' : '') +
-      '\nv₁ at ' + deg(S.tv) + ', u₁ at ' + deg(S.tu) + '\nrank = <b>' + rank + '</b>  ‖A‖₂ = σ₁ = ' + fmt(S.s1, 3) +
-      '\n‖A‖F² = ' + fmt(a * a + b * b + cc * cc + d * d, 3) + ' = σ₁²+σ₂² = ' + fmt(S.s1 * S.s1 + S.s2 * S.s2, 3) +
-      '\nκ = σ₁/σ₂ = <b>' + (s2a > 1e-12 ? fmt(S.s1 / s2a, 3) : '∞') + '</b>\n|det A| = ' + fmt(Math.abs(a * d - b * cc), 3) + ' = σ₁σ₂';
+    $('m6-svd-read').innerHTML = 'singular value σ₁ = <b>' + fmt(S.s1, 3) + '</b>\nsingular value σ₂ = <b>' + fmt(s2a, 3) + '</b>' + (S.s2 < 0 ? ' (det<0)' : '') +
+      '\ninput direction v₁ at ' + deg(S.tv) + '\noutput direction u₁ at ' + deg(S.tu) + '\nrank = <b>' + rank + '</b>\nnorm ‖A‖₂ = σ₁ = ' + fmt(S.s1, 3) +
+      '\n‖A‖F² = ' + fmt(a * a + b * b + cc * cc + d * d, 3) + '\n  = σ₁²+σ₂² = ' + fmt(S.s1 * S.s1 + S.s2 * S.s2, 3) +
+      '\ncondition κ = σ₁/σ₂ = <b>' + (s2a > 1e-12 ? fmt(S.s1 / s2a, 3) : '∞') + '</b>\n|det A| = ' + fmt(Math.abs(a * d - b * cc), 3) + ' = σ₁σ₂';
   }
-  sIds.forEach(id => $(id).addEventListener('input', drawSvd)); $('m6-st').addEventListener('input', drawSvd);
+  sIds.forEach(id => $(id).addEventListener('input', drawSvd)); Lab.legendToggle('m6-svd-leg', drawSvd); $('m6-st').addEventListener('input', drawSvd);
   $('m6-st-play').addEventListener('click', () => { cancelAnimationFrame(playing); const t0 = performance.now(); const step = now => { const s = Math.min(3, (now - t0) / 1500); $('m6-st').value = s; drawSvd(); if (s < 3) playing = requestAnimationFrame(step); }; playing = requestAnimationFrame(step); });
 
   /* ================= Demo 06.4: low rank ================= */
@@ -996,19 +1022,20 @@ Vert_F\)</dd></dl>
     /* spectrum */
     const cs = Lab.canvas($('m6-lr-sv'), 230); const g = cs.ctx;
     const lmin = Math.floor(Math.log10(Math.max(D.s[n - 1], 1e-6))), lmax = Math.ceil(Math.log10(D.s[0]));
-    const ax = Lab.axes(g, { x: 52, y: 12, w: cs.w - 104, h: cs.h - 52 }, [0, n + 1], [lmin, lmax], { xlabel: 'index i', ylabel: 'σᵢ (log)', yfmt: v => '1e' + v, ny: Math.min(6, lmax - lmin) });
-    ax.clip(); const xs = [], ys = []; for (let q = 0; q < n; q++) { xs.push(q + 1); ys.push(Math.log10(Math.max(D.s[q], 1e-12))); }
-    Lab.dots(g, ax, xs.slice(k), ys.slice(k), c.muted, 2); Lab.dots(g, ax, xs.slice(0, k), ys.slice(0, k), c.accent, 2.6);
+    const ax = Lab.axes(g, { x: 52, y: 12, w: cs.w - 104, h: cs.h - 52 }, [0, n + 1], [lmin, lmax], { xlabel: 'singular value index i', ylabel: 'σᵢ (image units, log)', yfmt: v => '1e' + v, ny: Math.min(6, lmax - lmin) });
+    ax.clip(); const xs = [], ys = []; const LL = 'm6-lr-leg'; for (let q = 0; q < n; q++) { xs.push(q + 1); ys.push(Math.log10(Math.max(D.s[q], 1e-12))); }
+    if (Lab.on(LL, 'disc')) Lab.dots(g, ax, xs.slice(k), ys.slice(k), c.muted, 2); if (Lab.on(LL, 'kept')) Lab.dots(g, ax, xs.slice(0, k), ys.slice(0, k), c.accent, 2.6);
     let cum = 0; const ey = []; for (let q = 0; q < n; q++) { cum += D.s[q] ** 2; ey.push(lmin + (lmax - lmin) * cum / all); }
-    Lab.line(g, ax, xs, ey, c.sig3, 1.6); Lab.line(g, ax, [k + 0.5, k + 0.5], [lmin, lmax], c.sig2, 1.6, [5, 3]); ax.unclip();
+    if (Lab.on(LL, 'en')) Lab.line(g, ax, xs, ey, c.sig3, 1.6); if (Lab.on(LL, 'cut')) Lab.line(g, ax, [k + 0.5, k + 0.5], [lmin, lmax], c.sig2, 1.6, [5, 3]); ax.unclip();
     g.save(); g.fillStyle = c.muted; g.font = '11px ' + c.mono; g.textAlign = 'left'; g.textBaseline = 'middle';
-    [0, 50, 90, 100].forEach(p => g.fillText(p + '%', ax.box.x + ax.box.w + 6, ax.Y(lmin + (lmax - lmin) * p / 100))); g.restore();
+    [0, 50, 90, 100].forEach(p => g.fillText(p + '%', ax.box.x + ax.box.w + 6, ax.Y(lmin + (lmax - lmin) * p / 100)));
+    g.translate(cs.w - 8, ax.box.y + ax.box.h / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillStyle = c.fg; g.fillText('energy captured (%)', 0, 0); g.restore();
     const kk = D.s.findIndex((s, i) => { let cc2 = 0; for (let q = 0; q <= i; q++) cc2 += D.s[q] ** 2; return cc2 / all >= 0.99; });
-    $('m6-lr-read').innerHTML = 'measured ‖A−Aₖ‖F² = <b>' + err.toExponential(6) + '</b>\npredicted Σ_{i>k} σᵢ²  = <b>' + tail.toExponential(6) + '</b>\n' + (tail > 1e-20 * all ? 'rel. difference = ' + (Math.abs(err - tail) / tail).toExponential(1) : 'both ≈ 0 (round-off)') +
+    $('m6-lr-read').innerHTML = 'squared error, measured ‖A−Aₖ‖F² = <b>' + err.toExponential(6) + '</b>\npredicted Σ_{i>k} σᵢ²  = <b>' + tail.toExponential(6) + '</b>\n' + (tail > 1e-20 * all ? 'relative difference = ' + (Math.abs(err - tail) / tail).toExponential(1) : 'both ≈ 0 (round-off)') +
       '\nenergy captured = <b>' + fmt(100 * (1 - tail / all), 2) + ' %</b>\n‖A‖₂ = σ₁ = ' + fmt(D.s[0], 2) + '\nσₖ₊₁ = ' + (k < n ? D.s[k].toExponential(3) : '0') + ' (= ‖A−Aₖ‖₂)\nranks for 99 % energy: <b>' + (kk + 1) + '</b>' +
-      '\nstorage k(m+n+1) = ' + k * (2 * n + 1) + ' vs mn = ' + n * n;
+      '\nnumbers stored k(m+n+1) = ' + k * (2 * n + 1) + ' vs mn = ' + n * n;
   }
-  $('m6-lr-k').addEventListener('input', drawLR); $('m6-lr-spk').addEventListener('change', drawLR);
+  $('m6-lr-k').addEventListener('input', drawLR); Lab.legendToggle('m6-lr-leg', drawLR); $('m6-lr-spk').addEventListener('change', drawLR);
 
   /* ================= Demo 06.5: truncated SVD ================= */
   const TS = { n: 64, seed: 4 };
@@ -1027,17 +1054,17 @@ Vert_F\)</dd></dl>
     let xn = 0; for (let i = 0; i < n; i++) xn += TS.x[i] ** 2; xn = Math.sqrt(xn);
     let best = 0; errs.forEach((e, i) => { if (e < errs[best]) best = i; });
     const c1 = Lab.canvas($('m6-ts-x'), 230), g = c1.ctx; const idx = Array.from({ length: n }, (_, i) => i);
-    const ax = Lab.axes(g, { x: 52, y: 12, w: c1.w - 66, h: c1.h - 52 }, [0, n - 1], [-1.2, 1.4], { xlabel: 'depth sample', ylabel: 'reflectivity' });
-    ax.clip(); Lab.line(g, ax, idx, Array.from(TS.x), c.muted, 1.6, [4, 3]); Lab.line(g, ax, idx, Array.from(b), c.sig3, 1.4); Lab.line(g, ax, idx, Array.from(xsel).map(v => Math.max(-50, Math.min(50, v))), c.accent, 2); ax.unclip();
+    const ax = Lab.axes(g, { x: 66, y: 12, w: c1.w - 80, h: c1.h - 52 }, [0, n - 1], [-1.2, 1.4], { xlabel: 'depth sample index (of 64)', ylabel: 'reflectivity (normalized)' }); const T1 = 'm6-ts-leg1', T2 = 'm6-ts-leg2';
+    ax.clip(); if (Lab.on(T1, 'x')) Lab.line(g, ax, idx, Array.from(TS.x), c.muted, 1.6, [4, 3]); if (Lab.on(T1, 'b')) Lab.line(g, ax, idx, Array.from(b), c.sig3, 1.4, [2, 2]); if (Lab.on(T1, 'xk')) Lab.line(g, ax, idx, Array.from(xsel).map(v => Math.max(-50, Math.min(50, v))), c.accent, 2); ax.unclip();
     const c2 = Lab.canvas($('m6-ts-p'), 230), h2 = c2.ctx;
-    const ax2 = Lab.axes(h2, { x: 52, y: 12, w: c2.w - 66, h: c2.h - 52 }, [0, n + 1], [-18, 4], { xlabel: 'index i', ylabel: 'magnitude (log)', yfmt: v => '1e' + v, ny: 5 });
+    const ax2 = Lab.axes(h2, { x: 66, y: 12, w: c2.w - 80, h: c2.h - 52 }, [0, n + 1], [-18, 4], { xlabel: 'singular value index i', ylabel: 'magnitude (log scale)', yfmt: v => '1e' + v, ny: 5 });
     ax2.clip(); const ii = idx.map(i => i + 1); const L = v => Math.max(-18, Math.log10(Math.max(Math.abs(v), 1e-30)));
-    Lab.line(h2, ax2, [k + 0.5, k + 0.5], [-18, 4], c.sig4, 1.6, [5, 3]);
-    Lab.dots(h2, ax2, ii, Array.from(D.s).map(L), c.accent, 2.4); Lab.dots(h2, ax2, ii, Array.from(beta).map(L), c.sig2, 2.4); Lab.dots(h2, ax2, ii, Array.from(beta).map((v, i) => L(v / D.s[i])), c.sig3, 2);
-    Lab.line(h2, ax2, [1, n], [L(sn), L(sn)], c.sig2, 1, [2, 3]); ax2.unclip();
-    $('m6-ts-read').innerHTML = 'κ(A) = σ₁/σₙ = <b>' + (D.s[0] / D.s[n - 1]).toExponential(2) + '</b>\nnoise σ = ' + sn.toExponential(2) + ' (dotted)\nrel. error at k = ' + k + ': <b>' + fmt(errs[k - 1] / xn, 3) + '</b>\nbest k = <b>' + (best + 1) + '</b>, rel. error ' + fmt(errs[best] / xn, 3) + '\nfull pinv (k = 64): ' + (errs[n - 1] / xn).toExponential(1);
+    if (Lab.on(T2, 'cut')) Lab.line(h2, ax2, [k + 0.5, k + 0.5], [-18, 4], c.sig4, 1.6, [5, 3]);
+    if (Lab.on(T2, 's')) Lab.dots(h2, ax2, ii, Array.from(D.s).map(L), c.accent, 2.4); if (Lab.on(T2, 'ub')) Lab.dots(h2, ax2, ii, Array.from(beta).map(L), c.sig2, 2.4); if (Lab.on(T2, 'q')) Lab.dots(h2, ax2, ii, Array.from(beta).map((v, i) => L(v / D.s[i])), c.sig3, 2);
+    if (Lab.on(T2, 'nl')) Lab.line(h2, ax2, [1, n], [L(sn), L(sn)], c.sig2, 1, [2, 3]); ax2.unclip();
+    $('m6-ts-read').innerHTML = 'condition number κ(A) = σ₁/σₙ = <b>' + (D.s[0] / D.s[n - 1]).toExponential(2) + '</b>\nnoise standard deviation σ = ' + sn.toExponential(2) + ' (dotted)\nrelative error ‖xₖ−x‖/‖x‖ at k = ' + k + ': <b>' + fmt(errs[k - 1] / xn, 3) + '</b>\nbest k = <b>' + (best + 1) + '</b>, relative error ' + fmt(errs[best] / xn, 3) + '\nfull pseudo-inverse (k = 64): ' + (errs[n - 1] / xn).toExponential(1);
   }
-  $('m6-ts-k').addEventListener('input', drawTS); $('m6-ts-n').addEventListener('input', drawTS); $('m6-ts-seed').addEventListener('click', () => { TS.seed++; drawTS(); });
+  $('m6-ts-k').addEventListener('input', drawTS); Lab.legendToggle('m6-ts-leg1', drawTS); Lab.legendToggle('m6-ts-leg2', drawTS); $('m6-ts-n').addEventListener('input', drawTS); $('m6-ts-seed').addEventListener('click', () => { TS.seed++; drawTS(); });
 
   /* ================= Demo 06.6: clutter filter ================= */
   const CF = { seed: 3, data: null, busy: false };
@@ -1082,7 +1109,7 @@ Vert_F\)</dd></dl>
     const ci = panels($('m6-cf-img'), 250), g = ci.ctx;
     const cs = Lab.canvas($('m6-cf-sv'), 250), h = cs.ctx;
     if (!CF.data) { [g, h].forEach((cx, i) => { cx.fillStyle = c.muted; cx.font = '13px ' + c.mono; cx.textAlign = 'center'; cx.fillText(CF.busy ? 'computing…' : 'press Simulate', (i ? cs.w : ci.w) / 2, 40); });
-      Lab.axes(h, { x: 52, y: 12, w: cs.w - 110, h: cs.h - 52 }, [0, 80], [-80, 0], { xlabel: 'singular value index k', ylabel: 'σₖ (dB)' }); return; }
+      Lab.axes(h, { x: 52, y: 12, w: cs.w - 110, h: cs.h - 52 }, [0, 80], [-80, 0], { xlabel: 'singular value index k', ylabel: 'σₖ (dB re σ₁)' }); return; }
     const d = CF.data, S = d.S, n = S.n, m = S.m;
     if (lo > n) lo = n; if (hi > n) hi = n;
     if (!CF.hpf || CF.hpf.fc !== fc) CF.hpf = { fc, pd: hpfPower(S, fc) };
@@ -1099,28 +1126,28 @@ Vert_F\)</dd></dl>
     const fmax = Math.max(200, Math.ceil(Math.max(...d.dop) / 50) * 50);
     const box = { x: 52, y: 12, w: cs.w - 110, h: cs.h - 52 };
     const ax = Lab.axes(h, box, [0.5, n + 0.5], [ymin, 0], { xlabel: 'singular value index k', ylabel: 'σₖ (dB re σ₁)' }); cfAx = ax;
-    h.save(); h.fillStyle = c.sig2; h.globalAlpha = 0.12; h.fillRect(ax.X(lo - 0.5), box.y, ax.X(hi + 0.5) - ax.X(lo - 0.5), box.h); h.restore();
+    const LC = 'm6-cf-leg'; if (Lab.on(LC, 'band')) { h.save(); h.fillStyle = c.sig2; h.globalAlpha = 0.12; h.fillRect(ax.X(lo - 0.5), box.y, ax.X(hi + 0.5) - ax.X(lo - 0.5), box.h); h.restore(); }
     ax.clip(); const ks = db.map((_, i) => i + 1);
     const Yd = f => box.y + box.h - f / fmax * box.h;
-    const fT = 2 * d.P.vt / S.lam; h.save(); h.strokeStyle = c.sig4; h.setLineDash([5, 4]); h.lineWidth = 1.4; h.beginPath(); h.moveTo(box.x, Yd(fT)); h.lineTo(box.x + box.w, Yd(fT)); h.stroke(); h.restore();
-    h.save(); h.strokeStyle = c.sig3; h.lineWidth = 1.4; h.beginPath(); ks.forEach((k, i) => { const px = ax.X(k), py = Yd(d.dop[i]); i ? h.lineTo(px, py) : h.moveTo(px, py); }); h.stroke(); h.restore();
-    Lab.line(h, ax, ks, db, c.accent, 2); Lab.dots(h, ax, ks.slice(lo - 1, hi), db.slice(lo - 1, hi), c.accent, 2.6);
-    Lab.line(h, ax, [lo - 0.5, lo - 0.5], [ymin, 0], c.sig2, 2); Lab.line(h, ax, [hi + 0.5, hi + 0.5], [ymin, 0], c.sig2, 2); ax.unclip();
+    const fT = 2 * d.P.vt / S.lam; if (Lab.on(LC, 'tis')) { h.save(); h.strokeStyle = c.sig4; h.setLineDash([5, 4]); h.lineWidth = 1.4; h.beginPath(); h.moveTo(box.x, Yd(fT)); h.lineTo(box.x + box.w, Yd(fT)); h.stroke(); h.restore(); }
+    if (Lab.on(LC, 'dop')) { h.save(); h.strokeStyle = c.sig3; h.lineWidth = 1.4; h.setLineDash([2, 3]); h.beginPath(); ks.forEach((k, i) => { const px = ax.X(k), py = Yd(d.dop[i]); i ? h.lineTo(px, py) : h.moveTo(px, py); }); h.stroke(); h.restore(); }
+    if (Lab.on(LC, 'sv')) { Lab.line(h, ax, ks, db, c.accent, 2); Lab.dots(h, ax, ks.slice(lo - 1, hi), db.slice(lo - 1, hi), c.accent, 2.6); }
+    if (Lab.on(LC, 'band')) { Lab.line(h, ax, [lo - 0.5, lo - 0.5], [ymin, 0], c.sig2, 2); Lab.line(h, ax, [hi + 0.5, hi + 0.5], [ymin, 0], c.sig2, 2); } ax.unclip();
     h.save(); h.fillStyle = c.muted; h.font = '11px ' + c.mono; h.textAlign = 'left'; h.textBaseline = 'middle';
     Lab.ticks(0, fmax, 4).forEach(f => h.fillText(fmt(f), box.x + box.w + 6, Yd(f))); h.save(); h.translate(cs.w - 8, box.y + box.h / 2); h.rotate(-Math.PI / 2); h.textAlign = 'center'; h.fillText('RMS Doppler (Hz)', 0, 0); h.restore(); h.restore();
     /* readout */
     let et = 0, eb = 0, en = 0, all = 0; d.D.s.forEach((s, i) => { const e = s * s; all += e; if (i < lo - 1) et += e; else if (i < hi) eb += e; else en += e; });
     const pct = v => fmt(100 * v / all, v / all < 0.001 ? 4 : 2) + ' %';
-    $('m6-cf-read').innerHTML = 'Casorati ' + m + ' × ' + n + '\nsim ' + fmt(d.tsim, 0) + ' ms, SVD ' + fmt(d.tsvd, 0) + ' ms\n‖S−UΣVᴴ‖F/‖S‖F = ' + d.rel.toExponential(1) + '\nmax|VᴴV−I| = ' + d.orth.toExponential(1) +
-      '\nenergy: tissue (1–' + (lo - 1) + ') ' + pct(et) + '\n        band (' + lo + '–' + hi + ') ' + pct(eb) + '\n        tail (' + (hi + 1) + '–' + n + ') ' + pct(en) +
-      '\ncontrast vessel/bg   CNR(dB img)\n  raw   <b>' + fmt(st[0].con, 1) + ' dB</b>  ' + fmt(st[0].cnr, 2) + '\n  SVD   <b>' + fmt(st[1].con, 1) + ' dB</b>  ' + fmt(st[1].cnr, 2) + '\n  HPF   <b>' + fmt(st[2].con, 1) + ' dB</b>  ' + fmt(st[2].cnr, 2) +
-      '\ntissue peak Doppler 2v/λ = ' + fmt(fT, 1) + ' Hz';
+    $('m6-cf-read').innerHTML = 'matrix size (pixels × frames) ' + m + ' × ' + n + '\ncompute time: simulation ' + fmt(d.tsim, 0) + ' ms, SVD ' + fmt(d.tsvd, 0) + ' ms\nSVD residual ‖S−UΣVᴴ‖F/‖S‖F = ' + d.rel.toExponential(1) + '\northogonality max|VᴴV−I| = ' + d.orth.toExponential(1) +
+      '\nenergy share by index\n  tissue (1–' + (lo - 1) + ') ' + pct(et) + '\n  band (' + lo + '–' + hi + ') ' + pct(eb) + '\n  tail (' + (hi + 1) + '–' + n + ') ' + pct(en) +
+      '\ncontrast vessel/background (dB), CNR on the dB image\n  raw   <b>' + fmt(st[0].con, 1) + ' dB</b>  ' + fmt(st[0].cnr, 2) + '\n  SVD   <b>' + fmt(st[1].con, 1) + ' dB</b>  ' + fmt(st[1].cnr, 2) + '\n  HPF   <b>' + fmt(st[2].con, 1) + ' dB</b>  ' + fmt(st[2].cnr, 2) +
+      '\ntissue peak Doppler 2vₜ/λ = ' + fmt(fT, 1) + ' Hz';
   }
   function cfOracle() { if (!CF.data) return; const { mv, mb, S } = CF.data, n = S.n; let best = [1, n, -1e9];
     const cv = [0], cb = [0]; for (let k = 0; k < n; k++) { cv.push(cv[k] + mv[k]); cb.push(cb[k] + mb[k]); }
     const W = Math.round(n / 4); for (let lo = 1; lo <= n; lo++) for (let hi = lo + W - 1; hi <= n; hi++) { const a = cv[hi] - cv[lo - 1], b = cb[hi] - cb[lo - 1]; if (b <= 0) continue; const cn = a / b; if (cn > best[2]) best = [lo, hi, cn]; }
     $('m6-cf-lo').value = best[0]; $('m6-cf-hi').value = best[1]; drawCF(); }
-  ['m6-cf-lo', 'm6-cf-hi', 'm6-cf-fc'].forEach(id => $(id).addEventListener('input', drawCF));
+  ['m6-cf-lo', 'm6-cf-hi', 'm6-cf-fc'].forEach(id => $(id).addEventListener('input', drawCF)); Lab.legendToggle('m6-cf-leg', drawCF);
   ['m6-cf-vt', 'm6-cf-bd', 'm6-cf-nd'].forEach(id => $(id).addEventListener('input', () => { $(id + '-o').textContent = $(id).value + (id === 'm6-cf-vt' ? ' mm/s' : ' dB'); }));
   ['m6-cf-vt', 'm6-cf-bd', 'm6-cf-nd', 'm6-cf-nt'].forEach(id => $(id).addEventListener('change', cfSim));
   $('m6-cf-go').addEventListener('click', cfSim); $('m6-cf-seed').addEventListener('click', () => { CF.seed++; cfSim(); }); $('m6-cf-best').addEventListener('click', cfOracle);
@@ -1213,17 +1240,17 @@ Vert_F\)</dd></dl>
   const DMC = [
     { prov: 'sim', q: 'Why is the distortion matrix nearly rank 1?', a: 'Every focal point in an isoplanatic patch sees the same phase law, times its own speckle: <b>D ≈ (speckle) × e<sup>iφ</sup></b>. Simulated 48 focal points × 32 elements: σ₁² holds most of the energy.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const { vals } = distortion(); const tot = vals.reduce((a, b) => a + b, 0), K = 12;
-        const m = M.panel(x, pbox(w, h, 18), [0.3, K + 0.7], [0, 1.05], { lab: 'σ_k² / Σσ² (energy fraction)', yaxis: false, ticks: [[1, '1'], [4, '4'], [8, '8'], [12, '12']] });
+        const m = M.panel(x, pbox(w, h, 18), [0.3, K + 0.7], [0, 1.05], { yl: 'σ_k² / Σσ² (energy fraction)', xl: 'k', yaxis: false, ticks: [[1, '1'], [4, '4'], [8, '8'], [12, '12']] });
         const P = []; for (let i = 0; i < K; i++) P.push([i + 1, vals[i] / tot]); lolli(x, m, P, c.a, 3); M.text(x, 'σ₁²/Σσ² = ' + (vals[0] / tot).toFixed(2), m.b.x + m.b.w - 4, m.b.y + 6, c.a, 'right'); } },
-    { prov: 'sim', q: 'What does u₁ of the distortion matrix give you?', a: 'Its phase is the aberration law to apply on transmit and receive. Here <b>arg u₁</b> (dots) against the true screen φ<sub>e</sub> (line), constant phase removed; printed RMS error in rad.',
+    { prov: 'sim', leg: [['true screen φₑ', 'b', 'solid'], ['arg u₁', 'a', 'mark']], q: 'What does u₁ of the distortion matrix give you?', a: 'Its phase is the aberration law to apply on transmit and receive. Here <b>arg u₁</b> (dots) against the true screen φ<sub>e</sub> (line), constant phase removed; printed RMS error in rad.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const { N, phi, est, rms } = distortion();
         const m = M.panel(x, pbox(w, h, 18), [-0.5, N - 0.5], [-2.2, 2.2], { lab: 'phase (rad) vs element', yaxis: false, ticks: [[0, '1'], [N - 1, String(N)]] });
         M.curve(x, m, t => { const i = Math.max(0, Math.min(N - 2, Math.floor(t))), r = t - i; return phi[i] * (1 - r) + phi[i + 1] * r; }, c.b);
         x.save(); x.fillStyle = c.a; est.forEach((v, e) => { x.beginPath(); x.arc(m.X(e), m.Y(v), 2.6, 0, 7); x.fill(); }); x.restore();
         M.text(x, 'RMS error = ' + rms.toFixed(3) + ' rad', m.b.x + 4, m.b.y + 6, c.fg); } },
-    { prov: 'sim', q: 'DORT: how many scatterers?', a: 'The SVD of the inter-element response K of a few point scatterers gives <b>one significant σ per scatterer</b> above the noise floor; v<sub>i</sub> is the time-reversal law focusing on scatterer i. Simulated: 3 points, 32 elements.',
+    { prov: 'sim', leg: [['one σ per scatterer (k ≤ 3)', 'a', 'mark'], ['noise', 'mu', 'mark']], q: 'DORT: how many scatterers?', a: 'The SVD of the inter-element response K of a few point scatterers gives <b>one significant σ per scatterer</b> above the noise floor; v<sub>i</sub> is the time-reversal law focusing on scatterer i. Simulated: 3 points, 32 elements.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const { s } = dort(), K = 12;
-        const m = M.panel(x, pbox(w, h, 18), [0.3, K + 0.7], [-80, 0], { lab: 'σ_k (dB re σ₁)', base: -80, yaxis: false, ticks: [[1, '1'], [3, '3'], [6, '6'], [12, '12']] });
+        const m = M.panel(x, pbox(w, h, 18), [0.3, K + 0.7], [-80, 0], { yl: 'σ_k (dB re σ₁)', xl: 'k', base: -80, yaxis: false, ticks: [[1, '1'], [3, '3'], [6, '6'], [12, '12']] });
         const P = []; for (let i = 0; i < K; i++) P.push([i + 1, Math.max(-80, 20 * Math.log10(s[i] / s[0]))]);
         x.save(); x.strokeStyle = c.a; x.fillStyle = c.a; P.forEach(([t, v], i) => { x.fillStyle = i < 3 ? c.a : c.mu; x.beginPath(); x.arc(m.X(t), m.Y(v), 3, 0, 7); x.fill(); }); x.restore();
         M.text(x, 'σ₄/σ₃ = ' + (20 * Math.log10(s[3] / s[2])).toFixed(0).replace('-', '−') + ' dB', m.b.x + m.b.w - 4, m.b.y + 6, c.fg, 'right'); } }
@@ -1269,70 +1296,70 @@ Vert_F\)</dd></dl>
     CI = { N, H, Hs, sv, md }; return CI; }
 
   const VIS = [
-    { prov: 'exact', q: 'What does the SVD do to the unit circle?', a: '<b>A = UΣVᵀ</b>: Vᵀ turns v₁, v₂ onto the axes, Σ stretches by σ₁ ≥ σ₂, U turns the result onto u₁, u₂. The circle becomes an ellipse with semi-axes σ<sub>i</sub>u<sub>i</sub>; Av<sub>i</sub> = σ<sub>i</sub>u<sub>i</sub>.',
+    { prov: 'exact', leg: [['unit circle; v₁, v₂', 'mu', 'dash'], ['image ellipse', 'a', 'fill'], ['σ₁u₁', 'a', 'solid'], ['σ₂u₂', 'b', 'dash']], q: 'What does the SVD do to the unit circle?', a: '<b>A = UΣVᵀ</b>: Vᵀ turns v₁, v₂ onto the axes, Σ stretches by σ₁ ≥ σ₂, U turns the result onto u₁, u₂. The circle becomes an ellipse with semi-axes σ<sub>i</sub>u<sub>i</sub>; Av<sub>i</sub> = σ<sub>i</sub>u<sub>i</sub>.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const A = [[1.2, 0.9], [-0.3, 0.8]], S = svd2(A); const g = geo(x, box(w, h), 1.65);
         param(x, g, t => [Math.cos(t), Math.sin(t)], 0, 2 * PI, c.mu, { w: 1.2, dash: [3, 3] });
         param(x, g, t => [A[0][0] * Math.cos(t) + A[0][1] * Math.sin(t), A[1][0] * Math.cos(t) + A[1][1] * Math.sin(t)], 0, 2 * PI, c.a, { w: 1.8, fill: true, alpha: 0.1 });
         S.V.forEach((v, i) => arrow(x, g, 0, 0, v[0], v[1], c.mu, { w: 1.3, dash: [3, 2] }));
-        arrow(x, g, 0, 0, S.s[0] * S.U[0][0], S.s[0] * S.U[0][1], c.a, { w: 2.2 }); arrow(x, g, 0, 0, S.s[1] * S.U[1][0], S.s[1] * S.U[1][1], c.b, { w: 2.2 });
+        arrow(x, g, 0, 0, S.s[0] * S.U[0][0], S.s[0] * S.U[0][1], c.a, { w: 2.2 }); arrow(x, g, 0, 0, S.s[1] * S.U[1][0], S.s[1] * S.U[1][1], c.b, { w: 2.2, dash: [6, 4] });
         M.text(x, 'σ₁ = ' + S.s[0].toFixed(3) + ', σ₂ = ' + S.s[1].toFixed(3), g.b.x + 4, g.b.y + 6, c.fg); M.text(x, 'v₁, v₂ dashed', g.b.x + 4, g.b.y + g.b.h - 6, c.mu); } },
-    { prov: 'exact', q: 'Which directions does A not turn?', a: '<b>Av = λv</b>: only on the eigen-lines does Ax stay on the line of x (grey segments join x to Ax). A = [1.5 0.5; 0.2 0.8]: λ = 1.62, 0.68 with non-orthogonal eigenvectors, because A is not symmetric.',
+    { prov: 'exact', leg: [['x → Ax, 16 probes', 'mu', 'solid'], ['unit circle', 'mu', 'dash'], ['λ₁ eigenvector', 'a', 'solid'], ['λ₂ eigenvector', 'b', 'dash']], q: 'Which directions does A not turn?', a: '<b>Av = λv</b>: only on the eigen-lines does Ax stay on the line of x (grey segments join x to Ax). A = [1.5 0.5; 0.2 0.8]: λ = 1.62, 0.68 with non-orthogonal eigenvectors, because A is not symmetric.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const A = [[1.5, 0.5], [0.2, 0.8]], g = geo(x, box(w, h), 1.75);
         const tr = A[0][0] + A[1][1], de = A[0][0] * A[1][1] - A[0][1] * A[1][0], dsc = Math.sqrt(tr * tr / 4 - de), L = [tr / 2 + dsc, tr / 2 - dsc];
         for (let k = 0; k < 16; k++) { const t = 2 * PI * k / 16, u = [Math.cos(t), Math.sin(t)], v = [A[0][0] * u[0] + A[0][1] * u[1], A[1][0] * u[0] + A[1][1] * u[1]]; poly(x, g, [u, v], c.mu, { w: 1 }); dot(x, g, v[0], v[1], c.mu, 1.8); }
         param(x, g, t => [Math.cos(t), Math.sin(t)], 0, 2 * PI, c.mu, { w: 1, dash: [3, 3] });
-        L.forEach((l, i) => { const v = [A[0][1], l - A[0][0]], n = Math.hypot(v[0], v[1]); const e = [v[0] / n, v[1] / n]; poly(x, g, [[-3 * e[0], -3 * e[1]], [3 * e[0], 3 * e[1]]], i ? c.b : c.a, { w: 1, dash: [5, 4] }); arrow(x, g, 0, 0, l * e[0], l * e[1], i ? c.b : c.a, { w: 2.2 }); });
+        L.forEach((l, i) => { const v = [A[0][1], l - A[0][0]], n = Math.hypot(v[0], v[1]); const e = [v[0] / n, v[1] / n]; poly(x, g, [[-3 * e[0], -3 * e[1]], [3 * e[0], 3 * e[1]]], i ? c.b : c.a, { w: 1, dash: [5, 4] }); arrow(x, g, 0, 0, l * e[0], l * e[1], i ? c.b : c.a, i ? { w: 2.2, dash: [6, 4] } : { w: 2.2 }); });
         M.text(x, 'λ₁ = ' + L[0].toFixed(3) + ', λ₂ = ' + L[1].toFixed(3), g.b.x + 4, g.b.y + 6, c.fg); } },
-    { prov: 'exact', q: 'Are eigenvalues the stretch factors?', a: 'Only for normal matrices. A = [1 4; 0 1] has <b>λ = 1, 1</b> but <b>σ = 4.24, 0.236</b>: the circle is sheared into a long ellipse. Always σ<sub>min</sub> ≤ |λ| ≤ σ<sub>max</sub>; use σ for gain and conditioning.',
+    { prov: 'exact', leg: [['unit circle', 'mu', 'dash'], ['image ellipse', 'a', 'fill'], ['σ₁u₁', 'a', 'solid'], ['eigen-line (λ = 1)', 'b', 'dash']], q: 'Are eigenvalues the stretch factors?', a: 'Only for normal matrices. A = [1 4; 0 1] has <b>λ = 1, 1</b> but <b>σ = 4.24, 0.236</b>: the circle is sheared into a long ellipse. Always σ<sub>min</sub> ≤ |λ| ≤ σ<sub>max</sub>; use σ for gain and conditioning.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const A = [[1, 4], [0, 1]], S = svd2(A); const g = geo(x, box(w, h), 4.4);
         param(x, g, t => [Math.cos(t), Math.sin(t)], 0, 2 * PI, c.mu, { w: 1.2, dash: [3, 3] });
         param(x, g, t => [A[0][0] * Math.cos(t) + A[0][1] * Math.sin(t), A[1][0] * Math.cos(t) + A[1][1] * Math.sin(t)], 0, 2 * PI, c.a, { w: 1.8, fill: true, alpha: 0.1 });
         poly(x, g, [[-5, 0], [5, 0]], c.b, { w: 2, dash: [5, 3] }); M.text(x, 'eigen-line (λ = 1)', g.X(1.3), g.Y(0) + 9, c.b);
         arrow(x, g, 0, 0, S.s[0] * S.U[0][0], S.s[0] * S.U[0][1], c.a, { w: 2 }); M.text(x, 'σ₁ = ' + S.s[0].toFixed(3) + ', σ₂ = ' + S.s[1].toFixed(3), g.b.x + 4, g.b.y + 6, c.fg); } },
-    { prov: 'exact', q: 'Rayleigh quotient of a symmetric matrix?', a: 'R(x) = xᵀSx/xᵀx sweeps exactly <b>[λ<sub>min</sub>, λ<sub>max</sub>]</b>, with its extremes at the eigenvectors. S = [2 0.8; 0.8 1]: λ = 2.443, 0.557. Max-variance direction = top eigenvector (PCA, MV beamforming).',
+    { prov: 'exact', leg: [['R(θ)', 'a', 'solid'], ['angle of the λ₁ eigenvector', 'd', 'dash'], ['angle of the λ₂ eigenvector', 'b', 'dash']], q: 'Rayleigh quotient of a symmetric matrix?', a: 'R(x) = xᵀSx/xᵀx sweeps exactly <b>[λ<sub>min</sub>, λ<sub>max</sub>]</b>, with its extremes at the eigenvectors. S = [2 0.8; 0.8 1]: λ = 2.443, 0.557. Max-variance direction = top eigenvector (PCA, MV beamforming).',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const S = [[2, 0.8], [0.8, 1]], E = Lab.eigSym(S);
-        const m = M.panel(x, pbox(w, h, 18), [0, 180], [0, 2.8], { lab: 'R(θ), x = (cos θ, sin θ)', yaxis: false, ticks: [[0, '0°'], [90, '90°'], [180, '180°']], hlines: [[E.values[0], 'λ₁ = ' + E.values[0].toFixed(3)], [E.values[1], 'λ₂ = ' + E.values[1].toFixed(3)]] });
+        const m = M.panel(x, pbox(w, h, 18), [0, 180], [0, 2.8], { yl: 'R(θ), x = (cos θ, sin θ)', xl: 'θ (deg)', yaxis: false, ticks: [[0, '0°'], [90, '90°'], [180, '180°']], hlines: [[E.values[0], 'λ₁ = ' + E.values[0].toFixed(3)], [E.values[1], 'λ₂ = ' + E.values[1].toFixed(3)]] });
         M.curve(x, m, d => { const t = d * PI / 180, u = Math.cos(t), v = Math.sin(t); return S[0][0] * u * u + 2 * S[0][1] * u * v + S[1][1] * v * v; }, c.a);
         E.vectors.forEach((v, i) => { let a = Math.atan2(v[1], v[0]) * 180 / PI; a = ((a % 180) + 180) % 180; vline(x, m, a, i ? c.b : c.d); }); } },
-    { prov: 'exact', q: 'How fast does power iteration converge?', a: 'The error shrinks as <b>|λ₂/λ₁|<sup>k</sup></b>: one decade every −1/log₁₀|λ₂/λ₁| iterations, 3.3 for a ratio 0.5, 10.3 for 0.8, 45 for 0.95. A small eigengap means slow convergence.',
+    { prov: 'exact', leg: [['|λ₂/λ₁| = 0.5', 'a', 'solid'], ['0.8', 'b', 'dash'], ['0.95', 'd', 'dot']], q: 'How fast does power iteration converge?', a: 'The error shrinks as <b>|λ₂/λ₁|<sup>k</sup></b>: one decade every −1/log₁₀|λ₂/λ₁| iterations, 3.3 for a ratio 0.5, 10.3 for 0.8, 45 for 0.95. A small eigengap means slow convergence.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const m = M.panel(x, pbox(w, h, 18), [0, 40], [-6, 0.3], { lab: 'log₁₀ error vs iteration k', base: -6, yaxis: false, ticks: [[0, '0'], [10, '10'], [20, '20'], [30, '30'], [40, '40']] });
-        [[0.5, c.a], [0.8, c.b], [0.95, c.d]].forEach(([r, cl]) => { M.curve(x, m, k => k * Math.log10(r), cl); }); M.text(x, '0.5', m.X(6.5), m.Y(-2.5), c.a); M.text(x, '0.8', m.X(21), m.Y(-2.4), c.b); M.text(x, '0.95', m.X(33), m.Y(-0.4), c.d); } },
-    { prov: 'exact', q: 'Error of the best rank-k approximation?', a: 'Eckart–Young: <b>‖A − A<sub>k</sub>‖<sub>F</sub>² = Σ<sub>i&gt;k</sub> σ<sub>i</sub>²</b> and ‖A − A<sub>k</sub>‖₂ = σ<sub>k+1</sub>: the error is the tail energy. For σ<sub>i</sub> = 0.85<sup>i−1</sup> (stems), relative Frobenius error (line) falls below 10% at the printed k.',
+        [[0.5, c.a, null], [0.8, c.b, [6, 4]], [0.95, c.d, [2, 3]]].forEach(([r, cl, ds]) => { M.curve(x, m, k => k * Math.log10(r), cl, ds ? { dash: ds } : {}); }); M.text(x, '0.5', m.X(6.5), m.Y(-2.5), c.a); M.text(x, '0.8', m.X(21), m.Y(-2.4), c.b); M.text(x, '0.95', m.X(33), m.Y(-0.4), c.d); } },
+    { prov: 'exact', leg: [['σ_k', 'mu', 'stem'], ['relative Frobenius error', 'a', 'solid'], ['k at 10 %', 'b', 'dash']], q: 'Error of the best rank-k approximation?', a: 'Eckart–Young: <b>‖A − A<sub>k</sub>‖<sub>F</sub>² = Σ<sub>i&gt;k</sub> σ<sub>i</sub>²</b> and ‖A − A<sub>k</sub>‖₂ = σ<sub>k+1</sub>: the error is the tail energy. For σ<sub>i</sub> = 0.85<sup>i−1</sup> (stems), relative Frobenius error (line) falls below 10% at the printed k.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const K = 30, s = i => Math.pow(0.85, i - 1); let tot = 0; for (let i = 1; i <= K; i++) tot += s(i) ** 2;
         const err = k => { let t = 0; for (let i = k + 1; i <= K; i++) t += s(i) ** 2; return Math.sqrt(t / tot); }; let k10 = 0; while (err(k10) > 0.1) k10++;
-        const m = M.panel(x, pbox(w, h, 18), [0, K + 0.5], [0, 1.08], { lab: 'σ_k (stems), ‖A − A_k‖_F/‖A‖_F (line)', yaxis: false, ticks: [[0, '0'], [10, '10'], [20, '20'], [30, '30']], hlines: [[0.1, '10%']] });
+        const m = M.panel(x, pbox(w, h, 18), [0, K + 0.5], [0, 1.08], { yl: 'σ_k (stems), ‖A − A_k‖_F/‖A‖_F (line)', xl: 'k', yaxis: false, ticks: [[0, '0'], [10, '10'], [20, '20'], [30, '30']], hlines: [[0.1, '10%']] });
         const P = []; for (let i = 1; i <= K; i++) P.push([i, s(i)]); lolli(x, m, P, c.mu, 1.8);
         M.curve(x, m, t => { const k = Math.floor(t), r = t - k; return err(k) * (1 - r) + err(Math.min(K, k + 1)) * r; }, c.a); vline(x, m, k10, c.b, 'k = ' + k10); } },
-    { prov: 'sim', q: 'PCA in one picture?', a: 'Principal axes = eigenvectors of the sample covariance = right singular vectors of the centred data matrix; <b>variance along PC i = σ<sub>i</sub>²/(N − 1) = λ<sub>i</sub></b>. Axes drawn at ±2√λ<sub>i</sub>; printed: share of variance on PC1.',
+    { prov: 'sim', leg: [['data', 'mu', 'mark'], ['PC1, ±2√λ₁', 'a', 'solid'], ['PC2, ±2√λ₂', 'b', 'dash']], q: 'PCA in one picture?', a: 'Principal axes = eigenvectors of the sample covariance = right singular vectors of the centred data matrix; <b>variance along PC i = σ<sub>i</sub>²/(N − 1) = λ<sub>i</sub></b>. Axes drawn at ±2√λ<sub>i</sub>; printed: share of variance on PC1.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const { pts, mx, my, E } = pcaData(); const g = geo(x, box(w, h), 3.2, { ox: mx, oy: my });
-        pts.forEach(p => dot(x, g, p[0], p[1], c.mu, 1.6)); E.vectors.forEach((v, i) => { const r = 2 * Math.sqrt(E.values[i]); arrow(x, g, mx - r * v[0], my - r * v[1], mx + r * v[0], my + r * v[1], i ? c.b : c.a, { w: 2.2 }); });
+        pts.forEach(p => dot(x, g, p[0], p[1], c.mu, 1.6)); E.vectors.forEach((v, i) => { const r = 2 * Math.sqrt(E.values[i]); arrow(x, g, mx - r * v[0], my - r * v[1], mx + r * v[0], my + r * v[1], i ? c.b : c.a, i ? { w: 2.2, dash: [6, 4] } : { w: 2.2 }); });
         M.text(x, 'PC1 share = ' + (E.values[0] / (E.values[0] + E.values[1]) * 100).toFixed(1) + '%', g.b.x + 4, g.b.y + 6, c.fg); } },
-    { prov: 'sim', q: 'Tissue, blood, noise: where in the spectrum?', scaled: true, a: 'Simulated 600-pixel × 64-frame Casorati matrix (blood −30 dB on 15% of pixels). <b>Tissue owns the first few σ<sub>k</sub></b>, blood a slowly falling middle, noise the flat tail. Dashed: each component alone. The slider sets the noise level.',
+    { prov: 'sim', leg: [['total spectrum', 'a', 'solid'], ['tissue alone', 'c', 'dash'], ['blood alone', 'b', 'dot'], ['noise alone (dash-dot)', 'mu', 'dash']], q: 'Tissue, blood, noise: where in the spectrum?', scaled: true, a: 'Simulated 600-pixel × 64-frame Casorati matrix (blood −30 dB on 15% of pixels). <b>Tissue owns the first few σ<sub>k</sub></b>, blood a slowly falling middle, noise the flat tail. Broken lines: each component alone. The slider sets the noise level.',
       draw: (cv, T) => { const c = M.col(); const { x, w, h } = M.size(cv, 160); const C = casorati(), ev = spectrum(T), n = C.n, e2 = Math.pow(10, T / 10), r0 = ev[0];
         const m = M.panel(x, pbox(w, h, 18), [1, n], [-90, 0], { lab: 'σ_k² (dB re σ₁²) vs k', base: -90, yaxis: false, ticks: [[1, '1'], [16, '16'], [32, '32'], [48, '48'], [64, '64']] });
         const lin = arr => t => { const i = Math.max(0, Math.min(n - 2, Math.floor(t - 1))), r = t - 1 - i; return Math.max(-90, dB10(arr[i] * (1 - r) + arr[i + 1] * r) - dB10(r0)); };
-        M.curve(x, m, lin(C.et), c.c, { dash: [4, 3], w: 1.2 }); M.curve(x, m, lin(C.eb), c.b, { dash: [4, 3], w: 1.2 }); M.curve(x, m, lin(C.en.map(v => v * e2)), c.mu, { dash: [4, 3], w: 1.2 });
+        M.curve(x, m, lin(C.et), c.c, { dash: [6, 4], w: 1.2 }); M.curve(x, m, lin(C.eb), c.b, { dash: [2, 3], w: 1.2 }); M.curve(x, m, lin(C.en.map(v => v * e2)), c.mu, { dash: [8, 3, 2, 3], w: 1.2 });
         M.curve(x, m, lin(ev), c.a, { w: 2 }); M.text(x, 'tissue', m.X(3), m.Y(-12), c.c); M.text(x, 'blood', m.X(30), m.Y(dB10(C.eb[29]) - dB10(r0)) - 9, c.b); M.text(x, 'noise', m.X(52), m.Y(dB10(C.en[51] * e2) - dB10(r0)) + 10, c.mu); } },
-    { prov: 'sim', q: 'Singular values of pure noise?', a: 'Marchenko–Pastur: for an m × n noise matrix (variance σ², β = m/n ≤ 1) the eigenvalues of XXᵀ/n fill <b>[σ²(1 − √β)², σ²(1 + √β)²]</b>, so σ<sub>max</sub>(X) ≈ <b>σ(√m + √n)</b>. Bars: one 32 × 128 draw; curve: the law for β = 0.25.',
+    { prov: 'sim', leg: [['one 32 × 128 draw', 'mu', 'fill'], ['Marchenko–Pastur law, β = 0.25', 'a', 'solid'], ['upper edge (1 + √β)²', 'b', 'dash']], q: 'Singular values of pure noise?', a: 'Marchenko–Pastur: for an m × n noise matrix (variance σ², β = m/n ≤ 1) the eigenvalues of XXᵀ/n fill <b>[σ²(1 − √β)², σ²(1 + √β)²]</b>, so σ<sub>max</sub>(X) ≈ <b>σ(√m + √n)</b>. Bars: one 32 × 128 draw; curve: the law for β = 0.25.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const ev = mpSample(), b = 0.25, nb = 14, lo = 0, hi = 2.6, bins = new Array(nb).fill(0);
         ev.forEach(v => { const i = Math.floor((v - lo) / (hi - lo) * nb); if (i >= 0 && i < nb) bins[i]++; }); const bwid = (hi - lo) / nb;
-        const m = M.panel(x, pbox(w, h, 18), [0, 2.6], [0, 1.3], { lab: 'density of eig(XXᵀ/n), σ = 1', yaxis: false, ticks: [[0.25, '0.25'], [1, '1'], [2.25, '2.25']] });
+        const m = M.panel(x, pbox(w, h, 18), [0, 2.6], [0, 1.3], { yl: 'density of eig(XXᵀ/n), σ = 1', xl: 'eigenvalue', yaxis: false, ticks: [[0.25, '0.25'], [1, '1'], [2.25, '2.25']] });
         x.save(); x.fillStyle = c.mu; x.globalAlpha = 0.35; bins.forEach((k, i) => { const y = k / (ev.length * bwid); x.fillRect(m.X(lo + i * bwid) + 1, m.Y(y), m.X(lo + (i + 1) * bwid) - m.X(lo + i * bwid) - 2, m.y0 - m.Y(y)); }); x.restore();
         M.curve(x, m, t => mpPdf(t, b), c.a, { w: 2 }); vline(x, m, (1 + Math.sqrt(b)) ** 2, c.b); M.text(x, 'max eig = ' + ev[0].toFixed(2), m.b.x + m.b.w - 4, m.b.y + 6, c.fg, 'right'); } },
-    { prov: 'exact', q: 'How do you read a Picard plot?', scaled: true, a: 'Plot σ<sub>k</sub> (blue), |u<sub>k</sub>ᵀb| (pink) and their ratio (green). Coefficients follow σ<sub>k</sub>x<sub>k</sub> until they hit the <b>noise floor η</b>; past that k the ratio |u<sub>k</sub>ᵀb|/σ<sub>k</sub> blows up and those components must be cut. The slider moves η.',
+    { prov: 'exact', leg: [['σ_k', 'a', 'solid'], ['|u_kᵀb|', 'b', 'dash'], ['ratio |u_kᵀb|/σ_k', 'd', 'dot'], ['crossing k', 'fg', 'dash']], q: 'How do you read a Picard plot?', scaled: true, a: 'Plot σ<sub>k</sub> (blue), |u<sub>k</sub>ᵀb| (pink) and their ratio (green). Coefficients follow σ<sub>k</sub>x<sub>k</sub> until they hit the <b>noise floor η</b>; past that k the ratio |u<sub>k</sub>ᵀb|/σ<sub>k</sub> blows up and those components must be cut. The slider moves η.',
       draw: (cv, T) => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const eta = Math.pow(10, T / 20);
         const m = M.panel(x, pbox(w, h, 18), [1, KP], [-6.2, 2.2], { lab: 'log₁₀ magnitude vs k (expected)', base: -6.2, yaxis: false, ticks: [[1, '1'], [12, '12'], [24, '24'], [36, '36']], hlines: [[Math.log10(eta), 'η']] });
         const bk = k => Math.sqrt((sigP(k) * xP(k)) ** 2 + eta * eta);
-        M.curve(x, m, k => Math.log10(sigP(k)), c.a); M.curve(x, m, k => Math.log10(bk(k)), c.b); M.curve(x, m, k => Math.log10(bk(k) / sigP(k)), c.d, { dash: [4, 3] });
+        M.curve(x, m, k => Math.log10(sigP(k)), c.a); M.curve(x, m, k => Math.log10(bk(k)), c.b, { dash: [6, 4] }); M.curve(x, m, k => Math.log10(bk(k) / sigP(k)), c.d, { dash: [2, 3] });
         const kc = 1 + Math.log10(eta) / (-(1 / 6 + 1 / 24)); vline(x, m, kc, c.fg, 'k = ' + kc.toFixed(1)); } },
-    { prov: 'exact', q: 'Where should truncated SVD stop?', scaled: true, a: 'Expected error <b>E‖x<sub>k</sub> − x‖² = Σ<sub>i&gt;k</sub> x<sub>i</sub>² + Σ<sub>i≤k</sub> η²/σ<sub>i</sub>²</b>: bias falls and noise grows with k, so the error is U-shaped. Same model as the Picard card; the optimum k sits near the Picard crossing.',
+    { prov: 'exact', leg: [['expected error', 'a', 'solid'], ['optimum k*', 'b', 'mark']], q: 'Where should truncated SVD stop?', scaled: true, a: 'Expected error <b>E‖x<sub>k</sub> − x‖² = Σ<sub>i&gt;k</sub> x<sub>i</sub>² + Σ<sub>i≤k</sub> η²/σ<sub>i</sub>²</b>: bias falls and noise grows with k, so the error is U-shaped. Same model as the Picard card; the optimum k sits near the Picard crossing.',
       draw: (cv, T) => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const eta = Math.pow(10, T / 20), [kb, eb] = tsvdBest(eta);
         const m = M.panel(x, pbox(w, h, 18), [0, KP], [-2.5, 1.5], { lab: 'log₁₀ relative error vs k', base: -2.5, yaxis: false, ticks: [[0, '0'], [12, '12'], [24, '24'], [36, '36']] });
         M.curve(x, m, t => { const k = Math.floor(t), r = t - k; return Math.log10(tsvdErr(k, eta) * (1 - r) + tsvdErr(Math.min(KP, k + 1), eta) * r); }, c.a);
         dot(x, m, kb, Math.log10(eb), c.b, 4); M.text(x, 'k* = ' + kb + ', error ' + (eb * 100).toFixed(1) + '%', m.X(kb) + 7, m.Y(Math.log10(eb)) + 12, c.b); } },
-    { prov: 'sim', q: 'Singular values of a convolution?', a: 'A circulant matrix (circular convolution) is diagonalized by the DFT: <b>eigenvalues = H[k], singular values = |H[k]|</b>. Line: sorted |FFT(h)|; dots: σ<sub>k</sub> from a 32 × 32 SVD; printed: max difference.',
+    { prov: 'sim', leg: [['sorted |H[k]|', 'b', 'solid'], ['σ_k from the SVD', 'a', 'mark']], q: 'Singular values of a convolution?', a: 'A circulant matrix (circular convolution) is diagonalized by the DFT: <b>eigenvalues = H[k], singular values = |H[k]|</b>. Line: sorted |FFT(h)|; dots: σ<sub>k</sub> from a 32 × 32 SVD; printed: max difference.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const { N, Hs, sv, md } = circ(); const top = Hs[0] * 1.1;
-        const m = M.panel(x, pbox(w, h, 18), [0.5, N + 0.5], [0, top], { lab: 'sorted |H[k]| and σ_k', yaxis: false, ticks: [[1, '1'], [16, '16'], [32, '32']] });
+        const m = M.panel(x, pbox(w, h, 18), [0.5, N + 0.5], [0, top], { yl: 'sorted |H[k]| and σ_k', xl: 'sorted index', yaxis: false, ticks: [[1, '1'], [16, '16'], [32, '32']] });
         M.curve(x, m, t => { const i = Math.max(0, Math.min(N - 2, Math.floor(t - 1))), r = t - 1 - i; return Hs[i] * (1 - r) + Hs[i + 1] * r; }, c.b, { w: 1.4 });
         x.save(); x.fillStyle = c.a; sv.forEach((v, i) => { x.beginPath(); x.arc(m.X(i + 1), m.Y(v), 2.6, 0, 7); x.fill(); }); x.restore();
         M.text(x, 'max |σ − |H|| = ' + md.toExponential(1), m.b.x + m.b.w - 4, m.b.y + 6, c.fg, 'right'); } }
@@ -1472,8 +1499,8 @@ Vert_F\)</dd></dl>
     const dens = (Mr, Nc) => { const cq = Nc / Mr, lp = (1 + Math.sqrt(cq)) ** 2, lm = (1 - Math.sqrt(cq)) ** 2;
       return s => { const lam = s * s / Mr; if (lam <= lm || lam >= lp) return 0; return Math.sqrt((lp - lam) * (lam - lm)) / (2 * PI * cq * lam) * 2 * s / Mr; }; };
     const fA = dens(1600, 80), fB = dens(96, 96); let pa = 0, pb = 0; for (let s = 0.05; s < 60; s += 0.05) { pa = Math.max(pa, fA(s)); pb = Math.max(pb, fB(s)); }
-    const m = M.panel(x, B, [0, 55], [0, 1.25], { lab: 'density of σ/σ_noise (peak-normalized)', base: 0, ticks: [[0, '0'], [19.6, '19.6'], [31.1, '31.1'], [48.9, '48.9']] });
-    M.curve(x, m, s => fA(s) / pa, c.a, { fill: true, alpha: 0.15 }); M.curve(x, m, s => fB(s) / pb, c.b, { fill: true, alpha: 0.12 });
+    const m = M.panel(x, B, [0, 55], [0, 1.25], { yl: 'density (peak-normalized)', xl: 'σ/σ_noise', base: 0, ticks: [[0, '0'], [19.6, '19.6'], [31.1, '31.1'], [48.9, '48.9']] });
+    M.curve(x, m, s => fA(s) / pa, c.a, { fill: true, alpha: 0.15 }); M.curve(x, m, s => fB(s) / pb, c.b, { fill: true, alpha: 0.12, dash: [6, 4] });
     const th = Math.pow(1600 * 80, 0.25); vline(x, m, th, c.d); M.text(x, 'BBP', m.X(th) + 3, m.Y(0.85), c.d); M.text(x, fx(th, 1) + 'σ', m.X(th) + 3, m.Y(0.85) + 12, c.d);
     M.text(x, '1600×80: ' + fx(40 - Math.sqrt(80), 1) + '–' + fx(40 + Math.sqrt(80), 1) + 'σ', nar ? m.b.x + m.b.w : m.X(40), m.Y(nar ? 1.22 : 1.1), c.a, nar ? 'right' : 'center');
     M.text(x, '96×96: 0–' + fx(2 * Math.sqrt(96), 1) + 'σ', m.X(2), m.Y(1.1), c.b); };
@@ -1482,12 +1509,12 @@ Vert_F\)</dd></dl>
   RF[6] = () => { const r = cvs('m6-rf-6', 150, 290); if (!r) return; const { x, w, h, c } = r; const n = 20, k = 5, s = []; for (let i = 1; i <= n; i++) s.push(Math.exp(-(i - 1) / 5));
     const tail = s.slice(k).reduce((a, v) => a + v * v, 0), tot = s.reduce((a, v) => a + v * v, 0);
     const [L, R] = boxes(w, h, 2, { l: 26, fr: [1.3, 1] });
-    const ml = M.panel(x, L, [0.3, n + 0.7], [0, 1.1], { lab: 'σ_i; k = 5 kept, tail = error', base: 0, ticks: [[1, '1'], [5, '5'], [6, '6'], [20, '20']] });
+    const ml = M.panel(x, L, [0.3, n + 0.7], [0, 1.1], { yl: 'σ_i; k = 5 kept, tail = error', xl: 'i', base: 0, ticks: [[1, '1'], [5, '5'], [6, '6'], [20, '20']] });
     ylab(x, ml, [[0, '0'], [1, '1']]); yaxis(x, ml); band(x, ml, k + 0.5, n + 0.7, c.b, 0.12);
     lolli(x, ml, s.slice(0, k).map((v, i) => [i + 1, v]), c.a, 2.6); lolli(x, ml, s.slice(k).map((v, i) => [i + k + 1, v]), c.b, 2.6);
     M.text(x, '‖A−A₅‖_F² = Σσ²(i>5) = ' + fx(tail / tot * 100, 1) + ' %', ml.b.x + ml.b.w - 2, ml.Y(0.95), c.b, 'right');
     M.text(x, '‖A−A₅‖₂ = σ₆ = ' + fx(s[k], 3), ml.b.x + ml.b.w - 2, ml.Y(0.95) + 14, c.b, 'right');
-    const Q = [[1, 1.55], [5, 1.85], [20, 2.24], [60, 2.13]], mr = M.panel(x, R, [0, 4], [0, 2.6], { lab: 'error ratio: k best columns / SVD', base: 0, ticks: Q.map((q, i) => [i + 0.5, 'k=' + q[0]]) });
+    const Q = [[1, 1.55], [5, 1.85], [20, 2.24], [60, 2.13]], mr = M.panel(x, R, [0, 4], [0, 2.6], { yl: 'error ratio: k best columns / SVD', base: 0, ticks: Q.map((q, i) => [i + 0.5, 'k=' + q[0]]) });
     ylab(x, mr, [[0, '0'], [1, '1'], [2, '2']]); yaxis(x, mr); hline(x, mr, 1, c.mu);
     Q.forEach(([kk, v], i) => { x.save(); x.fillStyle = c.d; x.globalAlpha = 0.8; x.fillRect(mr.X(i + 0.2), mr.Y(v), mr.X(i + 0.8) - mr.X(i + 0.2), mr.Y(0) - mr.Y(v)); x.restore(); M.text(x, fx(v, 2), mr.X(i + 0.5), mr.Y(v) - 7, c.d, 'center'); }); };
 
@@ -1499,9 +1526,9 @@ Vert_F\)</dd></dl>
       mu /= n * n; const s = svdVals(A), tot = s.reduce((a, v) => a + v * v, 0); let dev = 0; A.forEach(rw => rw.forEach(v => dev += (v - mu) ** 2));
       S7 = { E: [], R: [] }; let cum = 0; for (let k = 0; k <= n; k++) { if (k) cum += s[k - 1] ** 2; S7.E.push([k, 100 * cum / tot]); S7.R.push([k, 100 * Math.sqrt(Math.max(0, tot - cum) / dev)]); } }
     const [B] = boxes(w, h, 1, { l: 30, r: 10 });
-    const m = M.panel(x, B, [0, n], [0, 105], { lab: nar ? '% vs rank k (48×48 dB image)' : '% vs rank k for a 48×48 log-compressed speckle image with a cyst', base: 0, ticks: [[1, '1'], [10, '10'], [24, '24'], [48, '48']] });
+    const m = M.panel(x, B, [0, n], [0, 105], { lab: nar ? 'energy kept, residual (%) vs rank k' : 'energy kept, residual (%) vs rank k; 48×48 log-compressed speckle image with a cyst', base: 0, ticks: [[1, '1'], [10, '10'], [24, '24'], [48, '48']] });
     ylab(x, m, [[0, '0'], [50, '50'], [100, '100']]); yaxis(x, m);
-    path(x, m, S7.E, c.a); path(x, m, S7.R, c.b); pts(x, m, [S7.E[1], S7.R[1]], c.fg, 3);
+    path(x, m, S7.E, c.a); path(x, m, S7.R, c.b, { dash: [6, 4] }); pts(x, m, [S7.E[1], S7.R[1]], c.fg, 3);
     M.text(x, 'energy captured, k = 1: ' + fx(S7.E[1][1], 1) + ' %', m.X(nar ? 3 : 10), m.Y(S7.E[1][1]) + 11, c.a);
     M.text(x, (nar ? 'residual' : '‖A − A_k‖/‖A − mean‖') + ', k = 1: ' + fx(S7.R[1][1], 0) + ' %', m.X(nar ? 3 : 10), m.Y(nar ? 62 : 68), c.b); };
 
@@ -1547,9 +1574,9 @@ Vert_F\)</dd></dl>
   RF[12] = () => { const r = cvs('m6-rf-12', 150, 170); if (!r) return; const { x, w, h, c, nar } = r; const [B] = boxes(w, h, 1, { l: 34, r: 10 });
     const m = M.panel(x, B, [0, 700], [-16, 0.5], { lab: 'error vs iteration k for r = |λ₂/λ₁|', base: -16, ticks: [[0, '0'], [97, ''], [200, '200'], [400, '400'], [674, '674']] });
     ylab(x, m, [[0, '1'], [-8, p10(-8)], [-15, p10(-15)]]); yaxis(x, m); hline(x, m, -15, c.mu);
-    [[0.5, c.a], [0.7, c.b], [0.95, c.c]].forEach(([rr, colr], q) => { M.curve(x, m, k => k * lg(rr), colr); const kk = Math.log(1e-15) / Math.log(rr);
+    [[0.5, c.a], [0.7, c.b], [0.95, c.c]].forEach(([rr, colr], q) => { M.curve(x, m, k => k * lg(rr), colr, q === 1 ? { dash: [6, 4] } : {}); const kk = Math.log(1e-15) / Math.log(rr);
       pts(x, m, [[kk, -15]], colr, 3); M.text(x, 'r=' + rr + ': ' + Math.ceil(kk), q === 2 ? m.X(kk) - 4 : m.X(kk) + 4, m.Y(-15) - 9 - (q === 1 ? 12 : 0), colr, q === 2 ? 'right' : 'left'); });
-    M.curve(x, m, k => 2 * k * lg(0.95), c.c, { dash: [4, 3], w: 1.2 }); M.curve(x, m, k => k * lg(0.99), c.d);
+    M.curve(x, m, k => 2 * k * lg(0.95), c.c, { dash: [4, 3], w: 1.2 }); M.curve(x, m, k => k * lg(0.99), c.d, { dash: [2, 3] });
     M.text(x, 'r=0.99: ' + Math.round(Math.log(1e-15) / Math.log(0.99)), m.X(690), m.Y(700 * lg(0.99)) - 9, c.d, 'right');
     M.text(x, nar ? 'dashed: Rayleigh, r²ᵏ' : 'dashed: Rayleigh quotient r²ᵏ (r = 0.95)', m.X(690), m.Y(-6.5), c.mu, 'right'); };
 
@@ -1559,7 +1586,7 @@ Vert_F\)</dd></dl>
     const dsig = d => { const s = sv(d); return Math.max(Math.abs(s[0] - s0[0]), Math.abs(s[1] - s0[1])); };
     const m = M.panel(x, B, [-12, -1], [-13, 0], { lab: nar ? 'shift vs δ, [[1,1],[δ,1]]' : 'change vs perturbation δ for [[1, 1], [δ, 1]] (log-log)', base: -13, ticks: [[-12, p10(-12)], [-10, p10(-10)], [-6, p10(-6)], [-2, p10(-2)]] });
     ylab(x, m, [[0, '1'], [-5, p10(-5)], [-10, p10(-10)]]); yaxis(x, m);
-    M.curve(x, m, u => u / 2, c.b); M.curve(x, m, u => lg(dsig(Math.pow(10, u))), c.a); M.curve(x, m, u => u, c.mu, { dash: [4, 3], w: 1.2 });
+    M.curve(x, m, u => u / 2, c.b); M.curve(x, m, u => lg(dsig(Math.pow(10, u))), c.a, { dash: [2, 3] }); M.curve(x, m, u => u, c.mu, { dash: [4, 3], w: 1.2 });
     pts(x, m, [[-10, -5]], c.b, 3.5); if (nar) M.text(x, 'Δλ = 10⁻⁵', m.X(-10) - 4, m.Y(-5) - 10, c.b); else M.text(x, 'δ = 10⁻¹⁰ → Δλ = 10⁻⁵', m.X(-10) + 6, m.Y(-5) + 11, c.b);
     M.text(x, '|Δλ| = √δ', m.X(-3), m.Y(-1.5) - 9, c.b, 'right'); if (nar) M.text(x, 'max |Δσ_i|', m.X(-11.8), m.Y(-9), c.a); else M.text(x, 'max |Δσ_i| (computed)', m.X(-4.5), m.Y(-4.5) + 14, c.a); M.text(x, 'Weyl: ≤ δ', m.X(-1.5), m.Y(-1.5) + 14, c.mu, 'right'); };
 
@@ -1590,12 +1617,12 @@ Vert_F\)</dd></dl>
       const X = [], F = [[], []]; for (let i = 0; i <= 480; i++) { const xx = -6 + 12 * i / 480; X.push(xx); F[0].push(field(V[0], xx)); F[1].push(field(V[1], xx)); }
       const pk = F.map(f => X[f.indexOf(Math.max(...f))]); D15 = { s: L.map(Math.sqrt), X, F, pk, lamz: lam * z / (N * p) }; }
     const [Lb, Rb] = boxes(w, h, 2, { l: 26, fr: [0.7, 1.3] });
-    const ml = M.panel(x, Lb, [0.4, 5.6], [0, 1.15], { lab: 'σ_i/σ₁ of K', base: 0, ticks: [[1, '1'], [2, '2'], [3, '3'], [5, '5']] });
+    const ml = M.panel(x, Lb, [0.4, 5.6], [0, 1.15], { yl: 'σ_i/σ₁ of K', xl: 'i', base: 0, ticks: [[1, '1'], [2, '2'], [3, '3'], [5, '5']] });
     ylab(x, ml, [[0, '0'], [1, '1']]); yaxis(x, ml);
     lolli(x, ml, [[1, 1], [2, D15.s[1] / D15.s[0]]], c.a, 3); lolli(x, ml, [[3, 0], [4, 0], [5, 0]], c.mu, 2);
     M.text(x, fx(D15.s[1] / D15.s[0], 2), ml.X(2) + 6, ml.Y(D15.s[1] / D15.s[0]), c.a); M.text(x, 'then 0 (no noise)', ml.X(5.5), ml.Y(0.25), c.mu, 'right');
-    const fm = Math.max(...D15.F[0]), mr = M.panel(x, Rb, [-6, 6], [0, 1.15], { lab: 'field of v₁, v₂ at z = 30 mm (x, mm)', base: 0, ticks: [[-6, '−6'], [-2, '−2'], [0, '0'], [3, '3'], [6, '6']] });
-    path(x, mr, D15.X.map((v, i) => [v, D15.F[0][i] / fm]), c.a); path(x, mr, D15.X.map((v, i) => [v, D15.F[1][i] / Math.max(...D15.F[1])]), c.b);
+    const fm = Math.max(...D15.F[0]), mr = M.panel(x, Rb, [-6, 6], [0, 1.15], { yl: 'field of v₁, v₂ at z = 30 mm', xl: 'x (mm)', base: 0, ticks: [[-6, '−6'], [-2, '−2'], [0, '0'], [3, '3'], [6, '6']] });
+    path(x, mr, D15.X.map((v, i) => [v, D15.F[0][i] / fm]), c.a); path(x, mr, D15.X.map((v, i) => [v, D15.F[1][i] / Math.max(...D15.F[1])]), c.b, { dash: [6, 4] });
     M.text(x, 'v₁ → ' + fx(D15.pk[0], 2), mr.X(D15.pk[0]) - 5, mr.Y(1.05), c.a, 'right'); M.text(x, 'v₂ → ' + fx(D15.pk[1], 2), mr.X(D15.pk[1]) + 5, mr.Y(1.05), c.b);
     M.text(x, 'r = 1, 0.47', ml.X(5.5), ml.Y(0.9), c.mu, 'right'); M.text(x, 'λz/D = ' + fx(D15.lamz, 2) + ' mm', ml.X(5.5), ml.Y(0.9) + 13, c.mu, 'right'); };
 
@@ -1643,9 +1670,9 @@ Vert_F\)</dd></dl>
         ylab(x, m, [[0, '1'], [5, p10(5)], [10, p10(10)], [15, p10(15)]]);
         const P = []; for (let i = 1; i <= n; i++) P.push([i, (i - 1) / 4]); lolli(x, m, P.filter((p, i) => i % 2 === 0), c.b, 1.8);
         M.curve(x, m, i => (i - 1) / 4, c.b, { w: 1 }); M.text(x, 'σ_i = 10^(−(i−1)/4)', m.X(3), m.Y(12), c.mu); } },
-    { prov: 'exact', q: 'TSVD versus Tikhonov: which components pass?', a: 'Filter factor vs σ/α: <b>TSVD 0/1</b> (dashed) and <b>Tikhonov σ²/(σ² + α²)</b> (blue, ½ at σ = α). The resulting noise gain f/σ (pink, in units of 1/α) is capped at <b>1/(2α)</b> for Tikhonov instead of growing as 1/σ.',
+    { prov: 'exact', leg: [['Tikhonov filter', 'a', 'solid'], ['TSVD 0/1', 'mu', 'dash'], ['Tikhonov noise gain × 2α', 'b', 'solid']], q: 'TSVD versus Tikhonov: which components pass?', a: 'Filter factor vs σ/α: <b>TSVD 0/1</b> (dashed) and <b>Tikhonov σ²/(σ² + α²)</b> (blue, ½ at σ = α). The resulting noise gain f/σ (pink, in units of 1/α) is capped at <b>1/(2α)</b> for Tikhonov instead of growing as 1/σ.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150);
-        const m = M.panel(x, { x: 30, y: 18, w: w - 36, h: h - 40 }, [-2, 2], [0, 1.15], { lab: 'vs log₁₀(σ/α)', base: 0, hlines: [[0.5, '½']], ticks: [[-2, '−2'], [-1, '−1'], [0, '0'], [1, '1'], [2, '2']] });
+        const m = M.panel(x, { x: 30, y: 18, w: w - 36, h: h - 40 }, [-2, 2], [0, 1.15], { lab: 'filter factor, noise gain × 2α vs log₁₀(σ/α)', base: 0, hlines: [[0.5, '½']], ticks: [[-2, '−2'], [-1, '−1'], [0, '0'], [1, '1'], [2, '2']] });
         ylab(x, m, [[0, '0'], [1, '1']]); const s = u => Math.pow(10, u);
         M.curve(x, m, u => s(u) ** 2 / (s(u) ** 2 + 1), c.a); M.curve(x, m, u => u > 0 ? 1 : 0, c.mu, { dash: [4, 3], w: 1.2 });
         M.curve(x, m, u => 2 * s(u) / (s(u) ** 2 + 1), c.b); M.text(x, 'gain × 2α, peak 1 at σ = α', m.X(0.15), m.Y(1.07), c.b); } }

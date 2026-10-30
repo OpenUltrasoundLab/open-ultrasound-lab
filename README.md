@@ -1,6 +1,6 @@
 # Open Ultrasound Lab
 
-A free, open, interactive course on the mathematics, physics, hardware and signal processing of ultrasound imaging: 33 modules in five parts, live in-browser figures, a formula sheet, interview questions with model answers, and runnable MATLAB/Octave scripts. By M. Nguyen, with Claude (Anthropic). Partly reviewed; it will contain errors (see the disclaimer and errata pages on the site).
+A free, open, interactive course on the mathematics, physics, hardware and signal processing of ultrasound imaging: 36 modules in six parts, live in-browser figures, a formula sheet, interview questions with model answers, and runnable MATLAB/Octave scripts. By M. Nguyen, with Claude (Anthropic). Partly reviewed; it will contain errors (see the disclaimer and errata pages on the site).
 
 Site URL: `COURSE_URL` in `site.config.json` (placeholders there are substituted at build time).
 

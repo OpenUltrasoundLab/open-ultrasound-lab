@@ -6,7 +6,7 @@
 /* Layout: lab notebook — a module rail on the left, one module at a time in a ~70ch reading column, demo panels break wider. */
 :root {
   --paper: #F3F5F8; --panel: #FFFFFF; --ink: #16202A; --muted: #586674; --rule: #D3DAE2; --grid: #E4E9EE;
-  --accent: #1F5FD1; --sig2: #C2366F; --sig3: #A86E05; --sig4: #0F7A63;
+  --accent: #1F5FD1; --sig2: #C2366F; --sig3: #A86E05; --sig4: #0F7A63; --sig5: #7444C0; --sig6: #0B84A5; --sig7: #D1500F;
   --good: #1E7F4F; --bad: #B3261E; --accent-wash: #E6EEFB; --sig2-wash: #F9E7EF;
   --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
@@ -16,11 +16,11 @@
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --paper: #0E1318; --panel: #151C23; --ink: #DCE3EA; --muted: #8E9BA8; --rule: #28333E; --grid: #1E2730;
-  --accent: #7FA3FF; --sig2: #F07DAE; --sig3: #E3B04B; --sig4: #4CCFAE;
+  --accent: #7FA3FF; --sig2: #F07DAE; --sig3: #E3B04B; --sig4: #4CCFAE; --sig5: #B99CFF; --sig6: #5CCBE6; --sig7: #FF9A5C;
   --good: #5CC98E; --bad: #FF8A80; --accent-wash: #1A2540; --sig2-wash: #33182A; --code-bg: #10161C; color-scheme: dark } }
 :root[data-theme="dark"] {
   --paper: #0E1318; --panel: #151C23; --ink: #DCE3EA; --muted: #8E9BA8; --rule: #28333E; --grid: #1E2730;
-  --accent: #7FA3FF; --sig2: #F07DAE; --sig3: #E3B04B; --sig4: #4CCFAE;
+  --accent: #7FA3FF; --sig2: #F07DAE; --sig3: #E3B04B; --sig4: #4CCFAE; --sig5: #B99CFF; --sig6: #5CCBE6; --sig7: #FF9A5C;
   --good: #5CC98E; --bad: #FF8A80; --accent-wash: #1A2540; --sig2-wash: #33182A; --code-bg: #10161C; color-scheme: dark }
 
 html { -webkit-text-size-adjust: 100%; }
@@ -86,7 +86,7 @@ strong { font-weight: 600; }
 .demo-body { display: grid; grid-template-columns: minmax(0, 1fr) 260px; }
 .demo-body.stack { grid-template-columns: minmax(0, 1fr); }
 .stage { min-width: 0; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-.stage canvas { display: block; width: 100%; touch-action: none; }
+.stage canvas { display: block; width: 100%; touch-action: pan-y; }
 .controls { border-left: 1px solid var(--rule); padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .demo-body.stack .controls { border-left: 0; border-top: 1px solid var(--rule); display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .ctrl { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -254,6 +254,36 @@ details.code pre code { font: inherit; }
 </div>
 
 <script>
+/* v1.3 (30 Oct): canvases that listen for pointer drags keep touch-action none; all others let the page scroll.
+   Module pages open at the top unless the URL points to a section. */
+(function () {
+  const oadd = HTMLCanvasElement.prototype.addEventListener;
+  HTMLCanvasElement.prototype.addEventListener = function (type) { if (type === 'pointerdown' || type === 'touchstart' || type === 'mousedown') { try { this.style.touchAction = 'none'; } catch (e) {} } return oadd.apply(this, arguments); };
+  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
+  const top = function () { if (location.hash && location.hash !== '#top') return; try { window.scrollTo(0, 0); var t = document.getElementById('top') || document.body; if (t && t.scrollIntoView) t.scrollIntoView({ block: 'start' }); } catch (e) {} };
+  document.addEventListener('DOMContentLoaded', top); window.addEventListener('load', function () { top(); setTimeout(top, 300); });
+})();
+</script>
+<script>
+/* v1.3: keep canvas text inside its canvas on narrow screens: text that would run past an edge is shifted in,
+   and text wider than the canvas is compressed with fillText's maxWidth. No effect when the text already fits. */
+(function () { const P = CanvasRenderingContext2D.prototype, of = P.fillText;
+  P.fillText = function (t, x, y, mw) {
+    try { const m = this.getTransform(); if (m.b || m.c) return of.apply(this, arguments);
+      const sx = m.a || 1, cwPx = this.canvas.width, pad = 2 * sx;
+      let w = this.measureText(t).width; if (mw !== undefined && mw < w) w = mw;
+      const al = this.textAlign, dx = al === 'center' ? -w / 2 : (al === 'right' || al === 'end') ? -w : 0;
+      const L = (x + dx) * sx + m.e, R = L + w * sx, avail = cwPx - 2 * pad;
+      if (w * sx > avail) { const fm = /(\d+(?:\.\d+)?)px/.exec(this.font);
+        if (fm) { const f0 = +fm[1], f1 = Math.max(8.5, f0 * avail / (w * sx)); if (f1 < f0 - 0.2) { const sv = this.font; this.font = sv.replace(fm[0], f1.toFixed(1) + 'px'); try { return P.fillText.call(this, t, x, y, mw); } finally { this.font = sv; } } }
+        const nw = avail / sx, nx = (pad - m.e) / sx - (al === 'center' ? -nw / 2 : (al === 'right' || al === 'end') ? -nw : 0); return of.call(this, t, nx, y, nw); }
+      if (L < pad) return of.call(this, t, x + (pad - L) / sx, y, mw);
+      if (R > cwPx - pad) return of.call(this, t, x - (R - cwPx + pad) / sx, y, mw);
+    } catch (e) {}
+    return of.apply(this, arguments); };
+})();
+</script>
+<script>
 /* ============ Lab: shared helpers for every module ============ */
 (function () {
   const Lab = {};
@@ -261,7 +291,7 @@ details.code pre code { font: inherit; }
   Lab.colors = function () {
     const s = css(); const g = n => s.getPropertyValue(n).trim();
     return { bg: g('--panel'), paper: g('--paper'), fg: g('--ink'), muted: g('--muted'), rule: g('--rule'), grid: g('--grid'),
-      accent: g('--accent'), sig2: g('--sig2'), sig3: g('--sig3'), sig4: g('--sig4'), good: g('--good'), bad: g('--bad'),
+      accent: g('--accent'), sig2: g('--sig2'), sig3: g('--sig3'), sig4: g('--sig4'), sig5: g('--sig5'), sig6: g('--sig6'), sig7: g('--sig7'), good: g('--good'), bad: g('--bad'),
       mono: '"JetBrains Mono", ui-monospace, Menlo, monospace', display: '"Archivo", "Helvetica Neue", Arial, sans-serif' };
   };
   /* Size a canvas to its CSS width at device pixel ratio. height is CSS px (or aspect if <=3). Returns {ctx,w,h} in CSS px. */
@@ -298,9 +328,13 @@ details.code pre code { font: inherit; }
     const xf = opts.xfmt || (v => Lab.fmt(v)); const yf = opts.yfmt || (v => Lab.fmt(v));
     if (!opts.noXLabels) xt.forEach(v => ctx.fillText(xf(v), X(v), box.y + box.h + 5));
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    if (!opts.noYLabels) yt.forEach(v => ctx.fillText(yf(v), box.x - 6, Y(v)));
-    if (opts.xlabel) { ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(opts.xlabel, box.x + box.w / 2, box.y + box.h + 19); }
-    if (opts.ylabel) { ctx.save(); ctx.translate(box.x - 40, box.y + box.h / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(opts.ylabel, 0, 0); ctx.restore(); }
+    let ytw = 0; if (!opts.noYLabels) yt.forEach(v => { const t = yf(v); ytw = Math.max(ytw, ctx.measureText(t).width); ctx.fillText(t, box.x - 6, Y(v)); });
+    if (opts.xlabel) { ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = c.fg; ctx.fillText(opts.xlabel, box.x + box.w / 2, box.y + box.h + (opts.noXLabels ? 6 : 19)); ctx.fillStyle = c.muted; }
+    if (opts.ylabel) { const yx = box.x - 6 - ytw - 7; ctx.fillStyle = c.fg;
+      if (yx - 12 >= 0 && ctx.measureText(opts.ylabel).width <= box.h + 20) { ctx.save(); ctx.translate(yx, box.y + box.h / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(opts.ylabel, 0, 0); ctx.restore(); }
+      else if (!opts.title) { ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('↑ ' + opts.ylabel, Math.max(2, box.x - ytw - 6), box.y - 4); }
+      else { ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText('↑ ' + opts.ylabel, box.x + box.w, box.y - 6); }
+      ctx.fillStyle = c.muted; }
     if (opts.title) { ctx.fillStyle = c.fg; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.font = '600 12px ' + c.display; ctx.fillText(opts.title, box.x, box.y - 6); }
     ctx.restore();
     return { X, Y, box, clip() { ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip(); }, unclip() { ctx.restore(); } };
@@ -441,6 +475,45 @@ details.code pre code { font: inherit; }
 })();
 </script>
 <style>
+/* v1.4: legends with line style, key-message boxes */
+.ctrl label .hint { flex-basis: 100%; order: 99; }
+.ctrl .hint, label .hint { display: block; font: 400 0.72rem/1.3 var(--f-mono); color: var(--muted); margin-top: 1px; }
+.demo-foot .symnote, .demo-foot .sym-note { display: block; margin-top: 4px; color: var(--muted); }
+.legend.leg-click > span[role=button] { cursor: pointer; user-select: none; border-radius: 4px; padding: 1px 4px; margin: -1px -4px; }
+.legend.leg-click > span[role=button]:hover { background: var(--grid); }
+.legend.leg-click > span.off { opacity: .4; text-decoration: line-through; }
+.legend.leg-click::after { content: "tap an entry to show or hide it"; flex-basis: 100%; font-size: .72rem; opacity: .75; }
+.legend i.dash, .legend i.dot, .rf-leg i.dash, .rf-leg i.dot { background: none !important; height: 0; border-top: 2.5px dashed currentColor; border-radius: 0; }
+.legend i.dot, .rf-leg i.dot { border-top-style: dotted; border-top-width: 3px; }
+.legend i.mark, .rf-leg i.mark { width: 8px; height: 8px; border-radius: 50%; }
+.legend i.fill, .rf-leg i.fill { height: 10px; opacity: .45; border-radius: 2px; }
+.legend i.stem, .rf-leg i.stem { width: 3px; height: 12px; border-radius: 0; }
+.rf-leg { display: none; flex-wrap: wrap; gap: 4px 12px; font: 400 0.74rem/1.3 var(--f-mono); color: var(--muted); }
+.rf-leg i { display: inline-block; width: 16px; height: 3px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+.rf-grid.show-leg .rf-leg { display: flex; }
+.leg-tog { margin: 4px 0 -4px; font-size: .8rem; }
+.k60, .takeaways { background: var(--panel); border: 1px solid var(--rule); border-left: 4px solid var(--accent); border-radius: 0 var(--radius) var(--radius) 0; padding: 12px 16px; margin: 18px 0; }
+.k60 .label, .takeaways .label { display: block; font: 600 0.72rem/1 var(--f-display); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; color: var(--accent); }
+.k60 ol, .takeaways ul { margin: 0; padding-left: 1.2em; } .k60 li, .takeaways li { margin: 4px 0; line-height: 1.5; }
+.k60 li a.sref { font: 400 0.78rem var(--f-mono); color: var(--muted); margin-left: 6px; text-decoration: none; white-space: nowrap; }
+.takeaways { border-left-color: var(--sig3); } .takeaways .label { color: var(--sig3); }
+.field { background: var(--panel); border: 1px solid var(--rule); border-left: 4px solid var(--sig4); border-radius: 0 var(--radius) var(--radius) 0; padding: 12px 16px; margin: -6px 0 18px; }
+.field .label { display: block; font: 600 0.72rem/1 var(--f-display); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; color: var(--sig4); }
+.field ul { margin: 0; padding-left: 1.2em; } .field li { margin: 5px 0; line-height: 1.5; } .field li .why { display: inline; max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--muted); }
+.builds { font-size: .9rem; color: var(--muted); margin: 10px 0 6px; line-height: 1.6; } .builds .lbl { font: 600 .72rem/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); margin-right: 6px; }
+.mtoc { margin: 8px 0 4px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel); padding: 8px 14px; }
+.mtoc summary, .mobj summary { cursor: pointer; font: 600 .82rem/1.4 var(--f-display); letter-spacing: .04em; color: var(--ink); }
+.mtoc ol { list-style: none; margin: 8px 0 2px; padding: 0; columns: 2 300px; column-gap: 28px; } .mtoc li { break-inside: avoid; margin: 0 0 4px; font-size: .9rem; line-height: 1.35; }
+.mtoc a { text-decoration: none; color: var(--ink); } .mtoc a:hover { color: var(--accent); } .mtoc .tn { display: inline-block; min-width: 3.2em; font: 500 .8rem var(--f-mono); color: var(--muted); }
+.mobj { margin: 8px 0 4px; padding: 8px 14px; border: 1px solid var(--rule); border-radius: var(--radius); } .mobj ul { margin: 8px 0 2px; }
+.toc-up { display: block; text-align: right; margin: -8px 0 6px; font: 400 .74rem var(--f-mono); color: var(--muted); text-decoration: none; } .toc-up:hover { color: var(--accent); }
+.mtoc .grp-l { font: 600 .68rem/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 12px 0 6px; padding-top: 10px; border-top: 1px solid var(--rule); }
+.mtoc .grp-l:first-of-type { border-top: 0; padding-top: 0; margin-top: 10px; }
+.mtoc .det { color: var(--muted); } .mtoc li b { font-weight: 600; }
+.chips-s { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; } .chip-s { font: 500 .8rem/1 var(--f-display); padding: 6px 10px; border: 1px solid var(--rule); border-radius: 999px; text-decoration: none; color: var(--ink); background: var(--bg, transparent); } .chip-s:hover { border-color: var(--accent); color: var(--accent); }
+.mobj { margin: 8px 0 4px; } .provd { margin: 14px 0 0; } .provd summary { cursor: pointer; font: 500 .8rem var(--f-display); color: var(--muted); } .provd .prov-legend { margin-top: 8px; }
+.rule .rdet { min-width: 0; } .rule .rdet > summary { cursor: pointer; font: 500 .8rem var(--f-display); color: var(--muted); margin: 4px 0 2px; } .rule .rdet[open] > summary { margin-bottom: 6px; } .rule .rdet .limits { margin-top: 8px; }
+.msym { margin: 8px 0 4px; padding: 8px 14px; border: 1px solid var(--rule); border-radius: var(--radius); } .msym summary { cursor: pointer; font: 600 .82rem/1.4 var(--f-display); letter-spacing: .04em; color: var(--ink); } .msym dl.where { max-height: 60vh; overflow: auto; margin-top: 8px; font-size: .9rem; }
 .rf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin: 14px 0 20px; }
 .rf-card { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px 12px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .rf-card h4 { margin: 0; font: 600 0.95rem/1.3 var(--f-display); color: var(--ink); }
@@ -451,7 +524,9 @@ details.code pre code { font: inherit; }
 <script>
 /* Lab.mini: small-multiple figures. Lab.cardGrid(viewId, gridId, specs, sliderId?) builds illustrated cards.
    Pair spec {q, a, tr, ty, fr, fy, tl, fl, tt(T), ft(T), time(x,m,c,T), freq(x,m,c,T), fixed}
-   Single spec {q, a, draw(cv, T)} using Lab.mini.size/panel/curve/stems/text. Colors c: a b c d (series), mu, fg. */
+   Single spec {q, a, draw(cv, T)} using Lab.mini.size/panel/curve/stems/text. Axis titles: panel option yl (y title, drawn '↑ yl' top left, bold ink) and xl (x title, 'xl →' top right, muted); a lab of the form 'Y vs X' is split automatically. Colors c: a b c d (series), mu, fg.
+   Optional leg: [[label, 'a'|'b'|'c'|'d'|'mu'|'fg', 'solid'|'dash'|'dot'|'mark'|'fill'|'stem'], ...] -> legend under the canvas, shown by the page's Show legends toggle.
+   Lab.legendHTML(items) returns the same legend as a demo .legend div. */
 (function () { const PI = Math.PI;
 const sinc = x => Math.abs(x) < 1e-9 ? 1 : Math.sin(PI * x) / (PI * x);
   const rect = x => Math.abs(x) < 0.5 ? 1 : 0;
@@ -460,7 +535,7 @@ const sinc = x => Math.abs(x) < 1e-9 ? 1 : Math.sin(PI * x) / (PI * x);
   const jinc = x => Math.abs(x) < 1e-6 ? 1 : 2 * J1(PI * x) / (PI * x);
   const db = (v, lo) => Math.max(lo, 20 * Math.log10(Math.abs(v) + 1e-12));
   function col() { const s = getComputedStyle(document.documentElement), g = n => s.getPropertyValue(n).trim();
-    return { fg: g('--ink'), mu: g('--muted'), grid: g('--grid'), rule: g('--rule'), a: g('--accent'), b: g('--sig2'), c: g('--sig3'), d: g('--sig4'), mono: '"JetBrains Mono", ui-monospace, Menlo, monospace' }; }
+    return { fg: g('--ink'), mu: g('--muted'), grid: g('--grid'), rule: g('--rule'), a: g('--accent'), b: g('--sig2'), c: g('--sig3'), d: g('--sig4'), e: g('--sig5'), f: g('--sig6'), g: g('--sig7'), mono: '"JetBrains Mono", ui-monospace, Menlo, monospace' }; }
   function size(cv, h) { const d = Math.min(window.devicePixelRatio || 1, 2.5), w = Math.max(200, cv.clientWidth || 300);
     cv.style.height = h + 'px'; cv.width = Math.round(w * d); cv.height = Math.round(h * d); const x = cv.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, w, h); return { x, w, h }; }
   function panel(x, b, xr, yr, o) { o = o || {}; const c = col();
@@ -469,7 +544,16 @@ const sinc = x => Math.abs(x) < 1e-9 ? 1 : Math.sin(PI * x) / (PI * x);
     x.save(); x.strokeStyle = c.rule; x.lineWidth = 1; x.beginPath(); x.moveTo(b.x, Math.round(y0) + 0.5); x.lineTo(b.x + b.w, Math.round(y0) + 0.5);
     if (o.yaxis !== false && xr[0] < 0 && xr[1] > 0) { x.moveTo(Math.round(X(0)) + 0.5, b.y); x.lineTo(Math.round(X(0)) + 0.5, b.y + b.h); }
     x.stroke(); x.fillStyle = c.mu; x.font = '10.5px ' + c.mono;
-    if (o.lab) { x.textAlign = 'left'; x.textBaseline = 'top'; x.fillText(o.lab, b.x + 2, b.y - 13); }
+    let yl = o.yl, xl = o.xl;
+    if (!yl && !xl && o.lab) { const k = o.lab.indexOf(' vs '); if (k > 0) { yl = o.lab.slice(0, k); xl = o.lab.slice(k + 4); } else yl = null; }
+    if (yl || xl) { x.textBaseline = 'top';
+      const ys = yl ? '↑ ' + yl : '', xs = xl ? xl + ' →' : '';
+      x.font = '600 10.5px ' + c.mono; const wy = ys ? x.measureText(ys).width : 0; x.font = '10.5px ' + c.mono; const wx = xs ? x.measureText(xs).width : 0;
+      if (ys) { x.font = '600 10.5px ' + c.mono; x.fillStyle = c.fg; x.textAlign = 'left'; x.fillText(ys, b.x + 2, b.y - 13); }
+      if (xs) { x.font = '10.5px ' + c.mono; x.fillStyle = c.mu; x.textAlign = 'right';
+        if (wy + wx + 14 <= b.w) x.fillText(xs, b.x + b.w, b.y - 13); else { x.font = '9px ' + c.mono; if (wy + x.measureText(xs).width + 10 <= b.w) x.fillText(xs, b.x + b.w, b.y - 12); else x.fillText(xs, b.x + b.w - 2, b.y + 1); } }
+      x.fillStyle = c.mu; x.font = '10.5px ' + c.mono; }
+    else if (o.lab) { x.textAlign = 'left'; x.textBaseline = 'top'; x.fillText(o.lab, b.x + 2, b.y - 13); }
     (o.ticks || []).forEach(([v, t]) => { const px = X(v); x.beginPath(); x.moveTo(px + 0.5, y0 - 3); x.lineTo(px + 0.5, y0 + 3); x.stroke(); x.textAlign = 'center'; x.textBaseline = 'top'; x.fillText(t, px, y0 + 4); });
     (o.hlines || []).forEach(([v, t]) => { const py = Y(v); x.setLineDash([3, 3]); x.beginPath(); x.moveTo(b.x, py); x.lineTo(b.x + b.w, py); x.stroke(); x.setLineDash([]); x.textAlign = 'right'; x.textBaseline = 'bottom'; x.fillText(t, b.x + b.w - 2, py - 1); });
     x.restore(); return { X, Y, b, y0, xr, yr }; }
@@ -498,10 +582,30 @@ const sinc = x => Math.abs(x) < 1e-9 ? 1 : Math.sin(PI * x) / (PI * x);
     s.time(x, ml, c, T); s.freq(x, mr, c, T);
     x.fillStyle = c.mu; x.font = '600 15px ' + c.mono; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(s.arrow || '↔', L.x + L.w + gap / 2 + 2, L.y + L.h / 2); }
   Lab.mini = { sinc, rect, tri, jinc, db, col, size, panel, curve, stems, text, pair: drawPair };
+  /* legend items: [label, colourKey (a b c d mu fg) or CSS colour, style: solid|dash|dot|mark|fill|stem] */
+  const LEGC = { a: 'var(--accent)', b: 'var(--sig2)', c: 'var(--sig3)', d: 'var(--sig4)', e: 'var(--sig5)', f: 'var(--sig6)', g: 'var(--sig7)', mu: 'var(--muted)', fg: 'var(--ink)' };
+  function legHTML(leg) { if (!leg || !leg.length) return '';
+    return '<div class="rf-leg">' + leg.map(([l, k, st]) => { const cl = LEGC[k] || k; st = st || 'solid';
+      return '<span><i class="' + st + '" style="color:' + cl + ';background:' + cl + '"></i>' + l + '</span>'; }).join('') + '</div>'; }
+  /* Clickable legends: Lab.legendToggle(el, redraw) makes each legend entry a toggle; draw code asks Lab.on(el, label) (label = entry text, or a data-s key). */
+  const OFF = new WeakMap();
+  Lab.on = function (el, key) { if (typeof el === 'string') el = document.getElementById(el); const s = el && OFF.get(el); return !s || !s.has(key); };
+  Lab.legendToggle = function (el, redraw, defaultsOff) { if (typeof el === 'string') el = document.getElementById(el); if (!el || el.dataset.tog) return; el.dataset.tog = '1';
+    const off = new Set(defaultsOff || []); OFF.set(el, off); el.classList.add('leg-click');
+    el.querySelectorAll(':scope > span').forEach(sp => { if (!sp.querySelector('i')) return; const k = sp.dataset.s || sp.textContent.trim();
+      sp.setAttribute('role', 'button'); sp.tabIndex = 0; sp.title = 'Show or hide this trace'; sp.classList.toggle('off', off.has(k)); sp.setAttribute('aria-pressed', off.has(k) ? 'false' : 'true');
+      const t = () => { off.has(k) ? off.delete(k) : off.add(k); sp.classList.toggle('off', off.has(k)); sp.setAttribute('aria-pressed', off.has(k) ? 'false' : 'true'); try { redraw && redraw(); } catch (e) { console.error(e); } };
+      sp.addEventListener('click', t); sp.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t(); } }); }); };
+  Lab.legendHTML = function (items) { return legHTML(items).replace('class="rf-leg"', 'class="legend"'); };
+  let LEGON = true; try { LEGON = localStorage.getItem('oul-legends') !== '0'; } catch (e) {}
   Lab.cardGrid = function (viewId, gridId, specs, sliderId) {
     const grid = document.getElementById(gridId); if (!grid) return; const cards = [];
+    if (specs.some(s => s.leg && s.leg.length)) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn leg-tog';
+      const set = on => { grid.classList.toggle('show-leg', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.textContent = on ? 'Hide legends' : 'Show legends'; };
+      set(LEGON); b.onclick = () => { LEGON = !grid.classList.contains('show-leg'); document.querySelectorAll('.rf-grid').forEach(g => g.classList.toggle('show-leg', LEGON)); document.querySelectorAll('.leg-tog').forEach(x => { x.setAttribute('aria-pressed', LEGON ? 'true' : 'false'); x.textContent = LEGON ? 'Hide legends' : 'Show legends'; }); try { localStorage.setItem('oul-legends', LEGON ? '1' : '0'); } catch (e) {} };
+      grid.parentNode.insertBefore(b, grid); }
     specs.forEach((s, i) => { const d = document.createElement('div'); d.className = 'rf-card';
-      const PV = { exact: 'Exact formula', sim: 'Simulation', model: 'Approx. model', schem: 'Schematic' }; d.innerHTML = '<h4>' + s.q + (s.prov ? ' <span class="prov ' + s.prov + '">' + PV[s.prov] + '</span>' : '') + '</h4><canvas id="' + gridId + '-c' + i + '" aria-label="' + s.q.replace(/<[^>]+>/g, '').replace(/"/g, '') + '"></canvas><p>' + s.a + '</p>'; grid.appendChild(d); cards.push([s, d.querySelector('canvas')]); });
+      const PV = { exact: 'Exact formula', sim: 'Simulation', model: 'Approx. model', schem: 'Schematic' }; d.innerHTML = '<h4>' + s.q + (s.prov ? ' <span class="prov ' + s.prov + '">' + PV[s.prov] + '</span>' : '') + '</h4><canvas id="' + gridId + '-c' + i + '" aria-label="' + s.q.replace(/<[^>]+>/g, '').replace(/"/g, '') + '"></canvas>' + legHTML(s.leg) + '<p>' + s.a + '</p>'; grid.appendChild(d); cards.push([s, d.querySelector('canvas')]); });
     const T = () => sliderId ? +document.getElementById(sliderId).value : 1;
     const draw = (onlyScaled) => cards.forEach(([s, cv]) => { if (onlyScaled && (s.fixed || (s.draw && !s.scaled))) return; try { s.draw ? s.draw(cv, T()) : drawPair(cv, s, s.fixed ? 1 : T()); } catch (e) { console.error(e); } });
     if (sliderId) document.getElementById(sliderId).addEventListener('input', () => draw(true));

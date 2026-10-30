@@ -21,13 +21,15 @@
     </div>
   </header>
   <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form or exact finite sum (convolution, DTFT, recursion) evaluated as written</span><span><span class="prov sim">Simulation</span>numerical solver run here (not used on this page)</span><span><span class="prov model">Approx. model</span>simplified physics, assumptions stated under the badge (Gaussian pulse, 1D pulse-echo convolution, white noise)</span><span><span class="prov schem">Schematic</span>drawing for intuition (block diagrams, flip-and-slide, z-plane anatomy), not computed</span></div>
+  <div class="k60"><span class="label">In 60 seconds</span><ol><li><b>One impulse response describes the system:</b> If a system is linear (scaled, summed inputs give scaled, summed outputs) and time-invariant (delayed input, delayed output), its impulse response h predicts everything: output \(y = x \ast h\), input x convolved with h. Time-varying gain and log compression break these properties, so filtering and beamforming come before them. <a class="sref" href="#m3-s03-1">§03.1</a> <a class="sref" href="#m3-s03-2">§03.2</a></li><li><b>Filters in a chain combine into one:</b> Convolution can be regrouped and reordered, so a pulse-echo response is the excitation, transmit and receive responses convolved together. L input samples through an M-tap filter give L + M − 1 outputs. FFT-based convolution wraps around, so pad to at least that length or the tail lands on the start. <a class="sref" href="#m3-s03-3">§03.3</a></li><li><b>Sinusoids keep their frequency:</b> A complex sinusoid entering a linear, time-invariant system comes out at the same frequency, only scaled and rotated. The factor is the frequency response \(H(e^{j\omega}) = \sum_k h[k]e^{-j\omega k}\), with h the impulse response and ω the frequency in radians per sample. Such a system never creates a frequency; harmonics need a nonlinearity or time variation. <a class="sref" href="#m3-s03-4">§03.4</a></li><li><b>The phase of H is delay:</b> A filter’s phase response shifts each frequency in time. A pulse envelope moves by the group delay \(-d\varphi/d\omega\), the slope of phase φ against frequency ω. A symmetric FIR (finite impulse response) filter of M taps delays all frequencies by (M − 1)/2 samples, which must be removed before depths are assigned. <a class="sref" href="#m3-s03-5">§03.5</a></li><li><b>Convolution in time is multiplication in frequency:</b> Filtering multiplies spectra frequency by frequency: \(Y = XH\), with X, H and Y the spectra of input, filter and output, so magnitudes multiply and phases add. The reverse also holds: multiplying in time smears in frequency, which is exactly what spectral leakage and apodization (tapering the aperture weights) are. <a class="sref" href="#m3-s03-6">§03.6</a></li><li><b>Poles set stability and resonance:</b> A recursive filter is shaped by the roots of its denominator, called poles. A causal filter is stable only if every pole lies strictly inside the unit circle |z| = 1. Poles near the circle give sharp peaks and long ringing, and turn fragile when coefficients are rounded for fixed point. <a class="sref" href="#m3-s03-7">§03.7</a></li><li><b>Deconvolution is limited by noise:</b> Undoing the pulse (deconvolution) divides by its spectrum P, which amplifies noise wherever P is weak. The Wiener filter \(G = P^*/(\lvert P\rvert^2 + \varepsilon)\) adds a small constant ε, with \(P^*\) the conjugate of P, that limits this gain. Smaller ε gives a shorter pulse and more noise, and nothing recovers frequencies the pulse never contained. <a class="sref" href="#m3-s03-8">§03.8</a></li></ol></div>
+  <div class="field"><span class="label">From the field</span><ul><li><b>Remove every filter’s delay before assigning depth, and match it across channels.</b> <span class="why">A linear-phase FIR filter of M taps delays the echo by (M − 1)/2 samples, and a mismatch between channels is a focusing error indistinguishable from tissue aberration. A 41-tap filter at 40 MHz sampling shifts depth by 0.385 mm. <a class="sref" href="#m3-s03-5">§03.5</a></span></li><li><b>Use one rule everywhere for which output samples you keep.</b> <span class="why">An M-tap filter on L samples gives L + M − 1 outputs; mixing ‘full’, ‘same’ and causal indexing shifts echoes by up to (M − 1)/2 samples. No error is thrown; it surfaces later as an unexplained depth offset. <a class="sref" href="#m3-s03-2">§03.2</a></span></li><li><b>Match the receive band-pass to the pulse band.</b> <span class="why">A band-pass filter gains signal-to-noise ratio by rejecting out-of-band noise; cutting into the pulse band lengthens the pulse. For a 5 MHz, 60 % bandwidth pulse sampled at 40 MHz, 3–7 MHz gives +7.3 dB and 4–6 MHz only +8.5 dB, with a visibly longer pulse. <a class="sref" href="#m3-s03-8">§03.8</a></span></li><li><b>Simulate fixed-point IIR filters with rounded coefficients before committing hardware.</b> <span class="why">Recursive (infinite impulse response, IIR) filters with poles, the denominator roots, near the unit circle are stable on paper but fragile in fixed point: rounding can push a pole outside or cause limit cycles. Cascaded second-order sections (biquads) keep each pole pair well conditioned. <a class="sref" href="#m3-s03-10">§03.10</a></span></li><li><b>Use filters without linear phase only where pulse shape does not matter.</b> <span class="why">IIR and minimum-phase filters delay different frequencies by different amounts, so the pulse spreads. Offline, filtering forward and then backward (filtfilt) gives zero phase at the price of squaring the magnitude response. <a class="sref" href="#m3-s03-5">§03.5</a></span></li></ul></div>
 
   <div class="callout intuit"><span class="label">Conventions in this module</span><p>Discrete time \(n\) (integer samples). \(\omega\) is digital frequency in rad/sample, \(-\pi &lt; \omega \le \pi\); \(f = \omega f_s/(2\pi)\) in Hz. \(\delta[n]\) is the unit impulse (1 at \(n = 0\), else 0). \(x\) has length \(L\), \(h\) has length \(M\). \(H(e^{j\omega}) = \sum_n h[n]\, e^{-j\omega n}\) is the frequency response (the DTFT of \(h\)). Convolution is written \(\ast\). RF examples use \(f_s = 40\) MHz, \(f_0 = 5\) MHz, \(c = 1540\) m/s.</p></div>
 
   <!-- ===================== 03.1 ===================== -->
   <div class="prose">
     <h2><span class="sec">03.1</span>Systems as boxes: linearity and time invariance</h2>
-    <p>A system \(T\) takes a whole input sequence \(x\) and returns an output sequence \(y = T\{x\}\). Nothing else is assumed. Two properties, tested separately, turn that black box into something you can describe with one sequence.</p>
+    <p>A system \(T\) takes a whole input sequence \(x\) and returns an output sequence \(y = T\{x\}\); nothing else is assumed. Two properties, tested separately, turn that black box into something you can describe with one sequence.</p>
   </div>
   <div class="eqn" id="m3-eq1">
     <div class="eqn-body"><div class="eqn-math">\[ T\{a\,x_1 + b\,x_2\} = a\,T\{x_1\} + b\,T\{x_2\} \qquad \text{for every } a,\ b,\ x_1,\ x_2 \]</div><span class="eqn-no">(03.1)</span></div>
@@ -98,30 +100,32 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m3-d1" aria-label="Linearity and time-invariance test of a chosen system"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>input to the box</span><span><i style="background:var(--sig4)"></i>\(T\{\)combined input\(\}\)</span><span><i style="background:var(--sig2)"></i>combination of separate outputs (open circles)</span></div>
+        <div class="legend"><span><i class="stem" style="color:var(--accent);background:var(--accent)"></i>input to the box</span><span><i class="mark" style="color:var(--muted);background:var(--muted)"></i>x₁, x₂ (open, reference)</span><span><i class="stem" style="color:var(--sig4);background:var(--sig4)"></i>\(T\{\)combined input\(\}\)</span><span><i class="mark" style="color:var(--sig2);background:var(--sig2)"></i>combination of separate outputs (open circles)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m3-d1-sys">System</label><select id="m3-d1-sys"><option value="avg3">3-point average</option><option value="delay">Delay by 2</option><option value="square">Squarer x²</option><option value="offset">Offset x + 0.5</option><option value="tgc" selected>TGC g[n] = 1 + n/8</option><option value="rev">Time reversal</option></select></div>
+        <div class="ctrl"><label for="m3-d1-sys">System T <span class="hint">the rule that turns the input sequence into the output</span></label><select id="m3-d1-sys"><option value="avg3">3-point average</option><option value="delay">Delay by 2</option><option value="square">Squarer x²</option><option value="offset">Offset x + 0.5</option><option value="tgc" selected>TGC g[n] = 1 + n/8</option><option value="rev">Time reversal</option></select></div>
         <div class="ctrl"><label for="m3-d1-test">Test</label><select id="m3-d1-test"><option value="lin">Linearity: a·x₁ + b·x₂</option><option value="ti" selected>Time invariance: shift by k</option></select></div>
-        <div class="ctrl"><label for="m3-d1-a">a <output id="m3-d1-a-o">2.0</output></label><input type="range" id="m3-d1-a" min="-2" max="2" step="0.1" value="2"></div>
-        <div class="ctrl"><label for="m3-d1-b">b <output id="m3-d1-b-o">−1.0</output></label><input type="range" id="m3-d1-b" min="-2" max="2" step="0.1" value="-1"></div>
-        <div class="ctrl"><label for="m3-d1-k">Shift k <output id="m3-d1-k-o">6</output></label><input type="range" id="m3-d1-k" min="0" max="9" step="1" value="6"></div>
+        <div class="ctrl"><label for="m3-d1-a">Weight a (linearity test) <output id="m3-d1-a-o">2.0</output> <span class="hint">multiplies x₁ in a·x₁ + b·x₂</span></label><input type="range" id="m3-d1-a" min="-2" max="2" step="0.1" value="2"></div>
+        <div class="ctrl"><label for="m3-d1-b">Weight b (linearity test) <output id="m3-d1-b-o">−1.0</output> <span class="hint">multiplies x₂ in a·x₁ + b·x₂</span></label><input type="range" id="m3-d1-b" min="-2" max="2" step="0.1" value="-1"></div>
+        <div class="ctrl"><label for="m3-d1-k">Shift k (samples, time-invariance test) <output id="m3-d1-k-o">6</output> <span class="hint">delay applied to x₁</span></label><input type="range" id="m3-d1-k" min="0" max="9" step="1" value="6"></div>
         <div class="readout" id="m3-d1-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> TGC passes the linearity test for every \(a, b\) and fails time invariance for every \(k &gt; 0\); the squarer does the opposite. Set the offset system to \(a = 0.5\), \(b = 0.5\): the linearity test passes by accident because \(a + b = 1\). One passing test proves nothing; one failing test is a proof.</div>
+    <div class="demo-foot"><strong>Try:</strong> TGC passes the linearity test for every \(a, b\) and fails time invariance for every \(k &gt; 0\); the squarer does the opposite. Set the offset system to \(a = 0.5\), \(b = 0.5\): the linearity test passes by accident because \(a + b = 1\). One passing test proves nothing; one failing test is a proof.<span class="symnote">Symbols used here: T, the system; x₁ and x₂, the two test sequences; a and b, the weights of the linearity test (no unit); k, the shift in samples; n, the sample index; δ, the unit impulse; h = T{δ}, the impulse response.</span></div>
   </div>
-  <div class="callout us"><span class="label">Ultrasound link</span><p>From the element to the beamformer output the receive chain is close to linear until something clips (quantization adds noise but is not a gain). TGC makes it time-varying, but the gain is known and can be divided out, which is why QUS methods either work on pre-TGC data or remove the TGC curve first. Nonlinear propagation at high mechanical index breaks linearity in the medium (the second harmonic that harmonic imaging uses), and envelope detection and log compression are nonlinear on purpose. Rule: filter, beamform and deconvolve before the envelope, never after.</p></div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>From the element to the beamformer output the receive chain is close to linear until something clips (quantization adds noise but is not a gain). TGC makes it time-varying, but the gain is known and can be divided out, which is why QUS methods either work on pre-TGC data or remove the TGC curve first. Nonlinear propagation at high mechanical index breaks linearity in the medium (the second harmonic that harmonic imaging uses), and envelope detection and log compression are nonlinear on purpose. So filter, beamform and deconvolve before the envelope, never after.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>Linearity (\(T\{ax_1 + bx_2\} = aT\{x_1\} + bT\{x_2\}\), so zero in gives zero out) and time invariance (a delayed input only delays the output) are separate tests; one failing case is a proof, one passing case proves nothing.</li><li>TGC is linear but time-varying; the squarer, an offset, envelope detection and log compression are time-invariant but nonlinear.</li><li>Filter, beamform and deconvolve before the envelope, never after.</li></ul></div>
+
 
   <!-- ===================== 03.2 ===================== -->
   <div class="prose">
     <h2><span class="sec">03.2</span>The impulse response, and the convolution sum from superposition</h2>
     <p>Four small steps take you from the two definitions to the formula that describes every LTI system.</p>
     <ol>
-      <li><strong>Any sequence is a stack of scaled, shifted impulses</strong>, <span class="eqref">(03.3)</span>. For \(x = [1, 2, 3]\): \(x = 1\cdot\delta[n] + 2\cdot\delta[n-1] + 3\cdot\delta[n-2]\).</li>
-      <li><strong>Name the response to one impulse.</strong> \(h[n] = T\{\delta[n]\}\), the impulse response.</li>
-      <li><strong>Time invariance moves it.</strong> \(T\{\delta[n-k]\} = h[n-k]\).</li>
-      <li><strong>Linearity adds the pieces.</strong> \(T\{\sum_k x[k]\,\delta[n-k]\}\) \(= \sum_k x[k]\,T\{\delta[n-k]\}\) \(= \sum_k x[k]\,h[n-k]\).</li>
+      <li>Any sequence is a stack of scaled, shifted impulses, <span class="eqref">(03.3)</span>. For \(x = [1, 2, 3]\): \(x = 1\cdot\delta[n] + 2\cdot\delta[n-1] + 3\cdot\delta[n-2]\).</li>
+      <li>Name the response to one impulse: \(h[n] = T\{\delta[n]\}\), the impulse response.</li>
+      <li>Time invariance moves it: \(T\{\delta[n-k]\} = h[n-k]\).</li>
+      <li>Linearity adds the pieces: \(T\{\sum_k x[k]\,\delta[n-k]\}\) \(= \sum_k x[k]\,T\{\delta[n-k]\}\) \(= \sum_k x[k]\,h[n-k]\).</li>
     </ol>
   </div>
   <div class="eqn" id="m3-eq3">
@@ -139,17 +143,17 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m3-d2" aria-label="Input samples each launching a scaled shifted impulse response, and their sum"></canvas>
-        <div class="legend"><span><i style="background:var(--sig3)"></i>\(x[k]\) and its copy \(x[k]\,h[n-k]\) share a color</span><span><i style="background:var(--ink)"></i>running sum</span><span><i style="background:var(--muted)"></i>final \(y\) (open)</span></div>
+        <div class="legend"><span><i style="background:var(--sig3)"></i>\(x[k]\) and its copy \(x[k]\,h[n-k]\) share a color</span><span><i class="stem" style="color:var(--ink);background:var(--ink)"></i>running sum</span><span><i class="mark" style="color:var(--muted);background:var(--muted)"></i>final \(y\) (open)</span></div>
       </div>
       <div class="controls">
         <div class="ctrl"><label for="m3-d2-x">Input x</label><select id="m3-d2-x"><option value="hand" selected>By hand: [1, 2, 3]</option><option value="refl">Four reflectors</option><option value="step">Step of 6 ones</option></select></div>
         <div class="ctrl"><label for="m3-d2-h">Impulse response h</label><select id="m3-d2-h"><option value="hand" selected>By hand: [2, 1, −1]</option><option value="decay">Decay [1, ½, ¼, ⅛]</option><option value="rf">9-tap RF pulse</option></select></div>
-        <div class="ctrl"><label for="m3-d2-k">Copies added <output id="m3-d2-k-o">3</output></label><input type="range" id="m3-d2-k" min="1" max="3" step="1" value="3"></div>
+        <div class="ctrl"><label for="m3-d2-k">Copies added <output id="m3-d2-k-o">3</output> <span class="hint">one scaled, shifted copy of h per nonzero input sample</span></label><input type="range" id="m3-d2-k" min="1" max="3" step="1" value="3"></div>
         <div class="btn-row"><button class="btn" id="m3-d2-prev" type="button">− copy</button><button class="btn solid" id="m3-d2-next" type="button">+ copy</button></div>
         <div class="readout" id="m3-d2-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> step the by-hand pair one copy at a time and compare with the table below. With "Four reflectors" and the RF pulse, the two reflectors one sample apart overlap and their copies interfere: this is the 1D pulse-echo model, RF line \(= \sum_k \rho_k\, p[n - n_k]\).</div>
+    <div class="demo-foot"><strong>Try:</strong> step the by-hand pair one copy at a time and compare with the table below. With "Four reflectors" and the RF pulse, the two reflectors one sample apart overlap and their copies interfere: this is the 1D pulse-echo model, RF line \(= \sum_k \rho_k\, p[n - n_k]\).<span class="symnote">Symbols used here: x[k], the input samples; h, the impulse response; k, the input index; n, the output index (samples); y = x ∗ h, the convolution.</span></div>
   </div>
 
   <div class="prose"><p><strong>By hand.</strong> \(x = [1, 2, 3]\), \(h = [2, 1, -1]\). Each row is one launched copy; the output is the column sum.</p></div>
@@ -172,14 +176,16 @@
     <dl class="where"><dt>\(L, M\)</dt><dd>lengths of \(x\) and \(h\), samples</dd><dt>\(L_y\)</dt><dd>length of \(y = x \ast h\), samples</dd><dt>\(x[n],\ h[n],\ y[n]\)</dt><dd>input, impulse response, output</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(\sum_n\)</dt><dd>sum over all samples</dd></dl>
     <span class="note">Two checks you can do in your head.</span>
   </div>
-  <div class="prose"><p><strong>Length:</strong> \(L + M - 1 = 3 + 3 - 1 = 5\) samples, because the last copy starts at \(n = L - 1\) and lasts \(M\) samples. <strong>Sum:</strong> \(\sum y = 12 = \sum x \cdot \sum h = 6 \cdot 2\). Setting \(z = 1\) in <span class="eqref">(03.5)</span> proves it in general; in 03.6 you will recognize it as \(Y = XH\) at \(\omega = 0\).</p></div>
-  <div class="callout intuit"><span class="label">Scatter and gather, as in DAS</span><p>The table can be filled by rows (each input scatters a copy of \(h\)) or by columns (each output gathers the inputs, weighted by \(h\) read backwards). Both give the same numbers. It is the same choice as writing a beamformer element-driven (each channel sample is spread to every pixel it affects) or pixel-driven (each pixel gathers along its delay curve). Section 03.3 is the gather view.</p></div>
+  <div class="prose"><p>The output is \(L + M - 1 = 3 + 3 - 1 = 5\) samples long, because the last copy starts at \(n = L - 1\) and lasts \(M\) samples. The sums multiply: \(\sum y = 12 = \sum x \cdot \sum h = 6 \cdot 2\). Setting \(z = 1\) in <span class="eqref">(03.5)</span> proves it in general; in 03.6 you will recognize it as \(Y = XH\) at \(\omega = 0\).</p></div>
+  <div class="callout intuit"><span class="label">Scatter and gather, as in DAS</span><p>The table can be filled by rows (each input scatters a copy of \(h\)) or by columns (each output gathers the inputs, weighted by \(h\) read backwards). Both give the same numbers. This is the same choice as writing a beamformer element-driven (each channel sample is spread to every pixel it affects) or pixel-driven (each pixel gathers along its delay curve). Section 03.3 is the gather view.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>Any sequence is a sum of scaled, shifted impulses, so \(h[n] = T\{\delta[n]\}\) and \(y[n] = \sum_k x[k]\,h[n-k]\) describe an LTI system completely.</li><li>Convolution is polynomial multiplication: [1, 2, 3] ∗ [2, 1, −1] = [2, 5, 7, 1, −3].</li><li>Two head checks: length L + M − 1, and \(\sum y = \sum x \cdot \sum h\) (12 = 6 · 2).</li></ul></div>
+
 
   <!-- ===================== 03.3 ===================== -->
   <div class="prose">
     <h2><span class="sec">03.3</span>Flip, slide, multiply, sum: the output-side view, and the properties</h2>
     <p>Fix the output index \(n\) and read \(y[n] = \sum_k x[k]\,h[n-k]\) as a function of \(k\). The sequence \(h[n-k]\) is \(h\) reversed (\(k \to -k\)) and moved right by \(n\). So one output sample is an inner product between \(x\) and a flipped, shifted copy of \(h\).</p>
-    <p><strong>\(y[2]\) step by step.</strong> Flip \(h = [2, 1, -1]\) to get \([-1, 1, 2]\) at \(k = -2, -1, 0\). Shift right by 2: \(h[2-k] = (-1, 1, 2)\) at \(k = 0, 1, 2\). Multiply with \(x = (1, 2, 3)\) and add, <span class="eqref">(03.7)</span>: the middle column of the table.</p>
+    <p>Take \(y[2]\) step by step. Flip \(h = [2, 1, -1]\) to get \([-1, 1, 2]\) at \(k = -2, -1, 0\). Shift right by 2: \(h[2-k] = (-1, 1, 2)\) at \(k = 0, 1, 2\). Multiply with \(x = (1, 2, 3)\) and add, <span class="eqref">(03.7)</span>: the middle column of the table.</p>
   </div>
   <div class="eqn" id="m3-eq7">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} y[2] &amp;= \sum_k x[k]\,h[2-k] = x[0]\,h[2] + x[1]\,h[1] + x[2]\,h[0] \\ &amp;= 1\cdot(-1) + 2\cdot 1 + 3\cdot 2 = 7 \end{aligned} \]</div><span class="eqn-no">(03.7)</span></div>
@@ -317,21 +323,21 @@
           <div><div class="m3-cap">Time domain: \(y[n] = \sum_k x[k]\,h[n-k]\)</div><canvas id="m3-d3t" aria-label="Flip slide multiply sum in the time domain"></canvas></div>
           <div><div class="m3-cap">Frequency domain: \(Y(e^{j\omega}) = X(e^{j\omega})\,H(e^{j\omega})\)</div><canvas id="m3-d3f" aria-label="Spectra of x, h and y"></canvas></div>
         </div>
-        <div class="legend"><span><i style="background:var(--accent)"></i>\(x\)</span><span><i style="background:var(--sig2)"></i>\(h\) (flipped, shifted on the left)</span><span><i style="background:var(--sig4)"></i>product and \(y\)</span><span><i style="background:var(--sig3)"></i>dots: DFT of the computed \(y\)</span></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>\(x\)</span><span><i style="background:var(--sig2)"></i>\(h\) (flipped, shifted on the left)</span><span><i style="background:var(--sig4)"></i>product and \(y\)</span><span><i class="mark" style="color:var(--sig3);background:var(--sig3)"></i>dots: DFT of the computed \(y\)</span><span><i style="background:var(--muted)"></i>Re (solid)</span><span><i class="dash" style="color:var(--muted)"></i>Im (dashed)</span><span><i class="dash" style="color:var(--muted)"></i>probe frequency ω (vertical)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m3-d3-pair">Pair</label><select id="m3-d3-pair"><option value="hand" selected>By hand: [1, 2, 3] ∗ [2, 1, −1]</option><option value="rect">Rect 6 ∗ rect 4</option><option value="rf">Reflectors ∗ RF pulse</option><option value="smooth">Noisy step ∗ 5-point average</option></select></div>
+        <div class="ctrl"><label for="m3-d3-pair">Pair x ∗ h</label><select id="m3-d3-pair"><option value="hand" selected>By hand: [1, 2, 3] ∗ [2, 1, −1]</option><option value="rect">Rect 6 ∗ rect 4</option><option value="rf">Reflectors ∗ RF pulse</option><option value="smooth">Noisy step ∗ 5-point average</option></select></div>
         <div class="ctrl"><label for="m3-d3-view">Frequency view</label><select id="m3-d3-view"><option value="mag" selected>Magnitude |·|</option><option value="ri">Real (solid) and imaginary (dashed)</option><option value="ph">Phase ∠ (rad)</option></select></div>
-        <div class="ctrl"><label for="m3-d3-n">Output index n <output id="m3-d3-n-o">2</output></label><input type="range" id="m3-d3-n" min="-1" max="5" step="1" value="2"></div>
-        <div class="ctrl"><label for="m3-d3-w">Probe frequency ω/π <output id="m3-d3-w-o">0.50</output></label><input type="range" id="m3-d3-w" min="0" max="1" step="0.01" value="0.5"></div>
+        <div class="ctrl"><label for="m3-d3-n">Output index n (samples) <output id="m3-d3-n-o">2</output> <span class="hint">position of the flipped h; y[n] is the sum of the products</span></label><input type="range" id="m3-d3-n" min="-1" max="5" step="1" value="2"></div>
+        <div class="ctrl"><label for="m3-d3-w">Probe frequency ω/π <output id="m3-d3-w-o">0.50</output> <span class="hint">ω in rad/sample divided by π; 1 = Nyquist</span></label><input type="range" id="m3-d3-w" min="0" max="1" step="0.01" value="0.5"></div>
         <div class="btn-row"><button class="btn solid" id="m3-d3-play" type="button">Play n</button></div>
         <div class="readout" id="m3-d3-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> in the by-hand pair at \(\omega/\pi = 0.5\), the readout multiplies \(X = -2 - 2j\) by \(H = 3 - j\) and gets \(-8 - 4j\), which equals \(Y\) computed straight from \(y = [2, 5, 7, 1, -3]\). Switch to "Real and imaginary": \(\mathrm{Re}\,Y\) is not \(\mathrm{Re}\,X \cdot \mathrm{Re}\,H\). In "Rect 6 ∗ rect 4" the flat top of the trapezoid is the range of \(n\) where the short rect is entirely inside the long one, and the zeros of \(\lvert Y\rvert\) are the zeros of \(\lvert X\rvert\) and \(\lvert H\rvert\) together.</div>
+    <div class="demo-foot"><strong>Try:</strong> in the by-hand pair at \(\omega/\pi = 0.5\), the readout multiplies \(X = -2 - 2j\) by \(H = 3 - j\) and gets \(-8 - 4j\), which equals \(Y\) computed straight from \(y = [2, 5, 7, 1, -3]\). Switch to "Real and imaginary": \(\mathrm{Re}\,Y\) is not \(\mathrm{Re}\,X \cdot \mathrm{Re}\,H\). In "Rect 6 ∗ rect 4" the flat top of the trapezoid is the range of \(n\) where the short rect is entirely inside the long one, and the zeros of \(\lvert Y\rvert\) are the zeros of \(\lvert X\rvert\) and \(\lvert H\rvert\) together.<span class="symnote">Symbols used here: x and h, the two sequences; y = x ∗ h; k, the summation index and n, the output index (samples); ω, frequency in rad/sample; X, H and Y, the DTFTs of x, h and y.</span></div>
   </div>
 
-  <div class="prose"><p><strong>Properties</strong>, each a one-line substitution in the sum:</p></div>
+  <div class="prose"><p>Each property below is a one-line substitution in the sum:</p></div>
   <div class="tbl-wrap"><table>
     <thead><tr><th>Property</th><th>Statement</th><th>Proof idea</th><th>Ultrasound meaning</th></tr></thead>
     <tbody>
@@ -349,6 +355,8 @@
     <span class="note">Inverse DFT of the product of two N-point DFTs: the linear result folded onto one period. No wrap if \(N \ge L + M - 1\).</span>
   </div>
   <div class="callout pitfall"><span class="label">Pitfall: FFT convolution is circular</span><p>Multiplying two N-point DFTs and inverting gives circular convolution <span class="eqref">(03.8)</span>: output samples past \(N - 1\) wrap to the start. For the by-hand pair with \(N = 4\), the −3 at \(n = 4\) lands on \(n = 0\) and the result is \([-1, 5, 7, 1]\). Pad both sequences to \(N \ge L + M - 1 = 5\) and the wrap disappears (Module 04, Demo 04.7). For long RF lines, overlap-add applies the same rule block by block.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>Gather view: y[n] is the inner product of x with h flipped and shifted by n; the indices in each product add up to n.</li><li>Convolution is commutative, associative and distributive: a cascade is one filter (pulse-echo = excitation ∗ transmit ∗ receive), and a delay is convolution with δ[n − d].</li><li>FFT convolution is circular: with N = 4 the by-hand result becomes [−1, 5, 7, 1]; pad to N ≥ L + M − 1.</li></ul></div>
+
 
   <!-- ===================== 03.4 ===================== -->
   <div class="prose">
@@ -361,8 +369,8 @@
     <span class="note">The factor \(e^{j\omega n}\) does not depend on \(k\), so it leaves the sum. What remains is one complex number per frequency: the frequency response, the correlation of \(h\) with a probe phasor (Module 02).</span>
   </div>
   <div class="prose">
-    <p>"Eigenfunction" means the same thing as eigenvector of a matrix: the output is the input times a number. For a convolution that number is \(H(e^{j\omega})\), and the only things it can do to the phasor are scale it by \(\lvert H\rvert\) and rotate it by \(\angle H\). Consequence: <strong>an LTI system never creates a frequency that was not in the input.</strong> New frequencies need a nonlinearity (the squarer turns \(\cos\omega n\) into \(\tfrac12 + \tfrac12\cos 2\omega n\)) or time variation (TGC multiplies, which convolves spectra).</p>
-    <p><strong>A real cosine</strong> is two counter-rotating phasors, \(\cos\omega n = (e^{j\omega n} + e^{-j\omega n})/2\). Each passes through scaled by its own eigenvalue. For real \(h\), \(H(e^{-j\omega}) = H(e^{j\omega})^{*}\), the two outputs are conjugates and their sum is real:</p>
+    <p>"Eigenfunction" means the same thing as eigenvector of a matrix: the output is the input times a number. For a convolution that number is \(H(e^{j\omega})\), and the only things it can do to the phasor are scale it by \(\lvert H\rvert\) and rotate it by \(\angle H\). So an LTI system never creates a frequency that was not in the input. New frequencies need a nonlinearity (the squarer turns \(\cos\omega n\) into \(\tfrac12 + \tfrac12\cos 2\omega n\)) or time variation (TGC multiplies, which convolves spectra).</p>
+    <p>A real cosine is two counter-rotating phasors, \(\cos\omega n = (e^{j\omega n} + e^{-j\omega n})/2\). Each passes through, scaled by its own eigenvalue. For real \(h\), \(H(e^{-j\omega}) = H(e^{j\omega})^{*}\), the two outputs are conjugates and their sum is real:</p>
   </div>
   <div class="eqn" id="m3-eq10">
     <div class="eqn-body"><div class="eqn-math">\[ \cos\omega n \;\longrightarrow\; \tfrac12\left[H e^{j\omega n} + H^{*} e^{-j\omega n}\right] = \mathrm{Re}\{H e^{j\omega n}\} = \lvert H\rvert \cos\!\left(\omega n + \angle H\right) \]</div><span class="eqn-no">(03.10)</span></div>
@@ -383,18 +391,20 @@
           <div><div class="m3-cap">Complex plane: \(H = \sum_k h[k]\, e^{-j\omega k}\), tap arrows tip to tail</div><canvas id="m3-d4z" aria-label="Frequency response as a sum of rotated tap arrows"></canvas></div>
           <div><div class="m3-cap">Time domain: \(\cos\omega n\) in, \(\lvert H\rvert\cos(\omega n + \angle H)\) out</div><canvas id="m3-d4t" aria-label="Input and output sinusoids"></canvas></div>
         </div>
-        <div class="legend"><span><i style="background:var(--sig3)"></i>tap arrows \(h[k]\,e^{-j\omega k}\)</span><span><i style="background:var(--accent)"></i>\(H\) (resultant)</span><span><i style="background:var(--muted)"></i>input \(\cos\omega n\)</span><span><i style="background:var(--sig4)"></i>output \(y[n]\)</span><span><i style="background:var(--sig2)"></i>\(\mathrm{Re}\,H\cos\omega n\) (dashed)</span><span><i style="background:var(--ink)"></i>\(-\mathrm{Im}\,H\sin\omega n\) (dotted)</span></div>
+        <div class="legend"><span><i class="solid" style="color:var(--sig3);background:var(--sig3)"></i>complex plane: tap arrows \(h[k]\,e^{-j\omega k}\)</span><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>\(H\) (resultant)</span></div><div class="legend" id="m3-d4-leg"><span data-s="inp"><i class="dash" style="color:var(--muted);background:var(--muted)"></i>time: input \(\cos\omega n\)</span><span data-s="out"><i class="solid" style="color:var(--sig4);background:var(--sig4)"></i>output \(y[n]\)</span><span data-s="re"><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>\(\mathrm{Re}\,H\cos\omega n\)</span><span data-s="im"><i class="dot" style="color:var(--ink);background:var(--ink)"></i>\(-\mathrm{Im}\,H\sin\omega n\)</span></div>
       </div>
       <div class="controls">
         <div class="ctrl"><label for="m3-d4-h">Filter h</label><select id="m3-d4-h"><option value="avg2" selected>2-point average [½, ½]</option><option value="ma3">3-point average</option><option value="diff">First difference [1, −1]</option><option value="cdiff">Centered difference (h[−1] = ½, h[1] = −½)</option><option value="sym">Centered smoother (¼, ½, ¼ at n = −1, 0, 1)</option><option value="delay">Delay by 3</option><option value="pole">One-pole a = 0.8 (60 taps)</option></select></div>
-        <div class="ctrl"><label for="m3-d4-w">ω/π <output id="m3-d4-w-o">0.50</output></label><input type="range" id="m3-d4-w" min="0" max="1" step="0.005" value="0.5"></div>
+        <div class="ctrl"><label for="m3-d4-w">Input frequency ω/π <output id="m3-d4-w-o">0.50</output> <span class="hint">ω in rad/sample divided by π; 1 = Nyquist</span></label><input type="range" id="m3-d4-w" min="0" max="1" step="0.005" value="0.5"></div>
         <label class="check"><input type="checkbox" id="m3-d4-dec" checked> Show output = Re H·cos ωn − Im H·sin ωn</label>
         <div class="readout" id="m3-d4-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> the one-pole filter draws a spiral of shrinking arrows; its resultant is \(H\). The centered smoother always gives a horizontal resultant (real \(H\), zero phase); the centered difference always gives a vertical one (imaginary \(H\), ±90°). For "Delay by 3" the single arrow just turns: \(\lvert H\rvert = 1\) and \(\angle H = -3\omega\). Near \(\omega/\pi = 0.667\) the 3-point average has its three arrows closing into a triangle: \(\lvert H\rvert \to 0\), the null at exactly \(2\pi/3\).</div>
+    <div class="demo-foot"><strong>Try:</strong> the one-pole filter draws a spiral of shrinking arrows; its resultant is \(H\). The centered smoother always gives a horizontal resultant (real \(H\), zero phase); the centered difference always gives a vertical one (imaginary \(H\), ±90°). For "Delay by 3" the single arrow just turns: \(\lvert H\rvert = 1\) and \(\angle H = -3\omega\). Near \(\omega/\pi = 0.667\) the 3-point average has its three arrows closing into a triangle: \(\lvert H\rvert \to 0\), the null at exactly \(2\pi/3\).<span class="symnote">Symbols used here: h[k], the filter taps; ω, the input frequency in rad/sample; H = Σ h[k]e<sup>−jωk</sup>, the frequency response at ω; n, the sample index; y[n], the output.</span></div>
   </div>
   <div class="callout us"><span class="label">Ultrasound link: a delay is a phase ramp</span><p>A delay \(\tau\) is the LTI system \(h(t) = \delta(t - \tau)\) with \(H(f) = e^{-j2\pi f\tau}\): unit gain, phase \(-2\pi f\tau\). Applying a beamforming delay in the frequency domain is exactly this multiplication, and the narrowband shortcut of rotating IQ data by \(-2\pi f_0\tau\) keeps only the value at \(f_0\). Aberration correction estimates the same per-channel phase ramps.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>\(e^{j\omega n} \to H(e^{j\omega})\,e^{j\omega n}\) with \(H = \sum_k h[k]e^{-j\omega k}\): the only possible effects are a gain |H| and a rotation ∠H.</li><li>An LTI system never creates a frequency; new frequencies need a nonlinearity (squarer: 0 and 2ω₀) or time variation (TGC).</li><li>A real cosine leaves as \(\lvert H\rvert\cos(\omega n + \angle H)\): h = [½, ½] at ω = π/2 gives ×0.707 and −45°, half a sample of delay.</li></ul></div>
+
 
   <!-- ===================== 03.5 ===================== -->
   <div class="prose">
@@ -414,10 +424,10 @@
   </div>
   <div class="prose">
     <ul>
-      <li><strong>\(\mathrm{Re}\,H\) is the in-phase gain</strong>: how much of the output stays in step with the input.</li>
-      <li><strong>\(\mathrm{Im}\,H\) is the quadrature gain</strong>: how much of the output comes out shifted by 90°. \(\mathrm{Im}\,H &lt; 0\) adds a copy a quarter period <em>late</em> (the filter delays); \(\mathrm{Im}\,H &gt; 0\) adds one a quarter period <em>early</em> (a differentiator leads). Nothing in the output is imaginary; \(\mathrm{Im}\,H\) scales a real sine.</li>
-      <li><strong>In phasor language</strong>: \(H e^{j\omega n} = \mathrm{Re}\,H \cdot e^{j\omega n} + \mathrm{Im}\,H \cdot (j\,e^{j\omega n})\), and \(j\,e^{j\omega n}\) is the input arrow turned 90° ahead (Module 01: \(j\) is the quarter-turn operator).</li>
-      <li><strong>Polar form</strong> packs the two gains into one, <span class="eqref">(03.14)</span>.</li>
+      <li>\(\mathrm{Re}\,H\) is the <strong>in-phase gain</strong>: how much of the output stays in step with the input.</li>
+      <li>\(\mathrm{Im}\,H\) is the <strong>quadrature gain</strong>: how much of the output comes out shifted by 90°. \(\mathrm{Im}\,H &lt; 0\) adds a copy a quarter period <em>late</em> (the filter delays); \(\mathrm{Im}\,H &gt; 0\) adds one a quarter period <em>early</em> (a differentiator leads). Nothing in the output is imaginary; \(\mathrm{Im}\,H\) scales a real sine.</li>
+      <li>In phasor language, \(H e^{j\omega n} = \mathrm{Re}\,H \cdot e^{j\omega n} + \mathrm{Im}\,H \cdot (j\,e^{j\omega n})\), and \(j\,e^{j\omega n}\) is the input arrow turned 90° ahead (Module 01: \(j\) is the quarter-turn operator).</li>
+      <li>The polar form packs the two gains into one, <span class="eqref">(03.14)</span>.</li>
     </ul>
   </div>
   <div class="eqn" id="m3-eq14">
@@ -432,29 +442,31 @@
   </div>
   <div class="rf-grid" id="m3-g5"></div>
   <div class="prose">
-    <p><strong>Phase delay and group delay.</strong> Two delays can be read off the phase \(\varphi(\omega) = \angle H(e^{j\omega})\):</p>
+    <p>Two delays can be read off the phase \(\varphi(\omega) = \angle H(e^{j\omega})\), the <strong>phase delay</strong> and the <strong>group delay</strong>:</p>
   </div>
   <div class="eqn key" id="m3-eq16">
     <div class="eqn-body"><div class="eqn-math">\[ \tau_p(\omega) = -\frac{\varphi(\omega)}{\omega}, \qquad \tau_g(\omega) = -\frac{d\varphi}{d\omega} \]</div><span class="eqn-no">(03.16)</span></div>
     <dl class="where"><dt>\(\varphi(\omega)\)</dt><dd>unwrapped phase of \(H(e^{j\omega})\), rad</dd><dt>\(\tau_p\)</dt><dd>phase delay: delay of the carrier at \(\omega\), samples (divide by \(f_s\) for seconds)</dd><dt>\(\tau_g\)</dt><dd>group delay: delay of the envelope of a narrowband pulse centered at \(\omega\), samples</dd><dt>\(\omega\)</dt><dd>digital frequency, rad/sample</dd><dt>\(d\varphi/d\omega\)</dt><dd>slope of the phase</dd></dl>
     <span class="note">For a narrowband pulse at \(\omega_0\), the carrier is delayed by \(\tau_p(\omega_0)\) and the envelope by \(\tau_g(\omega_0)\). Linear phase \(\varphi = -\omega d\) gives \(\tau_p = \tau_g = d\) at every \(\omega\), so the pulse shape is preserved.</span>
   </div>
-  <div class="prose"><p>Worked numbers. Two-point average: \(\varphi = -\omega/2\), so \(\tau_p = \tau_g = 0.5\) sample at all \(\omega\). A symmetric FIR with \(M\) taps: \(\tau = (M-1)/2\); a 41-tap band-pass at 40 MHz delays by 20 samples = 0.5 µs, which is 0.385 mm of depth at \(c/2\). One-pole smoother \(y[n] = a\,y[n-1] + (1-a)\,x[n]\), <span class="eqref">(03.17)</span>: 4.00 samples at DC for \(a = 0.8\) and −0.44 at \(\omega = \pi\). Group delay of a non-linear-phase filter varies with frequency and distorts the pulse.</p></div>
+  <div class="prose"><p>Worked numbers. Two-point average: \(\varphi = -\omega/2\), so \(\tau_p = \tau_g = 0.5\) sample at all \(\omega\). A symmetric FIR with \(M\) taps: \(\tau = (M-1)/2\); a 41-tap band-pass at 40 MHz delays by 20 samples = 0.5 µs, which is 0.385 mm of depth at \(c/2\). One-pole smoother \(y[n] = a\,y[n-1] + (1-a)\,x[n]\), <span class="eqref">(03.17)</span>: 4.00 samples at DC for \(a = 0.8\) and −0.44 at \(\omega = \pi\). The group delay of a non-linear-phase filter varies with frequency, which distorts the pulse.</p></div>
   <div class="eqn" id="m3-eq17">
     <div class="eqn-body"><div class="eqn-math">\[ \tau_g(\omega) = \frac{a\cos\omega - a^2}{1 - 2a\cos\omega + a^2}, \qquad \tau_g(0) = \frac{a}{1-a}, \qquad \tau_g(\pi) = -\frac{a}{1+a} \]</div><span class="eqn-no">(03.17)</span></div>
     <dl class="where"><dt>\(a\)</dt><dd>feedback coefficient (pole position) of the one-pole smoother, \(0 &lt; a &lt; 1\)</dd><dt>\(\tau_g(\omega)\)</dt><dd>group delay of the one-pole filter, samples</dd><dt>\(\omega\)</dt><dd>digital frequency, rad/sample</dd><dt>\(\tau_g(0),\ \tau_g(\pi)\)</dt><dd>group delay at DC and at Nyquist, samples</dd></dl>
   </div>
   <div class="callout intuit"><span class="label">Intuition: the same split as impedance</span><p>An impedance \(Z = R + jX\) has the same anatomy. The resistive part \(R\) gives current in phase with voltage, the reactive part \(X\) gives current 90° out of phase. \(\mathrm{Re}\,H\) and \(\mathrm{Im}\,H\) are the "resistive" and "reactive" parts of a filter's response at one frequency.</p></div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>The Hilbert transformer used to build IQ data is the filter with \(H = -j\,\mathrm{sgn}(\omega)\): \(\mathrm{Re}\,H = 0\) everywhere, so its output is all quadrature, cos becomes sin (Module 08). The other place \(\mathrm{Im}\,H\) bites is channel matching: if two receive channels have filters whose phases differ by 10° at 5 MHz, that is a phase-delay mismatch of \(10/360 \times 200\) ns = 5.6 ns, which the beamformer cannot tell from an aberration.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>\(\cos\omega n \to \mathrm{Re}\,H\cos\omega n - \mathrm{Im}\,H\sin\omega n\): Im H &lt; 0 adds a copy a quarter period late (a delay), Im H &gt; 0 one a quarter period early.</li><li>The even part of h makes Re H and the odd part j Im H, so a causal filter (other than a single tap at n = 0) always has phase.</li><li>Phase delay \(-\varphi/\omega\) moves the carrier, group delay \(-d\varphi/d\omega\) the envelope; a symmetric M-tap FIR delays both by (M − 1)/2 (41 taps at 40 MHz: 0.5 µs, 0.385 mm).</li><li>A 10° channel phase mismatch at 5 MHz is a 5.6 ns delay error, which a beamformer cannot tell from aberration.</li></ul></div>
+
 
   <!-- ===================== 03.6 ===================== -->
   <div class="prose">
     <h2><span class="sec">03.6</span>The convolution theorem, step by step</h2>
-    <p>The eigenfunction property already contains the theorem. Three steps:</p>
+    <p>The eigenfunction property already contains the theorem, in three steps:</p>
     <ol>
-      <li><strong>Write \(x\) as a sum of phasors</strong> (inverse DTFT), <span class="eqref">(03.18)</span>. For an N-point DFT it is a sum of N phasors (Module 02).</li>
-      <li><strong>Each phasor is multiplied by \(H\) at its own frequency</strong> (03.4): \(X(e^{j\omega})\,e^{j\omega n} \to H(e^{j\omega})\,X(e^{j\omega})\,e^{j\omega n}\).</li>
-      <li><strong>Linearity adds the outputs</strong>: \(y[n] = \frac{1}{2\pi}\int H X\, e^{j\omega n}\, d\omega\), which says \(Y = H X\).</li>
+      <li>Write \(x\) as a sum of phasors (inverse DTFT), <span class="eqref">(03.18)</span>. For an N-point DFT it is a sum of N phasors (Module 02).</li>
+      <li>Each phasor is multiplied by \(H\) at its own frequency (03.4): \(X(e^{j\omega})\,e^{j\omega n} \to H(e^{j\omega})\,X(e^{j\omega})\,e^{j\omega n}\).</li>
+      <li>Linearity adds the outputs: \(y[n] = \frac{1}{2\pi}\int H X\, e^{j\omega n}\, d\omega\), which says \(Y = H X\).</li>
     </ol>
   </div>
   <div class="eqn" id="m3-eq18">
@@ -485,6 +497,8 @@
     <dl class="where"><dt>\(w[n]\)</dt><dd>a window or gate multiplying the signal sample by sample</dd><dt>\(\theta\)</dt><dd>integration variable, rad/sample</dd><dt>\(X[m], W[m]\)</dt><dd>N-point DFTs</dd><dt>\(x[n]\)</dt><dd>signal</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(X(e^{j\omega})\)</dt><dd>DTFT of \(x\), as in (03.18)</dd><dt>\(W(e^{j\omega})\)</dt><dd>DTFT of \(w\)</dd><dt>\(\omega\)</dt><dd>digital frequency, rad/sample</dd><dt>\(N\)</dt><dd>DFT length, samples</dd><dt>\(k,\ m\)</dt><dd>DFT bin indices</dd><dt>\(\bmod N\)</dt><dd>remainder after division by \(N\) (circular index)</dd><dt>\(\longleftrightarrow\)</dt><dd>is the transform pair of</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
   </div>
   <div class="prose"><p><strong>Duality</strong>, <span class="eqref">(03.20)</span>: multiplication in time is (circular) convolution in frequency, divided by \(2\pi\) for the DTFT or by \(N\) for the DFT. Gating a tone with a window smears its spectral line into the window's transform: that is leakage (Module 02) and apodization (Module 04).</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>\(Y = XH\) at every frequency: magnitudes multiply and angles add (2.83 × 3.16 = 8.94, −135° − 18.4° = −153.4° at ω = π/2).</li><li>In rectangular form the parts mix (\(\mathrm{Re}\,Y \ne \mathrm{Re}\,X\,\mathrm{Re}\,H\)); multiplying only magnitudes or real parts is not a convolution.</li><li>Duality: multiplying in time convolves in frequency (÷2π for the DTFT, ÷N for the DFT), which is leakage and apodization.</li></ul></div>
+
 
   <!-- ===================== 03.7 ===================== -->
   <div class="prose">
@@ -549,7 +563,7 @@
       <tr><td>One-pole smoother</td><td>\(y[n] = a\,y[n-1] + (1-a)\,x[n]\)</td><td>\((1-a)\,a^n\): for \(a = \tfrac12\), 0.5, 0.25, 0.125, …</td><td>\(\dfrac{1-a}{1 - a e^{-j\omega}}\)</td><td>Low-pass, DC gain 1, \(\lvert H(\pi)\rvert = (1-a)/(1+a)\)</td></tr>
     </tbody>
   </table></div>
-  <div class="prose"><p><strong>Step response of the one-pole smoother by hand</strong> (\(a = 0.8\), \(x[n] = 1\) for \(n \ge 0\), \(y[-1] = 0\)): \(y[0] = 0.2\), \(y[1] = 0.8\cdot 0.2 + 0.2 = 0.36\), \(y[2] = 0.488\), \(y[3] = 0.5904\), \(y[4] = 0.67232\). In closed form, <span class="eqref">(03.22)</span>, the output creeps toward 1 with time constant \(-1/\ln a = 4.48\) samples.</p></div>
+  <div class="prose"><p><strong>By hand.</strong> Step response of the one-pole smoother (\(a = 0.8\), \(x[n] = 1\) for \(n \ge 0\), \(y[-1] = 0\)): \(y[0] = 0.2\), \(y[1] = 0.8\cdot 0.2 + 0.2 = 0.36\), \(y[2] = 0.488\), \(y[3] = 0.5904\), \(y[4] = 0.67232\). In closed form, <span class="eqref">(03.22)</span>, the output creeps toward 1 with time constant \(-1/\ln a = 4.48\) samples.</p></div>
   <div class="eqn" id="m3-eq22">
     <div class="eqn-body"><div class="eqn-math">\[ y[n] = (1-a)\sum_{m=0}^{n} a^m = 1 - a^{n+1}, \qquad \tau = -\frac{1}{\ln a} \approx \frac{1}{1-a} \]</div><span class="eqn-no">(03.22)</span></div>
     <dl class="where"><dt>\(\tau\)</dt><dd>time constant, samples: \(a^n\) falls to \(1/e\) after \(\tau\) samples; the approximation holds for \(a\) near 1</dd><dt>\(y[n]\)</dt><dd>step response of the one-pole filter \(y[n]=a\,y[n-1]+(1-a)\,x[n]\)</dd><dt>\(a\)</dt><dd>pole, \(0&lt;a&lt;1\)</dd><dt>\(n,\ m\)</dt><dd>sample indices</dd><dt>\(\ln\)</dt><dd>natural logarithm</dd></dl>
@@ -560,22 +574,22 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m3-d5" aria-label="Difference equation computed sample by sample, and its frequency response"></canvas>
-        <div class="legend"><span><i style="background:var(--muted)"></i>\(x[n]\)</span><span><i style="background:var(--accent)"></i>\(y[n]\) computed so far</span><span><i style="background:var(--sig2)"></i>\(\lvert H(e^{j\omega})\rvert\)</span></div>
+        <div class="legend"><span><i class="stem" style="color:var(--muted);background:var(--muted)"></i>\(x[n]\)</span><span><i class="stem" style="color:var(--accent);background:var(--accent)"></i>\(y[n]\) computed so far</span><span><i class="solid" style="color:var(--sig2);background:var(--sig2)"></i>\(\lvert H(e^{j\omega})\rvert\)</span></div>
       </div>
       <div class="controls">
         <div class="ctrl"><label for="m3-d5-sys">Recursion</label><select id="m3-d5-sys"><option value="pole" selected>One-pole y = a·y[n−1] + (1−a)·x</option><option value="ma3">3-point average</option><option value="diff">First difference</option></select></div>
-        <div class="ctrl"><label for="m3-d5-x">Input</label><select id="m3-d5-x"><option value="imp">Impulse δ[n]</option><option value="step" selected>Step u[n]</option><option value="cos">cos(πn/4)</option><option value="noisy">Noisy step (seeded)</option></select></div>
-        <div class="ctrl"><label for="m3-d5-a">a (one-pole) <output id="m3-d5-a-o">0.80</output></label><input type="range" id="m3-d5-a" min="-0.95" max="1.05" step="0.01" value="0.8"></div>
-        <div class="ctrl"><label for="m3-d5-n">Computed up to n <output id="m3-d5-n-o">4</output></label><input type="range" id="m3-d5-n" min="0" max="39" step="1" value="4"></div>
+        <div class="ctrl"><label for="m3-d5-x">Input x[n]</label><select id="m3-d5-x"><option value="imp">Impulse δ[n]</option><option value="step" selected>Step u[n]</option><option value="cos">cos(πn/4)</option><option value="noisy">Noisy step (seeded)</option></select></div>
+        <div class="ctrl"><label for="m3-d5-a">Pole a (one-pole only) <output id="m3-d5-a-o">0.80</output> <span class="hint">feedback weight on y[n−1]; |a| ≥ 1 is unstable</span></label><input type="range" id="m3-d5-a" min="-0.95" max="1.05" step="0.01" value="0.8"></div>
+        <div class="ctrl"><label for="m3-d5-n">Computed up to n (samples) <output id="m3-d5-n-o">4</output> <span class="hint">steps the recursion one sample at a time</span></label><input type="range" id="m3-d5-n" min="0" max="39" step="1" value="4"></div>
         <div class="btn-row"><button class="btn solid" id="m3-d5-step" type="button">Step</button><button class="btn" id="m3-d5-reset" type="button">Reset</button></div>
         <div class="readout" id="m3-d5-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> step the one-pole filter from \(n = 0\) and check 0.2, 0.36, 0.488, 0.5904. Set \(a = 0.95\) and feed the noisy step: smoother output, slower rise; that is the noise-versus-lag trade of display persistence. Set \(a = 1.05\): the impulse response grows and the readout flags the system as unstable.</div>
+    <div class="demo-foot"><strong>Try:</strong> step the one-pole filter from \(n = 0\) and check 0.2, 0.36, 0.488, 0.5904. Set \(a = 0.95\) and feed the noisy step: smoother output, slower rise; that is the noise-versus-lag trade of display persistence. Set \(a = 1.05\): the impulse response grows and the readout flags the system as unstable.<span class="symnote">Symbols used here: x[n], the input; y[n], the output; n, the sample index; a, the one-pole feedback weight; H(e<sup>jω</sup>), the frequency response; ω, frequency in rad/sample.</span></div>
   </div>
 
   <div class="prose">
-    <p><strong>Poles and zeros as distances.</strong> Factor numerator and denominator: \(H(z) = g\,\prod_k(1 - z_k z^{-1}) / \prod_k(1 - p_k z^{-1})\). Multiply top and bottom by the same power of \(z\); on the unit circle each factor becomes a vector from a root to the point \(e^{j\omega}\):</p>
+    <p>Poles and zeros can be read as distances. Factor numerator and denominator: \(H(z) = g\,\prod_k(1 - z_k z^{-1}) / \prod_k(1 - p_k z^{-1})\). Multiply top and bottom by the same power of \(z\); on the unit circle each factor becomes a vector from a root to the point \(e^{j\omega}\):</p>
   </div>
   <div class="eqn" id="m3-eq23">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \lvert H(e^{j\omega})\rvert &amp;= \lvert g\rvert\, \frac{\prod_k \lvert e^{j\omega} - z_k\rvert}{\prod_k \lvert e^{j\omega} - p_k\rvert} \\ \angle H(e^{j\omega}) &amp;= \angle g + \sum_k \angle\!\left(e^{j\omega} - z_k\right) - \sum_k \angle\!\left(e^{j\omega} - p_k\right) + (P - Q)\,\omega \end{aligned} \]</div><span class="eqn-no">(03.23)</span></div>
@@ -626,7 +640,7 @@
 
   <div class="prose">
     <p><strong>Causality</strong>: \(h[n] = 0\) for \(n &lt; 0\), so the output never uses future inputs. Real-time filters must be causal; offline processing (a stored frame) need not be, which is how zero-phase forward-backward filtering is possible.</p>
-    <p><strong>Stability (BIBO)</strong>, <span class="eqref">(03.24)</span>: every bounded input gives a bounded output if and only if \(h\) is absolutely summable. For a causal rational \(H(z)\) the test is geometric: <strong>all poles strictly inside the unit circle.</strong> At \(a = 1.05\) the impulse response doubles every \(\ln 2/\ln 1.05 = 14.2\) samples.</p>
+    <p><strong>Stability (BIBO)</strong>, <span class="eqref">(03.24)</span>: every bounded input gives a bounded output if and only if \(h\) is absolutely summable. For a causal rational \(H(z)\) the test is geometric: all poles must lie strictly inside the unit circle. At \(a = 1.05\) the impulse response doubles every \(\ln 2/\ln 1.05 = 14.2\) samples.</p>
   </div>
   <div class="eqn" id="m3-eq24">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} \sum_{n} \lvert h[n]\rvert &lt; \infty \\ \text{one-pole: } \sum_{n=0}^{\infty} \left\lvert (1-a)\,a^n\right\rvert = \frac{\lvert 1-a\rvert}{1-\lvert a\rvert} \ \ (\lvert a\rvert &lt; 1), \quad \text{divergent for } \lvert a\rvert \ge 1 \end{gathered} \]</div><span class="eqn-no">(03.24)</span></div>
@@ -641,20 +655,22 @@
           <div><div class="m3-cap">z-plane: zeros ○, poles ×, point \(e^{j\omega}\) on the unit circle</div><canvas id="m3-d6z" aria-label="z-plane with pole and zero vectors"></canvas></div>
           <div><div class="m3-cap">\(\lvert H\rvert\) (dB), \(\angle H\) (rad) and \(h[n]\)</div><canvas id="m3-d6r" aria-label="Magnitude, phase and impulse response"></canvas></div>
         </div>
-        <div class="legend"><span><i style="background:var(--sig4)"></i>zero vectors</span><span><i style="background:var(--sig2)"></i>pole vectors</span><span><i style="background:var(--accent)"></i>\(\lvert H\rvert\), \(h[n]\)</span><span><i style="background:var(--sig3)"></i>\(\angle H\)</span></div>
+        <div class="legend"><span><i style="background:var(--sig4)"></i>zero vectors (zeros ○)</span><span><i style="background:var(--sig2)"></i>pole vectors (poles ×)</span><span><i style="background:var(--accent)"></i>\(\lvert H\rvert\) (dashed if unstable), \(h[n]\)</span><span><i class="mark" style="color:var(--sig3);background:var(--sig3)"></i>\(\angle H\)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m3-d6-zr">Zero radius <output id="m3-d6-zr-o">1.00</output></label><input type="range" id="m3-d6-zr" min="0" max="1.2" step="0.01" value="1"></div>
-        <div class="ctrl"><label for="m3-d6-zt">Zero angle θ<sub>z</sub>/π <output id="m3-d6-zt-o">0.75</output></label><input type="range" id="m3-d6-zt" min="0" max="1" step="0.01" value="0.75"></div>
-        <div class="ctrl"><label for="m3-d6-pr">Pole radius <output id="m3-d6-pr-o">0.90</output></label><input type="range" id="m3-d6-pr" min="0" max="1.05" step="0.01" value="0.9"></div>
-        <div class="ctrl"><label for="m3-d6-pt">Pole angle θ<sub>p</sub>/π <output id="m3-d6-pt-o">0.25</output></label><input type="range" id="m3-d6-pt" min="0" max="1" step="0.01" value="0.25"></div>
-        <div class="ctrl"><label for="m3-d6-w">ω/π <output id="m3-d6-w-o">0.25</output></label><input type="range" id="m3-d6-w" min="0" max="1" step="0.005" value="0.25"></div>
+        <div class="ctrl"><label for="m3-d6-zr">Zero radius <output id="m3-d6-zr-o">1.00</output> <span class="hint">distance of the conjugate zero pair from z = 0</span></label><input type="range" id="m3-d6-zr" min="0" max="1.2" step="0.01" value="1"></div>
+        <div class="ctrl"><label for="m3-d6-zt"><span>Zero angle θ<sub>z</sub>/π</span> <output id="m3-d6-zt-o">0.75</output> <span class="hint">angle of the zero pair in rad, divided by π</span></label><input type="range" id="m3-d6-zt" min="0" max="1" step="0.01" value="0.75"></div>
+        <div class="ctrl"><label for="m3-d6-pr">Pole radius <output id="m3-d6-pr-o">0.90</output> <span class="hint">distance of the conjugate pole pair from z = 0; ≥ 1 is unstable</span></label><input type="range" id="m3-d6-pr" min="0" max="1.05" step="0.01" value="0.9"></div>
+        <div class="ctrl"><label for="m3-d6-pt"><span>Pole angle θ<sub>p</sub>/π</span> <output id="m3-d6-pt-o">0.25</output> <span class="hint">angle of the pole pair in rad, divided by π</span></label><input type="range" id="m3-d6-pt" min="0" max="1" step="0.01" value="0.25"></div>
+        <div class="ctrl"><label for="m3-d6-w">Frequency ω/π <output id="m3-d6-w-o">0.25</output> <span class="hint">evaluation point e<sup>jω</sup> on the unit circle; 1 = Nyquist</span></label><input type="range" id="m3-d6-w" min="0" max="1" step="0.005" value="0.25"></div>
         <div class="readout" id="m3-d6-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> roots come in conjugate pairs so that \(h\) is real. With the pole pair at \(0.9\,e^{\pm j\pi/4}\), put \(\omega\) on the pole angle: the near pole vector is 0.10 long and \(\lvert H\rvert\) peaks. Push the pole radius to 1.00 and beyond: the peak becomes infinite and the impulse response stops decaying. Put a zero on the circle and watch \(\lvert H\rvert\) fall to −∞ dB as \(\omega\) crosses it.</div>
+    <div class="demo-foot"><strong>Try:</strong> roots come in conjugate pairs so that \(h\) is real. With the pole pair at \(0.9\,e^{\pm j\pi/4}\), put \(\omega\) on the pole angle: the near pole vector is 0.10 long and \(\lvert H\rvert\) peaks. Push the pole radius to 1.00 and beyond: the peak becomes infinite and the impulse response stops decaying. Put a zero on the circle and watch \(\lvert H\rvert\) fall to −∞ dB as \(\omega\) crosses it.<span class="symnote">Symbols used here: z, the complex variable of the z-plane; θ<sub>z</sub> and θ<sub>p</sub>, the angles of the zero and pole pairs in rad; ω, frequency in rad/sample; H, the frequency response; h[n], the impulse response.</span></div>
   </div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>Display persistence is a one-pole smoother across frames. For white frame-to-frame noise the output variance is \((1-a)/(1+a)\) of the input, so \(a = 0.8\) acts like averaging \((1+a)/(1-a) = 9\) frames, at the price of a time constant of 4.5 frames. A Doppler wall filter is a high-pass with zeros at or near \(z = 1\) (DC in slow time); its design on short ensembles is Module 09.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>The recursion \(y[n] = \sum b_k x[n-k] - \sum a_k y[n-k]\) has \(H(z) = B(z)/A(z)\): without feedback FIR, with feedback IIR.</li><li>On the unit circle |H| = gain × (product of zero distances)/(product of pole distances): a dip near a zero, a peak near a pole.</li><li>Causal and rational: BIBO stable if and only if all poles are strictly inside |z| = 1 (pole at 1.05 doubles every 14.2 samples).</li><li>The one-pole smoother with a = 0.8 has a 4.48-sample time constant and, as frame persistence, averages like (1 + a)/(1 − a) = 9 frames for white noise.</li></ul></div>
+
 
   <!-- ===================== 03.8 ===================== -->
   <div class="prose">
@@ -667,7 +683,7 @@
     <span class="note">Associativity: the output is still a sum of shifted, scaled copies, now of the filtered pulse \(h_{\mathrm{bp}} \ast p\), one per reflector. Distributivity: the filter acts on signal and noise separately.</span>
   </div>
   <div class="prose">
-    <p>The pulse here is a 5 MHz Gaussian with 60 % −6 dB fractional bandwidth (\(\sigma_t = 5.0\) samples at 40 MHz); the filter is a 41-tap Hamming-windowed band-pass. White noise spreads evenly over 0–20 MHz, the pulse lives in roughly 3–7 MHz, so keeping only that band removes most of the noise power and little of the signal. Expected values for this pulse, from <span class="eqref">(03.26)</span>:</p>
+    <p>The pulse here is a 5 MHz Gaussian with 60 % −6 dB fractional bandwidth (\(\sigma_t = 5.0\) samples at 40 MHz); the filter is a 41-tap Hamming-windowed band-pass. White noise spreads evenly over 0–20 MHz while the pulse lives in roughly 3–7 MHz, so keeping only that band removes most of the noise power and little of the signal. Expected values for this pulse, from <span class="eqref">(03.26)</span>:</p>
   </div>
   <div class="eqn" id="m3-eq26">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} G_N = \sum_n h_{\mathrm{bp}}[n]^2, \qquad G_S = \frac{\sum_n \left(h_{\mathrm{bp}} \ast s\right)[n]^2}{\sum_n s[n]^2} \\ \text{SNR gain} = 10\log_{10}\frac{G_S}{G_N}\ \mathrm{dB} \end{gathered} \]</div><span class="eqn-no">(03.26)</span></div>
@@ -717,20 +733,22 @@
           <div><div class="m3-cap">Time domain (µs at \(f_s = 40\) MHz)</div><canvas id="m3-d7t" aria-label="RF line, reflectivity and filtered or deconvolved output"></canvas></div>
           <div><div class="m3-cap">Frequency domain (dB re peak, 0–20 MHz)</div><canvas id="m3-d7f" aria-label="Spectra of pulse, noisy line, filter and output"></canvas></div>
         </div>
-        <div class="legend"><span><i style="background:var(--muted)"></i>reflectivity \(\rho\) / pulse spectrum</span><span><i style="background:var(--accent)"></i>noisy RF line \(r\)</span><span><i style="background:var(--sig2)"></i>filter \(H_{\mathrm{bp}}\) or \(G\)</span><span><i style="background:var(--sig4)"></i>output</span><span><i style="background:var(--sig3)"></i>per-reflector copies</span></div>
+        <div class="legend"><span><i style="background:var(--muted)"></i>reflectivity \(\rho\) / pulse spectrum</span><span><i style="background:var(--accent)"></i>noisy RF line \(r\)</span><span><i class="dash" style="color:var(--sig2)"></i>filter \(H_{\mathrm{bp}}\) or \(G\), effective \(\lvert PG\rvert\)</span><span><i style="background:var(--sig4)"></i>output</span><span><i class="dash" style="color:var(--sig3)"></i>per-reflector copies</span></div>
       </div>
       <div class="controls">
         <div class="ctrl"><label for="m3-d7-mode">Operation</label><select id="m3-d7-mode"><option value="bp" selected>Band-pass filter</option><option value="dec">Deconvolution (Wiener)</option></select></div>
-        <div class="ctrl"><label for="m3-d7-band">Pass band</label><select id="m3-d7-band"><option value="2,8">2–8 MHz</option><option value="3,7" selected>3–7 MHz</option><option value="4,6">4–6 MHz</option></select></div>
-        <div class="ctrl"><label for="m3-d7-s">Noise std (re pulse peak) <output id="m3-d7-s-o">0.10</output></label><input type="range" id="m3-d7-s" min="0" max="0.3" step="0.01" value="0.1"></div>
-        <div class="ctrl"><label for="m3-d7-e">log<sub>10</sub>(ε/|P|²<sub>max</sub>) <output id="m3-d7-e-o">−2.0</output></label><input type="range" id="m3-d7-e" min="-7" max="0" step="0.1" value="-2"></div>
+        <div class="ctrl"><label for="m3-d7-band">Pass band (MHz) <span class="hint">edges of the 41-tap band-pass FIR</span></label><select id="m3-d7-band"><option value="2,8">2–8 MHz</option><option value="3,7" selected>3–7 MHz</option><option value="4,6">4–6 MHz</option></select></div>
+        <div class="ctrl"><label for="m3-d7-s">Noise std σ (re pulse peak) <output id="m3-d7-s-o">0.10</output> <span class="hint">white Gaussian noise, relative to the pulse peak</span></label><input type="range" id="m3-d7-s" min="0" max="0.3" step="0.01" value="0.1"></div>
+        <div class="ctrl"><label for="m3-d7-e"><span>Regularization log<sub>10</sub>(ε/|P|²<sub>max</sub>)</span> <output id="m3-d7-e-o">−2.0</output> <span class="hint">Wiener ε: larger ε caps the noise gain and sharpens less</span></label><input type="range" id="m3-d7-e" min="-7" max="0" step="0.1" value="-2"></div>
         <label class="check"><input type="checkbox" id="m3-d7-copies" checked> Show per-reflector copies (band-pass)</label>
         <div class="readout" id="m3-d7-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> in band-pass mode the gold dashed copies (\(h_{\mathrm{bp}} \ast p\) shifted to each reflector and scaled) add up to the noise-free output; the two reflectors 0.15 µs apart (0.115 mm, half the axial resolution) merge into one wavelet. Switch to deconvolution and lower \(\varepsilon\): the readout shows the effective pulse narrowing and the SNR falling; at \(10^{-7}\) the estimate drowns in amplified out-of-band noise. With noise 0.10 (20 dB peak SNR) no \(\varepsilon\) separates the close pair cleanly; set the noise to 0.01 and \(\varepsilon\) to \(10^{-4.5}\) and the pair splits into two opposite-sign wavelets. The best \(\varepsilon\) is set by the noise, not by the pulse.</div>
+    <div class="demo-foot"><strong>Try:</strong> in band-pass mode the gold dashed copies (\(h_{\mathrm{bp}} \ast p\) shifted to each reflector and scaled) add up to the noise-free output; the two reflectors 0.15 µs apart (0.115 mm, half the axial resolution) merge into one wavelet. Switch to deconvolution and lower \(\varepsilon\): the readout shows the effective pulse narrowing and the SNR falling; at \(10^{-7}\) the estimate drowns in amplified out-of-band noise. With noise 0.10 (20 dB peak SNR) no \(\varepsilon\) separates the close pair cleanly; set the noise to 0.01 and \(\varepsilon\) to \(10^{-4.5}\) and the pair splits into two opposite-sign wavelets. The best \(\varepsilon\) is set by the noise, not by the pulse.<span class="symnote">Symbols used here: ρ, the reflectivity; p, the transmitted pulse and P its spectrum; r, the RF line; σ, the noise standard deviation re pulse peak; H<sub>bp</sub>, the band-pass filter; G, the Wiener inverse filter; ε, its regularization constant.</span></div>
   </div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>No filter recovers information at frequencies where \(P \approx 0\): deconvolution can at best flatten the band the transducer delivers, so axial resolution after deconvolution is still bounded by that band (Module 13 treats this as regularized inversion). ULM sidesteps the limit differently: it does not invert the PSF, it localizes isolated echoes, whose position can be estimated far more finely than the PSF width.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>Band-pass filtering keeps the pulse band and rejects out-of-band white noise: 3–7 MHz gives +7.3 dB SNR for a 5 MHz, 60 % pulse at 40 MHz; 4–6 MHz gives +8.5 dB but lengthens the pulse.</li><li>The naive inverse 1/P multiplies the noise by 1/|P|: 67 dB more noise gain at 10 MHz than at 5 MHz for this pulse.</li><li>Wiener \(G = P^*/(\lvert P\rvert^2 + \varepsilon)\) caps the gain at \(1/(2\sqrt{\varepsilon})\); each decade of ε shortens the pulse by 6–22 % and, past the band edges, costs about 8 dB of SNR. Nothing recovers frequencies where P ≈ 0.</li></ul></div>
+
 
   <!-- ===================== Visual summary ===================== -->
   <h2><span class="sec">03.9</span>Visual summary</h2>
@@ -748,16 +766,10 @@
       <div class="limits">Real hardware is linear only below saturation and clipping; "time-invariant" also assumes the system does not drift during the record.</div>
     </div>
     <div class="rule">
-      <div class="say">An LTI system is its impulse response: knowing \(T\{\delta\}\) you know \(T\{x\}\) for every \(x\).</div>
-      <div class="keynum"><span>\(h = T\{\delta\}\)</span><span>\(y = x \ast h\)</span></div>
-      <div class="why"><p>\(x = \sum_k x[k]\,\delta[n-k]\), time invariance moves \(h\), linearity adds the copies, <span class="eqref">(03.4)</span>. This is why transducers are characterized by a pulse-echo impulse response from a planar reflector, and why an imaging system is characterized by its PSF. Figure: a unit impulse in (blue), the 9-tap RF pulse out (pink).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m3-rf-1" aria-label="Impulse in, impulse response out"></canvas></div></div>
-      <div class="limits">A beamformed image is linear but not shift-invariant in space (the PSF changes with depth and angle), so one PSF describes only a small isoplanatic patch.</div>
-    </div>
-    <div class="rule">
-      <div class="say">Convolution is superposition: every input sample launches a scaled, shifted copy of h, and the output is their sum.</div>
-      <div class="keynum"><span>\([1,2,3] \ast [2,1,-1] = [2,5,7,1,-3]\)</span></div>
-      <div class="why"><p>Rows of the by-hand table are the copies \(1\cdot[2, 1, -1]\), \(2\cdot[2, 1, -1]\) shifted by one, \(3\cdot[2, 1, -1]\) shifted by two; column sums are \(y\). The same picture is the RF line: one echo per reflector, overlapping where reflectors are closer than the pulse length. Figure: the three copies (gold, pink, green) and their sum (open circles).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m3-rf-2" aria-label="Three scaled shifted copies and their sum"></canvas></div></div>
-      <div class="limits">Assumes the copies add linearly; multiple scattering and nonlinear propagation add terms that are not copies of \(h\).</div>
+      <div class="say">An LTI system is its impulse response: every input sample launches a scaled, shifted copy of h, and the output is their sum, which is why transducers are specified by a pulse-echo response and imaging systems by a PSF.</div>
+      <div class="keynum"><span>\(h = T\{\delta\}\)</span><span>\(y = x \ast h\)</span><span>\([1,2,3] \ast [2,1,-1] = [2,5,7,1,-3]\)</span></div>
+      <div class="why"><p>Write \(x = \sum_k x[k]\,\delta[n-k]\); time invariance moves \(h\) and linearity adds the copies <span class="eqref">(03.4)</span>. In the by-hand table the rows are the copies \(1\cdot[2, 1, -1]\), \(2\cdot[2, 1, -1]\) shifted by one and \(3\cdot[2, 1, -1]\) shifted by two; the column sums are \(y\). The RF line is the same picture: one echo per reflector, overlapping where reflectors are closer than the pulse length. Figures: a unit impulse in (blue) and the 9-tap RF pulse out (pink); the three copies (gold, pink, green) and their sum (open circles).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m3-rf-1" aria-label="Impulse in, impulse response out"></canvas></div><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m3-rf-2" aria-label="Three scaled shifted copies and their sum"></canvas></div></div>
+      <div class="limits">A beamformed image is linear but not shift-invariant in space (the PSF changes with depth and angle), so one PSF describes only a small isoplanatic patch. Multiple scattering and nonlinear propagation add terms that are not copies of \(h\).</div>
     </div>
     <div class="rule">
       <div class="say">Lengths add: L + M − 1 samples out. Widths add: a 6-sample rect convolved with a 4-sample rect is a 9-sample trapezoid with a 3-sample flat top.</div>
@@ -796,15 +808,9 @@
       <div class="limits">For non-linear phase (IIR, minimum phase) \(\tau_g\) varies across the band and the pulse is distorted; group delay can even be negative locally without violating causality.</div>
     </div>
     <div class="rule">
-      <div class="say">Convolution in time is multiplication in frequency: magnitudes multiply, phases add.</div>
-      <div class="keynum"><span>\(Y = X H\)</span><span>\((-2-2j)(3-j) = -8-4j\)</span></div>
-      <div class="why"><p>Each phasor in \(x\) is multiplied by \(H\) at its own frequency, <span class="eqref">(03.19)</span>. At \(\omega = \pi/2\) for the by-hand pair: \(\lvert X\rvert\lvert H\rvert = 2.83 \times 3.16 = 8.94 = \lvert Y\rvert\) and −135° − 18.4° = −153.4° = \(\angle Y\). In rectangular form \(\mathrm{Re}\,Y = \mathrm{Re}\,X\,\mathrm{Re}\,H - \mathrm{Im}\,X\,\mathrm{Im}\,H\); the real parts alone do not multiply. Figure: rect 6 (blue) times rect 4 (pink) spectra give the trapezoid spectrum (green); its nulls are the union of both sets of nulls.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m3-rf-9" aria-label="Spectra multiply under convolution"></canvas></div></div>
-      <div class="limits">With DFTs it is circular convolution; it equals linear convolution only with padding to \(N \ge L + M - 1\).</div>
-    </div>
-    <div class="rule">
-      <div class="say">FFT convolution is circular: pad to N ≥ L + M − 1 or the tail wraps onto the start.</div>
-      <div class="keynum"><span>\(N = 4\): \([-1, 5, 7, 1]\)</span><span>\(N \ge 5\): \([2, 5, 7, 1, -3]\)</span></div>
-      <div class="why"><p>Sampling the spectrum at \(N\) points makes the time signal periodic with period \(N\), so \(y_{\mathrm{circ}}[n] = \sum_r y[n + rN]\), <span class="eqref">(03.8)</span>. For the by-hand pair at \(N = 4\), \(y[4] = -3\) adds to \(y[0] = 2\). For long RF lines use overlap-add with blocks of \(B\) samples and FFT size \(\ge B + M - 1\). Figure: linear result (open circles) and the \(N = 4\) circular result (filled pink).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m3-rf-10" aria-label="Circular convolution wrap-around"></canvas></div></div>
+      <div class="say">Convolution in time is multiplication in frequency (magnitudes multiply, phases add), but with FFTs it is circular: pad to N ≥ L + M − 1 or the tail wraps onto the start.</div>
+      <div class="keynum"><span>\(Y = X H\)</span><span>\((-2-2j)(3-j) = -8-4j\)</span><span>\(N = 4\): \([-1, 5, 7, 1]\)</span><span>\(N \ge 5\): \([2, 5, 7, 1, -3]\)</span></div>
+      <div class="why"><p>Each phasor in \(x\) is multiplied by \(H\) at its own frequency <span class="eqref">(03.19)</span>. At \(\omega = \pi/2\) for the by-hand pair, \(\lvert X\rvert\lvert H\rvert = 2.83 \times 3.16 = 8.94 = \lvert Y\rvert\) and −135° − 18.4° = −153.4° = \(\angle Y\); in rectangular form \(\mathrm{Re}\,Y = \mathrm{Re}\,X\,\mathrm{Re}\,H - \mathrm{Im}\,X\,\mathrm{Im}\,H\), so real parts alone do not multiply. Sampling the spectrum at \(N\) points makes the time signal periodic with period \(N\), so \(y_{\mathrm{circ}}[n] = \sum_r y[n + rN]\) <span class="eqref">(03.8)</span>: at \(N = 4\), \(y[4] = -3\) adds to \(y[0] = 2\). For long RF lines use overlap-add with blocks of \(B\) samples and FFT size \(\ge B + M - 1\). Figures: rect 6 (blue) times rect 4 (pink) spectra give the trapezoid spectrum (green), whose nulls are the union of both sets; linear result (open circles) and the \(N = 4\) circular result (filled pink).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m3-rf-9" aria-label="Spectra multiply under convolution"></canvas></div><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m3-rf-10" aria-label="Circular convolution wrap-around"></canvas></div></div>
       <div class="limits">Circular convolution is exactly right when the data really are periodic (a full rotation of angles, a ring array) or when the edges are discarded anyway.</div>
     </div>
     <div class="rule">
@@ -826,7 +832,7 @@
       <div class="limits">The approximations need \(a\) close to 1; the lag (group delay) grows with the smoothing, which smears fast changes (motion, contrast wash-in).</div>
     </div>
     <div class="rule">
-      <div class="say">Stable means Σ|h| &lt; ∞; for a causal rational filter, every pole strictly inside the unit circle.</div>
+      <div class="say">Stability is a pole-radius question: |p| &lt; 1 decays, |p| = 1 rings forever, and a pole at 1.05 doubles the output every 14 samples.</div>
       <div class="keynum"><span>\(\lvert p\rvert &lt; 1\)</span><span>\(a = 1.05\): doubles every 14.2 samples</span></div>
       <div class="why"><p>A pole \(p\) contributes a term \(p^n\) to \(h[n]\); it decays if \(\lvert p\rvert &lt; 1\) and grows if \(\lvert p\rvert &gt; 1\). With \(\lvert p\rvert = 1\) the response neither decays nor grows, and a bounded input at the pole frequency drives the output without bound. Bounded input, bounded output holds iff \(h\) is absolutely summable, <span class="eqref">(03.24)</span>. Figure: the pole term \(p^n\) for \(p = 0.9\) (blue, decays) and \(p = 1.05\) (pink, grows).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m3-rf-14" aria-label="Decaying and growing impulse responses"></canvas></div></div>
       <div class="limits">Poles very close to the circle are stable on paper and fragile in fixed point; coefficient quantization can push them out (use biquads, Module 09).</div>
@@ -944,7 +950,7 @@
     <h4>Two-pole resonator at θ = π/4 for several pole radii</h4>
     <p class="cite">J. O. Smith III, <em>Introduction to Digital Filters with Audio Applications</em>, W3K Publishing, 2007 (online edition), Appendix B, "Resonator Bandwidth in Terms of Pole Radius", <b>Fig. B.6</b>. <a href="https://ccrma.stanford.edu/~jos/fp/Resonator_Bandwidth_Terms_Pole.html" target="_blank" rel="noopener">ccrma.stanford.edu/~jos/fp</a></p>
     <p>Amplitude (a) and phase (b) of \(y(n) = x(n)\) \(+\, 2R\cos(\theta_c)\,y(n-1)\) \(-\, R^2 y(n-2)\) with \(\theta_c = \pi/4\), the same pole angle as the resonator rule card and Figure 03.D. The page gives the bandwidth rule \(B = -\ln R/(\pi T)\) Hz, i.e. a full −3 dB width of \(-2\ln R \approx 2(1 - R)\) rad/sample. Below: the same equation re-plotted here for radii chosen on this page (not necessarily the book's).</p>
-    <div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Re-plotted from the difference equation given with Fig. B.6 (θ<sub>c</sub> = π/4); R = 0.5 (gray), 0.8 (blue), 0.9 (pink), 0.95 (green), chosen here.</span><canvas id="m3-lit-res" aria-label="Two-pole resonator amplitude response for four pole radii"></canvas></div>
+    <div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Re-plotted from the difference equation given with Fig. B.6 (θ<sub>c</sub> = π/4); R = 0.5 (gray, dotted), 0.8 (blue, solid), 0.9 (pink, dashed), 0.95 (green, dash-dot), chosen here.</span><canvas id="m3-lit-res" aria-label="Two-pole resonator amplitude response for four pole radii"></canvas><div class="legend"><span><i class="dot" style="color:var(--muted);background:var(--muted)"></i>R = 0.5</span><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>R = 0.8</span><span><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>R = 0.9</span><span><i class="dash" style="color:var(--sig4);background:var(--sig4)"></i>R = 0.95 (dash-dot)</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>0 and 20 dB</span></div></div>
   </div>
   <div class="litfig">
     <h4>Measured echoes: pulse estimate, spectrum and Wiener-type deconvolution</h4>
@@ -968,6 +974,8 @@
 
 
 <style>
+#m3 .ctrl .hint { flex-basis: 100%; font: 400 0.72rem/1.35 var(--f-display); color: var(--muted); margin-top: 1px; }
+#m3 .demo-foot .symnote { display: block; margin-top: 6px; font-size: 0.92em; color: var(--muted); }
 #m3 .m3-twin { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
 #m3 .m3-twin > div { min-width: 0; }
 #m3 .m3-cap { font: 500 0.8rem/1.3 var(--f-display); color: var(--muted); margin: 0 0 4px 2px; }
@@ -1034,23 +1042,23 @@
     const c = Lab.colors(), sysk = $('m3-d1-sys').value, test = $('m3-d1-test').value, T = SYS[sysk];
     const a = +$('m3-d1-a').value, b = +$('m3-d1-b').value, k = +$('m3-d1-k').value;
     $('m3-d1-a-o').textContent = mf(a, 1); $('m3-d1-b-o').textContent = mf(b, 1); $('m3-d1-k-o').textContent = k;
-    const { ctx, w } = Lab.canvas($('m3-d1'), 300);
+    const { ctx, w } = Lab.canvas($('m3-d1'), 312);
     let inp, inLab, pr, outLab;
     if (test === 'lin') { inp = N1.map(n => a * X1(n) + b * X2(n)); inLab = 'input a·x₁ + b·x₂ (x₁, x₂ open)'; pr = testLin(T, a, b); outLab = 'T{a·x₁ + b·x₂} vs a·T{x₁} + b·T{x₂}'; }
     else { inp = N1.map(n => X1(n - k)); inLab = 'input x₁[n − k] (x₁ open)'; pr = testTI(T, k); outLab = 'T{x₁[n − k]} vs y₁[n − k]'; }
     const r1 = symext(inp.concat(N1.map(X1), test === 'lin' ? N1.map(X2) : []));
-    const ax1 = AX(ctx, 46, 22, w - 58, 92, [-0.5, 19.5], r1, { title: inLab, int: true });
+    const ax1 = AX(ctx, 46, 22, w - 58, 92, [-0.5, 19.5], r1, { title: inLab, xlabel: 'n (samples)', int: true });
     if (test === 'lin') { stemA(ctx, ax1, N1, N1.map(X1), c.muted, { open: true, dx: -4, r: 2.5, noStem: true }); stemA(ctx, ax1, N1, N1.map(X2), c.muted, { open: true, dx: 4, r: 2.5, noStem: true }); }
     else stemA(ctx, ax1, N1, N1.map(X1), c.muted, { open: true, r: 2.5, noStem: true });
     stemA(ctx, ax1, N1, inp, c.accent);
     const r2 = symext(pr.flat());
-    const ax2 = AX(ctx, 46, 160, w - 58, 100, [-0.5, 19.5], r2, { title: outLab, xlabel: 'n (samples)', int: true });
+    const ax2 = AX(ctx, 46, 172, w - 58, 100, [-0.5, 19.5], r2, { title: outLab, xlabel: 'n (samples)', int: true });
     stemA(ctx, ax2, N1, pr.map(p => p[0]), c.sig4);
     stemA(ctx, ax2, N1, pr.map(p => p[1]), c.sig2, { open: true, noStem: true, r: 4.5 });
     const err = maxd(pr);
     const linOK = [[2, 0.5], [-1.5, 0.7]].every(([aa, bb]) => maxd(testLin(T, aa, bb)) < 1e-12);
     const tiOK = [1, 3, 6].every(kk => maxd(testTI(T, kk)) < 1e-12);
-    $('m3-d1-read').innerHTML = 'this test: max |difference| = <b>' + (err < 1e-12 ? '0' : err.toFixed(3)) + '</b> → ' + (err < 1e-12 ? '<b>passes</b>' : '<b>fails</b>') +
+    $('m3-d1-read').innerHTML = 'this test: max |difference| between the two outputs = <b>' + (err < 1e-12 ? '0' : err.toFixed(3)) + '</b> → ' + (err < 1e-12 ? '<b>passes</b>' : '<b>fails</b>') +
       '<br>over several a, b, k:<br>linear: <b>' + (linOK ? 'yes' : 'no') + '</b> · time-invariant: <b>' + (tiOK ? 'yes' : 'no') + '</b>' + (linOK && tiOK ? '<br>LTI: described by h = T{δ}' : '');
   }
   ['m3-d1-sys', 'm3-d1-test'].forEach(id => $(id).addEventListener('change', d1));
@@ -1066,14 +1074,14 @@
     const pal = [c.sig3, c.sig2, c.sig4, c.accent];
     const y = conv(x, h), Ny = y.length, run = new Array(Ny).fill(0);
     const shown = nz.slice(0, K); shown.forEach(k => h.forEach((hv, m) => { run[k + m] += x[k] * hv; }));
-    const { ctx, w } = Lab.canvas($('m3-d2'), 340); const xr = [-0.7, Ny - 0.3];
-    const ax1 = AX(ctx, 46, 20, w - 58, 70, xr, symext(x), { title: 'input x[k]', int: true });
+    const { ctx, w } = Lab.canvas($('m3-d2'), 370); const xr = [-0.7, Ny - 0.3];
+    const ax1 = AX(ctx, 46, 20, w - 58, 70, xr, symext(x), { title: 'input x[k]', xlabel: 'k (samples)', int: true });
     nz.forEach((k, j) => stemA(ctx, ax1, [k], [x[k]], j < K ? pal[j % 4] : c.muted, { lw: j === K - 1 ? 2.5 : 1.5 }));
     const allCopies = []; nz.forEach(k => h.forEach(hv => allCopies.push(x[k] * hv)));
-    const ax2 = AX(ctx, 46, 128, w - 58, 80, xr, symext(allCopies), { title: 'copies x[k]·h[n − k] (one color per k)', int: true });
+    const ax2 = AX(ctx, 46, 140, w - 58, 80, xr, symext(allCopies), { title: 'copies x[k]·h[n − k] (one color per k)', xlabel: 'n (samples)', int: true });
     const sp = Math.min(5, (ax2.box.w / Ny) * 0.18);
     shown.forEach((k, j) => { const ns = h.map((_, m) => k + m), vs = h.map(hv => x[k] * hv); stemA(ctx, ax2, ns, vs, pal[j % 4], { dx: (j % 4 - 1.5) * sp, r: 2.6, lw: 1.4 }); });
-    const ax3 = AX(ctx, 46, 246, w - 58, 66, xr, symext(y.concat(run)), { title: 'running sum (solid) and final y (open)', xlabel: 'n (samples)', int: true });
+    const ax3 = AX(ctx, 46, 270, w - 58, 66, xr, symext(y.concat(run)), { title: 'running sum (solid) and final y (open)', xlabel: 'n (samples)', int: true });
     stemA(ctx, ax3, range(0, Ny - 1), y, c.muted, { open: true, noStem: true, r: 4.5 });
     stemA(ctx, ax3, range(0, Ny - 1), run, c.fg, { r: 2.6 });
     const last = shown[K - 1];
@@ -1124,15 +1132,15 @@
     const n = +$('m3-d3-n').value, w0 = +$('m3-d3-w').value * PI, view = $('m3-d3-view').value;
     $('m3-d3-n-o').textContent = n; $('m3-d3-w-o').textContent = (+$('m3-d3-w').value).toFixed(2);
     /* time */
-    { const { ctx, w } = Lab.canvas($('m3-d3t'), 346); const xr = [-M - 0.5, Math.max(L, Ny) + 0.5];
+    { const { ctx, w } = Lab.canvas($('m3-d3t'), 370); const xr = [-M - 0.5, Math.max(L, Ny) + 0.5];
       const hk = range(0, M - 1).map(m => n - m), hv = h.slice();
-      const ax1 = AX(ctx, 46, 22, w - 56, 74, xr, symext(x.concat(h)), { title: 'x[k] and h[n − k] (flipped, shifted to n)', int: true });
+      const ax1 = AX(ctx, 46, 22, w - 56, 74, xr, symext(x.concat(h)), { title: 'x[k] and h[n − k] (flipped, shifted to n)', xlabel: 'k (samples)', int: true });
       stemA(ctx, ax1, range(0, L - 1), x, c.accent, { dx: -2.5, r: 2.8 }); stemA(ctx, ax1, hk, hv, c.sig2, { dx: 2.5, r: 2.8 }); vlineA(ctx, ax1, n, c.sig2, [3, 3]);
       const prodK = [], prodV = []; for (let k = 0; k < L; k++) { const m = n - k; if (m >= 0 && m < M) { prodK.push(k); prodV.push(x[k] * h[m]); } }
       const allP = []; for (let nn = 0; nn < Ny; nn++) for (let k = 0; k < L; k++) { const m = nn - k; if (m >= 0 && m < M) allP.push(x[k] * h[m]); }
-      const ax2 = AX(ctx, 46, 128, w - 56, 74, xr, symext(allP), { title: 'product x[k]·h[n − k]', int: true });
+      const ax2 = AX(ctx, 46, 140, w - 56, 74, xr, symext(allP), { title: 'product x[k]·h[n − k]', xlabel: 'k (samples)', int: true });
       stemA(ctx, ax2, prodK, prodV, c.sig4);
-      const ax3 = AX(ctx, 46, 234, w - 56, 62, xr, symext(y), { title: 'y[n] (sum of the products)', xlabel: 'k or n (samples)', int: true });
+      const ax3 = AX(ctx, 46, 258, w - 56, 62, xr, symext(y), { title: 'y[n] (sum of the products)', xlabel: 'k or n (samples)', int: true });
       stemA(ctx, ax3, range(0, Ny - 1), y, c.muted, { open: true, noStem: true, r: 3.5 });
       const done = range(0, Ny - 1).filter(m => m <= n); stemA(ctx, ax3, done, done.map(m => y[m]), c.sig4, { r: 2.8 });
       if (n >= 0 && n < Ny) stemA(ctx, ax3, [n], [y[n]], c.sig4, { r: 5.5, noStem: true });
@@ -1166,9 +1174,8 @@
     const H = dtft(h, w0, n0), mag = Math.hypot(H[0], H[1]), ph = Math.atan2(H[1], H[0]);
     /* complex plane */
     { const cv = $('m3-d4z'); const W = cv.clientWidth || 300; const { ctx, w, h: hh } = Lab.canvas(cv, Math.min(300, Math.max(240, W * 0.8)));
-      const R = Math.max(1, h.reduce((s, v) => s + Math.abs(v), 0)) * 1.15; const sz = Math.min(w - 50, hh - 40); const bx = { x: (w - sz) / 2 + 10, y: 14, w: sz, h: sz };
-      const ax = Lab.axes(ctx, bx, [-R, R], [-R, R], { nx: 4, ny: 4, xlabel: 'Re', ylabel: '' });
-      ctx.save(); ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.fillText('Im', bx.x + 4, bx.y + 12); ctx.restore();
+      const R = Math.max(1, h.reduce((s, v) => s + Math.abs(v), 0)) * 1.15; const sz = Math.min(w - 50, hh - 48); const bx = { x: (w - sz) / 2 + 10, y: 14, w: sz, h: sz };
+      const ax = Lab.axes(ctx, bx, [-R, R], [-R, R], { nx: 4, ny: 4, xlabel: 'Re', ylabel: 'Im' });
       ctx.save(); ctx.strokeStyle = c.rule; ctx.beginPath(); ctx.moveTo(ax.X(-R), ax.Y(0)); ctx.lineTo(ax.X(R), ax.Y(0)); ctx.moveTo(ax.X(0), ax.Y(-R)); ctx.lineTo(ax.X(0), ax.Y(R)); ctx.stroke();
       ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.arc(ax.X(0), ax.Y(0), ax.X(1) - ax.X(0), 0, 2 * PI); ctx.stroke(); ctx.restore();
       let zr = 0, zi = 0; ctx.save(); ax.clip();
@@ -1182,13 +1189,13 @@
     /* time */
     { const { ctx, w } = Lab.canvas($('m3-d4t'), 300); const N = 15; const ts = range(0, 460).map(i => i * N / 460);
       const yr = [-Math.max(1, mag) * 1.2, Math.max(1, mag) * 1.2];
-      const ax = AX(ctx, 46, 20, w - 56, 240, [0, N], yr, { title: '', xlabel: 'n (samples)', int: true });
-      lineA(ctx, ax, ts, ts.map(t => Math.cos(w0 * t)), c.muted, 1.2);
-      stemA(ctx, ax, range(0, N), range(0, N).map(n => Math.cos(w0 * n)), c.muted, { r: 2.4, dx: -2 });
-      if (dec) { lineA(ctx, ax, ts, ts.map(t => H[0] * Math.cos(w0 * t)), c.sig2, 1.5, [6, 3]); lineA(ctx, ax, ts, ts.map(t => -H[1] * Math.sin(w0 * t)), c.fg, 1.3, [2, 3]); }
-      lineA(ctx, ax, ts, ts.map(t => mag * Math.cos(w0 * t + ph)), c.sig4, 1.6);
+      const ax = AX(ctx, 46, 20, w - 56, 240, [0, N], yr, { title: '', xlabel: 'n (samples)', ylabel: 'amplitude', int: true });
+      const LG = 'm3-d4-leg'; if (Lab.on(LG, 'inp')) lineA(ctx, ax, ts, ts.map(t => Math.cos(w0 * t)), c.muted, 1.2, [3, 3]);
+      if (Lab.on(LG, 'inp')) stemA(ctx, ax, range(0, N), range(0, N).map(n => Math.cos(w0 * n)), c.muted, { r: 2.4, dx: -2 });
+      if (dec) { if (Lab.on(LG, 're')) lineA(ctx, ax, ts, ts.map(t => H[0] * Math.cos(w0 * t)), c.sig2, 1.5, [6, 3]); if (Lab.on(LG, 'im')) lineA(ctx, ax, ts, ts.map(t => -H[1] * Math.sin(w0 * t)), c.fg, 1.3, [2, 3]); }
+      if (Lab.on(LG, 'out')) lineA(ctx, ax, ts, ts.map(t => mag * Math.cos(w0 * t + ph)), c.sig4, 1.6);
       const yv = range(0, N).map(n => { let s = 0; h.forEach((v, k) => { s += v * Math.cos(w0 * (n - k - n0)); }); return s; });
-      stemA(ctx, ax, range(0, N), yv, c.sig4, { r: 2.8, dx: 2 }); }
+      if (Lab.on(LG, 'out')) stemA(ctx, ax, range(0, N), yv, c.sig4, { r: 2.8, dx: 2 }); }
     const dw = 1e-4; const pa = Math.atan2(...dtft(h, w0 + dw, n0).slice().reverse()), pb = Math.atan2(...dtft(h, Math.max(0, w0 - dw), n0).slice().reverse());
     let dphi = pa - pb; while (dphi > PI) dphi -= 2 * PI; while (dphi < -PI) dphi += 2 * PI; const gd = -dphi / (w0 + dw - Math.max(0, w0 - dw));
     const nul = mag < 1e-9;
@@ -1197,7 +1204,7 @@
       (w0 > 1e-6 && !nul ? '<br>phase delay −∠H/ω = ' + mf(-ph / w0, 2) + ' samples' : '') + (!nul ? '<br>group delay −dφ/dω = <b>' + mf(gd, 2) + '</b> samples' : '') +
       '<br>y = ' + mf(H[0], 2) + '·cos ωn ' + (-H[1] < 0 ? '− ' : '+ ') + Math.abs(H[1]).toFixed(2) + '·sin ωn';
   }
-  $('m3-d4-h').addEventListener('change', d4); $('m3-d4-dec').addEventListener('change', d4); $('m3-d4-w').addEventListener('input', d4);
+  $('m3-d4-h').addEventListener('change', d4); $('m3-d4-dec').addEventListener('change', d4); $('m3-d4-w').addEventListener('input', d4); Lab.legendToggle('m3-d4-leg', d4);
 
   /* ================= Demo 03.5: difference-equation stepper ================= */
   const noisy40 = (() => { const r = Lab.rng(11); return range(0, 39).map(n => 1 + 0.35 * r.g()); })();
@@ -1207,17 +1214,17 @@
     $('m3-d5-a-o').textContent = mf(a, 2); $('m3-d5-n-o').textContent = n; $('m3-d5-a').disabled = sys !== 'pole';
     const N = 40, x = range(0, N - 1).map(xin), y = new Array(N).fill(0); const xa = i => i >= 0 ? x[i] : 0, ya = i => i >= 0 ? y[i] : 0;
     for (let i = 0; i < N; i++) y[i] = sys === 'pole' ? a * ya(i - 1) + (1 - a) * x[i] : sys === 'ma3' ? (x[i] + xa(i - 1) + xa(i - 2)) / 3 : x[i] - xa(i - 1);
-    const { ctx, w } = Lab.canvas($('m3-d5'), 350); const xr = [-0.7, N - 0.3];
-    const ax1 = AX(ctx, 46, 20, w - 58, 70, xr, ext(x.concat([0])), { title: 'x[n]', int: true });
+    const { ctx, w } = Lab.canvas($('m3-d5'), 386); const xr = [-0.7, N - 0.3];
+    const ax1 = AX(ctx, 46, 20, w - 58, 70, xr, ext(x.concat([0])), { title: 'x[n]', xlabel: 'n (samples)', int: true });
     stemA(ctx, ax1, range(0, N - 1), x, c.muted, { r: 2.2 }); stemA(ctx, ax1, [n], [x[n]], c.accent, { r: 4.5, open: true, noStem: true });
     const yc = y.map(v => Math.max(-1e6, Math.min(1e6, v)));
-    const ax2 = AX(ctx, 46, 126, w - 58, 86, xr, ext(yc.concat([0, 1])), { title: 'y[n], computed up to n', xlabel: 'n (samples)', int: true });
+    const ax2 = AX(ctx, 46, 138, w - 58, 86, xr, ext(yc.concat([0, 1])), { title: 'y[n], computed up to n', xlabel: 'n (samples)', int: true });
     stemA(ctx, ax2, range(n + 1, N - 1), yc.slice(n + 1), c.grid, { r: 2 });
     stemA(ctx, ax2, range(0, n), yc.slice(0, n + 1), c.accent, { r: 2.6 }); stemA(ctx, ax2, [n], [yc[n]], c.accent, { r: 5, noStem: true });
     const unstable = sys === 'pole' && Math.abs(a) >= 1;
     const ws = range(0, 200).map(i => PI * i / 200);
     const Hf = wv => sys === 'pole' ? (() => { const dr = 1 - a * Math.cos(wv), di = a * Math.sin(wv); return Math.abs(1 - a) / Math.hypot(dr, di); })() : sys === 'ma3' ? Math.abs(1 + 2 * Math.cos(wv)) / 3 : 2 * Math.abs(Math.sin(wv / 2));
-    const ax3 = AX(ctx, 46, 262, w - 58, 54, [0, PI], [0, sys === 'diff' ? 2.2 : 1.15], { title: '|H(e^jω)|', xticks: [0, PI / 4, PI / 2, 3 * PI / 4, PI], xfmt: pif, ny: 2 });
+    const ax3 = AX(ctx, 46, 286, w - 58, 54, [0, PI], [0, sys === 'diff' ? 2.2 : 1.15], { title: '|H(e^jω)|', xlabel: 'ω (rad/sample)', xticks: [0, PI / 4, PI / 2, 3 * PI / 4, PI], xfmt: pif, ny: 2 });
     if (unstable) { ctx.save(); ctx.fillStyle = c.bad; ctx.font = '12px ' + c.mono; ctx.fillText('|a| ≥ 1: h not absolutely summable, no frequency response', ax3.box.x + 8, ax3.box.y + 30); ctx.restore(); }
     else { lineA(ctx, ax3, ws, ws.map(Hf), c.sig2, 1.8); if ($('m3-d5-x').value === 'cos') vlineA(ctx, ax3, PI / 4, c.muted, [3, 3]); }
     const f4 = v => mf(v, 4);
@@ -1262,18 +1269,18 @@
     const H0 = Hz(w0), m0 = Math.hypot(H0[0], H0[1]);
     const b1 = -2 * zr * Math.cos(zt), b2 = zr * zr, a1 = -2 * pr * Math.cos(pt), a2 = pr * pr; const hn = []; let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
     for (let n = 0; n < 40; n++) { const xn = n === 0 ? 1 : 0; const yn = xn + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; hn.push(yn); x2 = x1; x1 = xn; y2 = y1; y1 = yn; }
-    { const { ctx, w } = Lab.canvas($('m3-d6r'), 320); const fin = db.filter(isFinite); let top = Math.min(80, Math.max(...fin) + 5), bot = Math.max(top - 70, Math.min(...fin) - 3);
+    { const { ctx, w } = Lab.canvas($('m3-d6r'), 332); const fin = db.filter(isFinite); let top = Math.min(80, Math.max(...fin) + 5), bot = Math.max(top - 70, Math.min(...fin) - 3);
       const xt = { xticks: [0, PI / 4, PI / 2, 3 * PI / 4, PI], xfmt: pif };
       const ax1 = AX(ctx, 46, 20, w - 56, 80, [0, PI], [bot, top], Object.assign({ title: '|H| (dB)', noXLabels: true }, xt));
       lineA(ctx, ax1, ws, db.map(v => Math.max(bot, Math.min(top, v))), c.accent, 1.8, pr >= 1 ? [5, 4] : null); vlineA(ctx, ax1, w0, c.muted, [3, 3]);
       if (pr >= 1) { ctx.save(); ctx.fillStyle = c.bad; ctx.font = '11px ' + c.mono; ctx.fillText('unstable: no DTFT; dashed = B/A on |z| = 1 only', ax1.box.x + 6, ax1.box.y + 14); ctx.restore(); }
-      const ax2 = AX(ctx, 46, 126, w - 56, 64, [0, PI], [-PI * 1.1, PI * 1.1], Object.assign({ title: '∠H (rad)', yticks: [-PI, 0, PI], yfmt: v => v === 0 ? '0' : v > 0 ? 'π' : '−π' }, xt));
+      const ax2 = AX(ctx, 46, 126, w - 56, 64, [0, PI], [-PI * 1.1, PI * 1.1], Object.assign({ title: '∠H (rad)', xlabel: 'ω (rad/sample)', yticks: [-PI, 0, PI], yfmt: v => v === 0 ? '0' : v > 0 ? 'π' : '−π' }, xt));
       ctx.save(); ax2.clip(); ctx.fillStyle = c.sig3; ws.forEach((wv, j) => { if (mag[j] > 1e-6 && isFinite(mag[j])) ctx.fillRect(ax2.X(wv) - 0.9, ax2.Y(Math.atan2(HH[j][1], HH[j][0])) - 0.9, 1.8, 1.8); }); ax2.unclip(); ctx.restore(); vlineA(ctx, ax2, w0, c.muted, [3, 3]);
       const hc = hn.map(v => Math.max(-1e4, Math.min(1e4, v)));
-      const ax3 = AX(ctx, 46, 226, w - 56, 62, [-0.7, 39.3], symext(hc), { title: 'h[n]', xlabel: 'n (samples)', int: true }); stemA(ctx, ax3, range(0, 39), hc, c.accent, { r: 2 }); }
+      const ax3 = AX(ctx, 46, 238, w - 56, 62, [-0.7, 39.3], symext(hc), { title: 'h[n]', xlabel: 'n (samples)', int: true }); stemA(ctx, ax3, range(0, 39), hc, c.accent, { r: 2 }); }
     let sabs = 0; { let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let n = 0; n < 2000; n++) { const xn = n === 0 ? 1 : 0; const yn = xn + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; sabs += Math.abs(yn); x2 = x1; x1 = xn; y2 = y1; y1 = yn; if (!isFinite(sabs)) break; } }
     const stable = pr < 1;
-    $('m3-d6-read').innerHTML = 'zero distances: ' + DZ.map(v => v.toFixed(3)).join(', ') + '<br>pole distances: ' + DP.map(v => v.toFixed(3)).join(', ') +
+    $('m3-d6-read').innerHTML = 'distances from e<sup>jω</sup> to the zeros: ' + DZ.map(v => v.toFixed(3)).join(', ') + '<br>to the poles: ' + DP.map(v => v.toFixed(3)).join(', ') +
       '<br>|H| = (' + DZ.map(v => v.toFixed(3)).join('·') + ')/(' + DP.map(v => v.toFixed(3)).join('·') + ')<br>= <b>' + (isFinite(m0) ? m0.toFixed(3) + '</b> (' + (m0 > 1e-9 ? mf(20 * Math.log10(m0), 1) : '−∞') + ' dB)' : '∞</b> (on a pole)') +
       (isFinite(m0) && m0 > 1e-9 ? ' · ∠H = <b>' + mf(Math.atan2(H0[1], H0[0]) * 180 / PI, 1) + '°</b>' : '') +
       '<br>' + (stable ? 'stable: poles at radius ' + pr.toFixed(2) + ' &lt; 1 · Σ|h| = ' + sabs.toFixed(2) : '<b>unstable</b>: pole radius ' + pr.toFixed(2) + ' ≥ 1, h[n] does not decay; the causal h has no frequency response, the curve is only B/A evaluated on the circle');
@@ -1310,7 +1317,7 @@
       if (copies) { const q = conv(PUL, hb); REFL.forEach(([n, a]) => { extra.push(range(0, NR - 1).map(m => { const j = m - n + 40; return j >= 0 && j < q.length ? a * q[j] : 0; })); }); }
       const HB = spec(hb, -20); const HBM = fk.map(k => Math.hypot(HB[0][k], HB[1][k]));
       const YS = spec(out, 0); const YM = fk.map(k => Math.hypot(YS[0][k], YS[1][k]));
-      fPanels = [['pulse |P| (gray), filter |H_bp| (pink)', [[PMAG.slice(0, NF / 2 + 1).map(v => dbA(v, PMAX)), c.muted], [HBM.map(v => dbA(v, 1)), c.sig2]], [-60, 6]],
+      fPanels = [['pulse |P| (gray), filter |H_bp| (pink, dashed)', [[PMAG.slice(0, NF / 2 + 1).map(v => dbA(v, PMAX)), c.muted], [HBM.map(v => dbA(v, 1)), c.sig2]], [-60, 6]],
         ['noisy line |R|', [[RMAG.map(v => dbA(v, RMAX)), c.accent]], [-60, 6]], ['output |Y| = |H_bp||R|', [[YM.map(v => dbA(v, RMAX)), c.sig4]], [-60, 6]]];
       const sf = convC(SIG, hb, 20), nf = convC(noise, hb, 20); const E = a => a.reduce((s, v) => s + v * v, 0);
       const snrI = sig > 0 ? 10 * Math.log10(E(SIG) / E(noise)) : Infinity, snrO = sig > 0 ? 10 * Math.log10(E(sf) / E(nf)) : Infinity;
@@ -1325,8 +1332,8 @@
         const rmsG = Math.sqrt(G.reduce((s, v) => s + v * v, 0) / NF); d7cache[key] = { w: width6(re2), q0: re2[0], rmsG, maxG: Math.max(...G) }; }
       const K = d7cache[key];
       const SH = spec(out, 0); const SM = fk.map(k => Math.hypot(SH[0][k], SH[1][k])); const SMX = Math.max(...SM);
-      fPanels = [['|P| (gray), Wiener gain |G| (pink, dB re 1/|P|max)', [[PMAG.slice(0, NF / 2 + 1).map(v => dbA(v, PMAX)), c.muted], [G.slice(0, NF / 2 + 1).map(v => dbA(v * PMAX, 1)), c.sig2]], [-60, Math.max(10, 20 * Math.log10(K.maxG * PMAX) + 6)]],
-        ['noisy line |R|', [[RMAG.map(v => dbA(v, RMAX)), c.accent]], [-60, 6]], ['estimate |Ŝ| (green), effective response |P·G| (pink)', [[SM.map(v => dbA(v, SMX)), c.sig4], [fk.map(k => dbA(PMAG[k] * G[k], 1)), c.sig2]], [-60, 6]]];
+      fPanels = [['|P| (gray), Wiener gain |G| (pink dashed, dB re 1/|P|max)', [[PMAG.slice(0, NF / 2 + 1).map(v => dbA(v, PMAX)), c.muted], [G.slice(0, NF / 2 + 1).map(v => dbA(v * PMAX, 1)), c.sig2]], [-60, Math.max(10, 20 * Math.log10(K.maxG * PMAX) + 6)]],
+        ['noisy line |R|', [[RMAG.map(v => dbA(v, RMAX)), c.accent]], [-60, 6]], ['estimate |Ŝ| (green), effective response |P·G| (pink, dashed)', [[SM.map(v => dbA(v, SMX)), c.sig4], [fk.map(k => dbA(PMAG[k] * G[k], 1)), c.sig2]], [-60, 6]]];
       const chg = 20 * Math.log10(K.q0 / K.rmsG); rhoScale = K.q0;
       read = 'ε = 10<sup>' + mf(le, 1) + '</sup>·|P|²<sub>max</sub><br>max gain 1/(2√ε) = <b>' + mf(20 * Math.log10(K.maxG * PMAX), 1) + ' dB</b> re 1/|P|max' +
         '<br>effective pulse −6 dB width: <b>' + (K.w / FS).toFixed(3) + ' µs</b> (' + (K.w / FS * 1.54 / 2).toFixed(3) + ' mm)<br>original pulse: 0.294 µs (0.227 mm)' +
@@ -1340,7 +1347,7 @@
       else { lineA(ctx, ax3, tus, out, c.sig4, 1.4); stemA(ctx, ax3, REFL.map(v => v[0] / FS), REFL.map(v => v[1] * rhoScale), c.muted, { open: true, noStem: false, r: 3, lw: 1 }); } }
     { const { ctx, w } = Lab.canvas($('m3-d7f'), 330); const tops = [22, 116, 222], hs = [62, 74, 74];
       fPanels.forEach(([t, series, yr], i) => { const ax = AX(ctx, 46, tops[i], w - 56, hs[i], [0, 20], yr, { title: t, noXLabels: i < 2, xlabel: i === 2 ? 'f (MHz)' : '', ny: 2 });
-        series.forEach(([vals, col]) => lineA(ctx, ax, fM, vals.slice(0, fM.length), col, 1.4)); [band[0], band[1]].forEach(f => { if (mode === 'bp') vlineA(ctx, ax, f, c.grid, [2, 3]); }); }); }
+        series.forEach(([vals, col], j) => lineA(ctx, ax, fM, vals.slice(0, fM.length), col, 1.4, j ? [6, 4] : null)); [band[0], band[1]].forEach(f => { if (mode === 'bp') vlineA(ctx, ax, f, c.grid, [2, 3]); }); }); }
     $('m3-d7-read').innerHTML = read;
   }
   ['m3-d7-mode', 'm3-d7-band', 'm3-d7-copies'].forEach(id => $(id).addEventListener('change', d7));
@@ -1374,63 +1381,63 @@
   const magDT = (h, w, n0) => { let re = 0, im = 0; h.forEach((v, k) => { const a = -w * (k + (n0 || 0)); re += v * Math.cos(a); im += v * Math.sin(a); }); return [re, im]; };
 
   const F = {
-    tgc(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-0.5, 14.5], [0, 2.7], { lab: 'TGC g[n] = 1 + n/8: is the response to a shifted input shifted?', ticks: [[2, '2'], [10, '10']] });
+    tgc(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-0.5, 14.5], [0, 2.7], { yl: 'y[n] with TGC g[n] = 1 + n/8', xl: 'n', ticks: [[2, '2'], [10, '10']] });
       ds(x, m, [[2, 1.25]], c.mu); ds(x, m, [[10, 2.25]], c.a); ds(x, m, [[10, 1.25]], c.b, { open: true, noStem: true, r: 4.5 });
       M.text(x, '1.25 at n = 2', m.X(2) + 8, m.Y(1.25), c.mu); M.text(x, 'T{δ[n−10]} = 2.25', m.X(10) - 6, m.Y(2.25) - 2, c.a, 'right'); M.text(x, 'shifted output 1.25', m.X(10) + 8, m.Y(1.25), c.b); },
     impulse(cv) { const c = M.col(); const { x, w, h } = one(cv); const bw = (w - 40) / 2;
-      const m1 = M.panel(x, { x: 4, y: 16, w: bw, h: h - 36 }, [-2.5, 9.5], [-0.6, 1.2], { lab: 'input δ[n]', ticks: [[0, '0']] }); ds(x, m1, [[0, 1]], c.a);
-      const m2 = M.panel(x, { x: bw + 36, y: 16, w: bw, h: h - 36 }, [-2.5, 9.5], [-0.6, 1.2], { lab: 'output h[n] = T{δ}', ticks: [[0, '0'], [8, '8']] }); ds(x, m2, RF9.map((v, n) => [n, v]), c.b);
+      const m1 = M.panel(x, { x: 4, y: 16, w: bw, h: h - 36 }, [-2.5, 9.5], [-0.6, 1.2], { yl: 'input δ[n]', xl: 'n', ticks: [[0, '0']] }); ds(x, m1, [[0, 1]], c.a);
+      const m2 = M.panel(x, { x: bw + 36, y: 16, w: bw, h: h - 36 }, [-2.5, 9.5], [-0.6, 1.2], { yl: 'output h[n] = T{δ}', xl: 'n', ticks: [[0, '0'], [8, '8']] }); ds(x, m2, RF9.map((v, n) => [n, v]), c.b);
       M.text(x, '→', bw + 20, 16 + (h - 36) / 2, c.mu, 'center'); },
-    copies(cv) { const c = M.col(); const { x, w, h } = one(cv, 150); const m = M.panel(x, box(w, 150), [-0.6, 4.6], [-4, 8], { lab: 'copies 1·h, 2·h[n−1], 3·h[n−2] and their sum (open)', ticks: range(0, 4).map(n => [n, String(n)]) });
+    copies(cv) { const c = M.col(); const { x, w, h } = one(cv, 150); const m = M.panel(x, box(w, 150), [-0.6, 4.6], [-4, 8], { yl: 'scaled, shifted copies of h and sum', xl: 'n', ticks: range(0, 4).map(n => [n, String(n)]) });
       const pal = [c.c, c.b, c.d]; HAND_X.forEach((xv, k) => ds(x, m, HAND_H.map((hv, j) => [k + j, xv * hv]), pal[k], { dx: (k - 1) * 6, r: 2.6 })); ds(x, m, HAND_Y.map((v, n) => [n, v]), c.fg, { open: true, noStem: true, r: 4.5 }); },
     trap(cv) { const c = M.col(); const { x, w, h } = one(cv); const bw = w * 0.36;
-      const m1 = M.panel(x, { x: 4, y: 16, w: bw, h: h - 36 }, [-0.7, 6.7], [0, 1.3], { lab: 'rect 6, rect 4', ticks: [[0, '0'], [5, '5']] });
+      const m1 = M.panel(x, { x: 4, y: 16, w: bw, h: h - 36 }, [-0.7, 6.7], [0, 1.3], { yl: 'rect 6, rect 4', xl: 'n', ticks: [[0, '0'], [5, '5']] });
       ds(x, m1, range(0, 5).map(n => [n, 1]), c.a, { dx: -2, r: 2.2 }); ds(x, m1, range(0, 3).map(n => [n, 1]), c.b, { dx: 2, r: 2.2 });
-      const m2 = M.panel(x, { x: bw + 24, y: 16, w: w - bw - 28, h: h - 36 }, [-0.7, 8.7], [0, 4.8], { lab: 'rect 6 ∗ rect 4 (9 samples)', ticks: [[0, '0'], [3, '3'], [5, '5'], [8, '8']], hlines: [[4, 'flat top: 3 samples']] });
+      const m2 = M.panel(x, { x: bw + 24, y: 16, w: w - bw - 28, h: h - 36 }, [-0.7, 8.7], [0, 4.8], { yl: 'rect 6 ∗ rect 4 (9 samples)', xl: 'n', ticks: [[0, '0'], [3, '3'], [5, '5'], [8, '8']], hlines: [[4, 'flat top: 3 samples']] });
       ds(x, m2, conv([1, 1, 1, 1, 1, 1], [1, 1, 1, 1]).map((v, n) => [n, v]), c.d); },
     dcspec(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, PI], [0, 13.5], { lab: '|X| (blue) · |H| (pink) · |Y| (green) vs ω', ticks: piT([0, 0.5, 1]) });
-      const mg = s => wv => Math.hypot(...magDT(s, wv)); M.curve(x, m, mg(HAND_X), c.a); M.curve(x, m, mg(HAND_H), c.b); M.curve(x, m, mg(HAND_Y), c.d);
+      const mg = s => wv => Math.hypot(...magDT(s, wv)); M.curve(x, m, mg(HAND_X), c.a, { dash: [6, 4] }); M.curve(x, m, mg(HAND_H), c.b, { dash: [2, 3], w: 1.9 }); M.curve(x, m, mg(HAND_Y), c.d);
       ds(x, m, [[0, 6]], c.a, { noStem: true, r: 4 }); ds(x, m, [[0, 2]], c.b, { noStem: true, r: 4 }); ds(x, m, [[0, 12]], c.d, { noStem: true, r: 4 });
       M.text(x, '12 = 6 × 2 at ω = 0', m.X(0.42 * PI), m.Y(12.6), c.d); M.text(x, '6', m.X(0) + 9, m.Y(6), c.a); M.text(x, '2', m.X(0) + 9, m.Y(2), c.b); },
-    squarer(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-0.05 * PI, PI], [0, 1.25], { lab: 'cosine amplitudes vs ω: input, LTI output, squarer output', ticks: [[0, '0'], [0.3 * PI, 'ω₀'], [0.6 * PI, '2ω₀'], [PI, 'π']], yaxis: false });
+    squarer(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-0.05 * PI, PI], [0, 1.25], { yl: 'cosine amplitude: input, LTI output, squarer output', xl: 'ω (rad/sample)', ticks: [[0, '0'], [0.3 * PI, 'ω₀'], [0.6 * PI, '2ω₀'], [PI, 'π']], yaxis: false });
       M.stems(x, m, [[0.3 * PI - 0.04, 1]], c.mu); M.stems(x, m, [[0.3 * PI + 0.04, Math.cos(0.15 * PI)]], c.a); M.stems(x, m, [[0.02, 0.5], [0.6 * PI, 0.5]], c.b);
       M.text(x, '[½, ½]: same ω₀, ×0.89', m.X(0.3 * PI) + 10, m.Y(0.95), c.a); M.text(x, 'x²: 0 and 2ω₀', m.X(0.6 * PI) + 8, m.Y(0.6), c.b); },
-    decomp(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, 8], [-1.05, 1.05], { lab: 'h = [½, ½], ω = π/2: y = 0.5 cos ωn + 0.5 sin ωn', ticks: [[2, '2'], [4, '4'], [6, '6']] });
-      M.curve(x, m, t => 0.5 * Math.cos(PI * t / 2), c.a, { dash: [5, 3], w: 1.4 }); M.curve(x, m, t => 0.5 * Math.sin(PI * t / 2), c.b, { dash: [5, 3], w: 1.4 });
+    decomp(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, 8], [-1.05, 1.05], { yl: 'h = [½, ½], ω = π/2: y = 0.5 cos ωn + 0.5 sin ωn', xl: 'n', ticks: [[2, '2'], [4, '4'], [6, '6']] });
+      M.curve(x, m, t => 0.5 * Math.cos(PI * t / 2), c.a, { dash: [6, 4], w: 1.4 }); M.curve(x, m, t => 0.5 * Math.sin(PI * t / 2), c.b, { dash: [2, 3], w: 1.7 });
       M.curve(x, m, t => Math.SQRT1_2 * Math.cos(PI * t / 2 - PI / 4), c.d); ds(x, m, range(0, 8).map(n => [n, Math.SQRT1_2 * Math.cos(PI * n / 2 - PI / 4)]), c.d, { noStem: true, r: 3 }); },
-    evenodd(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-PI, PI], [-1.15, 1.15], { lab: 'centered smoother: Re H (blue) · centered difference: Im H (pink)', ticks: piT([-1, -0.5, 0.5, 1]) });
-      M.curve(x, m, wv => 0.5 + 0.5 * Math.cos(wv), c.a); M.curve(x, m, wv => Math.sin(wv), c.b); },
+    evenodd(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-PI, PI], [-1.15, 1.15], { yl: 'Re H (smoother), Im H (difference)', xl: 'ω (rad/sample)', ticks: piT([-1, -0.5, 0.5, 1]) });
+      M.curve(x, m, wv => 0.5 + 0.5 * Math.cos(wv), c.a); M.curve(x, m, wv => Math.sin(wv), c.b, { dash: [6, 4] }); },
     bpdelay(cv) { const c = M.col(); const { x, w, h } = one(cv); const inp = new Array(140).fill(0); PUL.forEach((v, i) => { inp[i + 10] = v; }); const out = conv(inp, BP37);
-      const m = M.panel(x, box(w, h), [0, 2.5], [-1.15, 1.15], { lab: '5 MHz pulse in (gray), out of 41-tap 3–7 MHz FIR (green)', ticks: [[0.75, '0.75 µs'], [1.25, '1.25 µs']] });
-      M.curve(x, m, sampled(inp, 0, 1 / FS), c.mu, { w: 1.3 }); M.curve(x, m, sampled(out, 0, 1 / FS), c.d, { w: 1.5 }); M.text(x, '+20 samples = 0.5 µs', m.X(1.3), m.Y(0.95), c.d); },
+      const m = M.panel(x, box(w, h), [0, 2.5], [-1.15, 1.15], { yl: 'pulse in / out of 3–7 MHz FIR', xl: 't (µs)', ticks: [[0.75, '0.75 µs'], [1.25, '1.25 µs']] });
+      M.curve(x, m, sampled(inp, 0, 1 / FS), c.mu, { w: 1.3, dash: [6, 4] }); M.curve(x, m, sampled(out, 0, 1 / FS), c.d, { w: 1.5 }); M.text(x, '+20 samples = 0.5 µs', m.X(1.3), m.Y(0.95), c.d); },
     rectspec(cv) { const c = M.col(); const { x, w, h } = one(cv); const D = (L, wv) => Math.abs(wv) < 1e-9 ? 1 : Math.abs(Math.sin(L * wv / 2) / (L * Math.sin(wv / 2)));
-      const m = M.panel(x, box(w, h), [0, PI], [0, 1.1], { lab: '|X|/6 (blue) · |H|/4 (pink) · |Y|/24 (green)', ticks: piT([1 / 3, 0.5, 2 / 3, 1]) });
-      M.curve(x, m, wv => D(6, wv), c.a, { w: 1.3 }); M.curve(x, m, wv => D(4, wv), c.b, { w: 1.3 }); M.curve(x, m, wv => D(6, wv) * D(4, wv), c.d, { w: 2 }); },
-    wrap(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-0.6, 4.6], [-4, 8], { lab: 'linear (open) vs 4-point circular (pink)', ticks: range(0, 4).map(n => [n, String(n)]) });
+      const m = M.panel(x, box(w, h), [0, PI], [0, 1.1], { yl: '|X|/6 (blue) · |H|/4 (pink) · |Y|/24 (green)', xl: 'ω (rad/sample)', ticks: piT([1 / 3, 0.5, 2 / 3, 1]) });
+      M.curve(x, m, wv => D(6, wv), c.a, { w: 1.3, dash: [6, 4] }); M.curve(x, m, wv => D(4, wv), c.b, { w: 1.6, dash: [2, 3] }); M.curve(x, m, wv => D(6, wv) * D(4, wv), c.d, { w: 2 }); },
+    wrap(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-0.6, 4.6], [-4, 8], { yl: 'linear and 4-point circular conv.', xl: 'n', ticks: range(0, 4).map(n => [n, String(n)]) });
       ds(x, m, HAND_Y.map((v, n) => [n, v]), c.fg, { open: true, noStem: true, r: 4.5 }); ds(x, m, [-1, 5, 7, 1].map((v, n) => [n, v]), c.b, { r: 3 });
       M.text(x, '−3 wraps onto n = 0: 2 − 3 = −1', m.X(0.2), m.Y(-2.8), c.b); },
     ma(cv) { const c = M.col(); const { x, w, h } = one(cv); const D = (L, wv) => Math.abs(wv) < 1e-9 ? 1 : Math.abs(Math.sin(L * wv / 2) / (L * Math.sin(wv / 2)));
-      const m = M.panel(x, box(w, h), [0, PI], [0, 1.1], { lab: '|H| of L-point average: L = 3 (blue), L = 5 (pink)', ticks: piT([0.4, 2 / 3, 0.8, 1]) }); M.curve(x, m, wv => D(3, wv), c.a); M.curve(x, m, wv => D(5, wv), c.b); },
-    diff(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, PI], [0, 3.3], { lab: '|H| = 2 sin(ω/2) (blue) vs ideal |jω| = ω (dashed)', ticks: piT([0.5, 1]) });
+      const m = M.panel(x, box(w, h), [0, PI], [0, 1.1], { yl: '|H| of L-point average: L = 3 (blue), L = 5 (pink)', xl: 'ω (rad/sample)', ticks: piT([0.4, 2 / 3, 0.8, 1]) }); M.curve(x, m, wv => D(3, wv), c.a); M.curve(x, m, wv => D(5, wv), c.b, { dash: [6, 4] }); },
+    diff(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, PI], [0, 3.3], { yl: '|H| = 2 sin(ω/2) (blue), ideal |jω| = ω (dashed)', xl: 'ω (rad/sample)', ticks: piT([0.5, 1]) });
       M.curve(x, m, wv => wv, c.mu, { dash: [4, 3], w: 1.2 }); M.curve(x, m, wv => 2 * Math.sin(wv / 2), c.a); },
     onepole(cv) { const c = M.col(); const { x, w, h } = one(cv); const Hm = a => wv => (1 - a) / Math.hypot(1 - a * Math.cos(wv), a * Math.sin(wv));
-      const m = M.panel(x, box(w, h), [0, 1], [0, 1.1], { lab: '|H| vs ω (0–1 rad/sample): a = 0.8 (blue), 0.9 (pink)', ticks: [[0.105, '.105'], [0.224, '.224'], [0.5, '0.5'], [1, '1']], hlines: [[Math.SQRT1_2, '−3 dB']] });
-      M.curve(x, m, Hm(0.8), c.a); M.curve(x, m, Hm(0.9), c.b); },
-    stab(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-0.5, 40.5], [0, 7.5], { lab: 'pⁿ: p = 0.9 decays (blue), p = 1.05 grows (pink)', ticks: [[0, '0'], [14.2, '14.2'], [28.4, '28.4'], [40, '40']], hlines: [[2, '×2'], [4, '×4']] });
-      ds(x, m, range(0, 40).map(n => [n, Math.pow(0.9, n)]), c.a, { r: 1.8, lw: 1.1 }); ds(x, m, range(0, 40).map(n => [n, Math.pow(1.05, n)]), c.b, { r: 1.8, lw: 1.1 }); },
+      const m = M.panel(x, box(w, h), [0, 1], [0, 1.1], { yl: '|H|: a = 0.8 (blue), 0.9 (pink)', xl: 'ω (rad/sample)', ticks: [[0.105, '.105'], [0.224, '.224'], [0.5, '0.5'], [1, '1']], hlines: [[Math.SQRT1_2, '−3 dB']] });
+      M.curve(x, m, Hm(0.8), c.a); M.curve(x, m, Hm(0.9), c.b, { dash: [6, 4] }); },
+    stab(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-0.5, 40.5], [0, 7.5], { yl: 'pⁿ: p = 0.9 decays (blue), p = 1.05 grows (pink)', xl: 'n', ticks: [[0, '0'], [14.2, '14.2'], [28.4, '28.4'], [40, '40']], hlines: [[2, '×2'], [4, '×4']] });
+      ds(x, m, range(0, 40).map(n => [n, Math.pow(0.9, n)]), c.a, { r: 1.8, lw: 1.1 }); ds(x, m, range(0, 40).map(n => [n, Math.pow(1.05, n)]), c.b, { r: 2, lw: 1.1, open: true }); },
     reson(cv) { const c = M.col(); const { x, w, h } = one(cv); const p = [0.9 * Math.cos(PI / 4), 0.9 * Math.sin(PI / 4)];
       const Hm = wv => 1 / (Math.hypot(Math.cos(wv) - p[0], Math.sin(wv) - p[1]) * Math.hypot(Math.cos(wv) - p[0], Math.sin(wv) + p[1])); const H0 = Hm(0);
-      const m = M.panel(x, box(w, h), [0, PI], [-18, 16], { lab: '|H| (dB re DC), poles at 0.9e^±jπ/4', base: -18, ticks: piT([0.25, 0.5, 1]), hlines: [[12.04, '+12.0 dB'], [0, '0 dB']] }); M.curve(x, m, wv => 20 * Math.log10(Hm(wv) / H0), c.a); },
+      const m = M.panel(x, box(w, h), [0, PI], [-18, 16], { yl: '|H| (dB re DC), poles at 0.9e^±jπ/4', xl: 'ω (rad/sample)', base: -18, ticks: piT([0.25, 0.5, 1]), hlines: [[12.04, '+12.0 dB'], [0, '0 dB']] }); M.curve(x, m, wv => 20 * Math.log10(Hm(wv) / H0), c.a); },
     wiener(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, 20], [-40, 65], { lab: 'gain (dB re 1/|P|max) vs f (MHz)', base: -40, ticks: [[5, '5'], [10, '10'], [15, '15']], hlines: [[14, 'ε=10⁻²: +14'], [34, 'ε=10⁻⁴: +34']] });
-      M.curve(x, m, f => Math.min(60, -20 * Math.log10(uP(f) + 1e-30)), c.mu, { w: 1.3 }); M.curve(x, m, f => db(uP(f) / (uP(f) ** 2 + 1e-2), -40), c.a); M.curve(x, m, f => db(uP(f) / (uP(f) ** 2 + 1e-4), -40), c.b); },
+      M.curve(x, m, f => Math.min(60, -20 * Math.log10(uP(f) + 1e-30)), c.mu, { w: 1.3 }); M.curve(x, m, f => db(uP(f) / (uP(f) ** 2 + 1e-2), -40), c.a, { dash: [6, 4] }); M.curve(x, m, f => db(uP(f) / (uP(f) ** 2 + 1e-4), -40), c.b, { dash: [2, 3], w: 1.9 }); },
     length(cv) { const c = M.col(); const { x, w, h } = one(cv); const g = 14, bw = (w - 2 * g - 8) / 3.6;
-      const m1 = M.panel(x, { x: 4, y: 16, w: bw, h: h - 36 }, [-0.6, 2.6], [-4, 8], { lab: 'x: L = 3' }); ds(x, m1, HAND_X.map((v, n) => [n, v]), c.a);
-      const m2 = M.panel(x, { x: 4 + bw + g, y: 16, w: bw, h: h - 36 }, [-0.6, 2.6], [-4, 8], { lab: 'h: M = 3' }); ds(x, m2, HAND_H.map((v, n) => [n, v]), c.b);
-      const m3 = M.panel(x, { x: 4 + 2 * (bw + g), y: 16, w: w - 8 - 2 * (bw + g), h: h - 36 }, [-0.6, 4.6], [-4, 8], { lab: 'y: L + M − 1 = 5' }); ds(x, m3, HAND_Y.map((v, n) => [n, v]), c.d); },
-    keepfreq(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, 8], [-1.15, 1.15], { lab: 'cos(πn/2) in (gray), 0.707 cos(πn/2 − 45°) out (green)', ticks: [[2, '2'], [4, '4'], [6, '6']] });
-      M.curve(x, m, t => Math.cos(PI * t / 2), c.mu, { w: 1.3 }); M.curve(x, m, t => Math.SQRT1_2 * Math.cos(PI * t / 2 - PI / 4), c.d);
+      const m1 = M.panel(x, { x: 4, y: 16, w: bw, h: h - 36 }, [-0.6, 2.6], [-4, 8], { yl: 'x[n], L = 3', xl: 'n' }); ds(x, m1, HAND_X.map((v, n) => [n, v]), c.a);
+      const m2 = M.panel(x, { x: 4 + bw + g, y: 16, w: bw, h: h - 36 }, [-0.6, 2.6], [-4, 8], { yl: 'h[n], M = 3', xl: 'n' }); ds(x, m2, HAND_H.map((v, n) => [n, v]), c.b);
+      const m3 = M.panel(x, { x: 4 + 2 * (bw + g), y: 16, w: w - 8 - 2 * (bw + g), h: h - 36 }, [-0.6, 4.6], [-4, 8], { yl: 'y[n], L + M − 1 = 5', xl: 'n' }); ds(x, m3, HAND_Y.map((v, n) => [n, v]), c.d); },
+    keepfreq(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, 8], [-1.15, 1.15], { yl: 'cos(πn/2) in (gray), 0.707 cos(πn/2 − 45°) out (green)', xl: 'n', ticks: [[2, '2'], [4, '4'], [6, '6']] });
+      M.curve(x, m, t => Math.cos(PI * t / 2), c.mu, { w: 1.3, dash: [6, 4] }); M.curve(x, m, t => Math.SQRT1_2 * Math.cos(PI * t / 2 - PI / 4), c.d);
       ds(x, m, range(0, 8).map(n => [n, Math.cos(PI * n / 2)]), c.mu, { noStem: true, r: 2.4 }); ds(x, m, range(0, 8).map(n => [n, Math.SQRT1_2 * Math.cos(PI * n / 2 - PI / 4)]), c.d, { noStem: true, r: 2.8 }); },
-    timeconst(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-0.5, 20.5], [0, 0.23], { lab: 'h[n] = 0.2·0.8ⁿ, time constant −1/ln 0.8 = 4.48', ticks: [[0, '0'], [4.48, '4.48'], [10, '10'], [20, '20']], hlines: [[0.2 / Math.E, '0.2/e']] });
+    timeconst(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [-0.5, 20.5], [0, 0.23], { yl: 'h[n] = 0.2·0.8ⁿ, time constant −1/ln 0.8 = 4.48', xl: 'n', ticks: [[0, '0'], [4.48, '4.48'], [10, '10'], [20, '20']], hlines: [[0.2 / Math.E, '0.2/e']] });
       ds(x, m, range(0, 20).map(n => [n, 0.2 * Math.pow(0.8, n)]), c.a, { r: 2.3 }); M.curve(x, m, t => t >= 0 ? 0.2 * Math.exp(-t / 4.4814) : 0, c.mu, { dash: [3, 3], w: 1 }); },
     zplane(cv) { const c = M.col(); const { x, w, h } = one(cv, 150); const sz = h - 12, R = 1.3, cx = w / 2, cy = h / 2, s = sz / (2 * R); const X = v => cx + v * s, Y = v => cy - v * s;
       x.save(); x.strokeStyle = c.grid; x.beginPath(); x.moveTo(X(-R), Y(0)); x.lineTo(X(R), Y(0)); x.moveTo(X(0), Y(-R)); x.lineTo(X(0), Y(R)); x.stroke(); x.strokeStyle = c.mu; x.beginPath(); x.arc(cx, cy, s, 0, 2 * PI); x.stroke();
@@ -1443,36 +1450,36 @@
   /* ---------- extra single cards for section grids ---------- */
   const G = {
     comm(cv) { const c = M.col(); const { x, w, h } = one(cv); const a = conv(HAND_X, HAND_H), b = conv(HAND_H, HAND_X);
-      const m = M.panel(x, box(w, h), [-0.6, 4.6], [-4, 8], { lab: 'x ∗ h (blue stems) and h ∗ x (pink circles)', ticks: range(0, 4).map(n => [n, String(n)]) }); ds(x, m, a.map((v, n) => [n, v]), c.a); ds(x, m, b.map((v, n) => [n, v]), c.b, { open: true, noStem: true, r: 5 }); },
-    cascade(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, PI], [0, 1.1], { lab: '|H₁| = |cos(ω/2)| (blue), |H₁H₂| = cos²(ω/2) (pink)', ticks: piT([0.5, 1]) });
-      M.curve(x, m, wv => Math.abs(Math.cos(wv / 2)), c.a); M.curve(x, m, wv => Math.cos(wv / 2) ** 2, c.b); },
+      const m = M.panel(x, box(w, h), [-0.6, 4.6], [-4, 8], { yl: 'x ∗ h (blue stems) and h ∗ x (pink circles)', xl: 'n', ticks: range(0, 4).map(n => [n, String(n)]) }); ds(x, m, a.map((v, n) => [n, v]), c.a); ds(x, m, b.map((v, n) => [n, v]), c.b, { open: true, noStem: true, r: 5 }); },
+    cascade(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, PI], [0, 1.1], { yl: '|H₁| = |cos(ω/2)| (blue), |H₁H₂| = cos²(ω/2) (pink)', xl: 'ω (rad/sample)', ticks: piT([0.5, 1]) });
+      M.curve(x, m, wv => Math.abs(Math.cos(wv / 2)), c.a); M.curve(x, m, wv => Math.cos(wv / 2) ** 2, c.b, { dash: [6, 4] }); },
     parallel(cv) { const c = M.col(); const { x, w, h } = one(cv); const hh = new Array(7).fill(0); hh[0] = 1; hh[6] = 0.5; const y = conv(RF9, hh);
-      const m = M.panel(x, box(w, h), [-0.6, 15.6], [-0.8, 1.2], { lab: 'pulse ∗ (δ + 0.5δ[n−6]): echo plus delayed half-echo', ticks: [[0, '0'], [6, '6'], [14, '14']] });
+      const m = M.panel(x, box(w, h), [-0.6, 15.6], [-0.8, 1.2], { yl: 'pulse ∗ (δ + 0.5δ[n−6]): echo plus delayed half-echo', xl: 'n', ticks: [[0, '0'], [6, '6'], [14, '14']] });
       ds(x, m, RF9.map((v, n) => [n, v]), c.mu, { open: true, noStem: true, r: 3.5 }); ds(x, m, y.map((v, n) => [n, v]), c.d, { r: 2.4 }); },
     even(cv) { const c = M.col(); const { x, w, h } = one(cv); const bw = w * 0.3;
-      const m1 = M.panel(x, { x: 4, y: 16, w: bw, h: h - 36 }, [-1.7, 1.7], [-0.6, 0.65], { lab: 'h: ¼, ½, ¼', ticks: [[-1, '−1'], [1, '1']] }); ds(x, m1, [[-1, 0.25], [0, 0.5], [1, 0.25]], c.a);
-      const m2 = M.panel(x, { x: bw + 22, y: 16, w: w - bw - 26, h: h - 36 }, [-PI, PI], [-0.6, 1.15], { lab: 'Re H = ½ + ½cos ω, Im H = 0', ticks: piT([-1, 1]) }); M.curve(x, m2, wv => 0.5 + 0.5 * Math.cos(wv), c.a); M.curve(x, m2, () => 0, c.b, { dash: [4, 3] }); },
+      const m1 = M.panel(x, { x: 4, y: 16, w: bw, h: h - 36 }, [-1.7, 1.7], [-0.6, 0.65], { yl: 'h[n]: ¼, ½, ¼', xl: 'n', ticks: [[-1, '−1'], [1, '1']] }); ds(x, m1, [[-1, 0.25], [0, 0.5], [1, 0.25]], c.a);
+      const m2 = M.panel(x, { x: bw + 22, y: 16, w: w - bw - 26, h: h - 36 }, [-PI, PI], [-0.6, 1.15], { yl: 'Re H = ½ + ½cos ω, Im H = 0', xl: 'ω (rad/sample)', ticks: piT([-1, 1]) }); M.curve(x, m2, wv => 0.5 + 0.5 * Math.cos(wv), c.a); M.curve(x, m2, () => 0, c.b, { dash: [4, 3] }); },
     odd(cv) { const c = M.col(); const { x, w, h } = one(cv); const bw = w * 0.3;
-      const m1 = M.panel(x, { x: 4, y: 16, w: bw, h: h - 36 }, [-1.7, 1.7], [-0.6, 0.65], { lab: 'h: ½, 0, −½', ticks: [[-1, '−1'], [1, '1']] }); ds(x, m1, [[-1, 0.5], [0, 0], [1, -0.5]], c.b);
-      const m2 = M.panel(x, { x: bw + 22, y: 16, w: w - bw - 26, h: h - 36 }, [-PI, PI], [-1.15, 1.15], { lab: 'Re H = 0, Im H = sin ω', ticks: piT([-1, 1]) }); M.curve(x, m2, () => 0, c.a, { dash: [4, 3] }); M.curve(x, m2, wv => Math.sin(wv), c.b); },
-    delay(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, PI], [-1.15, 1.15], { lab: 'δ[n − 3]: Re H = cos 3ω (blue), Im H = −sin 3ω (pink)', ticks: piT([1 / 3, 2 / 3, 1]) });
-      M.curve(x, m, wv => Math.cos(3 * wv), c.a); M.curve(x, m, wv => -Math.sin(3 * wv), c.b); },
+      const m1 = M.panel(x, { x: 4, y: 16, w: bw, h: h - 36 }, [-1.7, 1.7], [-0.6, 0.65], { yl: 'h[n]: ½, 0, −½', xl: 'n', ticks: [[-1, '−1'], [1, '1']] }); ds(x, m1, [[-1, 0.5], [0, 0], [1, -0.5]], c.b);
+      const m2 = M.panel(x, { x: bw + 22, y: 16, w: w - bw - 26, h: h - 36 }, [-PI, PI], [-1.15, 1.15], { yl: 'Re H = 0, Im H = sin ω', xl: 'ω (rad/sample)', ticks: piT([-1, 1]) }); M.curve(x, m2, () => 0, c.a, { dash: [4, 3] }); M.curve(x, m2, wv => Math.sin(wv), c.b); },
+    delay(cv) { const c = M.col(); const { x, w, h } = one(cv); const m = M.panel(x, box(w, h), [0, PI], [-1.15, 1.15], { yl: 'H of δ[n − 3]: Re = cos 3ω (blue), Im = −sin 3ω (pink)', xl: 'ω (rad/sample)', ticks: piT([1 / 3, 2 / 3, 1]) });
+      M.curve(x, m, wv => Math.cos(3 * wv), c.a); M.curve(x, m, wv => -Math.sin(3 * wv), c.b, { dash: [6, 4] }); },
     gd(cv) { const c = M.col(); const { x, w, h } = one(cv); const tg = a => wv => (a * Math.cos(wv) - a * a) / (1 - 2 * a * Math.cos(wv) + a * a);
-      const m = M.panel(x, box(w, h), [0, PI], [-1.2, 4.6], { lab: 'one-pole τ_g(ω) in samples: a = 0.8 (blue), a = 0.5 (pink)', ticks: piT([0.5, 1]), hlines: [[4, '4 = a/(1−a)'], [1, '1']] });
-      M.curve(x, m, tg(0.8), c.a); M.curve(x, m, tg(0.5), c.b); }
+      const m = M.panel(x, box(w, h), [0, PI], [-1.2, 4.6], { yl: 'τ_g (samples), one pole: a = 0.8 (blue), 0.5 (pink)', xl: 'ω (rad/sample)', ticks: piT([0.5, 1]), hlines: [[4, '4 = a/(1−a)'], [1, '1']] });
+      M.curve(x, m, tg(0.8), c.a); M.curve(x, m, tg(0.5), c.b, { dash: [6, 4] }); }
   };
   const P6 = (h, n0) => (x, m, c) => ds(x, m, h.map((v, k) => [k + (n0 || 0), v]), c.a, { r: 2.4 });
   const fticks = piT([0.5, 1]);
   const G6 = [
-    { prov: 'exact', q: '5-point moving average', a: 'Five equal taps ↔ <b>|sin(5ω/2)/(5 sin(ω/2))|</b>: low-pass, nulls at ω = 2πk/5, delay 2 samples.', tr: [-1.5, 7.5], ty: [-0.05, 0.25], fr: [0, PI], fy: [0, 1.1], tl: 'h[n]', fl: '|H(e^jω)|', fixed: true, ft: () => piT([0.4, 0.8]),
+    { prov: 'exact', q: '5-point moving average', a: 'Five equal taps ↔ <b>|sin(5ω/2)/(5 sin(ω/2))|</b>: low-pass, nulls at ω = 2πk/5, delay 2 samples.', tr: [-1.5, 7.5], ty: [-0.05, 0.25], fr: [0, PI], fy: [0, 1.1], tl: 'h[n] vs n', fl: '|H(e^jω)| vs ω', fixed: true, ft: () => piT([0.4, 0.8]),
       time: P6([0.2, 0.2, 0.2, 0.2, 0.2]), freq: (x, m, c) => M.curve(x, m, wv => Math.abs(wv) < 1e-9 ? 1 : Math.abs(Math.sin(2.5 * wv) / (5 * Math.sin(wv / 2))), c.b) },
-    { prov: 'exact', q: 'First difference', a: '[1, −1] ↔ <b>2|sin(ω/2)|</b>: zero at DC, maximum 2 at Nyquist. A high-pass and a discrete derivative.', tr: [-1.5, 4.5], ty: [-1.2, 1.2], fr: [0, PI], fy: [0, 2.2], tl: 'h[n]', fl: '|H(e^jω)|', fixed: true, ft: () => fticks,
+    { prov: 'exact', q: 'First difference', a: '[1, −1] ↔ <b>2|sin(ω/2)|</b>: zero at DC, maximum 2 at Nyquist. A high-pass and a discrete derivative.', tr: [-1.5, 4.5], ty: [-1.2, 1.2], fr: [0, PI], fy: [0, 2.2], tl: 'h[n] vs n', fl: '|H(e^jω)| vs ω', fixed: true, ft: () => fticks,
       time: P6([1, -1]), freq: (x, m, c) => M.curve(x, m, wv => 2 * Math.abs(Math.sin(wv / 2)), c.b) },
-    { prov: 'exact', q: 'One-pole smoother, a = 0.8', a: '0.2·0.8<sup>n</sup> ↔ <b>0.2/|1 − 0.8e<sup>−jω</sup>|</b>: DC gain 1, 0.11 (−19.1 dB) at Nyquist.', tr: [-1.5, 20.5], ty: [-0.02, 0.23], fr: [0, PI], fy: [0, 1.1], tl: 'h[n]', fl: '|H(e^jω)|', fixed: true, ft: () => fticks,
+    { prov: 'exact', q: 'One-pole smoother, a = 0.8', a: '0.2·0.8<sup>n</sup> ↔ <b>0.2/|1 − 0.8e<sup>−jω</sup>|</b>: DC gain 1, 0.11 (−19.1 dB) at Nyquist.', tr: [-1.5, 20.5], ty: [-0.02, 0.23], fr: [0, PI], fy: [0, 1.1], tl: 'h[n] vs n', fl: '|H(e^jω)| vs ω', fixed: true, ft: () => fticks,
       time: P6(range(0, 20).map(n => 0.2 * Math.pow(0.8, n))), freq: (x, m, c) => M.curve(x, m, wv => 0.2 / Math.hypot(1 - 0.8 * Math.cos(wv), 0.8 * Math.sin(wv)), c.b) },
-    { prov: 'model', q: '5 MHz RF pulse (60 % bandwidth)', a: 'Gaussian-windowed cosine (model pulse) ↔ <b>Gaussians at ±5 MHz</b>, σ<sub>f</sub> = 1/(2πσ<sub>t</sub>) = 1.27 MHz. A pulse is a band-pass filter.', tr: [-0.55, 0.55], ty: [-1.1, 1.1], fr: [0, 20], fy: [0, 1.1], tl: 'p(t), t in µs', fl: '|P(f)|, f in MHz', fixed: true, ft: () => [[5, '5'], [10, '10'], [20, '20']],
+    { prov: 'model', q: '5 MHz RF pulse (60 % bandwidth)', a: 'Gaussian-windowed cosine (model pulse) ↔ <b>Gaussians at ±5 MHz</b>, σ<sub>f</sub> = 1/(2πσ<sub>t</sub>) = 1.27 MHz. A pulse is a band-pass filter.', tr: [-0.55, 0.55], ty: [-1.1, 1.1], fr: [0, 20], fy: [0, 1.1], tl: 'p(t) vs t (µs)', fl: '|P(f)| vs f (MHz)', fixed: true, ft: () => [[5, '5'], [10, '10'], [20, '20']],
       time: (x, m, c) => M.curve(x, m, t => Math.exp(-t * t * FS * FS / (2 * ST * ST)) * Math.cos(2 * PI * 5 * t), c.a), freq: (x, m, c) => M.curve(x, m, f => uP(f), c.b, { fill: true }) },
-    { prov: 'exact', q: 'Delay by 3 samples', a: 'δ[n − 3] ↔ <b>|H| = 1, ∠H = −3ω</b>: an all-pass with linear phase. The slope of the phase is the delay.', tr: [-1.5, 5.5], ty: [-0.1, 1.2], fr: [0, PI], fy: [-3.3 * PI, 0.4], tl: 'h[n]', fl: '∠H (rad), unwrapped', fixed: true, ft: () => fticks,
+    { prov: 'exact', q: 'Delay by 3 samples', a: 'δ[n − 3] ↔ <b>|H| = 1, ∠H = −3ω</b>: an all-pass with linear phase. The slope of the phase is the delay.', tr: [-1.5, 5.5], ty: [-0.1, 1.2], fr: [0, PI], fy: [-3.3 * PI, 0.4], tl: 'h[n] vs n', fl: '∠H (rad), unwrapped vs ω', fixed: true, ft: () => fticks,
       time: P6([0, 0, 0, 1]), freq: (x, m, c) => { M.curve(x, m, wv => -3 * wv, c.b); M.text(x, 'slope −3', m.X(PI * 0.45), m.Y(-1.2 * PI), c.b); } }
   ];
   const G3 = [
@@ -1489,7 +1496,7 @@
     { prov: 'exact', q: 'Group delay of a one-pole filter', a: '<b>τ<sub>g</sub> = (a cos ω − a²)/(1 − 2a cos ω + a²)</b>: 4 samples at DC for a = 0.8, falling with ω: not linear phase.', draw: G.gd }
   ];
   const VIS = [
-    { prov: 'exact', q: 'Convolution in time is …?', a: '<b>Multiplication in frequency.</b> rect ∗ rect = triangle ↔ sinc · sinc = sinc².', tr: [-1.6, 1.6], ty: [-0.1, 1.25], fr: [-3.2, 3.2], fy: [-0.3, 1.15], tl: 'rect ∗ rect = tri', fl: 'sinc · sinc = sinc²', fixed: true, tt: () => [[1, '1']], ft: () => [[1, '1'], [2, '2']],
+    { prov: 'exact', q: 'Convolution in time is …?', a: '<b>Multiplication in frequency.</b> rect ∗ rect = triangle ↔ sinc · sinc = sinc².', tr: [-1.6, 1.6], ty: [-0.1, 1.25], fr: [-3.2, 3.2], fy: [-0.3, 1.15], tl: 'rect ∗ rect = tri vs t', fl: 'sinc · sinc = sinc² vs f', fixed: true, tt: () => [[1, '1']], ft: () => [[1, '1'], [2, '2']],
       time: (x, m, c) => { M.curve(x, m, t => M.rect(t), c.mu, { dash: [3, 3], w: 1 }); M.curve(x, m, t => M.tri(t), c.a, { fill: true }); }, freq: (x, m, c) => { M.curve(x, m, f => M.sinc(f), c.mu, { dash: [3, 3], w: 1 }); M.curve(x, m, f => M.sinc(f) ** 2, c.b, { fill: true }); } },
     { prov: 'exact', q: 'What single measurement describes an LTI system?', a: 'The <b>impulse response h = T{δ}</b>; then y = x ∗ h for every input. Transducers: pulse-echo response; images: PSF.', draw: F.impulse },
     { prov: 'exact', q: 'How long is x ∗ h?', a: '<b>L + M − 1</b> samples: 3 + 3 − 1 = 5. And Σy = Σx·Σh = 6·2 = 12.', draw: F.length },
@@ -1506,6 +1513,40 @@
     { prov: 'model', q: 'Why does inverse filtering blow up?', a: '<b>Noise gain 1/|P|</b>: +67 dB at 10 MHz for a Gaussian 5 MHz, 60 % pulse. Wiener caps it at <b>1/(2√ε)</b>.', draw: F.wiener },
     { prov: 'exact', q: 'Is TGC an LTI operation?', a: '<b>Linear, not time-invariant</b>: the same echo later in time gets more gain (2.25 vs 1.25).', draw: F.tgc }
   ];
+  const LEG = new Map([
+    [F.tgc, [['T{δ[n−2]} = 1.25', 'mu', 'stem'], ['T{δ[n−10]} = 2.25', 'a', 'stem'], ['shifted output 1.25 (open)', 'b', 'mark']]],
+    [F.copies, [['1·h[n]', 'c', 'stem'], ['2·h[n−1]', 'b', 'stem'], ['3·h[n−2]', 'd', 'stem'], ['sum y (open)', 'fg', 'mark']]],
+    [F.trap, [['rect 6', 'a', 'stem'], ['rect 4', 'b', 'stem'], ['rect 6 ∗ rect 4', 'd', 'stem'], ['flat top', 'mu', 'dash']]],
+    [F.dcspec, [['|X|', 'a', 'dash'], ['|H|', 'b', 'dot'], ['|Y| = |X||H|', 'd', 'solid']]],
+    [F.squarer, [['input cos ω₀n', 'mu', 'stem'], ['[½, ½] output', 'a', 'stem'], ['x² output', 'b', 'stem']]],
+    [F.decomp, [['Re H·cos ωn', 'a', 'dash'], ['−Im H·sin ωn', 'b', 'dot'], ['output y', 'd', 'solid']]],
+    [F.evenodd, [['Re H, centred smoother', 'a', 'solid'], ['Im H, centred difference', 'b', 'dash']]],
+    [F.bpdelay, [['input pulse', 'mu', 'dash'], ['41-tap FIR output', 'd', 'solid']]],
+    [F.rectspec, [['|X|/6', 'a', 'dash'], ['|H|/4', 'b', 'dot'], ['|Y|/24', 'd', 'solid']]],
+    [F.wrap, [['linear (open)', 'fg', 'mark'], ['4-point circular', 'b', 'stem']]],
+    [F.ma, [['L = 3', 'a', 'solid'], ['L = 5', 'b', 'dash']]],
+    [F.diff, [['2 sin(ω/2)', 'a', 'solid'], ['ideal |jω| = ω', 'mu', 'dash']]],
+    [F.onepole, [['a = 0.8', 'a', 'solid'], ['a = 0.9', 'b', 'dash'], ['−3 dB', 'mu', 'dash']]],
+    [F.stab, [['0.9ⁿ', 'a', 'stem'], ['1.05ⁿ (open)', 'b', 'mark'], ['×2, ×4', 'mu', 'dash']]],
+    [F.wiener, [['naive inverse 1/|P|', 'mu', 'solid'], ['Wiener, ε = 10⁻²', 'a', 'dash'], ['Wiener, ε = 10⁻⁴', 'b', 'dot']]],
+    [F.keepfreq, [['input cos(πn/2)', 'mu', 'dash'], ['output 0.707 cos(πn/2 − 45°)', 'd', 'solid']]],
+    [F.timeconst, [['h[n] = 0.2·0.8ⁿ', 'a', 'stem'], ['0.2 e^(−n/4.48)', 'mu', 'dash']]],
+    [G.comm, [['x ∗ h', 'a', 'stem'], ['h ∗ x (open)', 'b', 'mark']]],
+    [G.cascade, [['|H₁|', 'a', 'solid'], ['|H₁H₂|', 'b', 'dash']]],
+    [G.parallel, [['pulse alone (open)', 'mu', 'mark'], ['pulse ∗ (δ + 0.5δ[n−6])', 'd', 'stem']]],
+    [G.even, [['h', 'a', 'stem'], ['Re H', 'a', 'solid'], ['Im H = 0', 'b', 'dash']]],
+    [G.odd, [['h', 'b', 'stem'], ['Re H = 0', 'a', 'dash'], ['Im H', 'b', 'solid']]],
+    [G.delay, [['Re H = cos 3ω', 'a', 'solid'], ['Im H = −sin 3ω', 'b', 'dash']]],
+    [G.gd, [['a = 0.8', 'a', 'solid'], ['a = 0.5', 'b', 'dash'], ['DC values 4 = a/(1−a) and 1', 'mu', 'dash']]],
+    [F.impulse, [['input δ[n] (left)', 'a', 'stem'], ['output h[n] = T{δ} (right)', 'b', 'stem']]],
+    [F.length, [['x, L = 3', 'a', 'stem'], ['h, M = 3', 'b', 'stem'], ['y = x ∗ h, L + M − 1 = 5', 'd', 'stem']]],
+    [F.zplane, [['poles 0.9e^(±jπ/4) (×) and distances d₁, d₂', 'b', 'solid'], ['point e^(jπ/4)', 'a', 'mark'], ['unit circle', 'mu', 'solid']]],
+    [F.reson, [['|H| (dB re DC)', 'a', 'solid'], ['+12.0 dB and 0 dB', 'mu', 'dash']]]
+  ]);
+  [G3, G5, VIS].forEach(A => A.forEach(s => { if (!s.leg && s.draw && LEG.get(s.draw)) s.leg = LEG.get(s.draw); }));
+  G6[0].leg = [['h[n] (left)', 'a', 'stem'], ['|H(e^jω)| (right)', 'b', 'solid']]; G6[1].leg = [['h[n] (left)', 'a', 'stem'], ['|H(e^jω)| (right)', 'b', 'solid']]; G6[2].leg = [['h[n] (left)', 'a', 'stem'], ['|H(e^jω)| (right)', 'b', 'solid']]; G6[3].leg = [['p(t) (left)', 'a', 'solid'], ['|P(f)| (right)', 'b', 'fill']]; G6[4].leg = [['h[n] = δ[n − 3] (left)', 'a', 'stem'], ['∠H = −3ω (right)', 'b', 'solid']];
+  VIS[0].leg = [['factors: rect, sinc', 'mu', 'dash'], ['rect ∗ rect = tri', 'a', 'fill'], ['sinc · sinc = sinc²', 'b', 'fill']];
+  const addLeg = (cv, f) => { const L = LEG.get(f), nx = cv.nextElementSibling; if (!L || (nx && nx.classList.contains('legend'))) return; cv.insertAdjacentHTML('afterend', Lab.legendHTML(L)); };
   const RFIGS = [F.tgc, F.impulse, F.copies, F.trap, F.dcspec, F.squarer, F.decomp, F.evenodd, F.bpdelay, F.rectspec, F.wrap, F.ma, F.diff, F.onepole, F.stab, F.reson, F.wiener];
   Lab.cardGrid('m3', 'm3-g3', G3);
   Lab.cardGrid('m3', 'm3-g5', G5);
@@ -1513,10 +1554,10 @@
   Lab.cardGrid('m3', 'm3-vis', VIS);
   const litRes = cv => { const c = M.col(); const { x, w, h } = one(cv, 150); const th = PI / 4;
     const Hm = R => wv => 1 / Math.hypot(1 - 2 * R * Math.cos(th) * Math.cos(wv) + R * R * Math.cos(2 * wv), 2 * R * Math.cos(th) * Math.sin(wv) - R * R * Math.sin(2 * wv));
-    const m = M.panel(x, box(w, 150), [0, PI], [-15, 30], { lab: '20 log10 |H| (dB), y = x + 2R cos(π/4) y[n−1] − R² y[n−2]', base: -15, ticks: piT([0.25, 0.5, 1]), hlines: [[0, '0 dB'], [20, '20 dB']] });
-    [[0.5, c.mu], [0.8, c.a], [0.9, c.b], [0.95, c.d]].forEach(([R, col]) => M.curve(x, m, wv => 20 * Math.log10(Hm(R)(wv)), col, { w: 1.5 })); };
+    const m = M.panel(x, box(w, 150), [0, PI], [-15, 30], { yl: '20 log10 |H| (dB), y = x + 2R cos(π/4) y[n−1] − R² y[n−2]', xl: 'ω (rad/sample)', base: -15, ticks: piT([0.25, 0.5, 1]), hlines: [[0, '0 dB'], [20, '20 dB']] });
+    [[0.5, c.mu, [2, 3]], [0.8, c.a, null], [0.9, c.b, [6, 4]], [0.95, c.d, [10, 3, 2, 3]]].forEach(([R, col, ds]) => M.curve(x, m, wv => 20 * Math.log10(Hm(R)(wv)), col, { w: 1.6, dash: ds })); };
   Lab.onShow('m3', () => { const cv = $('m3-lit-res'); if (cv) { try { litRes(cv); } catch (e) { console.error(e); } } });
-  Lab.onShow('m3', () => RFIGS.forEach((f, i) => { const cv = $('m3-rf-' + i); if (cv) { try { f(cv); } catch (e) { console.error(e); } } }));
+  Lab.onShow('m3', () => RFIGS.forEach((f, i) => { const cv = $('m3-rf-' + i); if (cv) { try { f(cv); addLeg(cv, f); } catch (e) { console.error(e); } } }));
 })();
 </script>
 

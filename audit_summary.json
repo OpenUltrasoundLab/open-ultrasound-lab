@@ -32,7 +32,10 @@
   30,
   31,
   32,
-  33
+  33,
+  34,
+  35,
+  36
  ],
  "flags": [
   {
@@ -43,13 +46,6 @@
    "action": "no accessible source found in the 26 Oct 2026 recheck"
   },
   {
-   "module": 26,
-   "claim": "gCNR paper (Rodriguez-Molares et al. 2020): figure numbers Figs. 4, 5, 7–9",
-   "where": "26.14",
-   "verdict": "open",
-   "action": "PICMUS Figs. 2–3, Oelze & Mamou Fig. 3 and the gCNR paper Fig. 1 were confirmed against the primary papers (external audit, 27 Oct 2026); gCNR Figs. 4, 5 and 7–9 still to check."
-  },
-  {
    "module": 32,
    "claim": "Imbault 2017: speeds 1492–1604 m/s, PDFF 2–17 %, cut-offs 1541 (PDFF 5 %) and 1555 m/s (biopsy 10 %)",
    "where": "32.1, card G1, cheat sheet, demo 32.6 targets",
@@ -58,10 +54,10 @@
   }
  ],
  "recheck": {
-  "confirmed": 32,
+  "confirmed": 33,
   "corrected": 9,
   "soften": 12,
-  "unverifiable": 2,
+  "unverifiable": 1,
   "open": 1
  }
 }

@@ -23,6 +23,8 @@
     </div>
   </header>
   <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form (or an exact numerical evaluation of it, e.g. a DFT of a defined signal) plotted as is</span><span><span class="prov sim">Simulation</span>random or convolved signals computed in this page (JS) or in the Octave scripts</span><span><span class="prov model">Approx. model</span>simplified physics (far field, element-factor model, continuous kernels); the assumption is stated under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not to scale</span><span>Beam patterns here are closed-form narrowband array factors and their frequency averages; no Field II or k-Wave output is shown.</span></div>
+  <div class="k60"><span class="label">In 60 seconds</span><ol><li><b>Sampling replicates the spectrum:</b> Sampling copies the spectrum at every multiple of the sample rate, so the copies stay apart only if \(f_s > 2B\), with \(f_s\) the sample rate and B the signal bandwidth. A tone beyond the limit folds back: 7 MHz sampled at 10 MHz reads as 3 MHz. Doppler aliases by the same rule in pulse-to-pulse time. <a class="sref" href="#m4-s4-1">§04.1</a></li><li><b>An RF band needs only one Nyquist zone:</b> An echo can be sampled below twice its top frequency if its whole band fits inside one Nyquist zone, a slot half the sample rate wide. Legal rates are narrow: 6.5–7.0 MHz for a 3.5–6.5 MHz echo. Systems keep a guard band and record the zone, since even-numbered zones arrive spectrally inverted. <a class="sref" href="#m4-s4-2">§04.2</a></li><li><b>Resolution is set by observation length:</b> Two tones closer than about 1/T, with T the observation time, merge however much the record is zero-padded. For Doppler, 16 pulses at a pulse repetition frequency of 4 kHz observe 4 ms and resolve about 250 Hz. A shorter range gate buys depth resolution and loses spectral detail. <a class="sref" href="#m4-s4-3">§04.3</a></li><li><b>A window trades main-lobe width for sidelobe level:</b> A window tapers the record to suppress sidelobes, leakage far from a tone, at the cost of a wider main lobe. Hann gives −31.5 dB sidelobes at 1.44 bins width, against −13.3 dB at 0.89 bins untapered. Low sidelobes reveal a weak tone beside a strong one. <a class="sref" href="#m4-s4-4">§04.4</a></li><li><b>Axial resolution depends on bandwidth alone:</b> An RF line is the pulse convolved with tissue reflectivity, so depth resolution follows pulse length, which follows bandwidth. Resolution \(\Delta z = c\tau/2\), with c the sound speed and τ the pulse duration, is 0.227 mm for 3 MHz of −6 dB bandwidth at 1540 m/s, at any centre frequency. <a class="sref" href="#m4-s4-5">§04.5</a></li><li><b>The array samples space:</b> Array elements sample the wavefront, and coarse spatial sampling creates grating lobes, false beams at other angles. Steering to ±θ without them needs element pitch \(d < \lambda/(1 + \sin\theta)\), with λ the wavelength; d ≤ λ/2 is safe at every angle. Check pitch at the highest frequency and widest steering angle in use. <a class="sref" href="#m4-s4-7">§04.7</a></li><li><b>Focus is a Fourier transform:</b> At the focus the beam profile is the Fourier transform of the aperture weights. Width scales with F#, focal depth over aperture width: a uniform aperture gives a two-way −6 dB width of 0.886 λF#, λ being the wavelength. Depth of field grows as F#², so halving F# sharpens focus but cuts usable depth fourfold. <a class="sref" href="#m4-s4-8">§04.8</a></li></ol></div>
+  <div class="field"><span class="label">From the field</span><ul><li><b>Sample to the bandwidth, not to the carrier.</b> <span class="why">Only the occupied band carries information, and data rate times channels and frames drives link, memory and compute cost. A 3–7 MHz band needs 14 MHz sampling as real RF, but only 4 MHz each for I and Q, the two baseband channels after demodulation. <a class="sref" href="#m4-s4-2">§04.2</a></span></li><li><b>Check element pitch at the band top and widest steering angle.</b> <span class="why">Grating lobes, false beams from coarse spacing, appear once pitch exceeds λ/(1 + sin θ), with λ the wavelength and θ the steering angle. A 0.3 mm pitch is clean unsteered to 5.1 MHz but steerable to 20° only to 3.8 MHz. <a class="sref" href="#m4-s4-7">§04.7</a></span></li><li><b>Know the Nyquist zone and spectral orientation of bandpass-sampled data before delay processing.</b> <span class="why">Sampling below twice the top frequency folds the band to baseband, inverted in even zones; the wrong zone gives the wrong carrier phase per delay and the wrong flow sign. A 3.5–6.5 MHz echo has a legal window of only 6.5–7.0 MHz. <a class="sref" href="#m4-s4-2">§04.2</a></span></li><li><b>Interpolate beamforming delays; do not round them to the sample clock.</b> <span class="why">Rounded delays act as random phase errors that raise a diffuse sidelobe floor. With a 40 MHz clock at 5 MHz and 128 elements that floor sits near −34 dB; fourfold interpolation lowers it to about −46 dB. <a class="sref" href="#m4-s4-12">§04.12</a></span></li><li><b>Apply the identical filter on every channel, and correct for the window’s amplitude gain.</b> <span class="why">A filter delay that differs between channels mimics tissue aberration. Hann’s coherent gain, its average weight, is 0.5, so forgetting it is a 6 dB error in a backscatter coefficient. <a class="sref" href="#m4-s4-4">§04.4</a> <a class="sref" href="#m4-s4-6">§04.6</a></span></li></ul></div>
 
   <!-- ===================== 04.1 ===================== -->
   <div class="prose">
@@ -110,7 +112,7 @@
     <div class="eqn" id="m4-eq4"><div class="eqn-body"><div class="eqn-math">\[ x(t) = \sum_n x[n]\,\operatorname{sinc}\!\left(\frac{t - nT_s}{T_s}\right), \qquad \operatorname{sinc}(u) = \frac{\sin(\pi u)}{\pi u} \]</div><span class="eqn-no">(04.4)</span></div><dl class="where"><dt>\(x[n]\)</dt><dd>samples \(x(nT_s)\)</dd><dt>\(x(t)\)</dt><dd>reconstructed continuous signal</dd><dt>\(t\)</dt><dd>time, µs</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(T_s\)</dt><dd>sampling period, µs</dd><dt>\(\operatorname{sinc}(u)\)</dt><dd>normalized sinc, \(\sin(\pi u)/(\pi u)\), \(u\) dimensionless</dd></dl><span class="note">Each sample launches a sinc whose zeros fall on all the other sample instants, so the interpolant passes through the samples exactly.</span></div>
     <p><strong>Aliasing.</strong> When the replicas overlap, the reconstruction filter returns whatever copy lands in \([-f_{s}/2, f_{s}/2]\). For a tone at \(f_{0}\), the copy at \(f_{0} - k f_{s}\) with \(k = \operatorname{round} (f_{0}/f_{s})\) lands in band, so</p>
     <div class="eqn" id="m4-eq5"><div class="eqn-body"><div class="eqn-math">\[ f_{\mathrm{alias}} = \left\lvert f_0 - f_s\cdot\operatorname{round}\!\left(\frac{f_0}{f_s}\right)\right\rvert \]</div><span class="eqn-no">(04.5)</span></div><dl class="where"><dt>\(f_0\)</dt><dd>tone frequency, MHz</dd><dt>\(f_{\mathrm{alias}}\)</dt><dd>apparent (aliased) frequency, MHz</dd><dt>\(f_s\)</dt><dd>sampling rate, MHz</dd><dt>\(\operatorname{round}(\cdot)\)</dt><dd>nearest integer</dd><dt>\(\lvert\cdot\rvert\)</dt><dd>absolute value</dd></dl><span class="note">If \(f_{0} - k f_{s} &lt; 0\), the positive-frequency content arrives from the negative-frequency image: the spectrum is mirrored and the phase sign flips, \(\cos (2\pi f_{0}t + \varphi )\) \(\to \cos (2\pi f_{\mathrm{alias}}t - \varphi )\).</span></div>
-    <p>The sinc sum is not an approximation to the alias: for an infinite sample record it equals it exactly. I checked this numerically (40 001 samples, \(f_{0} = 7\) MHz, \(f_{s} = 10\) MHz): the sinc sum and cos(2π·3 MHz·t − \(\varphi\)) agree to within \(2\times 10^{-5}\) near the record center, which is the truncation error. The samples cannot tell the two waves apart.</p>
+    <p>The sinc sum is not an approximation to the alias: for an infinite sample record it equals it exactly. In a numerical check (40 001 samples, \(f_{0} = 7\) MHz, \(f_{s} = 10\) MHz) the sinc sum and cos(2π·3 MHz·t − \(\varphi\)) agree to within \(2\times 10^{-5}\) near the record center, which is the truncation error. The samples cannot tell the two waves apart.</p>
   </div>
 
   <div class="demo">
@@ -119,19 +121,25 @@
       <div class="stage">
         <canvas id="m4-s-time" aria-label="Continuous sinusoid, its samples and the reconstructed alias"></canvas>
         <canvas id="m4-s-spec" aria-label="Spectrum showing replicas at multiples of the sampling rate"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>true tone ±f<sub>0</sub></span><span><i style="background:var(--ink)"></i>samples</span><span><i style="background:var(--sig2)"></i>reconstruction (in-band copy)</span><span><i style="background:var(--muted)"></i>other replicas</span></div>
+        <div class="legend" id="m4-s-leg"><span data-s="tone"><i style="background:var(--accent)"></i>true tone, k = 0 lines</span><span data-s="samp"><i class="mark" style="background:var(--ink)"></i>samples</span><span data-s="rec"><i class="dash" style="color:var(--sig2)"></i>reconstruction (in-band copy, lines)</span><span data-s="rep"><i class="stem" style="background:var(--muted)"></i>other replicas</span><span data-s="zone"><i class="dot" style="color:var(--muted)"></i>zone edges m·f<sub>s</sub>/2, Nyquist band</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m4-s-f0"><span>Tone f<sub>0</sub></span> <output id="m4-s-f0-out">7.0 MHz</output></label><input type="range" id="m4-s-f0" min="0.2" max="20" step="0.1" value="7"></div>
-        <div class="ctrl"><label for="m4-s-fs"><span>Sampling f<sub>s</sub></span> <output id="m4-s-fs-out">10.0 MHz</output></label><input type="range" id="m4-s-fs" min="4" max="40" step="0.5" value="10"></div>
+        <div class="ctrl"><label for="m4-s-f0"><span>Tone frequency f<sub>0</sub> (MHz)</span> <output id="m4-s-f0-out">7.0 MHz</output> <span class="hint">frequency of the continuous sinusoid</span></label><input type="range" id="m4-s-f0" min="0.2" max="20" step="0.1" value="7"></div>
+        <div class="ctrl"><label for="m4-s-fs"><span>Sampling rate f<sub>s</sub> (MHz)</span> <output id="m4-s-fs-out">10.0 MHz</output> <span class="hint">samples per µs; tones above f<sub>s</sub>/2 alias</span></label><input type="range" id="m4-s-fs" min="4" max="40" step="0.5" value="10"></div>
         <div class="readout" id="m4-s-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> keep \(f_{s} = 10\) MHz and sweep \(f_{0}\) from 0 to 20 MHz. The apparent frequency rises to 5 MHz, folds back to 0 at 10 MHz and rises again (a triangle wave). The live FFT peak (1024 samples, Hann, parabolic interpolation) tracks the formula to within a few kHz.</div>
+    <div class="demo-foot"><strong>Try:</strong> keep \(f_{s} = 10\) MHz and sweep \(f_{0}\) from 0 to 20 MHz. The apparent frequency rises to 5 MHz, folds back to 0 at 10 MHz and rises again (a triangle wave). The live FFT peak (1024 samples, Hann, parabolic interpolation) tracks the formula to within a few kHz.<span class="symnote">Symbols used here: f<sub>0</sub>, the tone frequency in MHz; f<sub>s</sub>, the sampling rate in MHz; k = round(f<sub>0</sub>/f<sub>s</sub>), the replica index; f_alias = |f<sub>0</sub> − k·f<sub>s</sub>|, the in-band (alias) frequency; m, the index of the zone edges m·f<sub>s</sub>/2.</span></div>
   </div>
 
-  <div class="callout pitfall"><span class="label">Pitfall</span><p>The Nyquist condition is strict: \(f_{s} &gt; 2B\). At \(f_{0} = f_{s}/2\) the samples are \(\cos (\pi n + \varphi ) = (-1)^{n} \cos \varphi\). The amplitude depends on the unknown phase, and a sine \((\varphi = -\pi /2)\) samples to all zeros.</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>The Nyquist condition is strict: \(f_{s} &gt; 2B\). At \(f_{0} = f_{s}/2\) the samples are \(\cos (\pi n + \varphi ) = (-1)^{n} \cos \varphi\). The amplitude then depends on the unknown phase, and a sine \((\varphi = -\pi /2)\) samples to all zeros.</p></div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>Slow-time sampling at the PRF obeys the same rule. A Doppler shift \(f_{D} = 2v f_{0}/c\) aliases once \(|f_{D}| &gt; \mathrm{PRF}/2\), so \(v_{\mathrm{Nyq}} = c \cdot \mathrm{PRF} / (4 f_{0})\). At 5 MHz and PRF 5 kHz, \(v_{\mathrm{Nyq}} = 1540 \cdot 5000 / (4 \cdot 5\times 10^{6})\) \(= 0.385\) m/s. In ULM, bubble tracking at frame rate F has the same constraint in disguise: the frame-to-frame displacement must stay below the pairing search radius, or tracks link to the wrong bubble.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Sampling copies X(f) at every multiple of f<sub>s</sub>; the copies stay apart only if f<sub>s</sub> &gt; 2B, strictly (at f<sub>0</sub> = f<sub>s</sub>/2 a sine samples to all zeros).</li>
+    <li>A tone appears at f<sub>alias</sub> = |f<sub>0</sub> − f<sub>s</sub>·round(f<sub>0</sub>/f<sub>s</sub>)|: 7 MHz at f<sub>s</sub> = 10 MHz reads as 3 MHz, mirrored, with the phase sign flipped.</li>
+    <li>Sinc interpolation of an infinite record reproduces the alias exactly; the samples cannot tell the two waves apart.</li>
+    <li>Doppler obeys the same rule in slow time: v<sub>Nyq</sub> = c·PRF/(4f<sub>0</sub>) = 0.385 m/s at 5 MHz and PRF 5 kHz.</li>
+  </ul></div>
 
   <!-- ===================== 04.2 ===================== -->
   <div class="prose">
@@ -144,24 +152,30 @@
   </div>
 
   <div class="demo">
-    <div class="demo-head"><span class="tag">Demo 04.2</span><h3>Bandpass sampling: where the replicas land</h3><span class="prov exact">Exact formula</span><span class="prov-note">Replica positions and legal zones from (04.6)–(04.7); each band is drawn as a flat block between its −6 dB edges.</span></div>
+    <div class="demo-head"><span class="tag">Demo 04.2</span><h3>Bandpass sampling: where the replicas land</h3><span class="prov exact">Exact formula</span><span class="prov-note">Replica positions and legal zones from (04.6)–(04.7); each band is drawn as a smooth hump that falls to half amplitude (−6 dB) at its edges.</span></div>
     <div class="demo-body">
       <div class="stage">
         <canvas id="m4-b-spec" aria-label="RF band and its replicas after sampling, with overlaps flagged"></canvas>
         <canvas id="m4-b-zone" aria-label="Allowed sampling-rate zones"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>positive band and its copies</span><span><i style="background:var(--sig2)"></i>copies of the negative band</span><span><i style="background:var(--bad)"></i>overlap (aliasing)</span><span><i style="background:var(--good)"></i>legal f<sub>s</sub> zones</span></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>original band (k = 0)</span><span><i class="dash" style="color:var(--accent)"></i>copies of the positive band</span><span><i class="fill" style="background:var(--sig2)"></i>copies of the negative band</span><span><i class="fill" style="background:var(--bad)"></i>overlap (aliasing)</span><span><i class="fill" style="background:var(--good)"></i>legal f<sub>s</sub> zones</span><span><i class="dot" style="color:var(--muted)"></i>zone edges m·f<sub>s</sub>/2</span><span><i class="stem" style="background:var(--accent)"></i>chosen f<sub>s</sub></span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m4-b-f0"><span>Center f<sub>0</sub></span> <output id="m4-b-f0-out">5.0 MHz</output></label><input type="range" id="m4-b-f0" min="2" max="10" step="0.1" value="5"></div>
-        <div class="ctrl"><label for="m4-b-bw">Fractional BW (−6 dB) <output id="m4-b-bw-out">60 %</output></label><input type="range" id="m4-b-bw" min="20" max="100" step="1" value="60"></div>
-        <div class="ctrl"><label for="m4-b-fs"><span>Sampling f<sub>s</sub></span> <output id="m4-b-fs-out">6.75 MHz</output></label><input type="range" id="m4-b-fs" min="2" max="40" step="0.05" value="6.75"></div>
+        <div class="ctrl"><label for="m4-b-f0"><span>Center frequency f<sub>0</sub> (MHz)</span> <output id="m4-b-f0-out">5.0 MHz</output> <span class="hint">centre of the RF band</span></label><input type="range" id="m4-b-f0" min="2" max="10" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m4-b-bw">Fractional bandwidth (−6 dB, %) <output id="m4-b-bw-out">60 %</output> <span class="hint">−6 dB band width ÷ f<sub>0</sub></span></label><input type="range" id="m4-b-bw" min="20" max="100" step="1" value="60"></div>
+        <div class="ctrl"><label for="m4-b-fs"><span>Sampling rate f<sub>s</sub> (MHz)</span> <output id="m4-b-fs-out">6.75 MHz</output> <span class="hint">valid only inside a green zone</span></label><input type="range" id="m4-b-fs" min="2" max="40" step="0.05" value="6.75"></div>
         <div class="readout" id="m4-b-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> at 5 MHz / 60 %, slide \(f_{s}\) from 6.4 to 7.1 MHz and watch the red overlap vanish inside [6.5, 7.0] MHz. Then shrink the bandwidth to 30 %: the zones widen and multiply (n up to 3, and up to 5 at 20 %).</div>
+    <div class="demo-foot"><strong>Try:</strong> at 5 MHz / 60 %, slide \(f_{s}\) from 6.4 to 7.1 MHz and watch the red overlap vanish inside [6.5, 7.0] MHz. Then shrink the bandwidth to 30 %: the zones widen and multiply (n up to 3, and up to 5 at 20 %).<span class="symnote">Symbols used here: f<sub>0</sub>, the band centre in MHz; B, the −6 dB bandwidth in MHz; f<sub>L</sub> and f<sub>H</sub>, the band edges; f<sub>s</sub>, the sampling rate in MHz; n, the zone index; m, the index of the zone edges m·f<sub>s</sub>/2.</span></div>
   </div>
 
-  <div class="callout us"><span class="label">Ultrasound link</span><p>Research scanners expose this choice: some offer a receive mode at 4 samples per wavelength (sampling at four times the centre frequency) plus reduced-rate bandpass modes. Channel data used for sound-speed estimation and aberration correction is often stored at these rates. Before any delay-domain processing (Module 11), you must know which Nyquist zone the data sits in, and whether the spectrum is inverted.</p></div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Research scanners expose this choice: some offer a receive mode at 4 samples per wavelength (sampling at four times the centre frequency) plus reduced-rate bandpass modes. Channel data used for sound-speed estimation and aberration correction is often stored at these rates. Before any delay-domain processing (Module 11), you must know which Nyquist zone the data sits in and whether the spectrum is inverted.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>A band [f<sub>L</sub>, f<sub>H</sub>] can be sampled at 2f<sub>H</sub>/n ≤ f<sub>s</sub> ≤ 2f<sub>L</sub>/(n − 1), n ≤ ⌊f<sub>H</sub>/B⌋; for even n it arrives spectrally inverted.</li>
+    <li>5 MHz, 60 % (−6 dB band 3.5–6.5 MHz): f<sub>s</sub> ≥ 13 MHz or 6.5–7.0 MHz, a zone only 0.5 MHz wide, so practical systems leave a guard band.</li>
+    <li>At f<sub>s</sub> = 4f<sub>0</sub> consecutive samples are I, −Q, −I, Q: the quadrature pair comes straight from the ADC.</li>
+    <li>Before delay-domain processing, know which Nyquist zone the channel data sits in and whether its spectrum is inverted.</li>
+  </ul></div>
 
   <!-- ===================== 04.3 ===================== -->
   <div class="prose">
@@ -187,15 +201,15 @@
       <div class="stage">
         <canvas id="m4-d-mat" aria-label="Real and imaginary parts of the DFT matrix"></canvas>
         <canvas id="m4-d-row" aria-label="One row of the DFT matrix as a sampled complex exponential"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>Re F<sub>kn</sub> = cos(2πkn/N)</span><span><i style="background:var(--sig2)"></i>Im F<sub>kn</sub> = −sin(2πkn/N)</span></div>
+        <div class="legend"><span><i class="dash" style="color:var(--accent)"></i>Re F<sub>kn</sub> = cos(2πkn/N), stems and continuous curve</span><span><i class="dot" style="color:var(--sig2)"></i>Im F<sub>kn</sub> = −sin(2πkn/N), stems and continuous curve</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m4-d-n">Size N <output id="m4-d-n-out">16</output></label><input type="range" id="m4-d-n" min="4" max="64" step="1" value="16"></div>
-        <div class="ctrl"><label for="m4-d-k">Highlighted row k <output id="m4-d-k-out">3</output></label><input type="range" id="m4-d-k" min="0" max="15" step="1" value="3"></div>
+        <div class="ctrl"><label for="m4-d-n">Size N (points) <output id="m4-d-n-out">16</output> <span class="hint">the matrix is N × N</span></label><input type="range" id="m4-d-n" min="4" max="64" step="1" value="16"></div>
+        <div class="ctrl"><label for="m4-d-k">Highlighted row k <output id="m4-d-k-out">3</output> <span class="hint">row k is the tone at k·f<sub>s</sub>/N</span></label><input type="range" id="m4-d-k" min="0" max="15" step="1" value="3"></div>
         <div class="readout" id="m4-d-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> set \(k = N - 3\) and compare with \(k = 3\). The samples are the conjugates of each other. Row \(N - k\) is frequency −k: above \(k = N/2\) the DFT bins are negative frequencies (the same aliasing as 04.1, now inside the matrix).</div>
+    <div class="demo-foot"><strong>Try:</strong> set \(k = N - 3\) and compare with \(k = 3\). The samples are the conjugates of each other. Row \(N - k\) is frequency −k: above \(k = N/2\) the DFT bins are negative frequencies (the same aliasing as 04.1, now inside the matrix).<span class="symnote">Symbols used here: N, the DFT size; k, the row (frequency) index; n, the column (sample) index; F, the DFT matrix with entries F<sub>kn</sub> = e<sup>−j2πkn/N</sup>; Fᴴ, its conjugate transpose; I, the identity matrix; f<sub>s</sub>, the sampling rate.</span></div>
   </div>
 
   <div class="demo">
@@ -203,27 +217,32 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m4-z-cv" aria-label="DTFT of two close tones and the zero-padded DFT samples"></canvas>
-        <div class="legend"><span><i style="background:var(--muted)"></i>DTFT |X(f)| (the truth for this record)</span><span><i style="background:var(--accent)"></i>padded DFT samples</span><span><i style="background:var(--sig2)"></i>true tone frequencies</span></div>
+        <div class="legend" id="m4-z-leg"><span data-s="dtft"><i style="background:var(--muted)"></i>DTFT |X(f)| (the truth for this record)</span><span data-s="dft"><i class="stem" style="background:var(--accent)"></i>padded DFT samples</span><span data-s="tones"><i class="dash" style="color:var(--sig2)"></i>true tone frequencies</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m4-z-n"><span>Record N (f<sub>s</sub> = 40 MHz)</span> <output id="m4-z-n-out">16</output></label><input type="range" id="m4-z-n" min="8" max="64" step="1" value="16"></div>
-        <div class="ctrl"><label for="m4-z-sep">Tone separation <output id="m4-z-sep-out">0.60 × 1/T</output></label><input type="range" id="m4-z-sep" min="0.3" max="3" step="0.05" value="0.6"></div>
-        <div class="ctrl"><label for="m4-z-ph">Relative phase <output id="m4-z-ph-out">0°</output></label><input type="range" id="m4-z-ph" min="0" max="180" step="5" value="0"></div>
-        <div class="ctrl"><label for="m4-z-p">Zero-pad factor P</label><select id="m4-z-p"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>16</option></select></div>
+        <div class="ctrl"><label for="m4-z-n"><span>Record N (samples, f<sub>s</sub> = 40 MHz)</span> <output id="m4-z-n-out">16</output> <span class="hint">record length T = N/f<sub>s</sub></span></label><input type="range" id="m4-z-n" min="8" max="64" step="1" value="16"></div>
+        <div class="ctrl"><label for="m4-z-sep">Tone separation (× 1/T) <output id="m4-z-sep-out">0.60 × 1/T</output> <span class="hint">in units of 1/T, T = record length</span></label><input type="range" id="m4-z-sep" min="0.3" max="3" step="0.05" value="0.6"></div>
+        <div class="ctrl"><label for="m4-z-ph">Relative phase (deg) <output id="m4-z-ph-out">0°</output> <span class="hint">phase of tone 2 relative to tone 1 at n = 0</span></label><input type="range" id="m4-z-ph" min="0" max="180" step="5" value="0"></div>
+        <div class="ctrl"><label for="m4-z-p">Zero-pad factor P <span class="hint">the DFT length becomes P·N</span></label><select id="m4-z-p"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>16</option></select></div>
         <div class="readout" id="m4-z-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> at separation 0.6/T, raise P from 1 to 16. The samples trace the single-lobed DTFT more finely and never split it. Move the separation to about 1/T and the DTFT itself splits. The relative phase, set at the first sample \((n = 0)\), matters: at 180° two tones 1.2/T apart still form one lobe, and at 90° they split already at 0.6/T. "Resolution ≈ 1/T" is a phase-averaged rule of thumb. With \(P = 1\) you can still miss a real split, because the coarse bins may straddle the dip. Complex tones (IQ data, Module 08) are used so negative frequencies do not interfere.</div>
+    <div class="demo-foot"><strong>Try:</strong> at separation 0.6/T, raise P from 1 to 16. The samples trace the single-lobed DTFT more finely and never split it. Move the separation to about 1/T and the DTFT itself splits. The relative phase, set at the first sample \((n = 0)\), matters: at 180° two tones 1.2/T apart still form one lobe, and at 90° they split already at 0.6/T. "Resolution ≈ 1/T" is a phase-averaged rule of thumb. With \(P = 1\) you can still miss a real split, because the coarse bins may straddle the dip. The demo uses complex tones (IQ data, Module 08) so that negative frequencies do not interfere.<span class="symnote">Symbols used here: N, the record length in samples; f<sub>s</sub> = 40 MHz, the sampling rate; T = N/f<sub>s</sub>, the record duration in µs; P, the zero-pad factor; X(f), the DTFT of the record.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>A Doppler ensemble of 16 pulses at PRF 4 kHz has \(T = 4\) ms, so velocity-spectrum resolution is ≈ 250 Hz, or 3.9 cm/s at 5 MHz, no matter how much you pad. In QUS spectral estimation, the gate length plays the role of T: a 3 mm gate at 1540 m/s is 3.9 µs, so spectral features narrower than ≈ 0.26 MHz cannot be resolved. That is the depth-resolution versus spectral-resolution tradeoff behind backscatter and attenuation estimates.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>The DFT samples the DTFT at f<sub>k</sub> = kf<sub>s</sub>/N; two tones closer than ≈ 1/T (T = N/f<sub>s</sub>) merge: 39.06 kHz for N = 1024 at 40 MHz, 1.44/T with Hann.</li>
+    <li>Zero padding refines the grid to f<sub>s</sub>/(PN) but never splits a lobe; whether tones 0.6/T to 1.2/T apart split depends on their relative phase.</li>
+    <li>16 Doppler pulses at PRF 4 kHz resolve ≈ 250 Hz (3.9 cm/s at 5 MHz); a 3 mm QUS gate (3.9 µs) cannot resolve features narrower than ≈ 0.26 MHz.</li>
+  </ul></div>
 
   <!-- ===================== 04.4 ===================== -->
   <div class="prose">
     <h2><span class="sec">04.4</span>Windowing and spectral leakage</h2>
-    <p>Multiplying the record by a window w[n] convolves the spectrum with \(W(e^{j\omega})\): the windowing theorem, <span class="eqref">(03.20)</span> in Section 03.6, whose by-hand leakage example and Hann window are in Section 02.7. A pure tone becomes a copy of W centered on its frequency: a mainlobe plus sidelobes that leak energy into every other bin. What 04 adds is the engineering choice of W, through four figures of merit:</p>
+    <p>Multiplying the record by a window w[n] convolves the spectrum with \(W(e^{j\omega})\): the windowing theorem, <span class="eqref">(03.20)</span> in Section 03.6, whose by-hand leakage example and Hann window are in Section 02.7. A pure tone becomes a copy of W centered on its frequency: a mainlobe plus sidelobes that leak energy into every other bin. What 04 adds is the engineering choice of W, judged by four figures of merit:</p>
     <div class="eqn" id="m4-eq8"><div class="eqn-body"><div class="eqn-math">\[ \mathrm{CG} = \frac{1}{N}\sum_n w[n], \qquad \mathrm{ENBW} = \frac{N\sum_n w^2[n]}{\left(\sum_n w[n]\right)^2}\ \text{bins} \]</div><span class="eqn-no">(04.8)</span></div><dl class="where"><dt>\(\mathrm{CG}\)</dt><dd>coherent gain (scales a tone's peak)</dd><dt>\(\mathrm{ENBW}\)</dt><dd>equivalent noise bandwidth of one bin, in bins</dd><dt>\(w[n]\)</dt><dd>window (taper) samples</dd><dt>\(n\)</dt><dd>sample index, 0 … N−1</dd><dt>\(N\)</dt><dd>record length, samples</dd><dt>\(\sum_n\)</dt><dd>sum over \(n=0\ldots N-1\)</dd><dt>\(\text{bins}\)</dt><dd>unit: DFT bin widths, \(f_s/N\)</dd></dl><span class="note">CG scales a tone's peak, and ENBW is the noise bandwidth of one bin. A tone halfway between bins drops by the scalloping loss \(|W(\pi /N)| / |W(0)|\).</span></div>
-    <p>A tapered window lowers the edge discontinuity of the periodic extension, so the sidelobes fall off faster. The cost is a wider mainlobe, since a taper effectively shortens the record. The table lists DFT-even (periodic) windows, with values computed by this page's own code (\(N = 256\), 64× padding; reproduced by <code>m04_fft_1d_basics.m</code>). They agree with the values tabulated by Harris (1978) to within about 0.05 bin or 0.05 dB, and Harris rounds peak sidelobes to whole dB. Roll-off is the asymptotic far-sidelobe slope; measured from 10 to 40 bins at \(N = 256\) it is −5.7, −17.7, −5.5, −17.5 and −5.7 dB/octave.</p>
+    <p>A tapered window lowers the edge discontinuity of the periodic extension, so the sidelobes fall off faster. In exchange the mainlobe widens, since a taper effectively shortens the record. The table lists DFT-even (periodic) windows, with values computed by this page's own code (\(N = 256\), 64× padding; reproduced by <code>m04_fft_1d_basics.m</code>). They agree with the values tabulated by Harris (1978) to within about 0.05 bin or 0.05 dB, and Harris rounds peak sidelobes to whole dB. Roll-off is the asymptotic far-sidelobe slope; measured from 10 to 40 bins at \(N = 256\) it is −5.7, −17.7, −5.5, −17.5 and −5.7 dB/octave.</p>
     <div class="tbl-wrap"><table>
       <thead><tr><th>Window</th><th>w[n], a = 2πn/N</th><th class="num">Peak sidelobe</th><th class="num">−3 dB width</th><th class="num">First null</th><th class="num">ENBW</th><th class="num">CG</th><th class="num">Scalloping</th><th class="num">Rolloff</th></tr></thead>
       <tbody>
@@ -242,24 +261,30 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m4-w-cv" aria-label="Windowed spectrum of two tones in dB"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>padded DFT (display)</span><span><i style="background:var(--muted)"></i>DTFT (32× pad)</span><span><i style="background:var(--ink)"></i>tone 1 (0 dB)</span><span><i style="background:var(--sig2)"></i>tone 2 position and level</span></div>
+        <div class="legend" id="m4-w-leg"><span data-s="dft"><i style="background:var(--accent)"></i>padded DFT (display)</span><span data-s="dtft"><i class="dot" style="color:var(--muted)"></i>DTFT (32× pad)</span><span data-s="t1"><i class="dash" style="color:var(--ink)"></i>tone 1 (0 dB)</span><span data-s="t2"><i class="dash" style="color:var(--sig2)"></i>tone 2 position and level</span></div>
       </div>
       <div class="controls">
         <div class="ctrl"><label for="m4-w-win">Window</label><select id="m4-w-win"><option value="rect">Rectangular</option><option value="hann" selected>Hann</option><option value="hamming">Hamming</option><option value="blackman">Blackman</option><option value="kaiser">Kaiser</option></select></div>
-        <div class="ctrl"><label for="m4-w-beta">Kaiser β <output id="m4-w-beta-out">6.0</output></label><input type="range" id="m4-w-beta" min="0" max="12" step="0.1" value="6" disabled></div>
-        <div class="ctrl"><label for="m4-w-sep">Separation <output id="m4-w-sep-out">6.50 bins</output></label><input type="range" id="m4-w-sep" min="0.5" max="20" step="0.25" value="6.5"></div>
-        <div class="ctrl"><label for="m4-w-amp">Tone 2 level <output id="m4-w-amp-out">−40 dB</output></label><input type="range" id="m4-w-amp" min="-80" max="0" step="1" value="-40"></div>
-        <div class="ctrl"><label for="m4-w-off">Tone 1 offset from bin <output id="m4-w-off-out">0.00 bin</output></label><input type="range" id="m4-w-off" min="0" max="0.5" step="0.01" value="0"></div>
-        <div class="ctrl"><label for="m4-w-n">N</label><select id="m4-w-n"><option>32</option><option selected>64</option><option>128</option><option>256</option></select></div>
-        <div class="ctrl"><label for="m4-w-pad">Zero-pad factor</label><select id="m4-w-pad"><option>1</option><option>2</option><option>4</option><option selected>8</option><option>16</option></select></div>
+        <div class="ctrl"><label for="m4-w-beta">Kaiser β <output id="m4-w-beta-out">6.0</output> <span class="hint">window shape parameter, active for Kaiser only</span></label><input type="range" id="m4-w-beta" min="0" max="12" step="0.1" value="6" disabled></div>
+        <div class="ctrl"><label for="m4-w-sep">Separation (bins) <output id="m4-w-sep-out">6.50 bins</output> <span class="hint">tone 2 minus tone 1; one bin = f<sub>s</sub>/N</span></label><input type="range" id="m4-w-sep" min="0.5" max="20" step="0.25" value="6.5"></div>
+        <div class="ctrl"><label for="m4-w-amp">Tone 2 level (dB re tone 1) <output id="m4-w-amp-out">−40 dB</output></label><input type="range" id="m4-w-amp" min="-80" max="0" step="1" value="-40"></div>
+        <div class="ctrl"><label for="m4-w-off">Tone 1 offset from bin (bins) <output id="m4-w-off-out">0.00 bin</output> <span class="hint">fraction of a bin between tone 1 and the nearest bin</span></label><input type="range" id="m4-w-off" min="0" max="0.5" step="0.01" value="0"></div>
+        <div class="ctrl"><label for="m4-w-n">Record N (samples)</label><select id="m4-w-n"><option>32</option><option selected>64</option><option>128</option><option>256</option></select></div>
+        <div class="ctrl"><label for="m4-w-pad">Zero-pad factor <span class="hint">interpolates the display; does not change resolution</span></label><select id="m4-w-pad"><option>1</option><option>2</option><option>4</option><option selected>8</option><option>16</option></select></div>
         <div class="readout" id="m4-w-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> with tone 2 at −40 dB and 6.5 bins, rectangular masks it (its sidelobes near 6.5 bins peak at −26 dB), while Hann reveals it (\(\approx -58\) dB there, so the tone stands about 18 dB clear). Now set tone 2 to 0 dB and separation 2 bins: rectangular resolves, Blackman merges. Slide the tone-1 offset to 0.5 and set the pad to 1 to see the scalloping loss. Hamming at −40 dB, 6.5 bins is a borderline case: its PSL is lower than Hann's, but its far sidelobes decay at only −6 dB/octave and sit near −44 dB there, so the weak tone interferes with the leakage instead of standing clear of it.</div>
+    <div class="demo-foot"><strong>Try:</strong> with tone 2 at −40 dB and 6.5 bins, rectangular masks it (its sidelobes near 6.5 bins peak at −26 dB), while Hann reveals it (\(\approx -58\) dB there, so the tone stands about 18 dB clear). Now set tone 2 to 0 dB and separation 2 bins: rectangular resolves, Blackman merges. Slide the tone-1 offset to 0.5 and set the pad to 1 to see the scalloping loss. Hamming at −40 dB, 6.5 bins is a borderline case: its PSL is lower than Hann's, but its far sidelobes decay at only −6 dB/octave and sit near −44 dB there, so the weak tone interferes with the leakage instead of standing clear of it.<span class="symnote">Symbols used here: N, the record length in samples; a bin = f<sub>s</sub>/N; β, the Kaiser shape parameter; ENBW, the equivalent noise bandwidth in bins; CG, the coherent gain (average window weight).</span></div>
   </div>
 
   <div class="callout intuit"><span class="label">Intuition: this is apodization</span><p>The array factor of a linear array is the DTFT of the apodization weights, evaluated at \(u = (d/\lambda )(\sin \theta - \sin \theta _{0})\). A rectangular receive aperture is the rectangular window: −13.3 dB first sidelobes, narrowest mainlobe. Hann apodization lowers the sidelobes to −31.5 dB and widens the mainlobe by 1.44/0.89 ≈ 1.6×. That is the same tradeoff you already make between lateral resolution and off-axis clutter, with identical numbers. Sections 04.7 and 04.8 make the mapping explicit.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Windowing changes amplitudes. Divide by CG to read tone amplitudes, and by ENBW when converting a noise floor to a per-Hz density. Forgetting the factor 2 (Hann \(\mathrm{CG} = 0.5\)) is a 6 dB error in a backscatter coefficient.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Peak sidelobe and −3 dB width: rectangular −13.3 dB, 0.89 bin; Hann −31.5 dB, 1.44 bins; Blackman −58.1 dB, 1.64 bins.</li>
+    <li>Hamming has a lower peak sidelobe than Hann (−42.7 dB) but far sidelobes decaying at only −6 dB/octave; Hann and Blackman fall at −18 dB/octave.</li>
+    <li>Pick low sidelobes for a weak tone near a strong one, a narrow mainlobe for close tones of equal level.</li>
+    <li>Divide by CG to read amplitudes and by ENBW for a noise density; forgetting Hann's CG = 0.5 is a 6 dB error in a backscatter coefficient.</li>
+  </ul></div>
 
   <!-- ===================== 04.5 ===================== -->
   <div class="prose">
@@ -283,7 +308,7 @@
     <p><strong>Gaussian pulse and the time–bandwidth product.</strong> Take \(p(t) = e^{-t^{2}/2\sigma _{t}^{2}} \cos (2\pi f_{0}t)\). Its spectrum magnitude is a Gaussian around \(\pm f_{0}\) with amplitude standard deviation \(\sigma _{f} = 1/(2\pi \sigma _{t})\). The −6 dB (half-amplitude) widths are both \(2\sqrt{2 \ln 2} \sigma\):</p>
     <div class="eqn key" id="m4-eq10"><div class="eqn-body"><div class="eqn-math">\[ \tau_{-6\,\mathrm{dB}} = 2\sqrt{2\ln 2}\,\sigma_t, \qquad B_{-6\,\mathrm{dB}} = \frac{2\sqrt{2\ln 2}}{2\pi\sigma_t} \;\Rightarrow\; \tau\cdot B = \frac{4\ln 2}{\pi} \approx 0.883 \]</div><span class="eqn-no">(04.10)</span></div><dl class="where"><dt>\(\sigma_t\)</dt><dd>standard deviation of the Gaussian envelope, µs</dd><dt>\(\tau_{-6\,\mathrm{dB}}\)</dt><dd>pulse duration at half amplitude, µs</dd><dt>\(B_{-6\,\mathrm{dB}}\)</dt><dd>bandwidth at half amplitude, MHz</dd><dt>\(\ln\)</dt><dd>natural logarithm</dd><dt>\(\tau\cdot B\)</dt><dd>time-bandwidth product (dimensionless) of the Gaussian pulse</dd><dt>\(\tau,\ B\)</dt><dd>shorthand for \(\tau_{-6\,\mathrm{dB}}\) (µs) and \(B_{-6\,\mathrm{dB}}\) (MHz)</dd></dl></div>
     <div class="eqn" id="m4-eq11"><div class="eqn-body"><div class="eqn-math">\[ \text{Gabor limit (rms widths of } \lvert p\rvert^2 \text{ and } \lvert P\rvert^2\text{):} \quad \sigma_t'\,\sigma_f' \ge \frac{1}{4\pi}, \ \text{ with equality only for the Gaussian} \]</div><span class="eqn-no">(04.11)</span></div><dl class="where"><dt>\(\sigma_t',\ \sigma_f'\)</dt><dd>rms widths of the energy densities in time and frequency</dd><dt>\(\lvert p\rvert^2,\ \lvert P\rvert^2\)</dt><dd>energy densities in time and in frequency</dd><dt>\(p,\ P\)</dt><dd>pulse and its Fourier transform</dd><dt>\(\sigma_t\sigma_f\)</dt><dd>product in µs·MHz (dimensionless)</dd></dl><span class="note">\(|\mathrm{envelope}|^{2} = e^{-t^{2}/\sigma _{t}^{2}}\) has rms width \(\sigma _{t}/\sqrt{2}\), and \(|P|^{2}\) has rms width \(\sigma _{f}/\sqrt{2}\), so the product is \(\sigma _{t}/\sqrt{2} \cdot 1/(2\sqrt{2} \pi \sigma _{t}) = 1/(4\pi )\).</span></div>
-    <div class="eqn" id="m4-eq12"><div class="eqn-body"><div class="eqn-math">\[ \text{Axial resolution } \Delta z = \frac{c\,\tau_{-6\,\mathrm{dB}}}{2} \qquad (\text{factor 2: round trip}) \]</div><span class="eqn-no">(04.12)</span></div><dl class="where"><dt>\(c\)</dt><dd>sound speed, 1.540 mm/µs</dd><dt>\(\Delta z\)</dt><dd>axial resolution, mm</dd><dt>\(\tau_{-6\,\mathrm{dB}}\)</dt><dd>pulse duration at half amplitude, µs, as in (04.10)</dd></dl><span class="note">5 MHz, 60 % BW: \(B = 3\) MHz, \(\tau = 0.883/3\) MHz = 0.294 µs, \(\Delta z = 1.540\) mm/µs × 0.294 µs / 2 = 0.227 mm. The center frequency does not appear: axial resolution is set by bandwidth alone.</span></div>
+    <div class="eqn" id="m4-eq12"><div class="eqn-body"><div class="eqn-math">\[ \text{Axial resolution } \Delta z = \frac{c\,\tau_{-6\,\mathrm{dB}}}{2} \qquad (\text{factor 2: round trip}) \]</div><span class="eqn-no">(04.12)</span></div><dl class="where"><dt>\(c\)</dt><dd>sound speed, 1.540 mm/µs</dd><dt>\(\Delta z\)</dt><dd>axial resolution, mm</dd><dt>\(\tau_{-6\,\mathrm{dB}}\)</dt><dd>pulse duration at half amplitude, µs, as in (04.10)</dd></dl><span class="note">5 MHz, 60 % BW: \(B = 3\) MHz, \(\tau = 0.883/3\) MHz = 0.294 µs, \(\Delta z = 1.540\) mm/µs × 0.294 µs / 2 = 0.227 mm. The center frequency does not appear: <b>axial resolution is set by bandwidth alone</b>.</span></div>
   </div>
 
   <div class="demo">
@@ -292,22 +317,27 @@
       <div class="stage">
         <canvas id="m4-p-rf" aria-label="Reflectivity and the resulting RF line with envelope"></canvas>
         <canvas id="m4-p-spec" aria-label="Pulse waveform and magnitude spectra"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>RF line / pulse / |P(f)|</span><span><i style="background:var(--sig2)"></i>envelope / |P·S|</span><span><i style="background:var(--ink)"></i>reflectivity ρ</span><span><i style="background:var(--muted)"></i>|S(f)|</span></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>RF line, pulse p(t)</span><span><i class="dash" style="color:var(--sig2)"></i>envelope</span><span><i class="stem" style="background:var(--ink)"></i>reflectivity ρ</span><span><i class="dot" style="color:var(--muted)"></i>±τ/2 (−6 dB duration)</span></div><div class="legend" id="m4-p-leg"><span data-s="P"><i style="background:var(--accent)"></i>spectra: |P(f)|</span><span data-s="S"><i class="dash" style="color:var(--muted)"></i>|S(f)|</span><span data-s="PS"><i style="background:var(--sig2)"></i>|P·S|</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m4-p-f0"><span>Center f<sub>0</sub></span> <output id="m4-p-f0-out">5.0 MHz</output></label><input type="range" id="m4-p-f0" min="2" max="10" step="0.1" value="5"></div>
-        <div class="ctrl"><label for="m4-p-bw">Fractional BW (−6 dB) <output id="m4-p-bw-out">60 %</output></label><input type="range" id="m4-p-bw" min="20" max="120" step="1" value="60"></div>
-        <div class="ctrl"><label for="m4-p-mode">Reflectivity</label><select id="m4-p-mode"><option value="two" selected>Two point reflectors</option><option value="speckle">Random speckle (seeded)</option></select></div>
-        <div class="ctrl"><label for="m4-p-sp">Reflector spacing <output id="m4-p-sp-out">0.30 mm</output></label><input type="range" id="m4-p-sp" min="0.05" max="2" step="0.01" value="0.3"></div>
+        <div class="ctrl"><label for="m4-p-f0"><span>Center frequency f<sub>0</sub> (MHz)</span> <output id="m4-p-f0-out">5.0 MHz</output></label><input type="range" id="m4-p-f0" min="2" max="10" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m4-p-bw">Fractional bandwidth (−6 dB, %) <output id="m4-p-bw-out">60 %</output> <span class="hint">−6 dB band width ÷ f<sub>0</sub></span></label><input type="range" id="m4-p-bw" min="20" max="120" step="1" value="60"></div>
+        <div class="ctrl"><label for="m4-p-mode">Reflectivity ρ</label><select id="m4-p-mode"><option value="two" selected>Two point reflectors</option><option value="speckle">Random speckle (seeded)</option></select></div>
+        <div class="ctrl"><label for="m4-p-sp">Reflector spacing s (mm) <output id="m4-p-sp-out">0.30 mm</output> <span class="hint">depth gap between the two point reflectors</span></label><input type="range" id="m4-p-sp" min="0.05" max="2" step="0.01" value="0.3"></div>
         <div class="btn-row"><button class="btn" id="m4-p-seed" type="button">Reseed speckle</button></div>
         <div class="readout" id="m4-p-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> set the spacing near the −6 dB axial resolution and change \(f_{0}\) by \(\pm 0.2\) MHz: the envelope dip appears and disappears, because two coherent echoes interfere with relative phase \(4\pi f_{0}s/c\). The spectrum of two reflectors is a comb with notches every c/(2s), and the product |P·S| shows which of those notches the pulse can see. Simulation: \(f_{s} = 100\) MHz, 2048-point FFT convolution with enough zero padding (Section 04.6).</div>
+    <div class="demo-foot"><strong>Try:</strong> set the spacing near the −6 dB axial resolution and change \(f_{0}\) by \(\pm 0.2\) MHz: the envelope dip appears and disappears, because two coherent echoes interfere with relative phase \(4\pi f_{0}s/c\). The spectrum of two reflectors is a comb with notches every c/(2s), and the product |P·S| shows which of those notches the pulse can see. Simulation: \(f_{s} = 100\) MHz, 2048-point FFT convolution with enough zero padding (Section 04.6).<span class="symnote">Symbols used here: f<sub>0</sub>, the centre frequency in MHz; B, the −6 dB bandwidth in MHz; p(t) and P(f), the pulse and its spectrum; ρ, the reflectivity and S(f) its spectrum; τ, the −6 dB pulse duration in µs; s, the reflector spacing in mm; z = ct/2, depth in mm; Δz = cτ/2, the axial resolution.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>Frequency-dependent attenuation multiplies P(f) by \(e^{-2\alpha _{0} f z}\). Completing the square in the Gaussian exponent shifts the center frequency down by \(\Delta f = 2\alpha _{0} z \sigma _{f}^{2}\) (\(\alpha _{0}\) in Np/cm/MHz, \(\sigma _{f}\) the amplitude-spectrum \(\sigma\)). For 0.5 dB/cm/MHz (0.0576 Np/cm/MHz), \(\sigma _{f} = 3/2.355 = 1.27\) MHz and \(z = 4\) cm, the shift is 0.75 MHz. That shift is the basis of spectral-shift attenuation estimators in QUS. It also means the effective pulse, and so the delay-estimation and sound-speed algorithms of Module 11, changes with depth.</p></div>
   <div class="callout intuit"><span class="label">Intuition</span><p>ULM exists because of this section. The pulse bandwidth sets \(\Delta z \approx 0.23\) mm and diffraction sets the lateral PSF, so two scatterers closer than the PSF cannot be separated by any linear filter: the information at those spatial frequencies was multiplied by ≈ 0. ULM bypasses the limit by imaging <em>isolated</em> sources one at a time and estimating each center far more precisely than the PSF width (estimation, not resolution).</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Transducers, weak scattering and fixed filters are LTI; attenuation, TGC and dynamic receive are LTI only locally, and envelope detection and log compression are not linear, so do Fourier work on RF or IQ data.</li>
+    <li>Gaussian pulse: τ·B = 0.883 at −6 dB, so 5 MHz with 60 % bandwidth gives τ = 0.294 µs and Δz = 0.227 mm; axial resolution depends on bandwidth alone.</li>
+    <li>Attenuation of 0.5 dB/cm/MHz shifts the center of a 5 MHz, 60 % Gaussian spectrum down by 0.75 MHz at 4 cm: the basis of spectral-shift estimators.</li>
+  </ul></div>
 
   <!-- ===================== 04.6 ===================== -->
   <div class="prose">
@@ -321,21 +351,21 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m4-c-cv" aria-label="Linear and circular convolution compared"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>linear y = x ∗ h</span><span><i style="background:var(--sig2)"></i>circular (N-point DFT product)</span><span><i style="background:var(--bad)"></i>corrupted samples</span></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>linear y = x ∗ h</span><span><i class="stem" style="background:var(--sig2)"></i>circular (N-point DFT product)</span><span><i class="fill" style="background:var(--bad)"></i>corrupted samples</span><span><i class="dash" style="color:var(--muted)"></i>DFT size N</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m4-c-l">Signal length L <output id="m4-c-l-out">24</output></label><input type="range" id="m4-c-l" min="4" max="40" step="1" value="24"></div>
-        <div class="ctrl"><label for="m4-c-m">Filter length M <output id="m4-c-m-out">12</output></label><input type="range" id="m4-c-m" min="2" max="24" step="1" value="12"></div>
-        <div class="ctrl"><label for="m4-c-n">DFT size N <output id="m4-c-n-out">28</output></label><input type="range" id="m4-c-n" min="8" max="72" step="1" value="28"></div>
+        <div class="ctrl"><label for="m4-c-l">Signal length L (samples) <output id="m4-c-l-out">24</output></label><input type="range" id="m4-c-l" min="4" max="40" step="1" value="24"></div>
+        <div class="ctrl"><label for="m4-c-m">Filter length M (samples) <output id="m4-c-m-out">12</output></label><input type="range" id="m4-c-m" min="2" max="24" step="1" value="12"></div>
+        <div class="ctrl"><label for="m4-c-n">DFT size N (points) <output id="m4-c-n-out">28</output> <span class="hint">circular equals linear when N ≥ L + M − 1</span></label><input type="range" id="m4-c-n" min="8" max="72" step="1" value="28"></div>
         <div class="readout" id="m4-c-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> raise N until the red region disappears, which happens exactly at \(N = L + M - 1\). Below that, the tail of y (past \(n = N\)) folds onto the start. In an RF line, that means late echoes contaminate the first samples.</div>
+    <div class="demo-foot"><strong>Try:</strong> raise N until the red region disappears, which happens exactly at \(N = L + M - 1\). Below that, the tail of y (past \(n = N\)) folds onto the start. In an RF line, that means late echoes contaminate the first samples.<span class="symnote">Symbols used here: L, the signal length; M, the filter length; N, the DFT size (all in samples); y = x ∗ h, the linear convolution; y_c, the circular result.</span></div>
   </div>
 
   <div class="prose">
     <h3>Filters on the ultrasound signal chain</h3>
-    <p>The filter basics are in <a href="#m3">Module 03</a>: difference equations, \(H(z)\), poles and stability in Section 03.7 (<span class="eqref">(03.21)</span>, <span class="eqref">(03.24)</span>), and phase and group delay \(\tau_g = -d\varphi/d\omega\) in Section 03.5 (<span class="eqref">(03.16)</span>), including the result used below: a symmetric M-tap FIR has exactly linear phase and delays every frequency by \((M-1)/2\) samples. Design methods (windowed and equiripple FIR, IIR prototypes, wall filters, decimation) are the subject of <a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 09</a>. What matters at this point is which filter sits where in an ultrasound system, and the delay it adds.</p>
+    <p>The filter basics are in <a href="#m3">Module 03</a>: difference equations, \(H(z)\), poles and stability in Section 03.7 (<span class="eqref">(03.21)</span>, <span class="eqref">(03.24)</span>), and phase and group delay \(\tau_g = -d\varphi/d\omega\) in Section 03.5 (<span class="eqref">(03.16)</span>), including the result used below: a symmetric M-tap FIR has exactly linear phase and delays every frequency by \((M-1)/2\) samples. Design methods (windowed and equiripple FIR, IIR prototypes, wall filters, decimation) are the subject of <a href="{{PART2_URL}}" target="_blank" rel="noopener">Module 09</a>. Here what matters is which filter sits where in an ultrasound system, and the delay it adds.</p>
   </div>
   <div class="rf-grid" id="m4-vis46"></div>
   <div class="prose">
@@ -358,6 +388,11 @@
     </table></div>
   </div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>A 63-tap symmetric FIR at 40 MHz delays everything by 31 samples = 0.775 µs = 0.60 mm of depth. Compensate it, and apply the identical filter to every channel. A channel-dependent group delay is indistinguishable from an aberration or a sound-speed error, which is exactly what Module 11 delay estimators and phase-screen methods try to measure.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>An N-point DFT product equals the linear convolution only if N ≥ L + M − 1; otherwise late samples wrap onto the first ones.</li>
+    <li>Symmetric FIRs have exactly linear phase and a delay of (M − 1)/2 samples; IIRs need only 4–8 orders but have nonlinear phase and long transients on 8–16-pulse ensembles.</li>
+    <li>A 63-tap FIR at 40 MHz delays by 31 samples = 0.775 µs = 0.60 mm; apply the identical filter on every channel, or the delay mimics aberration.</li>
+  </ul></div>
 
   <!-- ===================== 04.7 ===================== -->
   <div class="prose">
@@ -422,28 +457,34 @@
       <div class="stage">
         <canvas id="m4-a-cv" aria-label="Array beam pattern versus angle in dB"></canvas>
         <canvas id="m4-a-zoom" aria-label="Main lobe and first sidelobes versus sin theta in units of lambda over D"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>beam pattern (selected model)</span><span><i style="background:var(--bad)"></i>predicted grating lobes at f<sub>0</sub></span><span><i style="background:var(--sig4)"></i>steering angle</span><span><i style="background:var(--muted)"></i>narrowband first-sidelobe level (zoom)</span></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>beam pattern (selected model)</span><span><i class="dash" style="color:var(--bad)"></i>predicted grating lobes at f<sub>0</sub></span><span><i class="dot" style="color:var(--sig4)"></i>steering angle</span><span><i class="dash" style="color:var(--muted)"></i>narrowband first-sidelobe level (zoom)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m4-a-f0"><span>Frequency f<sub>0</sub></span> <output id="m4-a-f0-out">5.0 MHz</output></label><input type="range" id="m4-a-f0" min="2" max="10" step="0.1" value="5"></div>
-        <div class="ctrl"><label for="m4-a-d">Pitch d <output id="m4-a-d-out">0.30 mm</output></label><input type="range" id="m4-a-d" min="0.1" max="0.6" step="0.01" value="0.3"></div>
-        <div class="ctrl"><label for="m4-a-th"><span>Steering θ<sub>0</sub></span> <output id="m4-a-th-out">10°</output></label><input type="range" id="m4-a-th" min="-40" max="40" step="1" value="10"></div>
-        <div class="ctrl"><label for="m4-a-ne">Elements <output id="m4-a-ne-out">128</output></label><input type="range" id="m4-a-ne" min="16" max="192" step="8" value="128"></div>
-        <div class="ctrl"><label for="m4-a-ap">Apodization</label><select id="m4-a-ap"><option value="rect">Rectangular</option><option value="hann">Hann</option></select></div>
+        <div class="ctrl"><label for="m4-a-f0"><span>Frequency f<sub>0</sub> (MHz)</span> <output id="m4-a-f0-out">5.0 MHz</output> <span class="hint">sets the wavelength λ = c/f<sub>0</sub></span></label><input type="range" id="m4-a-f0" min="2" max="10" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m4-a-d">Element pitch d (mm) <output id="m4-a-d-out">0.30 mm</output> <span class="hint">centre-to-centre element spacing</span></label><input type="range" id="m4-a-d" min="0.1" max="0.6" step="0.01" value="0.3"></div>
+        <div class="ctrl"><label for="m4-a-th"><span>Steering angle θ<sub>0</sub> (deg)</span> <output id="m4-a-th-out">10°</output></label><input type="range" id="m4-a-th" min="-40" max="40" step="1" value="10"></div>
+        <div class="ctrl"><label for="m4-a-ne">Elements (count) <output id="m4-a-ne-out">128</output> <span class="hint">aperture D = elements × pitch</span></label><input type="range" id="m4-a-ne" min="16" max="192" step="8" value="128"></div>
+        <div class="ctrl"><label for="m4-a-ap">Apodization <span class="hint">amplitude taper across the aperture</span></label><select id="m4-a-ap"><option value="rect">Rectangular</option><option value="hann">Hann</option></select></div>
         <div class="ctrl"><label for="m4-a-way">Pattern</label><select id="m4-a-way"><option value="one">One-way (narrowband)</option><option value="two">Two-way, Tx = Rx (narrowband)</option><option value="bb">Two-way, 60 % band (energy)</option></select></div>
         <label class="check"><input type="checkbox" id="m4-a-ef"> Element factor (width 0.9 d)</label>
         <div class="readout" id="m4-a-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> in the zoom panel, switch rectangular to Hann. The first sidelobe drops from −13.3 to −31.5 dB and the −6 dB width grows from 1.21 to \(2.00 \lambda /D\), the same numbers as Demo 04.5, because it is the same transform. Switch to two-way: −26.5 and −63 dB, and the width shrinks to \(0.89 \lambda /D\). Switch to the 60 % band: the rect two-way first null fills to −24 dB and the level at the old sidelobe position drops to −28.8 dB. Then set \(f_{0} = 5\) MHz, \(d = 0.31\) mm, \(\theta _{0}\) = 20° \((d \approx \lambda )\): the grating lobe sits at −40.7°, at full height until you tick the element factor (−4.3 dB one-way, −8.6 dB two-way). The zoom axis is \(\sin \theta - \sin \theta _{0}\) in units of \(\lambda _{0}/D\), with D = N·d.</div>
+    <div class="demo-foot"><strong>Try:</strong> in the zoom panel, switch rectangular to Hann. The first sidelobe drops from −13.3 to −31.5 dB and the −6 dB width grows from 1.21 to \(2.00 \lambda /D\), the same numbers as Demo 04.5, because it is the same transform. Switch to two-way: −26.5 and −63 dB, and the width shrinks to \(0.89 \lambda /D\). Switch to the 60 % band: the rect two-way first null fills to −24 dB and the level at the old sidelobe position drops to −28.8 dB. Then set \(f_{0} = 5\) MHz, \(d = 0.31\) mm, \(\theta _{0}\) = 20° \((d \approx \lambda )\): the grating lobe sits at −40.7°, at full height until you tick the element factor (−4.3 dB one-way, −8.6 dB two-way). The zoom axis is \(\sin \theta - \sin \theta _{0}\) in units of \(\lambda _{0}/D\), with D = N·d.<span class="symnote">Symbols used here: f<sub>0</sub>, the frequency in MHz; λ = c/f<sub>0</sub>, the wavelength in mm; d, the element pitch in mm; θ, the angle and θ<sub>0</sub> the steering angle in degrees; D, the aperture width in mm.</span></div>
   </div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>The array factor is the DTFT of the apodization; grating lobes sit at sin θ<sub>g</sub> = sin θ<sub>0</sub> ± mλ/d whenever |sin θ<sub>g</sub>| ≤ 1.</li>
+    <li>Steering to ±θ<sub>max</sub> without grating lobes needs d &lt; λ/(1 + sin θ<sub>max</sub>); d ≤ λ/2 is safe at every angle.</li>
+    <li>5 MHz, 0.3 mm pitch (0.97λ): no lobe unsteered, one at −43.2° when steered to 20°; ±20° needs d &lt; 0.23 mm.</li>
+    <li>A broadband pulse smears each grating lobe over angle and the element factor attenuates it (−4.3 dB one-way at d = 0.31 mm, 20° steering).</li>
+  </ul></div>
 
   <!-- ===================== 04.8 ===================== -->
   <div class="prose">
     <h2><span class="sec">04.8</span>The beam is a Fourier transform: aperture, focal plane and 2D k-space</h2>
     <p><strong>From aperture to beam.</strong> Let \(a(\xi )\) be the apodization across the aperture (\(\xi\) along the array, length D). In the paraxial (Fresnel) approximation the narrowband field at lateral position x and depth z is</p>
     <div class="eqn" id="m4-eq15"><div class="eqn-body"><div class="eqn-math">\[ p(x, z) \propto e^{j\pi x^2/(\lambda z)} \int a(\xi)\cdot e^{j\pi\xi^2/(\lambda z)}\cdot e^{-j2\pi\xi x/(\lambda z)}\, d\xi \]</div><span class="eqn-no">(04.15)</span></div><dl class="where"><dt>\(a(\xi)\)</dt><dd>apodization across the aperture, ξ along the array</dd><dt>\(D\)</dt><dd>aperture length, mm</dd><dt>\(x,\ z\)</dt><dd>lateral position and depth, mm</dd><dt>\(p(x,z)\)</dt><dd>narrowband complex pressure field</dd><dt>\(\xi\)</dt><dd>position along the aperture, mm</dd><dt>\(\lambda\)</dt><dd>wavelength, mm</dd><dt>\(\propto\)</dt><dd>proportional to</dd><dt>\(d\xi\)</dt><dd>integration over the aperture</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl><span class="note">The middle factor is the quadratic (Fresnel) phase across the aperture. At the edge \(\xi = D/2\) it equals \(\pi D^{2}/(4\lambda z)\).</span></div>
-    <p><strong>Fraunhofer condition.</strong> If the quadratic phase is negligible (the antenna convention is ≤ \(\pi /8\), i.e. \(z \ge 2D^{2}/\lambda\)), the integral is the Fourier transform of a evaluated at spatial frequency \(x/(\lambda z)\), equivalently at \(\sin \theta /\lambda\). For a 128-element, 0.3 mm array at 5 MHz (\(D = 38.4\) mm), \(2D^{2}/\lambda = 9.6\) m, and even the near-field length \(D^{2}/(4\lambda )\) is 1.2 m. Unfocused far-field imaging never happens in tissue.</p>
+    <p><strong>Fraunhofer condition.</strong> If the quadratic phase is negligible (the antenna convention is ≤ \(\pi /8\), i.e. \(z \ge 2D^{2}/\lambda\)), the integral is the Fourier transform of a evaluated at spatial frequency \(x/(\lambda z)\), equivalently at \(\sin \theta /\lambda\). For a 128-element, 0.3 mm array at 5 MHz (\(D = 38.4\) mm), \(2D^{2}/\lambda = 9.6\) m, and even the near-field length \(D^{2}/(4\lambda )\) is 1.2 m. Unfocused far-field imaging therefore never happens in tissue.</p>
     <p><strong>Focal-plane equivalent.</strong> A focusing delay law multiplies the aperture by \(e^{-j\pi \xi ^{2}/(\lambda F)}\), which cancels the Fresnel phase exactly at \(z = F\). In the focal plane, for any F (within the paraxial approximation):</p>
     <div class="eqn key" id="m4-eq16"><div class="eqn-body"><div class="eqn-math">\[ p(x, F) \propto A\!\left(\frac{x}{\lambda F}\right), \qquad A(k_x) = \int a(\xi)\, e^{-j2\pi k_x \xi}\, d\xi \]</div><span class="eqn-no">(04.16)</span></div><dl class="where"><dt>\(F\)</dt><dd>focal depth, mm; F# = F/D</dd><dt>\(k_x\)</dt><dd>lateral spatial frequency, cycles/mm</dd><dt>\(A\)</dt><dd>Fourier transform of the apodization</dd><dt>\(p(x, F)\)</dt><dd>narrowband field across the focal plane</dd><dt>\(\lambda\)</dt><dd>wavelength, mm</dd><dt>\(\xi\)</dt><dd>position along the aperture, mm</dd><dt>\(x\)</dt><dd>lateral position, mm</dd><dt>\(\propto\)</dt><dd>proportional to</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl><span class="note">Focusing brings the far field to the focus. For a sampled array, A becomes the array factor of 04.7: the DTFT of the weights, periodic in \(\sin \theta\) with period \(\lambda /d\).</span></div>
     <p><strong>Uniform aperture.</strong> \(a = \operatorname{rect} (\xi /D)\) gives \(p \propto \operatorname{sinc} (Dx/(\lambda F))\) \(= \operatorname{sinc} (x/(\lambda F\#))\): first null at \(x = \lambda F\#\), first sidelobe at \(1.43 \lambda F\#\). Pulse-echo with the same aperture and focus on transmit and receive multiplies the two patterns (reciprocity), so the two-way amplitude is the square and every dB value doubles. The numbers below are exact for the continuous aperture and match <code>m04_aperture_to_beam.m</code> for 64 elements:</p>
@@ -508,7 +549,7 @@
     <p>The two-way −6 dB width equals the one-way −3 dB width, because squaring maps 0.707 to 0.5. "Lateral resolution ≈ λF#" is a rounded version of these numbers; quote the constant with its convention. At 5 MHz and \(F\# = 2\) (\(\lambda F\# = 0.616\) mm), the rect two-way −6 dB width is 0.546 mm.</p>
     <p><strong>Broadband.</strong> A pulse contains many wavelengths, and the pattern at frequency f is the narrowband pattern with \(\lambda = c/f\), so it scales with 1/f. The time-integrated (energy) pattern is</p>
     <div class="eqn" id="m4-eq17"><div class="eqn-body"><div class="eqn-math">\[ E(x) = \int \lvert P(f)\rvert^2\cdot\left\lvert A_T\!\left(\frac{x f}{c F}\right) A_R\!\left(\frac{x f}{c F}\right)\right\rvert^2 df \]</div><span class="eqn-no">(04.17)</span></div><dl class="where"><dt>\(A_T,\ A_R\)</dt><dd>transforms of the transmit and receive apodizations</dd><dt>\(P(f)\)</dt><dd>pulse spectrum</dd><dt>\(E(x)\)</dt><dd>pulse-echo beam energy at lateral position \(x\)</dd><dt>\(x\)</dt><dd>lateral position, mm</dd><dt>\(f\)</dt><dd>frequency, MHz</dd><dt>\(F\)</dt><dd>focal depth, mm</dd><dt>\(c\)</dt><dd>sound speed, 1.54 mm/µs</dd></dl><span class="note">Each frequency puts its nulls at a different x, so the sum has no exact nulls and its sidelobes average down. 60 % band, rect two-way: the first null (\(-\infty\) narrowband) fills to −24.0 dB and the level at the narrowband sidelobe position drops from −26.5 to −28.8 dB; the pattern becomes a monotone skirt. Low-sidelobe apodizations lose more: Hann two-way reaches −30 dB at its narrowband null \((u = 2\lambda /D)\), carried by the wider low-frequency mainlobe.</span></div>
-    <p><strong>Depth of field.</strong> Along the axis near the focus, the defocus phase \(\pi \xi ^{2}\Delta z/(\lambda F^{2})\) plays the role of the Fresnel term. For a circular aperture (paraxial, Fresnel number \(D^{2}/(4\lambda F) \gg 1\)) the on-axis intensity is \(\operatorname{sinc} ^{2}(\Delta z/(8\lambda F\#^{2}))\), so the full −3 dB (one-way) depth of field is \(2 \times 0.443 \times 8 = 7.09 \lambda F\#^{2}\). A 1D line aperture gives \(6.95 \lambda F\#^{2}\) (numerical Fresnel integral). That is the "7 λF#²" rule. With the same focus on transmit and receive, that is also the two-way −6 dB depth of field. With dynamic receive focusing, the two-way depth of field is set by the transmit alone: −6 dB one-way, \(9.7 \lambda F\#^{2}\). At 5 MHz, \(F\# = 2:\ 0.55\) mm lateral width, 8.7 mm depth of field; at \(F\# = 4:\ 1.09\) mm and 35 mm. Lateral width scales with F#, depth of field with F#².</p>
+    <p><strong>Depth of field.</strong> Along the axis near the focus, the defocus phase \(\pi \xi ^{2}\Delta z/(\lambda F^{2})\) plays the role of the Fresnel term. For a circular aperture (paraxial, Fresnel number \(D^{2}/(4\lambda F) \gg 1\)) the on-axis intensity is \(\operatorname{sinc} ^{2}(\Delta z/(8\lambda F\#^{2}))\), so the full −3 dB (one-way) depth of field is \(2 \times 0.443 \times 8 = 7.09 \lambda F\#^{2}\). A 1D line aperture gives \(6.95 \lambda F\#^{2}\) (numerical Fresnel integral). This is the "7 λF#²" rule. With the same focus on transmit and receive, it is also the two-way −6 dB depth of field. With dynamic receive focusing, the two-way depth of field is set by the transmit alone: −6 dB one-way, \(9.7 \lambda F\#^{2}\). At 5 MHz, \(F\# = 2:\ 0.55\) mm lateral width, 8.7 mm depth of field; at \(F\# = 4:\ 1.09\) mm and 35 mm. Lateral width scales with F#, depth of field with F#².</p>
     <p><strong>2D: image ↔ k-space.</strong> Under the same first-order Born and shift-invariance assumptions as 04.5, a small RF image is a 2D convolution of the point-spread function with the reflectivity, and the 2D FFT turns it into a product:</p>
     <div class="eqn" id="m4-eq18"><div class="eqn-body"><div class="eqn-math">\[ I(x, z) = h(x, z) \ast\ast\, \rho(x, z) \;\longleftrightarrow\; \hat{I}(k_x, k_z) = H(k_x, k_z)\cdot\hat{S}(k_x, k_z) \]</div><span class="eqn-no">(04.18)</span></div><dl class="where"><dt>\(h(x, z)\)</dt><dd>2D point-spread function</dd><dt>\(\ast\ast\)</dt><dd>2D convolution</dd><dt>\(k_x,\ k_z\)</dt><dd>lateral and axial spatial frequencies, cycles/mm</dd><dt>\(I(x,z)\)</dt><dd>image</dd><dt>\(\rho(x,z)\)</dt><dd>reflectivity (scatterer map)</dd><dt>\(\hat{I},\ H,\ \hat{S}\)</dt><dd>2-D Fourier transforms of \(I,\ h,\ \rho\)</dd><dt>\(x,\ z\)</dt><dd>lateral and axial position, mm</dd><dt>\(\longleftrightarrow\)</dt><dd>Fourier-transform pair</dd></dl><span class="note">H, the 2D transfer function, is the 2D extension of P(f). Axially it is the pulse spectrum mapped to \(k_{z} = 2f/c\) (6.49 cycles/mm at 5 MHz; the 2 is the round trip). Laterally, at each frequency, the transmit and receive patterns multiply, so their spectra convolve: \(|k_{x}| \le D/(\lambda z)\) \(= 1/(\lambda F\#) = k_{z}/(2F\#)\). The support is a bow-tie (1.62 cycles/mm at \(f_{0}, F\# = 2\)).</span></div>
     <p><strong>Plane waves sample the transmit k-space.</strong> A plane wave at angle \(\theta\) has wave vector \((\sin \theta , \cos \theta )/\lambda\); an echo received along direction \(\varphi\) adds \((\sin \varphi , \cos \varphi )/\lambda\). The pulse-echo spatial frequency is the sum, so each transmit angle shifts the receive k-space region laterally by \(\sin \theta /\lambda\). Coherent compounding over a uniform step \(\Delta (\sin \theta )\) <em>samples</em> the transmit spectrum, which replicates the synthetic transmit focus laterally with period \(\lambda /\Delta (\sin \theta )\), independent of depth. At 5 MHz, a 1° step gives 17.6 mm, so too coarse an angle set brings back grating-lobe-like artifacts from the side. Fourier-domain plane-wave reconstructions (f-k migration) use exactly this mapping.</p>
@@ -516,6 +557,12 @@
   <div class="rf-grid" id="m4-vis48"></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Every number in the table assumes narrowband, identical transmit and receive apertures and the same focus. A real B-mode line uses a fixed transmit focus, dynamic receive focus and an expanding receive aperture, so the two-way pattern is the product of two <em>different</em> patterns: levels add in dB angle by angle, not peak by peak. A rect receive with a Hann transmit has its first two-way sidelobe at −24.8 dB, not −13.3 − 31.5 = −44.8 dB, because the wide Hann mainlobe still covers the rect's first sidelobe. Outside the transmit focal zone the transmit pattern is not a sinc at all.</p></div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>Aberration correction and sound-speed estimation live in this picture. A wrong sound speed adds a residual quadratic phase across the aperture, i.e. a defocus: the focal-plane pattern is no longer \(A(x/(\lambda F))\), its nulls fill and its mainlobe widens, exactly like the Fresnel term above. A phase screen multiplies \(a(\xi )\) by \(e^{j\varphi (\xi )}\), so the PSF becomes the transform of \(a(\xi )e^{j\varphi (\xi )}\). Coherence-based estimators (Module 07) rest on the same transform: by the van Cittert–Zernike theorem, the spatial coherence of echoes from diffuse scatterers across the receive aperture is the Fourier transform of the transmit beam intensity at the focus, i.e. the autocorrelation of the (possibly aberrated) transmit aperture function.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Focusing makes the focal plane the Fourier transform of the aperture: rect one-way −13.26 dB; two-way sinc², −26.52 dB, −6 dB width 0.886 λF# (0.546 mm at 5 MHz, F# = 2).</li>
+    <li>Depth of field ≈ 7 λF#² (8.7 mm at F# = 2, 35 mm at F# = 4): lateral width scales with F#, depth of field with F#².</li>
+    <li>A 60 % band fills the rect two-way first null to −24.0 dB; different Tx and Rx patterns multiply angle by angle (rect receive with Hann transmit: −24.8 dB, not −44.8 dB).</li>
+    <li>In k-space the axial support is k<sub>z</sub> = 2f/c (6.49 cycles/mm at 5 MHz) and the lateral support |k<sub>x</sub>| ≤ k<sub>z</sub>/(2F#).</li>
+  </ul></div>
 
   <!-- ===================== 04.9 Visual summary ===================== -->
   <h2><span class="sec">04.9</span>Visual summary</h2>
@@ -531,7 +578,7 @@
   <div class="prose"><p>Experts carry one picture: every linear stage of the imaging chain is a multiplication in some Fourier domain. The pulse multiplies the reflectivity spectrum in \(k_{z}\), the aperture multiplies it in \(k_{x}\), sampling replicates spectra, and a finite record or aperture convolves them with a sinc-like kernel. Resolution, sidelobes, grating lobes, aliasing and wrap-around are the same few facts seen in time, frequency, space and angle.</p></div>
   <div class="rules">
     <div class="rule">
-      <div class="say">The beam pattern is the Fourier transform of the aperture.</div>
+      <div class="say">The focal-plane beam is the Fourier transform of the aperture, and focusing is what makes that true at any depth, not just in a far field that tissue never reaches.</div>
       <div class="keynum"><span>\(p(x, F) \propto A(x/(\lambda F))\)</span><span>far field: \(z \ge 2D^{2}/\lambda\)</span></div>
       <div class="why"><p>In the paraxial integral, the field at x is \(\int a(\xi ) e^{j\pi \xi ^{2}/(\lambda z)} e^{-j2\pi \xi x/(\lambda z)} d\xi\). If the quadratic phase \(\pi D^{2}/(4\lambda z)\) is negligible (Fraunhofer, \(z \ge 2D^{2}/\lambda\) by the \(\pi /8\) convention), what remains is the FT of the apodization at \(k_{x} = x/(\lambda z) = \sin \theta /\lambda\). A focusing delay law \(e^{-j\pi \xi ^{2}/(\lambda F)}\) cancels the quadratic phase exactly at \(z = F\), so the focal plane is a Fraunhofer plane at any depth. \(D = 38.4\) mm at 5 MHz: \(2D^{2}/\lambda = 9.6\) m, so in tissue the statement is always about the focal plane. See <span class="eqref">(04.16)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m4-rf-0" aria-label="Uniform and Hann apertures and their beam patterns, the Fourier transform pair"></canvas></div></div>
       <div class="limits">Paraxial and narrowband; focal plane or far field only (away from focus the Fresnel phase blurs it); ignores element directivity and attenuation; sampled arrays add periodicity (grating lobes).</div>
@@ -555,16 +602,10 @@
       <div class="limits">Depends on whether you quote the energy (time-integrated) or the peak pattern. For low-sidelobe apodization the low-frequency end of the band dominates: Hann two-way rises to −30 dB at its narrowband null.</div>
     </div>
     <div class="rule">
-      <div class="say">Grating lobes move toward the main beam as the pitch grows.</div>
-      <div class="keynum"><span>\(\sin \theta _{g} = \sin \theta _{0} \pm m\lambda /d\)</span><span>\(d = \lambda\), 20°: −41.1°</span></div>
-      <div class="why"><p>The array factor is the DTFT of the weights at \(\psi = 2\pi d(\sin \theta - \sin \theta _{0})/\lambda\), periodic in \(\psi\) with period \(2\pi\). The main beam repeats wherever \(d(\sin \theta - \sin \theta _{0})/\lambda\) is an integer: the spatial version of spectral replication at multiples of \(f_{s}\). Their spacing in \(\sin \theta\) is \(\lambda /d\), so a larger pitch (coarser spatial sampling) brings them closer. \(d = \lambda\) steered to 20°: \(\sin \theta _{g} = 0.342 - 1\) \(= -0.658, \theta _{g}\) = −41.1°; \(d = 2\lambda\) adds −9.1° and +57.4°. See <span class="eqref">(04.14)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m4-rf-4" aria-label="Array factor versus sine of angle for pitch lambda and two lambda steered to 20 degrees"></canvas></div></div>
-      <div class="limits">Monochromatic. A broadband pulse smears each grating lobe over angles because its position scales with 1/f; element directivity attenuates it; in pulse-echo, Tx and Rx grating lobes multiply.</div>
-    </div>
-    <div class="rule">
-      <div class="say">Half-wavelength pitch means no grating lobes at any steering angle.</div>
-      <div class="keynum"><span>\(d \le \lambda /2\)</span><span>\(d &lt; \lambda /(1 + |\sin \theta _{0}|)\)</span></div>
-      <div class="why"><p>No grating lobe enters the visible region if \(|\sin \theta _{0} \pm \lambda /d| &gt; 1\) for both signs, i.e. \(\lambda /d &gt; 1 + |\sin \theta _{0}|\). For steering up to \(\pm 90^{\circ}\) that needs \(d \le \lambda /2\) (at equality the lobe sits at endfire). For \(\pm 20^{\circ}: d &lt; \lambda /1.342 = 0.745\lambda\), which is 0.230 mm at 5 MHz. A 0.3 mm linear array is GL-free unsteered up to 5.1 MHz \((d &lt; \lambda )\), but steerable to 20° only up to 3.8 MHz.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m4-rf-5" aria-label="Maximum grating-lobe-free pitch versus steering angle"></canvas></div></div>
-      <div class="limits">Uses the highest significant frequency in the band, not \(f_{0}\). Plane-wave or phased transmits at the edge of the steering range and unsteered sparse apertures need their own check.</div>
+      <div class="say">Grating lobes are replicas spaced λ/d apart in sin θ, so a coarser pitch pulls them toward the main beam; keep \(d &lt; \lambda/(1 + |\sin\theta_0|)\) at the highest frequency in the band, which is λ/2 for full steering.</div>
+      <div class="keynum"><span>\(\sin \theta _{g} = \sin \theta _{0} \pm m\lambda /d\)</span><span>\(d = \lambda\), 20°: −41.1°</span><span>steer ±20°: \(d &lt; 0.745\lambda\) (0.230 mm at 5 MHz)</span><span>\(d \le \lambda /2\): any angle</span></div>
+      <div class="why"><p>The array factor is the DTFT of the weights at \(\psi = 2\pi d(\sin \theta - \sin \theta _{0})/\lambda\), periodic in \(\psi\) with period \(2\pi\), so the main beam repeats wherever \(d(\sin \theta - \sin \theta _{0})/\lambda\) is an integer: the spatial version of spectral replication at multiples of \(f_{s}\) <span class="eqref">(04.14)</span>. \(d = \lambda\) steered to 20°: \(\sin \theta _{g} = 0.342 - 1 = -0.658\), \(\theta _{g}\) = −41.1°; \(d = 2\lambda\) adds −9.1° and +57.4°. No lobe enters the visible region if \(|\sin \theta _{0} \pm \lambda /d| &gt; 1\) for both signs, i.e. \(\lambda /d &gt; 1 + |\sin \theta _{0}|\). Steering to ±90° needs \(d \le \lambda /2\) (at equality the lobe sits at endfire); ±20° needs \(d &lt; \lambda /1.342 = 0.745\lambda\). A 0.3 mm linear array is therefore grating-lobe-free unsteered up to 5.1 MHz \((d &lt; \lambda )\), but steerable to 20° only up to 3.8 MHz.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m4-rf-4" aria-label="Array factor versus sine of angle for pitch lambda and two lambda steered to 20 degrees"></canvas></div><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m4-rf-5" aria-label="Maximum grating-lobe-free pitch versus steering angle"></canvas></div></div>
+      <div class="limits">Monochromatic: a broadband pulse smears each grating lobe over angles because its position scales with 1/f, so check the highest significant frequency in the band, not \(f_{0}\). Element directivity attenuates the lobe (next card) and in pulse-echo Tx and Rx grating lobes multiply. Plane-wave or phased transmits at the edge of the steering range and unsteered sparse apertures need their own check.</div>
     </div>
     <div class="rule">
       <div class="say">The element factor multiplies the array factor, so it suppresses grating lobes far from broadside.</div>
@@ -579,7 +620,7 @@
       <div class="limits">Uniform aperture, focal plane, narrowband; the broadband −6 dB width is a few percent wider. Outside the depth of field the width grows. "λF#" alone is a rounded rule; always state one-way/two-way and −3/−6 dB.</div>
     </div>
     <div class="rule">
-      <div class="say">Depth of field is about \(7 \lambda F\#^{2}\).</div>
+      <div class="say">Lateral width scales with F# but depth of field with F#²: doubling F# doubles the spot and quadruples the depth of field (about \(7 \lambda F\#^{2}\)).</div>
       <div class="keynum"><span>\(7.09 \lambda F\#^{2}\) (circular, −3 dB one-way)</span><span>5 MHz, F# 2: 8.7 mm</span></div>
       <div class="why"><p>Along the axis, defocus by \(\Delta z\) leaves a residual quadratic phase \(\pi \xi ^{2}\Delta z/(\lambda F^{2})\) across the aperture. For a circular aperture the on-axis intensity becomes \(\operatorname{sinc} ^{2}(\Delta z/(8\lambda F\#^{2}))\); it falls to −3 dB at \(\Delta z = \pm 0.443 \times 8 \lambda F\#^{2}\), a full depth of field of \(7.09 \lambda F\#^{2}\). A 1D line aperture gives \(6.95 \lambda F\#^{2}\) (Fresnel integral). Same focus on Tx and Rx: this is also the two-way −6 dB depth. Lateral width scales with F# and depth of field with F#²: F# 4 gives 1.09 mm width and 35 mm depth.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Paraxial on-axis result for a circular aperture.</span><canvas id="m4-rf-8" aria-label="On-axis intensity versus defocus with minus 3 dB depth of field"></canvas></div></div>
       <div class="limits">Paraxial, high Fresnel number \(D^{2}/(4\lambda F) \gg 1\) (otherwise the intensity peak shifts toward the transducer). With dynamic receive, transmit alone sets it: −6 dB one-way is \(9.7 \lambda F\#^{2}\).</div>
@@ -615,7 +656,7 @@
       <div class="limits">Padding does improve peak location (interpolation) and removes scalloping in display. Parametric or high-resolution estimators can beat 1/T only by adding a model.</div>
     </div>
         <div class="rule">
-      <div class="say">Pick the window by the dynamic range you need, then correct its gain.</div>
+      <div class="say">Pick the window by the dynamic range you need between neighbouring tones, then divide out its coherent gain and noise bandwidth, or every level is off by up to 6 dB.</div>
       <div class="keynum"><span>rect −13.3 dB, 0.89 bin</span><span>Hann −31.5 dB, 1.44 bin</span><span>Hann CG 0.5, ENBW 1.5</span></div>
       <div class="why"><p>Every window trades mainlobe width for sidelobe level. Close tones of similar level want a narrow mainlobe (rect); a weak tone near a strong one wants low sidelobes (Hann, Blackman). Tones 6.5 bins apart, the second at −40 dB: rect leakage there is −26 dB (buried), Hann −58 dB (visible by 18 dB). Divide amplitudes by CG (Hann 0.5: a 6 dB error otherwise) and noise power by ENBW (1.5 bins for Hann, +1.76 dB).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Continuous-window kernels (sinc and Hann) stand in for the N-point DFT kernels; close for N ≳ 32.</span><canvas id="m4-rf-15" aria-label="Rect and Hann spectra of a strong tone and a weak tone 6.5 bins away"></canvas></div></div>
       <div class="limits">Figures of merit are for DFT-even windows and stationary tones. For spectral estimation of random signals (QUS backscatter) the bias–variance tradeoff of averaging matters as much as the window.</div>
@@ -750,6 +791,8 @@
 </section>
 
 <style>
+#m4 .ctrl .hint { flex-basis: 100%; font: 400 0.72rem/1.35 var(--f-display); color: var(--muted); margin-top: 1px; }
+#m4 .demo-foot .symnote { display: block; margin-top: 6px; font-size: 0.92em; color: var(--muted); }
 #m4 .ok { color: var(--good); font-weight: 600; }
 #m4 .no { color: var(--bad); font-weight: 600; }
 #m4 .ctrl input[disabled] { opacity: 0.4; }
@@ -831,17 +874,17 @@
     ax.clip();
     const np = 1800, xs = [], y1 = [], y2 = [];
     for (let i = 0; i <= np; i++) { const t = T * i / np; xs.push(t); y1.push(Math.cos(TAU * f0 * t + phi)); y2.push(Math.cos(TAU * fa * t + phi)); }
-    Lab.line(ctx, ax, xs, y1, c.accent, 1.2);
-    Lab.line(ctx, ax, xs, y2, c.sig2, 2.2, [6, 4]);
+    const LG = 'm4-s-leg'; if (Lab.on(LG, 'tone')) Lab.line(ctx, ax, xs, y1, c.accent, 1.2);
+    if (Lab.on(LG, 'rec')) Lab.line(ctx, ax, xs, y2, c.sig2, 2.2, [6, 4]);
     ax.unclip();
     const sx = [], sy = []; for (let n = 0; n <= Ns; n++) { sx.push(n / fs); sy.push(Math.cos(TAU * f0 * n / fs + phi)); }
-    Lab.dots(ctx, ax, sx, sy, c.fg, 3.6);
+    if (Lab.on(LG, 'samp')) Lab.dots(ctx, ax, sx, sy, c.fg, 3.6);
     /* spectrum panel */
     g = Lab.canvas($('m4-s-spec'), 170); ctx = g.ctx; w = g.w; h = g.h;
     const R = Math.max(1.2 * f0, 1.6 * fs);
     const bx = Lab.axes(ctx, { x: 54, y: 18, w: w - 68, h: h - 58 }, [-R, R], [0, 1.15], { xlabel: 'frequency (MHz)', ylabel: '|X(f)|', yticks: [] });
-    vband(ctx, bx, -fs / 2, fs / 2, c.accent, 0.09);
-    for (let m = -Math.ceil(2 * R / fs); m <= Math.ceil(2 * R / fs); m++) if (m) vline(ctx, bx, m * fs / 2, m % 2 ? c.muted : c.rule, [3, 3]);
+    if (Lab.on(LG, 'zone')) vband(ctx, bx, -fs / 2, fs / 2, c.accent, 0.09);
+    if (Lab.on(LG, 'zone')) for (let m = -Math.ceil(2 * R / fs); m <= Math.ceil(2 * R / fs); m++) if (m) vline(ctx, bx, m * fs / 2, m % 2 ? c.muted : c.rule, [3, 3]);
     const pxPerFs = bx.box.w * fs / (2 * R);
     if (pxPerFs > 34) for (let m = -Math.floor(R / fs); m <= Math.floor(R / fs); m++) if (m) label(ctx, (m === 1 ? '' : m === -1 ? '−' : MINUS(m)) + 'fs', bx.X(m * fs), bx.box.y - 2, c.muted);
     label(ctx, '±fs/2', bx.X(fs / 2), bx.box.y + 12, c.muted, 'left', 'bottom');
@@ -850,9 +893,9 @@
     for (let kk = -K; kk <= K; kk++) for (const sg of [1, -1]) {
       const f = sg * f0 + kk * fs; if (Math.abs(f) > R) continue;
       const inb = Math.abs(f) <= fs / 2 + 1e-9;
-      if (kk === 0) draw.push([f, 1.0, c.accent, 2.6, 2]);
-      else if (inb) draw.push([f, 0.8, c.sig2, 2.6, 1]);
-      else draw.push([f, 0.5, c.muted, 1.3, 0]);
+      if (kk === 0) { if (Lab.on(LG, 'tone')) draw.push([f, 1.0, c.accent, 2.6, 2]); }
+      else if (inb) { if (Lab.on(LG, 'rec')) draw.push([f, 0.8, c.sig2, 2.6, 1]); }
+      else if (Lab.on(LG, 'rep')) draw.push([f, 0.5, c.muted, 1.3, 0]);
     }
     draw.sort((a, b) => a[4] - b[4]).forEach(d => Lab.arrow(ctx, bx.X(d[0]), bx.Y(0), bx.X(d[0]), bx.Y(d[1]), d[2], d[3]));
     /* live FFT verification */
@@ -862,8 +905,8 @@
     let fpk = b * fs / N; if (b > 0 && b < N / 2) { const a1 = Math.log(mag[b - 1] + 1e-300), a2 = Math.log(mag[b] + 1e-300), a3 = Math.log(mag[b + 1] + 1e-300); const den = a1 - 2 * a2 + a3; if (den) fpk = (b + 0.5 * (a1 - a3) / den) * fs / N; }
     const ok = f0 < fs / 2;
     $('m4-s-read').innerHTML =
-      'f0/fs = ' + (f0 / fs).toFixed(3) + ', k = round(f0/fs) = ' + k + '<br>' +
-      'f_alias = |' + f0.toFixed(1) + ' − ' + k + '·' + fs.toFixed(1) + '| = <b>' + fap.toFixed(3) + ' MHz</b><br>' +
+      'ratio f0/fs = ' + (f0 / fs).toFixed(3) + ', k = round(f0/fs) = ' + k + '<br>' +
+      'alias frequency f_alias = |' + f0.toFixed(1) + ' − ' + k + '·' + fs.toFixed(1) + '| = <b>' + fap.toFixed(3) + ' MHz</b><br>' +
       'FFT peak of samples: <b>' + fpk.toFixed(3) + ' MHz</b><br>' +
       'fs/2 = ' + (fs / 2).toFixed(2) + ' MHz: ' + (ok ? '<span class="ok">no aliasing</span>' : '<span class="no">aliased</span>') +
       (fa < -1e-9 ? '<br>f0 − k·fs &lt; 0: spectrum mirrored, phase −φ' : '');
@@ -916,7 +959,7 @@
     const zs = zones.map(z => 'n=' + z[0] + ': ' + z[1].toFixed(2) + (isFinite(z[2]) ? '–' + z[2].toFixed(2) : '+') + ' MHz').join('<br>');
     const q = 4 * f0;
     $('m4-b-read').innerHTML =
-      'band [' + fL.toFixed(2) + ', ' + fH.toFixed(2) + '] MHz, B = ' + B.toFixed(2) + '<br>' +
+      'band [' + fL.toFixed(2) + ', ' + fH.toFixed(2) + '] MHz, −6 dB bandwidth B = ' + B.toFixed(2) + ' MHz<br>' +
       'fs = ' + fs.toFixed(2) + ': ' + (valid ? '<span class="ok">valid</span>, zone ' + nZone + (nZone % 2 ? '' : ' (inverted)') : '<span class="no">overlap: invalid</span>') + '<br>' +
       'legal zones (n ≤ ' + nmax + '):<br>' + zs + '<br>' +
       'lowest legal fs = <b>' + (2 * fH / nmax).toFixed(2) + ' MHz</b><br>' +
@@ -943,7 +986,7 @@
     const g2 = Lab.canvas($('m4-d-row'), 170); const c2 = g2.ctx;
     const ax = Lab.axes(c2, { x: 54, y: 10, w: g2.w - 68, h: g2.h - 50 }, [-0.5, N - 0.5], [-1.2, 1.2], { xlabel: 'sample index n', ylabel: 'F[k, n]', ny: 4 });
     const cx = [], cr = [], ci = []; for (let i = 0; i <= 600; i++) { const n = (N - 1) * i / 600; cx.push(n); cr.push(Math.cos(TAU * k * n / N)); ci.push(-Math.sin(TAU * k * n / N)); }
-    ax.clip(); Lab.line(c2, ax, cx, cr, c.accent, 1, [3, 3]); Lab.line(c2, ax, cx, ci, c.sig2, 1, [3, 3]); ax.unclip();
+    ax.clip(); Lab.line(c2, ax, cx, cr, c.accent, 1, [6, 4]); Lab.line(c2, ax, cx, ci, c.sig2, 1, [2, 3]); ax.unclip();
     const nx = [], rr = [], ii = []; for (let n = 0; n < N; n++) { nx.push(n); rr.push(reA[k * N + n]); ii.push(imA[k * N + n]); }
     const r0 = Math.max(1.6, Math.min(3, 120 / N));
     stems(c2, ax, nx.map(v => v - 0.12), rr, c.accent, r0); stems(c2, ax, nx.map(v => v + 0.12), ii, c.sig2, r0);
@@ -953,7 +996,7 @@
     const rg = Lab.rng(1234 + N); const x = []; let ex = 0; for (let n = 0; n < N; n++) { x.push(rg.g()); ex += x[n] * x[n]; }
     let eX = 0; for (let r = 0; r < N; r++) { let sr = 0, si = 0; for (let n = 0; n < N; n++) { sr += reA[r * N + n] * x[n]; si += imA[r * N + n] * x[n]; } eX += sr * sr + si * si; }
     $('m4-d-read').innerHTML =
-      'max |FᴴF/N − I| = <b>' + err.toExponential(1) + '</b><br>' +
+      'orthogonality error max |FᴴF/N − I| = <b>' + err.toExponential(1) + '</b><br>' +
       'random x (seeded):<br>Σ|x|² = ' + ex.toFixed(6) + '<br>Σ|X|²/N = ' + (eX / N).toFixed(6) + '<br>' +
       'row k is frequency ' + (k <= N / 2 ? k : MINUS(k - N)) + '·fs/N';
   }
@@ -972,11 +1015,11 @@
     const g = Lab.canvas($('m4-z-cv'), 270); const ctx = g.ctx;
     const ax = Lab.axes(ctx, { x: 54, y: 14, w: g.w - 68, h: g.h - 56 }, [lo, hi], [0, 2.15], { xlabel: 'frequency (MHz)', ylabel: '|X| / N', ny: 4 });
     const fx_ = [], fy = []; for (let i = 0; i <= 700; i++) { const f = lo + (hi - lo) * i / 700; fx_.push(f); fy.push(dtft(f)); }
-    ax.clip(); Lab.line(ctx, ax, fx_, fy, c.muted, 1.6); ax.unclip();
-    vline(ctx, ax, f1, c.sig2, [4, 3], 1.4); vline(ctx, ax, f2, c.sig2, [4, 3], 1.4);
+    const LG = 'm4-z-leg'; if (Lab.on(LG, 'dtft')) { ax.clip(); Lab.line(ctx, ax, fx_, fy, c.muted, 1.6); ax.unclip(); }
+    if (Lab.on(LG, 'tones')) { vline(ctx, ax, f1, c.sig2, [4, 3], 1.4); vline(ctx, ax, f2, c.sig2, [4, 3], 1.4); }
     const df = fs / (N * P); const sx = [], sy = [];
     for (let kk = Math.ceil(lo / df); kk * df <= hi; kk++) { sx.push(kk * df); sy.push(dtft(kk * df)); }
-    stems(ctx, ax, sx, sy, c.accent, P >= 8 ? 2 : 3, 0, 1.2);
+    if (Lab.on(LG, 'dft')) stems(ctx, ax, sx, sy, c.accent, P >= 8 ? 2 : 3, 0, 1.2);
     const twoPeaks = (xs, ys) => { /* local maxima in [f1-0.6bin, f2+0.6bin] with a min between that is lower than both */
       const pk = []; for (let i = 1; i < ys.length - 1; i++) if (ys[i] > ys[i - 1] && ys[i] >= ys[i + 1] && xs[i] > f1 - 0.6 * bin && xs[i] < f2 + 0.6 * bin) pk.push(i);
       if (pk.length < 2) return false; let mn = Infinity; for (let i = pk[0]; i <= pk[pk.length - 1]; i++) mn = Math.min(mn, ys[i]);
@@ -984,7 +1027,7 @@
     };
     const tD = twoPeaks(fx_, fy), tS = twoPeaks(sx, sy);
     $('m4-z-read').innerHTML =
-      'T = N/fs = ' + (N / fs).toFixed(3) + ' µs<br>' +
+      'record length T = N/fs = ' + (N / fs).toFixed(3) + ' µs<br>' +
       'resolution ≈ 1/T = <b>' + bin.toFixed(3) + ' MHz</b><br>' +
       'bin spacing fs/(PN) = <b>' + df.toFixed(3) + ' MHz</b><br>' +
       'tone spacing = ' + (sep * bin).toFixed(3) + ' MHz<br>' +
@@ -1039,14 +1082,13 @@
     const ax = Lab.axes(ctx, { x: 54, y: 12, w: g.w - 68, h: g.h - 54 }, [xa, xb], [-120, 6], { xlabel: 'frequency (bins of N)', ylabel: 'level (dB re tone 1)', ny: 6 });
     ax.clip();
     const fxs = [], fys = []; for (let i = Math.floor(xa * HP); i <= Math.min(fine.length - 1, Math.ceil(xb * HP)); i++) { fxs.push(i / HP); fys.push(Math.max(-130, fine[i])); }
-    Lab.line(ctx, ax, fxs, fys, c.muted, 1);
+    const LG = 'm4-w-leg'; if (Lab.on(LG, 'dtft')) Lab.line(ctx, ax, fxs, fys, c.muted, 1, [2, 3]);
     const dxs = [], dys = []; for (let i = Math.floor(xa * P); i <= Math.min(disp.length - 1, Math.ceil(xb * P)); i++) { dxs.push(i / P); dys.push(Math.max(-130, disp[i])); }
-    Lab.line(ctx, ax, dxs, dys, c.accent, 1.8);
-    if (P <= 2) Lab.dots(ctx, ax, dxs, dys, c.accent, 2.6);
-    vline(ctx, ax, k1, c.fg, [4, 3], 1); vline(ctx, ax, k2, c.sig2, [4, 3], 1.2);
+    if (Lab.on(LG, 'dft')) { Lab.line(ctx, ax, dxs, dys, c.accent, 1.8); if (P <= 2) Lab.dots(ctx, ax, dxs, dys, c.accent, 2.6); }
+    if (Lab.on(LG, 't1')) vline(ctx, ax, k1, c.fg, [4, 3], 1); if (Lab.on(LG, 't2')) vline(ctx, ax, k2, c.sig2, [4, 3], 1.2);
     ax.unclip();
     const tri = (x, y, col) => { const px = ax.X(x), py = ax.Y(y); ctx.save(); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - 5, py - 8); ctx.lineTo(px + 5, py - 8); ctx.closePath(); ctx.fill(); ctx.restore(); };
-    tri(k1, 0, c.fg); tri(k2, amp, c.sig2);
+    if (Lab.on(LG, 't1')) tri(k1, 0, c.fg); if (Lab.on(LG, 't2')) tri(k2, amp, c.sig2);
     /* resolved decision on 32x-padded DTFT */
     const j0 = Math.round(k2 * HP), jr = Math.round(0.75 * HP); let lk = -Infinity, tot = -Infinity, bpk = -1, bv = -Infinity;
     for (let j = Math.max(1, j0 - jr); j <= Math.min(fine.length - 2, j0 + jr); j++) {
@@ -1065,7 +1107,7 @@
       'peak sidelobe: <b>' + fx(K.psl, 1) + ' dB</b>' + (th ? ' (theory ' + fx(th[0], 1) + ')' : '') + '<br>' +
       '−3 dB width: <b>' + K.bw3.toFixed(2) + ' bins</b>' + (th ? ' (theory ' + th[1].toFixed(2) + ')' : '') + '<br>' +
       'first null: ±' + K.nul.toFixed(2) + ' bins<br>' +
-      'ENBW ' + K.enbw.toFixed(2) + ' bins · CG ' + K.cg.toFixed(3) + '<br>' +
+      'equivalent noise bandwidth ENBW ' + K.enbw.toFixed(2) + ' bins · coherent gain CG ' + K.cg.toFixed(3) + '<br>' +
       'scalloping at offset ' + off.toFixed(2) + ': ' + scal.toFixed(2) + ' dB<br>' +
       'tone 2: ' + verdict;
   }
@@ -1122,14 +1164,14 @@
     const zOf = n => n / fs * CMM / 2; const zz = []; for (let n = 0; n < Ns; n++) zz.push(zOf(n));
     const topH = 64, gap = 26;
     const rmax = Math.max(1e-9, ...Array.from(rr.subarray(0, Ns), Math.abs));
-    const ax1 = Lab.axes(ctx, { x: 54, y: 16, w: g.w - 68, h: topH }, [0, PF.zmax], [-1.15, 1.15], { yticks: [0], noXLabels: true, title: 'reflectivity ρ(z)', ylabel: '' });
+    const ax1 = Lab.axes(ctx, { x: 54, y: 16, w: g.w - 68, h: topH }, [0, PF.zmax], [-1.15, 1.15], { yticks: [0], noXLabels: true, title: 'reflectivity ρ(z)', ylabel: 'ρ' });
     const rx = [], ry = []; for (let n = 0; n < Ns; n++) if (rr[n]) { rx.push(zz[n]); ry.push(rr[n] / rmax); }
     stems(ctx, ax1, rx, ry, c.fg, mode === 'two' ? 3 : 0, 0, 1.2);
     let emax = 0; for (let n = 0; n < Ns; n++) emax = Math.max(emax, env[n]); emax = emax || 1;
     const ax2 = Lab.axes(ctx, { x: 54, y: 16 + topH + gap, w: g.w - 68, h: g.h - (16 + topH + gap) - 40 }, [0, PF.zmax], [-1.1, 1.1], { xlabel: 'depth z = ct/2 (mm)', ylabel: 'RF (norm.)', title: 'RF line r = p ∗ ρ and envelope', ny: 4 });
     ax2.clip();
     Lab.line(ctx, ax2, zz, Array.from(rf.subarray(0, Ns), v => v / emax), c.accent, 1);
-    Lab.line(ctx, ax2, zz, Array.from(env.subarray(0, Ns), v => v / emax), c.sig2, 1.8);
+    Lab.line(ctx, ax2, zz, Array.from(env.subarray(0, Ns), v => v / emax), c.sig2, 1.8, [6, 4]);
     ax2.unclip();
     /* pulse + spectrum canvas */
     const cv = $('m4-p-spec'); const W = cv.clientWidth || 300; const narrow = W < 560;
@@ -1145,7 +1187,7 @@
     const ax4 = Lab.axes(ctx, { x: sxo, y: syo, w: sw, h: sh }, [0, fmax], [0, 1.1], { xlabel: 'frequency (MHz)', ylabel: '|·| (norm.)', title: 'spectra: P, S, P·S', ny: 2 });
     const kmax = Math.floor(fmax / fs * N); const fxs = []; for (let k = 0; k <= kmax; k++) fxs.push(k * fs / N);
     const nrm = a => { let m = 0; for (let k = 0; k <= kmax; k++) m = Math.max(m, a[k]); m = m || 1; return a.slice(0, kmax + 1).map(v => v / m); };
-    ax4.clip(); Lab.line(ctx, ax4, fxs, nrm(magR), c.muted, 1); Lab.line(ctx, ax4, fxs, nrm(magP), c.accent, 2); Lab.line(ctx, ax4, fxs, nrm(magY), c.sig2, 1.4); ax4.unclip();
+    const LG = 'm4-p-leg'; ax4.clip(); if (Lab.on(LG, 'S')) Lab.line(ctx, ax4, fxs, nrm(magR), c.muted, 1, [6, 4]); if (Lab.on(LG, 'P')) Lab.line(ctx, ax4, fxs, nrm(magP), c.accent, 2); if (Lab.on(LG, 'PS')) Lab.line(ctx, ax4, fxs, nrm(magY), c.sig2, 1.4); ax4.unclip();
     /* readouts */
     let res = '';
     if (mode === 'two') {
@@ -1155,10 +1197,10 @@
         'S(f) notches every c/(2s) = ' + (CMM / (2 * sp)).toFixed(2) + ' MHz';
     } else res = 'speckle: ~20 scatterers/mm, seed ' + pSeed;
     $('m4-p-read').innerHTML =
-      'B(−6 dB) = ' + B.toFixed(2) + ' MHz, σt = ' + st.toFixed(3) + ' µs<br>' +
-      'τ(−6 dB) = 4ln2/(πB) = <b>' + tau.toFixed(3) + ' µs</b><br>' +
+      'bandwidth B (−6 dB) = ' + B.toFixed(2) + ' MHz, Gaussian width σt = ' + st.toFixed(3) + ' µs<br>' +
+      'pulse duration τ (−6 dB) = 4ln2/(πB) = <b>' + tau.toFixed(3) + ' µs</b><br>' +
       'τ measured (envelope) = ' + tauM.toFixed(3) + ' µs<br>' +
-      'Δz = cτ/2 = <b>' + dz.toFixed(3) + ' mm</b><br>' +
+      'axial resolution Δz = cτ/2 = <b>' + dz.toFixed(3) + ' mm</b><br>' +
       'σt′σf′ = ' + (sT * sF).toFixed(4) + ' (1/4π = 0.0796)<br>' + res;
   }
 
@@ -1188,7 +1230,7 @@
     const cx = [], cy = []; for (let n = 0; n < N; n++) { cx.push(n); cy.push(yc[n]); }
     stems(ctx, ax, cx, cy, c.sig2, r * 0.9, 0, 1);
     $('m4-c-read').innerHTML =
-      'L + M − 1 = <b>' + Ly + '</b>, N = ' + N + '<br>' +
+      'linear output length L + M − 1 = <b>' + Ly + '</b>, N = ' + N + '<br>' +
       'wrapped samples: <b>' + wrap + '</b><br>' +
       'max |y_c − y_lin| on 0..N−1: ' + err.toFixed(3) + '<br>' +
       (wrap ? '<span class="no">time aliasing</span>' : '<span class="ok">circular = linear</span>');
@@ -1276,7 +1318,7 @@
     if (gl.length) { const gv = toDb(raw(gl.map(a => Math.sin(a * PI / 180)))); glTxt += ' at ' + gv.map(v => fx(v, 1)).join(', ') + ' dB'; }
     const ratio = lam / d; const thmax = ratio >= 2 ? 90 : ratio > 1 ? Math.asin(ratio - 1) * 180 / PI : null;
     $('m4-a-read').innerHTML =
-      'λ = ' + lam.toFixed(3) + ' mm, d/λ = <b>' + (d / lam).toFixed(3) + '</b>, D = ' + D.toFixed(1) + ' mm<br>' +
+      'wavelength λ = ' + lam.toFixed(3) + ' mm, d/λ = <b>' + (d / lam).toFixed(3) + '</b>, aperture D = ' + D.toFixed(1) + ' mm<br>' +
       'grating lobes: <b>' + glTxt + '</b><br>' +
       'GL-free steering: ' + (thmax === null ? '<span class="no">none (λ/d &lt; 1)</span>' : '±' + thmax.toFixed(1) + '°') + '<br>' +
       slTxt + '<br>' +
@@ -1292,6 +1334,7 @@
   wire(['m4-z-n', 'm4-z-sep', 'm4-z-p', 'm4-z-ph'], drawZ);
   wire(['m4-w-win', 'm4-w-beta', 'm4-w-sep', 'm4-w-amp', 'm4-w-off', 'm4-w-n', 'm4-w-pad'], drawW);
   wire(['m4-p-f0', 'm4-p-bw', 'm4-p-mode', 'm4-p-sp'], drawP);
+  Lab.legendToggle('m4-s-leg', drawS); Lab.legendToggle('m4-z-leg', drawZ); Lab.legendToggle('m4-w-leg', drawW); Lab.legendToggle('m4-p-leg', drawP);
   $('m4-p-seed').addEventListener('click', () => { pSeed = (pSeed * 1103515245 + 12345) % 2147483647 || 7; drawP(); });
   wire(['m4-c-l', 'm4-c-m', 'm4-c-n'], drawC);
   wire(['m4-a-f0', 'm4-a-d', 'm4-a-th', 'm4-a-ne', 'm4-a-ap', 'm4-a-way'], drawA);
@@ -1321,8 +1364,8 @@
 
   /* ---------------- Visual summary ---------------- */
   const VIS = [
-    { prov: 'exact', q: 'What does sampling do to the spectrum?', a: 'Multiplying by a comb of period T<sub>s</sub> convolves X(f) with a comb of period f<sub>s</sub>: <b>X<sub>s</sub>(f) = f<sub>s</sub> Σ<sub>k</sub> X(f − k f<sub>s</sub>)</b> (drawn ×T<sub>s</sub>). Here X is a triangle of half-width B; drag the slider past 1.25 and f<sub>s</sub> drops below 2B, so the copies overlap (pink).',
-      tr: [-3, 3], ty: [-0.25, 1.25], fr: [-4.5, 4.5], fy: [0, 1.3], tl: 'x(t) and samples x(nTₛ)', fl: 'Tₛ·Xₛ(f)',
+    { prov: 'exact', leg: [['x(t)', 'mu', 'dash'], ['samples x(nTₛ)', 'a', 'stem'], ['replicas k ≠ 0', 'mu', 'solid'], ['sum Tₛ·Xₛ(f)', 'a', 'solid'], ['overlap (aliasing)', 'b', 'fill']], q: 'What does sampling do to the spectrum?', a: 'Multiplying by a comb of period T<sub>s</sub> convolves X(f) with a comb of period f<sub>s</sub>: <b>X<sub>s</sub>(f) = f<sub>s</sub> Σ<sub>k</sub> X(f − k f<sub>s</sub>)</b> (drawn ×T<sub>s</sub>). Here X is a triangle of half-width B; drag the slider past 1.25 and f<sub>s</sub> drops below 2B, so the copies overlap (pink).',
+      tr: [-3, 3], ty: [-0.25, 1.25], fr: [-4.5, 4.5], fy: [0, 1.3], tl: 'x(t) and samples x(nTₛ) vs t', fl: 'Tₛ·Xₛ(f) vs f',
       tt: T => [[TS * T, 'Tₛ']], ft: T => [[1 / (TS * T), 'fₛ'], [-1, '−B']],
       time: (x, m, c, T) => { curve(x, m, t => sinc(t) ** 2, c.mu, { w: 1.2, dash: [3, 3] }); const p = []; for (let n = -20; n <= 20; n++) p.push([n * TS * T, sinc(n * TS * T) ** 2]); dots(x, m, p, c.a, 2.4, true); },
       freq: (x, m, c, T) => { const fs = 1 / (TS * T), K = 8;
@@ -1330,65 +1373,65 @@
         curve(x, m, f => { const v = []; for (let k = -K; k <= K; k++) v.push(tri(f - k * fs)); v.sort((a, b) => b - a); return v[1]; }, c.b, { fill: true, alpha: 0.55, w: 0.01 });
         curve(x, m, f => { let s = 0; for (let k = -K; k <= K; k++) s += tri(f - k * fs); return s; }, c.a, { w: 1.6 }); } },
 
-    { prov: 'exact', q: 'Where does a 7 MHz tone land at f<sub>s</sub> = 10 MHz?', a: '<b>f<sub>alias</sub> = |f<sub>0</sub> − f<sub>s</sub>·round(f<sub>0</sub>/f<sub>s</sub>)|</b>: a triangle wave that folds at every multiple of f<sub>s</sub>/2. 7 MHz reads as <b>3 MHz</b>, arriving from the negative-frequency image, so its phase sign flips.',
+    { prov: 'exact', leg: [['apparent frequency', 'a', 'solid'], ['no aliasing (f = f₀)', 'mu', 'dash'], ['7 MHz → 3 MHz', 'b', 'mark']], q: 'Where does a 7 MHz tone land at f<sub>s</sub> = 10 MHz?', a: '<b>f<sub>alias</sub> = |f<sub>0</sub> − f<sub>s</sub>·round(f<sub>0</sub>/f<sub>s</sub>)|</b>: a triangle wave that folds at every multiple of f<sub>s</sub>/2. 7 MHz reads as <b>3 MHz</b>, arriving from the negative-frequency image, so its phase sign flips.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const fs = 10;
         const m = panel(x, B, [0, 25], [0, 6.2], { lab: 'apparent frequency (MHz) vs f₀ (MHz)', yaxis: false, hlines: [[5, 'fₛ/2']], ticks: [[5, '5'], [7, '7'], [10, '10'], [15, '15'], [20, '20']] });
         curve(x, m, f => f, c.mu, { w: 1, dash: [3, 3] });
         curve(x, m, f => Math.abs(f - fs * Math.round(f / fs)), c.a, { w: 1.8 });
         dots(x, m, [[7, 3]], c.b, 3.6); vline(x, m, 7, c.b, [2, 3]); text(x, '3 MHz', m.X(7) + 6, m.Y(3) - 8, c.b); } },
 
-    { prov: 'exact', q: 'Can a 5 MHz, 60 % echo be sampled at 6.75 MHz?', a: 'Yes. Legal rates obey <b>2f<sub>H</sub>/n ≤ f<sub>s</sub> ≤ 2f<sub>L</sub>/(n − 1)</b>; for [3.5, 6.5] MHz the zones are <b>[6.5, 7.0] MHz</b> (n = 2) and ≥ 13 MHz (bottom). At 6.75 MHz (top) mirror copies sit 0.25 MHz below and 0.5 MHz above the band; the band arrives inverted (even n).',
+    { prov: 'exact', leg: [['band and its copies', 'a', 'fill'], ['copies of the negative band', 'b', 'fill'], ['legal fₛ zones', 'd', 'fill'], ['fₛ = 6.75 MHz', 'fg', 'mark']], q: 'Can a 5 MHz, 60 % echo be sampled at 6.75 MHz?', a: 'Yes. Legal rates obey <b>2f<sub>H</sub>/n ≤ f<sub>s</sub> ≤ 2f<sub>L</sub>/(n − 1)</b>; for [3.5, 6.5] MHz the zones are <b>[6.5, 7.0] MHz</b> (n = 2) and ≥ 13 MHz (bottom). At 6.75 MHz (top) mirror copies sit 0.25 MHz below and 0.5 MHz above the band; the band arrives inverted (even n).',
       draw: (cv) => { const c = col(), { x, w, h } = size(cv, 156); const fL = 3.5, fH = 6.5, fs = 6.75, Bw = fH - fL;
-        const m1 = panel(x, { x: 4, y: 16, w: w - 8, h: 46 }, [0, 14], [0, 1.2], { lab: 'spectrum after sampling at 6.75 MHz', yaxis: false, ticks: [[3.5, '3.5'], [6.5, '6.5'], [10, '10'], [13.5, '2fₛ']] });
+        const m1 = panel(x, { x: 4, y: 16, w: w - 8, h: 46 }, [0, 14], [0, 1.2], { yl: '|X(f)| after sampling at 6.75 MHz', xl: 'f (MHz)', yaxis: false, ticks: [[3.5, '3.5'], [6.5, '6.5'], [10, '10'], [13.5, '2fₛ']] });
         for (let k = -3; k <= 3; k++) { shade(x, m1, fL + k * fs, fH + k * fs, c.a, k ? 0.3 : 0.75, 0, 1); shade(x, m1, -fH + k * fs, -fL + k * fs, c.b, 0.4, 0, 0.8); }
         const nmax = Math.floor(fH / Bw), zones = [];
         for (let n = 1; n <= nmax; n++) zones.push([2 * fH / n, n === 1 ? 99 : 2 * fL / (n - 1)]);
-        const m2 = panel(x, { x: 4, y: 96, w: w - 8, h: 36 }, [0, 16], [0, 1], { lab: 'legal fₛ (MHz)', yaxis: false, ticks: [[3, '3'], [6.75, '6.75'], [13, '13']] });
+        const m2 = panel(x, { x: 4, y: 96, w: w - 8, h: 36 }, [0, 16], [0, 1], { yl: 'legal fₛ (shaded)', xl: 'fₛ (MHz)', yaxis: false, ticks: [[3, '3'], [6.75, '6.75'], [13, '13']] });
         zones.forEach(([a, b]) => { if (b >= a) shade(x, m2, a, b, c.d, 0.65, 0.15, 0.85); });
         dots(x, m2, [[fs, 0.5]], c.fg, 3.2); } },
 
-    { prov: 'exact', q: 'What does a window buy, and what does it cost?', a: 'A taper lowers the sidelobes and widens the mainlobe. <b>Rect: −13.3 dB, nulls ±1 bin. Hann: −31.5 dB, nulls ±2 bins</b>; −3 dB width 0.89 → 1.44 bins. These are exactly the rect vs Hann apodization numbers in λ/D.',
+    { prov: 'exact', leg: [['rectangular', 'mu', 'dash'], ['Hann', 'a', 'solid']], q: 'What does a window buy, and what does it cost?', a: 'A taper lowers the sidelobes and widens the mainlobe. <b>Rect: −13.3 dB, nulls ±1 bin. Hann: −31.5 dB, nulls ±2 bins</b>; −3 dB width 0.89 → 1.44 bins. These are exactly the rect vs Hann apodization numbers in λ/D.',
       draw: (cv) => { const c = col(), { x, w, h } = size(cv, 140); const [L, R] = two(w, h);
         const ml = panel(x, L, [-0.1, 1.1], [0, 1.2], { lab: 'w[n] vs n/N', yaxis: false, ticks: [[0, '0'], [1, '1']] });
         curve(x, ml, t => (t >= 0 && t <= 1) ? 1 : 0, c.mu, { w: 1.2, dash: [3, 3] });
         curve(x, ml, t => (t >= 0 && t <= 1) ? 0.5 - 0.5 * Math.cos(TAU * t) : 0, c.a, { fill: true });
         const mr = panel(x, R, [-7, 7], [-70, 0], { lab: '|W| (dB) vs bins', base: -70, hlines: [[-13.26, '−13.3'], [-31.47, '−31.5']], ticks: [[-2, '−2'], [2, '2'], [6, '6']] });
-        curve(x, mr, u => db(sinc(u), -70), c.mu, { w: 1.2 }); curve(x, mr, u => db(hannW(u), -70), c.a);
+        curve(x, mr, u => db(sinc(u), -70), c.mu, { w: 1.2, dash: [3, 3] }); curve(x, mr, u => db(hannW(u), -70), c.a);
         x.save(); x.fillStyle = c.mu; x.font = '600 15px ' + c.mono; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('↔', L.x + L.w + 15, L.y + L.h / 2); x.restore(); } },
 
-    { prov: 'exact', q: 'A tone sits halfway between bins. What does zero padding fix?', a: 'On the native N = 16 bins (blue) the tone at bin 4.5 reads <b>−3.9 dB</b> low (rect scalloping loss) and its frequency is ambiguous. Padding ×8 (pink) samples the same Dirichlet lobe finely and recovers the peak, but the lobe stays <b>2/T</b> wide null to null.',
+    { prov: 'exact', leg: [['DTFT, N = 16', 'mu', 'solid'], ['8× padded DFT', 'b', 'mark'], ['native N = 16 bins', 'a', 'stem']], q: 'A tone sits halfway between bins. What does zero padding fix?', a: 'On the native N = 16 bins (blue) the tone at bin 4.5 reads <b>−3.9 dB</b> low (rect scalloping loss) and its frequency is ambiguous. Padding ×8 (pink) samples the same Dirichlet lobe finely and recovers the peak, but the lobe stays <b>2/T</b> wide null to null.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const N = 16, k0 = 4.5;
         const m = panel(x, B, [0, 9.5], [0, 1.12], { lab: '|X| (DTFT, N = 16) vs bin', yaxis: false, hlines: [[1 / (N * Math.sin(PI / (2 * N))), '−3.9 dB']], ticks: [[2.5, '2.5'], [4.5, '4.5'], [6.5, '6.5'], [9, '9']] });
         curve(x, m, k => dirich(k - k0, N), c.mu, { w: 1.2 });
         const p8 = []; for (let i = 0; i <= 76; i++) p8.push([i / 8, dirich(i / 8 - k0, N)]); dots(x, m, p8, c.b, 1.7);
         const p1 = []; for (let k = 0; k <= 9; k++) p1.push([k, dirich(k - k0, N)]); dots(x, m, p1, c.a, 3.4, true); } },
 
-    { prov: 'exact', q: 'What goes wrong when the FFT is too short for a convolution?', a: 'The DFT product is <b>circular</b>: y<sub>c</sub>[n] = Σ<sub>r</sub> y<sub>lin</sub>[n + rN]. L = 10, M = 8 needs N ≥ L + M − 1 = 17. With N = 12 the last 5 samples of the linear result (gray) fold onto the first 5 (shaded): late echoes contaminate early depths.',
+    { prov: 'exact', leg: [['linear result', 'mu', 'stem'], ['circular, N = 12', 'a', 'stem'], ['wrapped samples', 'b', 'fill'], ['N', 'mu', 'dash']], q: 'What goes wrong when the FFT is too short for a convolution?', a: 'The DFT product is <b>circular</b>: y<sub>c</sub>[n] = Σ<sub>r</sub> y<sub>lin</sub>[n + rN]. L = 10, M = 8 needs N ≥ L + M − 1 = 17. With N = 12 the last 5 samples of the linear result (gray) fold onto the first 5 (shaded): late echoes contaminate early depths.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const L = 10, Mh = 8, N = 12, NL = L + Mh - 1;
         const y = new Float64Array(NL); for (let n = 0; n < NL; n++) for (let m = 0; m < Mh; m++) if (n - m >= 0 && n - m < L) y[n] += Math.pow(0.8, m);
         const yc = new Float64Array(N); for (let n = 0; n < NL; n++) yc[n % N] += y[n];
         const top = Math.max(...yc) * 1.12;
-        const m = panel(x, B, [-0.7, NL - 0.3], [0, top], { lab: 'linear (gray) vs circular N = 12 (blue)', yaxis: false, ticks: [[0, '0'], [5, '5'], [12, 'N'], [16, '16']] });
+        const m = panel(x, B, [-0.7, NL - 0.3], [0, top], { yl: 'y[n]: linear (gray), circular N = 12 (blue)', xl: 'n', yaxis: false, ticks: [[0, '0'], [5, '5'], [12, 'N'], [16, '16']] });
         shade(x, m, -0.5, NL - N - 0.5, c.b, 0.16); vline(x, m, N - 0.5, c.mu, [3, 3]);
         dots(x, m, Array.from(y, (v, n) => [n, v]), c.mu, 2.2, true);
         dots(x, m, Array.from(yc, (v, n) => [n + 0.22, v]), c.a, 2.6, true); } },
 
-    { prov: 'exact', q: 'Why is the two-way beam a sinc² even with a rect aperture?', a: 'Transmit and receive patterns multiply, so the effective aperture is the autoconvolution <b>a<sub>T</sub> ∗ a<sub>R</sub></b>: a triangle of width 2D. Its transform is <b>sinc²</b>: same first null at λz/D, −6 dB width 1.21 → 0.89 λF#, first sidelobe −13.3 → −26.5 dB. Slider = D.',
-      tr: [-2.6, 2.6], ty: [0, 1.25], fr: [-3, 3], fy: [-0.3, 1.2], tl: 'a(ξ) and a∗a (ξ)', fl: 'beam vs x/(λz)',
+    { prov: 'exact', leg: [['rect aperture, one-way sinc', 'mu', 'dash'], ['a∗a triangle', 'a', 'fill'], ['two-way sinc²', 'b', 'solid']], q: 'Why is the two-way beam a sinc² even with a rect aperture?', a: 'Transmit and receive patterns multiply, so the effective aperture is the autoconvolution <b>a<sub>T</sub> ∗ a<sub>R</sub></b>: a triangle of width 2D. Its transform is <b>sinc²</b>: same first null at λz/D, −6 dB width 1.21 → 0.89 λF#, first sidelobe −13.3 → −26.5 dB. Slider = D.',
+      tr: [-2.6, 2.6], ty: [0, 1.25], fr: [-3, 3], fy: [-0.3, 1.2], tl: 'a(ξ) and a∗a vs ξ', fl: 'beam vs x/(λz)',
       tt: T => [[T / 2, 'D/2'], [T, 'D']], ft: T => [[1 / T, '1/D'], [-1 / T, '−1/D']],
       time: (x, m, c, T) => { curve(x, m, s => Math.abs(s / T) < 0.5 ? 1 : 0, c.mu, { w: 1.2, dash: [3, 3] }); curve(x, m, s => tri(s / T), c.a, { fill: true }); },
       freq: (x, m, c, T) => { curve(x, m, u => sinc(u * T), c.mu, { w: 1.2, dash: [3, 3] }); curve(x, m, u => sinc(u * T) ** 2, c.b); } },
 
-    { prov: 'exact', q: 'When does steering bring in a grating lobe?', a: '<b>sin θ<sub>g</sub> = sin θ<sub>0</sub> ± λ/d</b>. 5 MHz, 0.3 mm pitch (d = 0.97λ), N = 8: unsteered (gray) the lobes sit at sin θ = ±1.03, just outside the visible region (shaded); steered to 20° (blue) one enters at sin θ = −0.69, i.e. <b>−43.2°</b>.',
+    { prov: 'exact', leg: [['unsteered', 'mu', 'dash'], ['steered 20°', 'a', 'fill'], ['outside the visible region', 'mu', 'fill']], q: 'When does steering bring in a grating lobe?', a: '<b>sin θ<sub>g</sub> = sin θ<sub>0</sub> ± λ/d</b>. 5 MHz, 0.3 mm pitch (d = 0.97λ), N = 8: unsteered (gray) the lobes sit at sin θ = ±1.03, just outside the visible region (shaded); steered to 20° (blue) one enters at sin θ = −0.69, i.e. <b>−43.2°</b>.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const N = 8, dl = 0.3 / (CMM / 5), s20 = Math.sin(20 * PI / 180);
         const m = panel(x, B, [-1.45, 1.45], [0, 1.1], { lab: '|array factor| vs sin θ, N = 8', yaxis: false, ticks: [[-1, '−1'], [-0.685, '−.69'], [0, '0'], [s20, '.34'], [1, '1']] });
         shade(x, m, -1.45, -1, c.mu, 0.14); shade(x, m, 1, 1.45, c.mu, 0.14);
-        curve(x, m, u => dirich(N * dl * u, N), c.mu, { w: 1.2 });
+        curve(x, m, u => dirich(N * dl * u, N), c.mu, { w: 1.2, dash: [3, 3] });
         curve(x, m, u => dirich(N * dl * (u - s20), N), c.a, { fill: true }); } },
 
-    { prov: 'model', q: 'What does the RF image look like in k-space?', a: 'Axially the pulse band maps to <b>k<sub>z</sub> = 2f/c</b>: 6.49 cycles/mm at 5 MHz (60 % band). Laterally the T/R aperture autoconvolution reaches <b>|k<sub>x</sub>| = k<sub>z</sub>/(2F#)</b>: 1.62 cycles/mm at F# = 2 (dashed). The PSF is the inverse 2D FFT of this bow-tie.',
+    { prov: 'model', leg: [['|H(kx, kz)| (shading)', 'a', 'fill'], ['|kx| = kz/(2F#)', 'mu', 'dash']], q: 'What does the RF image look like in k-space?', a: 'Axially the pulse band maps to <b>k<sub>z</sub> = 2f/c</b>: 6.49 cycles/mm at 5 MHz (60 % band). Laterally the T/R aperture autoconvolution reaches <b>|k<sub>x</sub>| = k<sub>z</sub>/(2F#)</b>: 1.62 cycles/mm at F# = 2 (dashed). The PSF is the inverse 2D FFT of this bow-tie.',
       draw: (cv) => { const c = col(), { x, w, h } = size(cv, 160); const F = 2, f0 = 5, sf = 0.6 * f0 / 2.355;
-        const m = panel(x, { x: 30, y: 16, w: w - 36, h: h - 36 }, [-3.2, 3.2], [0, 11], { lab: 'H(kx, kz), kx and kz in cycles/mm', ticks: [[-3, '−3'], [-1.62, '−1.62'], [1.62, '1.62'], [3, '3']] });
+        const m = panel(x, { x: 30, y: 16, w: w - 36, h: h - 36 }, [-3.2, 3.2], [0, 11], { yl: 'H(kx, kz): kz (cycles/mm)', xl: 'kx (cycles/mm)', ticks: [[-3, '−3'], [-1.62, '−1.62'], [1.62, '1.62'], [3, '3']] });
         const nx = 96, nz = 66; x.save(); x.fillStyle = c.a;
         for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const kx = -3.2 + (i + 0.5) * 6.4 / nx, kz = (j + 0.5) * 11 / nz; const f = kz * CMM / 2;
           const v = Math.exp(-((f - f0) ** 2) / (2 * sf * sf)) * tri(kx / (kz / (2 * F))); if (v < 0.02) continue;
@@ -1396,30 +1439,30 @@
         x.restore(); curve(x, m, kx => 2 * F * Math.abs(kx), c.mu, { w: 1, dash: [3, 3] });
         [0, 6.49, 10].forEach(v => text(x, v === 6.49 ? '6.49' : String(v), 27, m.Y(v), c.mu, 'right')); } },
 
-    { prov: 'exact', q: 'Does a higher f<sub>0</sub> improve axial resolution?', a: 'Not by itself. Two pulses with the same 3 MHz bandwidth at 3.5 MHz (top) and 7 MHz (bottom) have the same envelope: <b>Δz = cτ<sub>−6dB</sub>/2 = 0.227 mm</b> with τB = 0.883 (Gaussian). f<sub>0</sub> only sets how many cycles sit under it.',
+    { prov: 'exact', leg: [['RF pulse', 'a', 'solid'], ['envelope', 'b', 'dash']], q: 'Does a higher f<sub>0</sub> improve axial resolution?', a: 'Not by itself. Two pulses with the same 3 MHz bandwidth at 3.5 MHz (top) and 7 MHz (bottom) have the same envelope: <b>Δz = cτ<sub>−6dB</sub>/2 = 0.227 mm</b> with τB = 0.883 (Gaussian). f<sub>0</sub> only sets how many cycles sit under it.',
       draw: (cv) => { const c = col(), { x, w } = size(cv, 156); const Bw = 3, tau = 4 * Math.LN2 / PI / Bw, st = tau / (2 * Math.sqrt(2 * Math.LN2)), sz = CMM * st / 2;
         const env = z => Math.exp(-z * z / (2 * sz * sz));
-        [[3.5, 16], [7, 84]].forEach(([f0, y], i) => { const m = panel(x, { x: 4, y, w: w - 8, h: 46 }, [-0.45, 0.45], [-1.15, 1.15], { lab: 'f₀ = ' + f0 + ' MHz, B = 3 MHz (depth, mm)', yaxis: false, ticks: i ? [[-0.1135, '−.11'], [0.1135, '.11']] : [] });
+        [[3.5, 16], [7, 84]].forEach(([f0, y], i) => { const m = panel(x, { x: 4, y, w: w - 8, h: 46 }, [-0.45, 0.45], [-1.15, 1.15], { yl: 'pulse, f₀ = ' + f0 + ' MHz, B = 3 MHz', xl: 'Δz (mm)', yaxis: false, ticks: i ? [[-0.1135, '−.11'], [0.1135, '.11']] : [] });
           curve(x, m, env, c.b, { w: 1, dash: [3, 3] }); curve(x, m, z => -env(z), c.b, { w: 1, dash: [3, 3] });
           curve(x, m, z => env(z) * Math.cos(TAU * f0 * 2 * z / CMM), c.a, { w: 1.4 }); }); } },
 
-    { prov: 'exact', q: 'How do lateral width and depth of field scale with F#?', a: 'Lateral width ∝ λF#, depth of field ∝ λF#². On axis the intensity is <b>sinc²(Δz/(8λF#²))</b> (circular aperture), so the full −3 dB depth of field is <b>7.09 λF#²</b>: 8.7 mm at F# = 2 (blue), 35 mm at F# = 4 (pink), 5 MHz.',
+    { prov: 'exact', leg: [['F# = 2', 'a', 'fill'], ['F# = 4', 'b', 'dash']], q: 'How do lateral width and depth of field scale with F#?', a: 'Lateral width ∝ λF#, depth of field ∝ λF#². On axis the intensity is <b>sinc²(Δz/(8λF#²))</b> (circular aperture), so the full −3 dB depth of field is <b>7.09 λF#²</b>: 8.7 mm at F# = 2 (blue), 35 mm at F# = 4 (pink), 5 MHz.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const lam = CMM / 5;
         const m = panel(x, B, [-30, 30], [0, 1.1], { lab: 'on-axis intensity vs Δz (mm)', yaxis: false, hlines: [[0.5, '−3 dB']], ticks: [[-17.5, '−17.5'], [-4.37, '−4.4'], [4.37, '4.4'], [17.5, '17.5']] });
-        curve(x, m, dz => sinc(dz / (8 * lam * 4)) ** 2, c.a, { fill: true }); curve(x, m, dz => sinc(dz / (8 * lam * 16)) ** 2, c.b); } }
+        curve(x, m, dz => sinc(dz / (8 * lam * 4)) ** 2, c.a, { fill: true }); curve(x, m, dz => sinc(dz / (8 * lam * 16)) ** 2, c.b, { dash: [6, 4] }); } }
   ];
 
   /* ---------------- Inline 04.6: linear phase ---------------- */
   const FIRM = 21, FIRh = (() => { const h = []; for (let n = 0; n < FIRM; n++) { const k = n - (FIRM - 1) / 2; h.push(0.4 * sinc(0.4 * k) * (0.54 - 0.46 * Math.cos(TAU * n / (FIRM - 1)))); } return h; })();
   const V46 = [
-    { prov: 'exact', q: 'Why does a symmetric FIR preserve the pulse shape?', a: 'Symmetric taps b<sub>m</sub> = b<sub>M−1−m</sub> make the phase exactly linear, so every frequency is delayed by <b>τ<sub>g</sub> = (M − 1)/2</b> samples: 10 for this 21-tap Hamming low-pass. Compensate it identically on every channel.',
+    { prov: 'exact', leg: [['taps h[n]', 'a', 'stem'], ['center tap (M − 1)/2', 'b', 'dash']], q: 'Why does a symmetric FIR preserve the pulse shape?', a: 'Symmetric taps b<sub>m</sub> = b<sub>M−1−m</sub> make the phase exactly linear, so every frequency is delayed by <b>τ<sub>g</sub> = (M − 1)/2</b> samples: 10 for this 21-tap Hamming low-pass. Compensate it identically on every channel.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140);
-        const m = panel(x, B, [-1, FIRM], [-0.12, 0.47], { lab: 'h[n], 21-tap low-pass (cutoff 0.2 fₛ)', yaxis: false, ticks: [[0, '0'], [10, '(M−1)/2'], [20, '20']] });
+        const m = panel(x, B, [-1, FIRM], [-0.12, 0.47], { yl: 'h[n], 21-tap low-pass (cutoff 0.2 fₛ)', xl: 'n', yaxis: false, ticks: [[0, '0'], [10, '(M−1)/2'], [20, '20']] });
         vline(x, m, 10, c.b, [3, 3]); dots(x, m, FIRh.map((v, n) => [n, v]), c.a, 2.6, true); } },
-    { prov: 'exact', q: 'FIR vs IIR: what does group delay look like?', a: 'Symmetric FIR (blue): flat <b>10 samples</b>. One-pole IIR y[n] = x[n] + a y[n−1], a = 0.8 (pink): <b>τ<sub>g</sub> = (a cos ω − a²)/(1 − 2a cos ω + a²)</b>, 4 samples at DC falling to −0.44 at Nyquist. Low frequencies arrive late: the echo disperses.',
+    { prov: 'exact', leg: [['symmetric FIR', 'a', 'solid'], ['one-pole IIR, a = 0.8', 'b', 'dash']], q: 'FIR vs IIR: what does group delay look like?', a: 'Symmetric FIR (blue): flat <b>10 samples</b>. One-pole IIR y[n] = x[n] + a y[n−1], a = 0.8 (pink): <b>τ<sub>g</sub> = (a cos ω − a²)/(1 − 2a cos ω + a²)</b>, 4 samples at DC falling to −0.44 at Nyquist. Low frequencies arrive late: the echo disperses.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const a = 0.8;
         const m = panel(x, B, [0, 1], [-1.5, 12], { lab: 'group delay (samples) vs ω/π', yaxis: false, ticks: [[0, '0'], [0.5, '0.5'], [1, '1']] });
-        curve(x, m, () => (FIRM - 1) / 2, c.a); curve(x, m, u => { const w = PI * u, cw = Math.cos(w); return (a * cw - a * a) / (1 - 2 * a * cw + a * a); }, c.b);
+        curve(x, m, () => (FIRM - 1) / 2, c.a); curve(x, m, u => { const w = PI * u, cw = Math.cos(w); return (a * cw - a * a) / (1 - 2 * a * cw + a * a); }, c.b, { dash: [6, 4] });
         text(x, '10', m.X(0.02), m.Y(10) - 9, c.a); text(x, '4', m.X(0.02), m.Y(4) - 9, c.b); } }
   ];
 
@@ -1429,17 +1472,17 @@
     return u => { let e = 0; for (let i = 0; i < nf; i++) e += wt[i] * sinc(u * fs[i]) ** 4; return e / s; }; })();
   const DEF = psi => { const n = 200; return u => { let re = 0, im = 0; for (let i = 0; i < n; i++) { const s = -0.5 + (i + 0.5) / n, ph = psi * 4 * s * s - TAU * u * s; re += Math.cos(ph); im += Math.sin(ph); } return Math.hypot(re, im) / n; }; };
   const V48 = [
-    { prov: 'model', q: 'Why do broadband beams have no exact nulls?', a: '<b>E(x) = ∫|P(f)|² |A<sub>T</sub>A<sub>R</sub>|² df</b>: each frequency puts its nulls at a different x, so the sum fills them. 60 % band, rect two-way (blue) vs narrowband sinc⁴ (gray): the first null fills to <b>−24.0 dB</b>, the old sidelobe position drops from −26.5 to −28.8 dB.',
+    { prov: 'model', leg: [['narrowband sinc⁴', 'mu', 'dash'], ['60 % band', 'a', 'solid']], q: 'Why do broadband beams have no exact nulls?', a: '<b>E(x) = ∫|P(f)|² |A<sub>T</sub>A<sub>R</sub>|² df</b>: each frequency puts its nulls at a different x, so the sum fills them. 60 % band, rect two-way (blue) vs narrowband sinc⁴ (gray): the first null fills to <b>−24.0 dB</b>, the old sidelobe position drops from −26.5 to −28.8 dB.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140);
         const m = panel(x, B, [0, 3], [-60, 0], { lab: 'two-way energy (dB) vs x/λ₀F#', base: -60, yaxis: false, hlines: [[-24.0, '−24.0']], ticks: [[1, '1'], [1.43, '1.43'], [2, '2'], [3, '3']] });
-        curve(x, m, u => db(sinc(u) ** 2, -60), c.mu, { w: 1.2 }); curve(x, m, u => Math.max(-60, 10 * Math.log10(BB(u))), c.a); } },
-    { prov: 'exact', q: 'What does a wrong focus or sound speed do to the focal spot?', a: 'A residual quadratic phase across the aperture, edge excursion <b>ψ</b>, makes the focal pattern the transform of a(ξ)e<sup>jψ(2ξ/D)²</sup>. ψ = π/2 (blue) costs 1.0 dB of peak and fills the first null to −9.5 dB; ψ = π (pink) costs <b>4.0 dB</b> and the null disappears.',
+        curve(x, m, u => db(sinc(u) ** 2, -60), c.mu, { w: 1.2, dash: [6, 4] }); curve(x, m, u => Math.max(-60, 10 * Math.log10(BB(u))), c.a); } },
+    { prov: 'exact', leg: [['ψ = 0', 'mu', 'solid'], ['ψ = π/2', 'a', 'dash'], ['ψ = π', 'b', 'dot']], q: 'What does a wrong focus or sound speed do to the focal spot?', a: 'A residual quadratic phase across the aperture, edge excursion <b>ψ</b>, makes the focal pattern the transform of a(ξ)e<sup>jψ(2ξ/D)²</sup>. ψ = π/2 (blue) costs 1.0 dB of peak and fills the first null to −9.5 dB; ψ = π (pink) costs <b>4.0 dB</b> and the null disappears.',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const g0 = DEF(0), g1 = DEF(PI / 2), g2 = DEF(PI);
         const m = panel(x, B, [-3, 3], [-40, 0], { lab: 'one-way focal pattern (dB) vs x/λF#', base: -40, ticks: [[-2, '−2'], [-1, '−1'], [1, '1'], [2, '2']] });
-        curve(x, m, u => db(g0(u), -40), c.mu, { w: 1.2 }); curve(x, m, u => db(g1(u), -40), c.a); curve(x, m, u => db(g2(u), -40), c.b); } },
+        curve(x, m, u => db(g0(u), -40), c.mu, { w: 1.2 }); curve(x, m, u => db(g1(u), -40), c.a, { dash: [6, 4] }); curve(x, m, u => db(g2(u), -40), c.b, { dash: [2, 3] }); } },
     { prov: 'exact', q: 'Why does coarse plane-wave compounding bring back side artifacts?', a: 'A uniform step Δ(sin θ) samples the transmit k-space, so the synthetic transmit focus repeats every <b>λ/Δ(sin θ)</b>, independent of depth: <b>17.6 mm</b> for 1° steps at 5 MHz (11 angles shown).',
       draw: (cv) => { const c = col(), { x, B } = one(cv, 140); const lam = CMM / 5, ds = Math.sin(PI / 180), Ma = 11, per = lam / ds;
-        const m = panel(x, B, [-25, 25], [0, 1.1], { lab: 'synthetic transmit focus vs x (mm)', ticks: [[-per, '−17.6'], [0, '0'], [per, '17.6']] });
+        const m = panel(x, B, [-25, 25], [0, 1.1], { yl: '|synthetic transmit focus|', xl: 'x (mm)', ticks: [[-per, '−17.6'], [0, '0'], [per, '17.6']] });
         curve(x, m, xx => { const s = Math.sin(PI * Ma * ds * xx / lam); const d = Math.sin(PI * ds * xx / lam); return Math.abs(d) < 1e-9 ? 1 : Math.abs(s / (Ma * d)); }, c.a, { fill: true }); } }
   ];
 
@@ -1488,11 +1531,11 @@
   const S0 = Math.sin(20 * PI / 180);
   const F = {};
   /* 0: beam = FT of aperture */
-  F[0] = cv => { const c = col(), { x, w, h, top } = frame(cv, 150, [[c.a, 'uniform'], [c.b, 'Hann']], null); const [L, R] = two(w, h, top);
+  F[0] = cv => { const c = col(), { x, w, h, top } = frame(cv, 150, [[c.a, 'uniform'], [c.b, 'Hann', [6, 4]]], null); const [L, R] = two(w, h, top);
     const ml = panel(x, L, [-0.8, 0.8], [0, 1.15], { lab: 'a(ξ) vs ξ/D', ticks: [[-0.5, '−½'], [0.5, '½']] });
-    curve(x, ml, u => Math.abs(u) < 0.5 ? 1 : 0, c.a, { fill: true }); curve(x, ml, u => Math.abs(u) < 0.5 ? 0.5 * (1 + Math.cos(TAU * u)) : 0, c.b);
+    curve(x, ml, u => Math.abs(u) < 0.5 ? 1 : 0, c.a, { fill: true }); curve(x, ml, u => Math.abs(u) < 0.5 ? 0.5 * (1 + Math.cos(TAU * u)) : 0, c.b, { dash: [6, 4] });
     const mr = panel(x, R, [-3.5, 3.5], [0, 1.1], { lab: '|p(x,F)| vs x/λF#', ticks: [[-2, '−2'], [-1, '−1'], [1, '1'], [2, '2']] });
-    curve(x, mr, u => Math.abs(sinc(u)), c.a); curve(x, mr, u => Math.abs(hannW(u)), c.b);
+    curve(x, mr, u => Math.abs(sinc(u)), c.a); curve(x, mr, u => Math.abs(hannW(u)), c.b, { dash: [6, 4] });
     text(x, 'FT', L.x + L.w + 17, L.y + L.h / 2, c.mu, 'center'); };
   /* 1: R = P . S */
   let S1 = null;
@@ -1504,55 +1547,55 @@
     const m = panel(x, B, [0, 12], [0, 1.15], { ticks: [[5, '5'], [10, '10']] });
     curve(x, m, Sf, c.mu, { w: 1 }); curve(x, m, Pf, c.b, { dash: [4, 3], w: 1.4 }); curve(x, m, f => Pf(f) * Sf(f), c.a, { fill: true }); };
   /* 2: sinc vs sinc^2 sidelobes */
-  F[2] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'one-way sinc'], [c.b, 'two-way sinc²']], 'beam (dB) vs x/λF#');
+  F[2] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'one-way sinc'], [c.b, 'two-way sinc²', [6, 4]]], 'beam (dB) vs x/λF#');
     const m = panel(x, B, [-3.2, 3.2], [-50, 0], { base: -50, hlines: [[-13.26, '−13.3'], [-26.52, '−26.5']], ticks: [[-2, '−2'], [-1, '−1'], [1.43, '1.43'], [2, '2']] });
-    curve(x, m, u => db(sinc(u), -50), c.a); curve(x, m, u => db(sinc(u) ** 2, -50), c.b); };
+    curve(x, m, u => db(sinc(u), -50), c.a); curve(x, m, u => db(sinc(u) ** 2, -50), c.b, { dash: [6, 4] }); };
   /* 3: broadband fill */
   const BB = (() => { const sf = 0.6 / 2.355, nf = 81, fs = [], wt = []; let s = 0;
     for (let i = 0; i < nf; i++) { const f = 1 - 4 * sf + 8 * sf * i / (nf - 1), p = Math.exp(-((f - 1) ** 2) / (sf * sf)); fs.push(f); wt.push(p); s += p; }
     return u => { let e = 0; for (let i = 0; i < nf; i++) e += wt[i] * sinc(u * fs[i]) ** 4; return e / s; }; })();
-  F[3] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.mu, 'f₀'], [c.c, '0.7f₀, 1.3f₀'], [c.a, '60 % band']], 'two-way energy (dB) vs x/λ₀F#');
+  F[3] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.mu, 'f₀', [6, 4]], [c.c, '0.7f₀, 1.3f₀', [2, 3]], [c.a, '60 % band']], 'two-way energy (dB) vs x/λ₀F#');
     const m = panel(x, B, [0, 3], [-60, 0], { base: -60, ticks: [[1, '1'], [1.43, '1.43'], [2, '2'], [3, '3']] });
-    [0.7, 1.3].forEach(f => curve(x, m, u => db(sinc(u * f) ** 2, -60), c.c, { w: 1 })); curve(x, m, u => db(sinc(u) ** 2, -60), c.mu, { w: 1.2 });
+    [0.7, 1.3].forEach(f => curve(x, m, u => db(sinc(u * f) ** 2, -60), c.c, { w: 1, dash: [2, 3] })); curve(x, m, u => db(sinc(u) ** 2, -60), c.mu, { w: 1.2, dash: [6, 4] });
     curve(x, m, u => Math.max(-60, 10 * Math.log10(BB(u))), c.a, { w: 2 });
     dots(x, m, [[1, -24.0], [1.43, -28.8]], c.b, 3); text(x, '−24.0 (null)', m.X(1) + 6, m.Y(-24.0) - 9, c.fg); text(x, '−28.8', m.X(1.43) + 6, m.Y(-28.8) + 9, c.fg); };
   /* 4: grating lobes vs pitch */
-  F[4] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'd = λ'], [c.b, 'd = 2λ']], 'AF (dB) vs sin θ, N = 16, steered 20°');
+  F[4] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'd = λ'], [c.b, 'd = 2λ', [6, 4]]], 'AF (dB) vs sin θ, N = 16, steered 20°');
     const m = panel(x, B, [-1, 1], [-40, 0], { base: -40, yaxis: false, ticks: [[-0.658, '−41°'], [-0.158, '−9°'], [0.342, '20°'], [0.842, '57°']] });
-    curve(x, m, s => db(af(s - S0, 2, 16), -40), c.b, { w: 1.3 }); curve(x, m, s => db(af(s - S0, 1, 16), -40), c.a); };
+    curve(x, m, s => db(af(s - S0, 2, 16), -40), c.b, { w: 1.3, dash: [6, 4] }); curve(x, m, s => db(af(s - S0, 1, 16), -40), c.a); };
   /* 5: max pitch vs steering */
   F[5] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'd_max = λ/(1 + sin θ₀)'], [null, 'grating-lobe free below']], 'max pitch d/λ vs steering |θ₀|');
     const m = panel(x, B, [-5, 95], [0.4, 1.06], { base: 0.4, hlines: [[1, 'λ'], [0.7451, '0.745λ'], [0.5, 'λ/2']], ticks: [[0, '0°'], [20, '20°'], [45, '45°'], [90, '90°']] });
     curve(x, m, t => 1 / (1 + Math.sin(t * PI / 180)), c.a, { fill: true }); dots(x, m, [[20, 0.7451]], c.b, 3.2); };
   /* 6: element factor x array factor */
-  F[6] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.mu, 'AF'], [c.c, 'E, w = 0.9λ', [4, 3]], [c.a, 'E·AF']], 'one-way (dB) vs sin θ, d = λ, steered 20°'); const E = s => db(sinc(0.9 * s), -60);
+  F[6] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.mu, 'AF', [2, 3]], [c.c, 'E, w = 0.9λ', [6, 4]], [c.a, 'E·AF']], 'one-way (dB) vs sin θ, d = λ, steered 20°'); const E = s => db(sinc(0.9 * s), -60);
     const m = panel(x, B, [-1, 1], [-30, 0], { base: -30, yaxis: false, ticks: [[-0.658, '−41°'], [0, '0°'], [0.342, '20°']] });
-    curve(x, m, s => db(af(s - S0, 1, 16), -30), c.mu, { w: 1 }); curve(x, m, E, c.c, { dash: [4, 3], w: 1.3 });
+    curve(x, m, s => db(af(s - S0, 1, 16), -30), c.mu, { w: 1, dash: [2, 3] }); curve(x, m, E, c.c, { dash: [6, 4], w: 1.3 });
     curve(x, m, s => Math.max(-30, db(af(s - S0, 1, 16), -60) + E(s)), c.a);
     text(x, 'GL −4.4 dB re main', m.X(-0.52), m.Y(-9), c.a, 'left'); };
   /* 7: lateral -6 dB widths */
-  F[7] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'one-way 1.207 λF#'], [c.b, 'two-way 0.886 λF#']], 'beam amplitude vs x/λF#');
+  F[7] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'one-way 1.207 λF#'], [c.b, 'two-way 0.886 λF#', [6, 4]]], 'beam amplitude vs x/λF#');
     const m = panel(x, B, [-1.6, 1.6], [-0.25, 1.1], { hlines: [[0.5, '−6 dB']], ticks: [[-1, '−1'], [-0.443, '−.443'], [0.603, '.603'], [1, '1']] });
-    curve(x, m, sinc, c.a); curve(x, m, u => sinc(u) ** 2, c.b); dots(x, m, [[-0.603, 0.5], [0.603, 0.5]], c.a, 2.6); dots(x, m, [[-0.443, 0.5], [0.443, 0.5]], c.b, 2.6); };
+    curve(x, m, sinc, c.a); curve(x, m, u => sinc(u) ** 2, c.b, { dash: [6, 4] }); dots(x, m, [[-0.603, 0.5], [0.603, 0.5]], c.a, 2.6); dots(x, m, [[-0.443, 0.5], [0.443, 0.5]], c.b, 2.6); };
   /* 8: depth of field */
   F[8] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'sinc²(Δz/(8λF#²))'], [null, 'full −3 dB: 7.09 λF#²']], 'on-axis intensity vs Δz/λF#²');
     const m = panel(x, B, [-12, 12], [0, 1.1], { hlines: [[0.5, '−3 dB']], ticks: [[-8, '−8'], [-3.54, '−3.54'], [3.54, '3.54'], [8, '8']] });
     curve(x, m, z => sinc(z / 8) ** 2, c.a, { fill: true }); dots(x, m, [[-3.543, 0.5], [3.543, 0.5]], c.b, 3); };
   /* 9: Hann vs rect */
-  F[9] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'rect'], [c.b, 'Hann']], 'one-way beam (dB) vs x/λF#');
+  F[9] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'rect'], [c.b, 'Hann', [6, 4]]], 'one-way beam (dB) vs x/λF#');
     const m = panel(x, B, [0, 4.5], [-70, 0], { base: -70, hlines: [[-13.26, '−13.3'], [-31.47, '−31.5']], ticks: [[1, '1'], [2, '2'], [3, '3'], [4, '4']] });
-    curve(x, m, u => db(sinc(u), -70), c.a); curve(x, m, u => db(hannW(u), -70), c.b); };
+    curve(x, m, u => db(sinc(u), -70), c.a); curve(x, m, u => db(hannW(u), -70), c.b, { dash: [6, 4] }); };
   /* 10: axial resolution, Gaussian tau-B */
-  F[10] = cv => { const c = col(), { x, w, h, top } = frame(cv, 150, [[null, 'τ·B = 0.883 → Δz = cτ/2 = 0.227 mm']], null); const [L, R] = two(w, h, top); const st = 0.2942 / (2 * Math.sqrt(2 * Math.LN2));
-    const ml = panel(x, L, [-0.5, 0.5], [-1.1, 1.1], { lab: 't (µs): τ = 0.294', base: -1.1, yaxis: false, hlines: [[0.5, '']], ticks: [[-0.147, '−τ/2'], [0.147, 'τ/2']] });
+  F[10] = cv => { const c = col(), { x, w, h, top } = frame(cv, 150, [[c.a, 'pulse'], [c.b, 'envelope, |P(f)|', [4, 3]], [null, 'τ·B = 0.883 → Δz = cτ/2 = 0.227 mm']], null); const [L, R] = two(w, h, top); const st = 0.2942 / (2 * Math.sqrt(2 * Math.LN2));
+    const ml = panel(x, L, [-0.5, 0.5], [-1.1, 1.1], { yl: 'pulse, envelope', xl: 't (µs), τ = 0.294', base: -1.1, yaxis: false, hlines: [[0.5, '']], ticks: [[-0.147, '−τ/2'], [0.147, 'τ/2']] });
     const env = t => Math.exp(-t * t / (2 * st * st)); curve(x, ml, t => env(t) * Math.cos(TAU * 5 * t), c.a, { w: 1.2 }); curve(x, ml, env, c.b, { dash: [4, 3], w: 1.2 });
-    const mr = panel(x, R, [0, 10], [0, 1.1], { lab: 'f (MHz): B = 3', hlines: [[0.5, '']], ticks: [[3.5, '3.5'], [6.5, '6.5']] });
+    const mr = panel(x, R, [0, 10], [0, 1.1], { yl: '|P(f)|', xl: 'f (MHz), B = 3', hlines: [[0.5, '']], ticks: [[3.5, '3.5'], [6.5, '6.5']] });
     curve(x, mr, f => Math.exp(-((f - 5) ** 2) / (2 * 1.274 ** 2)), c.b, { fill: true });
     text(x, '↔', L.x + L.w + 17, L.y + L.h / 2, c.mu, 'center'); };
   /* 11: alias 7 MHz at 10 MHz */
-  F[11] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.mu, '7 MHz'], [c.a, '3 MHz alias'], [c.b, 'samples, fs = 10 MHz']], 'cos(2π·7t + φ) → cos(2π·3t − φ), t in µs'); const ph = 0.6;
+  F[11] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.mu, '7 MHz', [2, 3]], [c.a, '3 MHz alias'], [c.b, 'samples (dots), fs = 10 MHz']], 'amplitude vs t (µs): cos(2π·7t + φ) → cos(2π·3t − φ)'); const ph = 0.6;
     const m = panel(x, B, [-0.03, 1.07], [-1.2, 1.2], { base: -1.2, yaxis: false, ticks: [[0.1, '0.1'], [0.5, '0.5'], [1, '1 µs']] });
-    curve(x, m, t => Math.cos(TAU * 7 * t + ph), c.mu, { w: 1 }); curve(x, m, t => Math.cos(TAU * 3 * t - ph), c.a);
+    curve(x, m, t => Math.cos(TAU * 7 * t + ph), c.mu, { w: 1, dash: [2, 3] }); curve(x, m, t => Math.cos(TAU * 3 * t - ph), c.a);
     const p = []; for (let n = 0; n <= 10; n++) p.push([n / 10, Math.cos(TAU * 7 * n / 10 + ph)]); dots(x, m, p, c.b, 3); };
   /* 12: bandpass zones */
   F[12] = cv => { const c = col(), { x, w, top } = frame(cv, 156, [[null, 'shaded: legal fs (MHz)']], null);
@@ -1561,27 +1604,27 @@
     const m2 = panel(x, { x: 4, y: top + 76, w: w - 8, h: 26 }, [3.4, 16.6], [0, 1], { lab: '', base: 0, ticks: [[8, '8'], [14, '14'], [16, '16']] });
     text(x, '3–7 MHz (80 %): fs ≥ 2fH only', 6, top + 68, c.fg); shade(x, m2, 14, 16, c.b, 0.45); };
   /* 13: zero padding vs longer record */
-  F[13] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.b, 'T, padded 4× (dots)'], [c.a, '4T record']], '|X| vs f in units of 1/T, tones 0.6/T apart');
+  F[13] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.b, 'T, padded 4× (dots)', [6, 4]], [c.a, '4T record']], '|X| vs f in units of 1/T, tones 0.6/T apart');
     const X = (a, L) => { const re = sinc(a * L) * Math.cos(-PI * a * L) + sinc((a - 0.6) * L) * Math.cos(-PI * (a - 0.6) * L), im = sinc(a * L) * Math.sin(-PI * a * L) + sinc((a - 0.6) * L) * Math.sin(-PI * (a - 0.6) * L); return Math.hypot(re, im); };
     let m1 = 0, m4 = 0; for (let i = 0; i <= 400; i++) { const a = -1 + 2.6 * i / 400; m1 = Math.max(m1, X(a, 1)); m4 = Math.max(m4, X(a, 4)); }
     const m = panel(x, B, [-2, 2.6], [0, 1.12], { yaxis: false, ticks: [[0, 'f₁'], [0.6, 'f₂'], [-1, '−1/T'], [2, '2/T']] });
-    curve(x, m, a => X(a, 1) / m1, c.b); curve(x, m, a => X(a, 4) / m4, c.a);
+    curve(x, m, a => X(a, 1) / m1, c.b, { dash: [6, 4] }); curve(x, m, a => X(a, 4) / m4, c.a);
     const p = []; for (let k = -8; k <= 10; k++) p.push([k / 4, X(k / 4, 1) / m1]); dots(x, m, p, c.b, 2.4); };
   /* 14: circular wrap-around */
-  F[14] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.mu, 'linear, L+M−1 = 27'], [c.a, 'circular, N = L = 20'], [c.c, 'wrapped']], 'y[n], x = 20 ones, h = 0.7ⁿ (8 taps)'); const L = 20, Mh = 8, yl = [];
+  F[14] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.mu, 'linear, L+M−1 = 27 (small dots)'], [c.a, 'circular, N = L = 20 (dots)'], [c.c, 'wrapped tail; shaded: corrupted']], 'y[n] vs n; x = 20 ones, h = 0.7ⁿ (8 taps)'); const L = 20, Mh = 8, yl = [];
     for (let n = 0; n < L + Mh - 1; n++) { let s = 0; for (let k = 0; k < Mh; k++) if (n - k >= 0 && n - k < L) s += Math.pow(0.7, k); yl.push(s); }
     const m = panel(x, B, [-1, 28], [0, 3.6], { yaxis: false, ticks: [[0, '0'], [7, 'M−1'], [20, 'N'], [26, '26']] });
     shade(x, m, -0.5, 6.5, c.c, 0.2); vline(x, m, 19.5, c.mu, [3, 3]);
     dots(x, m, yl.map((v, n) => [n, v]), c.mu, 2.2); dots(x, m, yl.slice(0, L).map((v, n) => [n, v + (n + L < yl.length ? yl[n + L] : 0)]), c.a, 2.6);
     dots(x, m, yl.slice(L).map((v, n) => [n, v]), c.c, 2.6); };
   /* 15: window choice, weak tone at -40 dB */
-  F[15] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'rect'], [c.b, 'Hann'], [null, 'tone 2: 6.5 bins, −40 dB']], '|X| (dB) vs bin');
+  F[15] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.a, 'rect'], [c.b, 'Hann', [6, 4]], [null, 'tone 2: 6.5 bins, −40 dB']], '|X| (dB) vs bin');
     const m = panel(x, B, [-4, 12], [-80, 0], { base: -80, hlines: [[-40, '−40']], ticks: [[0, '0'], [6.5, '6.5'], [-3, '−3'], [10, '10']] });
-    curve(x, m, k => db(sinc(k) + 0.01 * sinc(k - 6.5), -80), c.a, { w: 1.3 }); curve(x, m, k => db(hannW(k) + 0.01 * hannW(k - 6.5), -80), c.b); };
+    curve(x, m, k => db(sinc(k) + 0.01 * sinc(k - 6.5), -80), c.a, { w: 1.3 }); curve(x, m, k => db(hannW(k) + 0.01 * hannW(k - 6.5), -80), c.b, { dash: [6, 4] }); };
   /* 16: FFT cost */
-  F[16] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.b, 'direct N²'], [c.a, 'FFT (N/2)·log₂N']], 'complex multiplies (log₁₀) vs N');
+  F[16] = cv => { const c = col(), { x, B } = frame(cv, 145, [[c.b, 'direct N²', [6, 4]], [c.a, 'FFT (N/2)·log₂N']], 'complex multiplies (log₁₀) vs N');
     const m = panel(x, B, [2.6, 12.4], [1, 7.4], { base: 1, yaxis: false, hlines: [[3, '10³'], [6, '10⁶']], ticks: [[3, '8'], [6, '64'], [8, '256'], [10, '1024'], [12, '4096']] });
-    curve(x, m, L => 2 * L * Math.log10(2), c.b); curve(x, m, L => Math.log10(Math.pow(2, L - 1) * L), c.a); vline(x, m, 10, c.mu, [3, 3]);
+    curve(x, m, L => 2 * L * Math.log10(2), c.b, { dash: [6, 4] }); curve(x, m, L => Math.log10(Math.pow(2, L - 1) * L), c.a); vline(x, m, 10, c.mu, [3, 3]);
     text(x, '205×', m.X(10) + 4, m.Y(5.3), c.fg); };
   /* 17: k-space bow-tie */
   F[17] = cv => { const c = col(), { x, B } = frame(cv, 150, [[c.a, 'support |kx| ≤ kz/(2F#)'], [c.b, '10° plane wave', [4, 3]]], 'kz vs kx (cycles/mm), 5 MHz, 60 %, F# 2'); const k1 = 2 * 3.5 / 1.54, k2 = 2 * 6.5 / 1.54, k0 = 2 * 5 / 1.54, sh = Math.sin(10 * PI / 180) / (1.54 / 5);

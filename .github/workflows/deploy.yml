@@ -11,7 +11,47 @@ concurrency:
   group: pages
   cancel-in-progress: false
 jobs:
+  checks:
+    # Quality gate: the site is deployed only if build, links and render checks pass on this exact commit.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install playwright pyyaml && playwright install --with-deps chromium
+      - run: python3 build_site.py --local 2>&1 | tee build.log
+        shell: bash
+      - run: python3 check_links.py 2>&1 | tee links.log
+        shell: bash
+      - run: python3 check_site.py --fast 2>&1 | tee render.log
+        shell: bash
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checks-${{ github.sha }}
+          path: |
+            build.log
+            links.log
+            render.log
+  octave:
+    # Quality gate: every MATLAB/Octave lab must run without error on this exact commit.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y octave gnuplot
+      - run: python3 mtest.py matlab/*.m 2>&1 | tee octave.log
+        shell: bash
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: octave-${{ github.sha }}
+          path: octave.log
   build:
+    needs: [checks, octave]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

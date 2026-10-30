@@ -22,6 +22,9 @@
     </div>
   </header>
   <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>numerical solution run in this page (JS) or in the Octave scripts: point-source sums, pulse synthesis, analytic DAS synthesis</span><span><span class="prov model">Approx. model</span>simplified physics (narrowband, paraxial focal plane, far field, empirical laws); assumptions stated under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not computed</span><span>No curve on this page is hand-drawn. The drawings carry the real dimensions of the reference array: 128 elements, 0.3 mm pitch, 5 MHz.</span></div>
+  <div class="k60"><span class="label">In 60 seconds</span><ol><li><b>Where focusing works:</b> focusing works only within the depth where the unfocused aperture still converges, \(D^2/(4\lambda)\) for aperture width D and wavelength λ: 299 mm for 19.2 mm at 5 MHz, so focusing deeper buys nothing. Focused near that limit, the intensity peak sits well short of the set focus, and below F-number 1.5 Fourier sidelobe models fail. <a class="sref" href="#m23-s23-1">§23.1</a></li><li><b>Apodization trades sidelobes for signal:</b> tapering element weights lowers sidelobes but costs signal. Peak sidelobe level predicts one bright point's ghost; the integrated sidelobe ratio (ISLR, all sidelobe energy over the main lobe) predicts the clutter filling a cyst. Hann costs 1.76 dB of signal-to-noise ratio on receive but 6.0 dB of focal amplitude on transmit: apodize on receive first. <a class="sref" href="#m23-s23-2">§23.2</a></li><li><b>Broadband grating lobes hit speckle harder than points:</b> with short pulses, element echoes at a grating-lobe angle arrive a period apart and only a few overlap, so a bright point's grating lobe is weak, falling with element count and bandwidth. Speckle sees total energy: −20.3 dB against −40.1 dB peak for 128 elements, 1.5 λ pitch, 75 % bandwidth. <a class="sref" href="#m23-s23-3">§23.3</a></li><li><b>The coarray sets the two-way beam:</b> the two-way lateral response is the Fourier transform of the coarray, the transmit aperture convolved with the receive aperture. Its extent sets resolution and its gaps make grating lobes. Every second element on both sides leaves gaps; transmitting on every p-th and receiving on every (p − 1)-th element fills them, removing the two-way grating lobe. <a class="sref" href="#m23-s23-4">§23.4</a></li><li><b>Plane-wave compounding synthesizes the transmit focus:</b> summing plane waves at several angles builds a transmit focus afterwards. The span sets the transmit F-number, \(F\#_{tx}=1/(2\tan\theta_{\max})\) with \(\theta_{\max}\) the largest angle: 1.5 for ±18.4°. The angle step only places the transmit grating lobe, so extra angles inside the span lower clutter without sharpening the beam. <a class="sref" href="#m23-s23-5">§23.5</a></li><li><b>Plane-wave transmit and receive lobes land apart:</b> one plane wave has no transmit focus, so the receive beam sets lateral resolution. A steered plane wave launches a second, grating-lobe wave once the pitch exceeds \(\lambda/(1+|\sin\theta_{tx}|)\), \(\theta_{tx}\) the steering angle; it arrives late as a near-field streak below targets. Because the lobes fall apart, their product suppresses each. <a class="sref" href="#m23-s23-6">§23.6</a></li><li><b>Every angle has a price:</b> each extra angle adds signal against electronic noise but lengthens the sequence, so frame rate falls and motion matters more. Compounding N angles gains \(10\log_{10}N\) dB of signal-to-noise ratio but divides frame rate by N, and axial motion of a quarter wavelength over the sequence loses 3.9 dB. Choose the angle count from the expected motion. <a class="sref" href="#m23-s23-7">§23.7</a></li></ol></div>
+  <div class="field"><span class="label">From the field</span><ul><li><b>Set angle span for focus, angle step for replicas, then budget frame rate and motion.</b> <span class="why">The span sets the transmit focus; the step only moves replicas, so extra angles buy clutter suppression, not resolution. At 40 mm depth, 31 angles give +14.9 dB at 621 Hz frame rate, but quarter-wavelength axial motion loses 3.9 dB. <a class="sref" href="#m23-s23-7">§23.7</a></span></li><li><b>Limit plane-wave steering by the pitch; check image edges first.</b> <span class="why">A steered plane wave launches a second wave once element pitch exceeds \(\lambda/(1+|\sin\theta|)\) for steering angle θ; a 0.3 mm array at 5 MHz and 15° shows it as a −24.3 dB near-field streak. Receive lobes appear first at the truncated, steered image edges. <a class="sref" href="#m23-s23-6">§23.6</a></span></li><li><b>Judge acquisition changes by their effect on the coarray.</b> <span class="why">The two-way point-spread function is the Fourier transform of the coarray, the transmit aperture convolved with the receive aperture: gaps are grating lobes, lost extent is lost resolution. Schemes with the same coarray give the same narrowband response however many firings they use. <a class="sref" href="#m23-s23-4">§23.4</a></span></li><li><b>Do not expect coherent compounding to smooth speckle.</b> <span class="why">The \(10\log_{10}N\) gain for N angles is against electronic noise; adding angles within a fixed span lowers clutter but leaves speckle signal-to-noise ratio (mean over standard deviation) at about 1.8–1.9 for every N. Speckle reduction needs incoherent looks, summed after envelope detection. <a class="sref" href="#m23-s23-5">§23.5</a></span></li><li><b>Judge apodization for cysts by integrated, not peak, sidelobe level.</b> <span class="why">Diffuse clutter integrates all sidelobes, so a window with a low peak but slowly decaying far sidelobes fills cysts more: Hamming peaks at −42.7 dB but integrates to only −34.4 dB. Apodize on receive first, where Hann costs 1.76 dB, not 6.0 dB. <a class="sref" href="#m23-s23-2">§23.2</a></span></li></ul></div>
+
 
   <!-- ===================== 23.1 ===================== -->
   <div class="prose">
@@ -73,20 +76,25 @@
         <canvas id="m23-fr-map" aria-label="CW intensity map of a line aperture in dB, lateral position versus depth"></canvas>
         <canvas id="m23-fr-ax" aria-label="On-axis intensity versus depth"></canvas>
         <canvas id="m23-fr-lat" aria-label="Lateral profile at the geometric focus versus the Fourier transform of the apodization"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>direct field (point-source sum)</span><span><i style="background:var(--sig2)"></i>Fourier prediction \(A(x/(\lambda F))\)</span><span><i style="background:var(--sig4)"></i>geometric focus F</span><span><i style="background:var(--sig3)"></i>\(D^2/(4\lambda)\), intensity peak, −3 dB DOF</span></div>
+        <div class="legend" id="m23-fr-leg"><span data-s="dir"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>direct field (point-source sum)</span><span data-s="four"><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>Fourier prediction \(A(x/(\lambda F))\)</span><span data-s="F"><i class="dash" style="color:var(--sig4);background:var(--sig4)"></i>geometric focus F</span><span data-s="nf"><i class="dot" style="color:var(--sig3);background:var(--sig3)"></i>\(D^2/(4\lambda)\)</span><span data-s="pk"><i class="solid" style="color:var(--sig7);background:var(--sig7)"></i>intensity peak (line), −3 dB DOF (band)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m23-fr-f0">Frequency f<sub>0</sub> <output id="m23-fr-f0-o">5.0 MHz</output></label><input type="range" id="m23-fr-f0" min="2" max="10" step="0.5" value="5"></div>
-        <div class="ctrl"><label for="m23-fr-D">Aperture D <output id="m23-fr-D-o">19.2 mm</output></label><input type="range" id="m23-fr-D" min="4.8" max="40" step="0.4" value="19.2"></div>
-        <div class="ctrl"><label for="m23-fr-F">Focus F <output id="m23-fr-F-o">30 mm</output></label><input type="range" id="m23-fr-F" min="10" max="150" step="2" value="30"></div>
+        <div class="ctrl"><label for="m23-fr-f0">Frequency f<sub>0</sub> <output id="m23-fr-f0-o">5.0 MHz</output> <span class="hint">CW; sets λ = c/f<sub>0</sub></span></label><input type="range" id="m23-fr-f0" min="2" max="10" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m23-fr-D">Aperture width D <output id="m23-fr-D-o">19.2 mm</output> <span class="hint">of the line aperture</span></label><input type="range" id="m23-fr-D" min="4.8" max="40" step="0.4" value="19.2"></div>
+        <div class="ctrl"><label for="m23-fr-F">Focal depth F <output id="m23-fr-F-o">30 mm</output> <span class="hint">where the focusing law aims</span></label><input type="range" id="m23-fr-F" min="10" max="150" step="2" value="30"></div>
         <label class="check"><input type="checkbox" id="m23-fr-foc" checked> Apply focusing law</label>
-        <div class="ctrl"><label for="m23-fr-ap">Apodization</label><select id="m23-fr-ap"><option value="rect">Rectangular</option><option value="hann">Hann</option></select></div>
+        <div class="ctrl"><label for="m23-fr-ap">Apodization <span class="hint">element weights across the aperture; Hann widens the beam and lowers sidelobes</span></label><select id="m23-fr-ap"><option value="rect">Rectangular</option><option value="hann">Hann</option></select></div>
         <div class="readout" id="m23-fr-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> at the defaults (\(N_F = 10\)) the peak sits at 0.99F and the lateral profile follows the Fourier prediction closely. Raise F to 150 mm: \(N_F\) drops to 2, the peak moves to about 0.8F and the depth of field falls well short of \(6.95\,\lambda F_\#^2\). Untick the focusing law and drop D to 8 mm at 3 MHz: the near-field length \(D^2/(4\lambda)\) falls to 31 mm and its last maximum appears in the axial intensity plot, after which the intensity decays as \(1/z^2\). Set D = 40 mm, F = 20 mm (F# 0.5): the direct field visibly departs from the Fourier curve.</div>
+    <div class="demo-foot"><strong>Try:</strong> at the defaults (\(N_F = 10\)) the peak sits at 0.99F and the lateral profile follows the Fourier prediction closely. Raise F to 150 mm: \(N_F\) drops to 2, the peak moves to about 0.8F and the depth of field falls well short of \(6.95\,\lambda F_\#^2\). Untick the focusing law and drop D to 8 mm at 3 MHz: the near-field length \(D^2/(4\lambda)\) falls to 31 mm and its last maximum appears in the axial intensity plot, after which the intensity decays as \(1/z^2\). Set D = 40 mm, F = 20 mm (F# 0.5): the direct field visibly departs from the Fourier curve.<span class="symnote">Symbols used here: f<sub>0</sub>, the frequency in MHz; λ = c/f<sub>0</sub>, the wavelength in mm; D, the aperture width in mm; F, the focal depth in mm; F# = F/D; N<sub>F</sub> = D²/(4λF), the Fresnel number of the focus; D²/(4λ), the near-field length; A(·), the apodization, whose Fourier transform predicts the focal profile; x and z, lateral position and depth in mm; I, the CW intensity; DOF, the −3 dB depth of field.</span></div>
   </div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>Deep cardiac focusing is a low-\(N_F\) problem: a 2.5 MHz phased array with D = 20 mm has \(D^2/(4\lambda) = 162\) mm, so a 100 mm focus has \(N_F = 1.6\) and the intensity peaks near 0.75F. The same numbers explain why a plane wave has no transmit beam to speak of: an unsteered 38.4 mm aperture at 5 MHz is in its near field out to 1.2 m, so at every imaging depth its lateral profile is just the aperture footprint with Fresnel edge ripple. All the lateral selectivity of a single plane wave comes from receive.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>An unfocused aperture keeps converging only to its last on-axis maximum at D²/(4λ): 299 mm for 19.2 mm at 5 MHz (direct sum 297 mm), so focusing at or beyond that depth buys nothing.</li>
+    <li>The intensity peak sits at the geometric focus only at high Fresnel number N<sub>F</sub> = D²/(4λF): 0.99F at N<sub>F</sub> = 10, 0.90F at 3, 0.61F at 1; the 7λF#² depth-of-field rule fails below N<sub>F</sub> ≈ 3.</li>
+    <li>At F# 1.56 the direct sum is 3.5 % wider than the Fourier prediction and its first sidelobe is −12.7 instead of −13.3 dB (Hann −28.8 vs −31.5 dB): a paraxial model is no reference for sidelobe claims at F# ≤ 1.5.</li>
+  </ul></div>
 
   <!-- ===================== 23.2 ===================== -->
   <div class="prose">
@@ -117,7 +125,7 @@
   </table></div>
   <div class="prose">
     <p>All levels in dB, Tx = Rx for the two-way columns, computed by numerical transform (ISLR by Parseval). Hamming has a lower PSL than Hann but a higher ISLR than its PSL suggests, because its far sidelobes decay at only −6 dB/octave (its edge does not go to zero). For cyst contrast the ISLR column is the one that matters.</p>
-    <p><strong>Transmit and receive apodization are paid for in different currencies.</strong> On receive, the price is SNR: \(G_{\mathrm{SNR}} = -1.76\) dB for Hann. On transmit, the peak drive per element is fixed by the pulser and by the mechanical index, so weights below 1 simply radiate less: the focal amplitude scales with \(\sum w/N\) (Hann: −6.0 dB) and the radiated energy with \(\sum w^2/N\) (Hann: −4.3 dB). This is why systems that are SNR-limited apodize on receive first.</p>
+    <p><strong>Transmit versus receive apodization.</strong> The two are paid for in different currencies. On receive, the price is SNR: \(G_{\mathrm{SNR}} = -1.76\) dB for Hann. On transmit, the peak drive per element is fixed by the pulser and by the mechanical index, so weights below 1 simply radiate less: the focal amplitude scales with \(\sum w/N\) (Hann: −6.0 dB) and the radiated energy with \(\sum w^2/N\) (Hann: −4.3 dB). This is why systems that are SNR-limited apodize on receive first.</p>
   </div>
 
   <div class="demo">
@@ -126,24 +134,29 @@
       <div class="stage">
         <canvas id="m23-ap-cv" aria-label="Transmit, receive and two-way patterns versus angle in dB"></canvas>
         <canvas id="m23-ap-zoom" aria-label="Main lobe region versus sine of angle in units of lambda over D"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>two-way \(A_T A_R\)</span><span><i style="background:var(--sig3)"></i>transmit \(A_T\)</span><span><i style="background:var(--sig4)"></i>receive \(A_R\)</span><span><i style="background:var(--bad)"></i>predicted grating lobes (pitch d)</span></div>
+        <div class="legend" id="m23-ap-leg"><span data-s="two"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>two-way \(A_T A_R\)</span><span data-s="tx"><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>transmit \(A_T\)</span><span data-s="rx"><i class="dot" style="color:var(--sig4);background:var(--sig4)"></i>receive \(A_R\)</span><span data-s="gl"><i class="dash" style="color:var(--bad);background:var(--bad)"></i>predicted grating lobes (pitch d)</span></div>
       </div>
       <div class="controls">
         <div class="ctrl"><label for="m23-ap-n">Elements N <output id="m23-ap-n-o">64</output></label><input type="range" id="m23-ap-n" min="16" max="192" step="8" value="64"></div>
-        <div class="ctrl"><label for="m23-ap-d">Pitch d <output id="m23-ap-d-o">0.30 mm</output></label><input type="range" id="m23-ap-d" min="0.1" max="0.6" step="0.01" value="0.3"></div>
+        <div class="ctrl"><label for="m23-ap-d">Pitch d <output id="m23-ap-d-o">0.30 mm</output> <span class="hint">element spacing; d &gt; λ/2 risks grating lobes</span></label><input type="range" id="m23-ap-d" min="0.1" max="0.6" step="0.01" value="0.3"></div>
         <div class="ctrl"><label for="m23-ap-f">Frequency f<sub>0</sub> <output id="m23-ap-f-o">5.0 MHz</output></label><input type="range" id="m23-ap-f" min="2" max="10" step="0.1" value="5"></div>
-        <div class="ctrl"><label for="m23-ap-th">Steering θ<sub>0</sub> <output id="m23-ap-th-o">0°</output></label><input type="range" id="m23-ap-th" min="-40" max="40" step="1" value="0"></div>
-        <div class="ctrl"><label for="m23-ap-tx">Transmit apodization</label><select id="m23-ap-tx">
+        <div class="ctrl"><label for="m23-ap-th">Steering angle θ<sub>0</sub> <output id="m23-ap-th-o">0°</output></label><input type="range" id="m23-ap-th" min="-40" max="40" step="1" value="0"></div>
+        <div class="ctrl"><label for="m23-ap-tx">Transmit apodization <span class="hint">weights on the transmit elements</span></label><select id="m23-ap-tx">
           <option value="rect">Rectangular</option><option value="tukey">Tukey 0.5</option><option value="hann" selected>Hann</option><option value="hamming">Hamming</option><option value="blackman">Blackman</option><option value="gauss">Gaussian (2.5σ)</option><option value="sp2">Every 2nd element</option><option value="sp3">Every 3rd element</option><option value="rnd">Random 50 %</option><option value="one">One element (or plane wave)</option></select></div>
-        <div class="ctrl"><label for="m23-ap-rx">Receive apodization</label><select id="m23-ap-rx">
+        <div class="ctrl"><label for="m23-ap-rx">Receive apodization <span class="hint">weights on the receive elements</span></label><select id="m23-ap-rx">
           <option value="rect" selected>Rectangular</option><option value="tukey">Tukey 0.5</option><option value="hann">Hann</option><option value="hamming">Hamming</option><option value="blackman">Blackman</option><option value="gauss">Gaussian (2.5σ)</option><option value="sp2">Every 2nd element</option><option value="sp3">Every 3rd element</option><option value="rnd">Random 50 %</option></select></div>
         <label class="check"><input type="checkbox" id="m23-ap-ef"> Element factor (width 0.9 d, rigid baffle)</label>
         <div class="readout" id="m23-ap-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> the default Hann transmit with uniform receive gives a two-way PSL of about −24.8 dB, set by where the two factors overlap, and the readout shows the two prices (−6.0 dB focal amplitude on transmit, 0 dB on receive). Swap them: the same two-way pattern, but now receive pays −1.76 dB of SNR and transmit pays nothing. Set d = 0.2 mm and choose transmit every 3rd, receive every 2nd element: each factor has grating lobes, the product keeps them low (a vernier pair, Section 23.4); set both to every 2nd and a full-height two-way lobe appears. Pick transmit "One element": the two-way pattern is the receive pattern alone, which is what a single plane wave gives laterally.</div>
+    <div class="demo-foot"><strong>Try:</strong> the default Hann transmit with uniform receive gives a two-way PSL of about −24.8 dB, set by where the two factors overlap, and the readout shows the two prices (−6.0 dB focal amplitude on transmit, 0 dB on receive). Swap them: the same two-way pattern, but now receive pays −1.76 dB of SNR and transmit pays nothing. Set d = 0.2 mm and choose transmit every 3rd, receive every 2nd element: each factor has grating lobes, the product keeps them low (a vernier pair, Section 23.4); set both to every 2nd and a full-height two-way lobe appears. Pick transmit "One element": the two-way pattern is the receive pattern alone, which is what a single plane wave gives laterally.<span class="symnote">Symbols used here: N, the number of elements; d, the pitch in mm; D = N·d, the aperture width; f<sub>0</sub>, the frequency and λ the wavelength; θ, the angle and θ<sub>0</sub> the steering angle; A<sub>T</sub> and A<sub>R</sub>, the transmit and receive patterns (two-way = their product); PSL, the peak sidelobe level; ISLR, the integrated sidelobe ratio.</span></div>
   </div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>A 1D ISLR underestimates the clutter that fills a cyst in an image. The 2D PSF also has axial sidelobes and, for unfocused transmits, X-shaped edge-wave arms that leave the focal line. Measure integrated clutter on the 2D PSF (as Demo 23.7 and <code>m23_planewave_compounding.m</code> do), and report cyst contrast and gCNR rather than inferring them from a lateral cut.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Two-way dB = transmit dB + receive dB, direction by direction; PSL predicts the ghost of one bright point, ISLR the diffuse clutter that fills a cyst.</li>
+    <li>Hann one-way: PSL −31.5 dB at a −6 dB width of 2.00 λ/D (rectangular −13.3 dB, 1.21 λ/D). Hamming has the lower PSL (−42.7 dB) but an ISLR of only −34.4 dB, because its far sidelobes decay at 6 dB/octave.</li>
+    <li>Receive apodization costs SNR (Hann −1.76 dB); transmit apodization costs focal amplitude (Hann −6.0 dB), so SNR-limited systems apodize on receive first.</li>
+  </ul></div>
 
   <!-- ===================== 23.3 ===================== -->
   <div class="prose">
@@ -174,7 +187,7 @@
       <div class="stage">
         <canvas id="m23-gl-ap" aria-label="Transmit and receive element positions and weights"></canvas>
         <canvas id="m23-gl-cv" aria-label="Beam pattern in dB versus sine of angle from minus 2.5 to 2.5"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>selected pattern</span><span><i style="background:var(--sig3)"></i>transmit factor (two-way view) and Tx replica centers</span><span><i style="background:var(--sig4)"></i>receive factor (two-way view) and Rx replica centers</span><span><i style="background:var(--sig2)"></i>element factor</span><span><i style="background:var(--grid)"></i>visible region \(\lvert\sin\theta\rvert \le 1\)</span></div>
+        <div class="legend" id="m23-gl-leg"><span data-s="sel"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>selected pattern</span><span data-s="tx"><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>transmit factor (two-way view); Tx replica centers dotted</span><span data-s="rx"><i class="dot" style="color:var(--sig4);background:var(--sig4)"></i>receive factor (two-way view) and Rx replica centers</span><span data-s="el"><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>element factor</span><span data-s="vis"><i class="fill" style="color:var(--grid);background:var(--grid)"></i>visible region \(\lvert\sin\theta\rvert \le 1\)</span></div>
         <div class="btn-row" id="m23-gl-pre">
           <button class="btn" type="button" data-p="tx,1,20,0,64,0,rect,rect,0">λ pitch, Tx steered 20°</button>
           <button class="btn" type="button" data-p="tx,0.5,45,45,64,0,rect,rect,0">λ/2 phased, 45°</button>
@@ -186,19 +199,19 @@
         </div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m23-gl-pat">Pattern</label><select id="m23-gl-pat"><option value="tx">One-way transmit</option><option value="rx">One-way receive</option><option value="two">Two-way Tx × Rx</option></select></div>
-        <div class="ctrl"><label for="m23-gl-d">Pitch d/λ<sub>0</sub> <output id="m23-gl-d-o">1.00</output></label><input type="range" id="m23-gl-d" min="0.25" max="3" step="0.05" value="1"></div>
-        <div class="ctrl"><label for="m23-gl-tt">Tx steering θ<sub>tx</sub> <output id="m23-gl-tt-o">20°</output></label><input type="range" id="m23-gl-tt" min="-45" max="45" step="1" value="20"></div>
-        <div class="ctrl"><label for="m23-gl-tr">Rx steering θ<sub>rx</sub> <output id="m23-gl-tr-o">0°</output></label><input type="range" id="m23-gl-tr" min="-45" max="45" step="1" value="0"></div>
+        <div class="ctrl"><label for="m23-gl-pat">Pattern <span class="hint">which beam the curve shows</span></label><select id="m23-gl-pat"><option value="tx">One-way transmit</option><option value="rx">One-way receive</option><option value="two">Two-way Tx × Rx</option></select></div>
+        <div class="ctrl"><label for="m23-gl-d">Pitch d/λ<sub>0</sub> <output id="m23-gl-d-o">1.00</output> <span class="hint">element spacing in wavelengths; replicas sit λ/d apart in sin θ</span></label><input type="range" id="m23-gl-d" min="0.25" max="3" step="0.05" value="1"></div>
+        <div class="ctrl"><label for="m23-gl-tt">Transmit steering θ<sub>tx</sub> <output id="m23-gl-tt-o">20°</output></label><input type="range" id="m23-gl-tt" min="-45" max="45" step="1" value="20"></div>
+        <div class="ctrl"><label for="m23-gl-tr">Receive steering θ<sub>rx</sub> <output id="m23-gl-tr-o">0°</output></label><input type="range" id="m23-gl-tr" min="-45" max="45" step="1" value="0"></div>
         <div class="ctrl"><label for="m23-gl-n">Elements N <output id="m23-gl-n-o">64</output></label><input type="range" id="m23-gl-n" min="8" max="256" step="8" value="64"></div>
-        <div class="ctrl"><label for="m23-gl-b">Fractional bandwidth <output id="m23-gl-b-o">CW</output></label><input type="range" id="m23-gl-b" min="0" max="150" step="5" value="0"></div>
-        <div class="ctrl"><label for="m23-gl-at">Tx apodization</label><select id="m23-gl-at"><option value="rect">Uniform</option><option value="hann">Hann</option><option value="sp2">Every 2nd element</option></select></div>
-        <div class="ctrl"><label for="m23-gl-ar">Rx apodization</label><select id="m23-gl-ar"><option value="rect">Uniform</option><option value="hann">Hann</option><option value="sp2">Every 2nd element</option></select></div>
+        <div class="ctrl"><label for="m23-gl-b">Fractional bandwidth B <output id="m23-gl-b-o">CW</output> <span class="hint">0 = CW; broadband curves are energy patterns</span></label><input type="range" id="m23-gl-b" min="0" max="150" step="5" value="0"></div>
+        <div class="ctrl"><label for="m23-gl-at">Transmit apodization</label><select id="m23-gl-at"><option value="rect">Uniform</option><option value="hann">Hann</option><option value="sp2">Every 2nd element</option></select></div>
+        <div class="ctrl"><label for="m23-gl-ar">Receive apodization</label><select id="m23-gl-ar"><option value="rect">Uniform</option><option value="hann">Hann</option><option value="sp2">Every 2nd element</option></select></div>
         <label class="check"><input type="checkbox" id="m23-gl-e"> Element directivity (width 0.9 d, 10 % kerf)</label>
         <div class="readout" id="m23-gl-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> the first preset puts the m = −1 transmit replica at \(u = 0.342 - 1 = -0.658\) (−41.1°), inside the shaded visible region at full height. Tick the element factor: the lobe drops 4.4 dB one-way, because at broadside the element nulls (at \(u = \pm 1/0.9\)) sit near the replicas and steering moves the replicas off them (third preset). Raise the bandwidth: the replica smears into a broad, lower hump while the main lobe does not move. Switch to two-way with "Plane-wave Tx 15°, Rx 0°": the transmit lobe lands at −25.5°, the receive lobes at ±43.6° (the slider rounds 1.46λ to 1.45λ; −25.2° and ±43.2° exactly); each one-way pattern has a full lobe, the product does not. "Tx every 2nd, Rx full" gives a transmit pitch of 1.5λ with lobes at ±41.8° that the uniform receive factor suppresses to its sidelobe level.</div>
+    <div class="demo-foot"><strong>Try:</strong> the first preset puts the m = −1 transmit replica at \(u = 0.342 - 1 = -0.658\) (−41.1°), inside the shaded visible region at full height. Tick the element factor: the lobe drops 4.4 dB one-way, because at broadside the element nulls (at \(u = \pm 1/0.9\)) sit near the replicas and steering moves the replicas off them (third preset). Raise the bandwidth: the replica smears into a broad, lower hump while the main lobe does not move. Switch to two-way with "Plane-wave Tx 15°, Rx 0°": the transmit lobe lands at −25.5°, the receive lobes at ±43.6° (the slider rounds 1.46λ to 1.45λ; −25.2° and ±43.2° exactly); each one-way pattern has a full lobe, the product does not. "Tx every 2nd, Rx full" gives a transmit pitch of 1.5λ with lobes at ±41.8° that the uniform receive factor suppresses to its sidelobe level.<span class="symnote">Symbols used here: u = sin θ, the direction (|u| ≤ 1 is the visible region); d/λ<sub>0</sub>, the pitch in wavelengths at the centre frequency; θ<sub>tx</sub> and θ<sub>rx</sub>, the transmit and receive steering angles; N, the number of elements; B, the −6 dB fractional bandwidth; m, the replica (grating-lobe) order, at u = sin θ<sub>0</sub> + m λ/d.</span></div>
   </div>
   <div class="callout intuit"><span class="label">Intuition</span><p>Two-way is a product, so a grating lobe survives only where transmit and receive both have one. Every way of beating grating lobes with a coarse pitch exploits this: different steering on transmit and receive (plane-wave transmit, parallel receive beams), different effective pitches (vernier, Section 23.4), the element factor (common to both, so it is squared), and bandwidth (the copies move with frequency, the main lobe does not). Demo 23.8 shows the near-field version for steered plane waves.</p></div>
 
@@ -209,7 +222,7 @@
       <dl class="where"><dt>\(s(t;u)\)</dt><dd>signal radiated or received in direction u (analytic, complex)</dd><dt>\(u = \sin\theta\)</dt><dd>sine of the direction from broadside</dd><dt>\(t\)</dt><dd>time, µs</dd><dt>\(n\)</dt><dd>element index</dd><dt>\(p(t)\)</dt><dd>transmitted pulse (one-way) or pulse-echo pulse (two-way)</dd><dt>\(c_n\)</dt><dd>weight of element n: \(w_n\) one-way; the coarray \(w * w\) for two-way with Tx = Rx (Section 23.4)</dd><dt>\(d\)</dt><dd>pitch, mm</dd><dt>\(c\)</dt><dd>sound speed, 1.54 mm/µs</dd><dt>\(\tau_1\)</dt><dd>delay between neighbouring elements, µs</dd></dl>
       <span class="note">CW keeps only the phase \(e^{-j2\pi f_0 n\tau_1}\). The peak pattern is what a point target produces in a beamformed image; the energy pattern is <span class="eqref">(23.7)</span>.</span>
     </div>
-    <p>Figure it out in three directions (Demo 23.4 draws each case from <span class="eqref">(23.8)</span>):</p>
+    <p>Consider three directions (Demo 23.4 draws each case from <span class="eqref">(23.8)</span>):</p>
     <ol>
       <li><strong>Main lobe, \(u = 0\).</strong> \(\tau_1 = 0\): every element pulse arrives at the same time, they stack, and the sum peaks at \(\sum c_n\) (N for uniform weights). Pulse length does not matter.</li>
       <li><strong>Grating lobe, \(u = \lambda_0/d\).</strong> \(\tau_1 = T_0\) exactly: each pulse is one period later than its neighbor. They are in phase (CW sees a full lobe), but they no longer coincide: the sum is a train of N pulses, \(N T_0\) long, and at any instant only the \(\approx M\) pulses within one pulse length overlap. The peak is \(\approx M\) instead of N.</li>
@@ -222,16 +235,16 @@
     <div class="demo-body stack">
       <div class="stage">
         <div class="m23-trio"><canvas id="m23-ps-a" aria-label="Element pulses and their sum in the main-lobe direction"></canvas><canvas id="m23-ps-b" aria-label="Element pulses and their sum in the grating-lobe direction"></canvas><canvas id="m23-ps-c" aria-label="Element pulses and their sum in a sidelobe direction"></canvas></div>
-        <div class="legend"><span><i style="background:var(--muted)"></i>element pulses \(p(t - n\tau_1)\), n = 0 … 7</span><span><i style="background:var(--accent)"></i>sum / N</span><span><i style="background:var(--sig3)"></i>envelope of the sum</span></div>
+        <div class="legend" id="m23-ps-leg"><span data-s="el"><i class="solid" style="color:var(--muted);background:var(--muted)"></i>element pulses \(p(t - n\tau_1)\), n = 0 … 7</span><span data-s="sum"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>sum / N</span><span data-s="env"><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>envelope of the sum</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m23-ps-d">Pitch d/λ<sub>0</sub> <output id="m23-ps-d-o">1.50</output></label><input type="range" id="m23-ps-d" min="1" max="2" step="0.05" value="1.5"></div>
-        <div class="ctrl"><label for="m23-ps-bw">Fractional bandwidth (−6 dB) <output id="m23-ps-bw-o">75 %</output></label><input type="range" id="m23-ps-bw" min="10" max="120" step="5" value="75"></div>
-        <div class="ctrl"><label for="m23-ps-u">Sidelobe direction u <output id="m23-ps-u-o">0.25</output></label><input type="range" id="m23-ps-u" min="0.02" max="0.6" step="0.01" value="0.25"></div>
+        <div class="ctrl"><label for="m23-ps-d">Pitch d/λ<sub>0</sub> <output id="m23-ps-d-o">1.50</output> <span class="hint">sets the grating-lobe direction u = λ<sub>0</sub>/d</span></label><input type="range" id="m23-ps-d" min="1" max="2" step="0.05" value="1.5"></div>
+        <div class="ctrl"><label for="m23-ps-bw">Fractional bandwidth B (−6 dB) <output id="m23-ps-bw-o">75 %</output> <span class="hint">wider band = shorter pulse</span></label><input type="range" id="m23-ps-bw" min="10" max="120" step="5" value="75"></div>
+        <div class="ctrl"><label for="m23-ps-u">Sidelobe direction u = sin θ <output id="m23-ps-u-o">0.25</output> <span class="hint">direction of panel (c)</span></label><input type="range" id="m23-ps-u" min="0.02" max="0.6" step="0.01" value="0.25"></div>
         <div class="readout" id="m23-ps-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> at 75 % band (M = 1.18 cycles) the grating-lobe sum peaks near \(1.064\,M/N = 0.16\) of the main lobe for N = 8, against 1 in CW. Narrow the band to 10 %: the pulses overlap over many periods, the train fills in and the peak climbs toward the CW value. Move the sidelobe direction: where \(N d u/\lambda_0\) is an integer the CW pattern has a null, yet the pulsed sum is not zero, because the first and last pulses have no partner to cancel against.</div>
+    <div class="demo-foot"><strong>Try:</strong> at 75 % band (M = 1.18 cycles) the grating-lobe sum peaks near \(1.064\,M/N = 0.16\) of the main lobe for N = 8, against 1 in CW. Narrow the band to 10 %: the pulses overlap over many periods, the train fills in and the peak climbs toward the CW value. Move the sidelobe direction: where \(N d u/\lambda_0\) is an integer the CW pattern has a null, yet the pulsed sum is not zero, because the first and last pulses have no partner to cancel against.<span class="symnote">Symbols used here: N = 8 elements; d/λ<sub>0</sub>, the pitch in wavelengths; u = sin θ, the direction; B (FBW), the −6 dB fractional bandwidth; M = 0.883/B, the pulse length in cycles; T<sub>0</sub>, one period at f<sub>0</sub>; τ<sub>1</sub> = d u/c, the delay between neighbouring elements; p(t), the element pulse.</span></div>
   </div>
 
   <div class="prose">
@@ -241,7 +254,7 @@
       <dl class="where"><dt>\(\sigma_t\)</dt><dd>standard deviation of the Gaussian envelope, µs</dd><dt>\(f_0\)</dt><dd>center frequency, MHz</dd><dt>\(M\)</dt><dd>pulse length in cycles, \(f_0\tau\), with \(\tau\) the −6 dB envelope duration</dd><dt>\(\mathrm{FBW}\)</dt><dd>−6 dB fractional bandwidth</dd><dt>\(N\)</dt><dd>number of elements</dd><dt>\(\mathrm{GL}\)</dt><dd>grating-lobe level relative to the main lobe: peak is an amplitude ratio (20 log), energy a power ratio (10 log)</dd></dl>
       <span class="note">Valid while \(M &lt; N\). The two-way energy is lower by 2/3 (−1.8 dB) because the triangular coarray weights give \(\sum_k c_k^2 \approx 2N^3/3\) instead of \(N^3\). Check: N = 128, FBW 60 % (M = 1.47): −38.2 dB peak, −17.6 dB energy, against 0 dB in CW.</span>
     </div>
-    <p><strong>Far sidelobes are edge waves.</strong> Far from the main lobe the delays spread over \(D\lvert u\rvert/c\), longer than the pulse. The uniform aperture then acts like a time-domain rect of that length convolved with the pulse: the zero-mean pulse cancels in the middle and only the two ends survive, each the running integral of the pulse (\(\approx 1/(2\pi f_0)\) of its peak) divided by the spread:</p>
+    <p><strong>Far sidelobes as edge waves.</strong> Far from the main lobe the delays spread over \(D\lvert u\rvert/c\), longer than the pulse. The uniform aperture then acts like a time-domain rect of that length convolved with the pulse: the zero-mean pulse cancels in the middle and only the two ends survive, each the running integral of the pulse (\(\approx 1/(2\pi f_0)\) of its peak) divided by the spread:</p>
     <div class="eqn" id="m23-eq10">
       <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \text{sidelobe}_{\text{peak}}(u) &\approx \frac{\lambda}{2\pi D\lvert u\rvert} = \frac{1}{2x}, \qquad x = \frac{\pi D\lvert u\rvert}{\lambda} \\ &\text{for } \lvert u\rvert > \frac{M\lambda}{D} \end{aligned} \]</div><span class="eqn-no">(23.10)</span></div>
       <dl class="where"><dt>\(\text{sidelobe}_{\text{peak}}(u)\)</dt><dd>pulsed peak pattern far from the main lobe, amplitude ratio to the main-lobe peak</dd><dt>\(\lambda\)</dt><dd>center wavelength \(\lambda_0\), mm</dd><dt>\(D\)</dt><dd>aperture width, mm</dd><dt>\(u\)</dt><dd>\(\sin\theta\), direction from broadside</dd><dt>\(x\)</dt><dd>normalized off-axis variable of the CW sinc, \(\pi D\lvert u\rvert/\lambda\)</dd><dt>\(M\)</dt><dd>pulse length in cycles, as in <span class="eqref">(23.9)</span></dd></dl>
@@ -277,18 +290,18 @@
       <div class="stage">
         <canvas id="m23-bb-cv" aria-label="CW, pulsed peak and pulsed energy patterns versus sine of angle"></canvas>
         <canvas id="m23-bb-t" aria-label="Received pulse train at the grating lobe direction"></canvas>
-        <div class="legend"><span><i style="background:var(--muted)"></i>CW at f<sub>0</sub></span><span><i style="background:var(--accent)"></i>pulsed, peak</span><span><i style="background:var(--sig2)"></i>pulsed, energy (rms)</span><span><i style="background:var(--sig3)"></i>\(1.064\,M/N\) and edge-wave law \(\lambda/(2\pi D u)\)</span></div>
+        <div class="legend" id="m23-bb-leg"><span data-s="cw"><i class="dash" style="color:var(--muted);background:var(--muted)"></i>CW at f<sub>0</sub></span><span data-s="pk"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>pulsed, peak</span><span data-s="en"><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>pulsed, energy (rms)</span><span data-s="law"><i class="dot" style="color:var(--sig3);background:var(--sig3)"></i>edge-wave law \(\lambda/(2\pi D u)\) (dotted); \(1.064\,M/N\) (thick tick)</span></div>
       </div>
       <div class="controls">
         <div class="ctrl"><label for="m23-bb-n">Elements N <output id="m23-bb-n-o">64</output></label><input type="range" id="m23-bb-n" min="32" max="192" step="16" value="64"></div>
-        <div class="ctrl"><label for="m23-bb-d">Pitch d/λ<sub>0</sub> <output id="m23-bb-d-o">1.50</output></label><input type="range" id="m23-bb-d" min="0.5" max="2" step="0.05" value="1.5"></div>
-        <div class="ctrl"><label for="m23-bb-b">Fractional bandwidth (−6 dB) <output id="m23-bb-b-o">60 %</output></label><input type="range" id="m23-bb-b" min="10" max="120" step="5" value="60"></div>
-        <div class="ctrl"><label for="m23-bb-w">Pattern</label><select id="m23-bb-w"><option value="1">One-way</option><option value="2">Two-way (Tx = Rx)</option></select></div>
+        <div class="ctrl"><label for="m23-bb-d">Pitch d/λ<sub>0</sub> <output id="m23-bb-d-o">1.50</output> <span class="hint">above 1 a grating lobe enters the visible region</span></label><input type="range" id="m23-bb-d" min="0.5" max="2" step="0.05" value="1.5"></div>
+        <div class="ctrl"><label for="m23-bb-b">Fractional bandwidth B (−6 dB) <output id="m23-bb-b-o">60 %</output></label><input type="range" id="m23-bb-b" min="10" max="120" step="5" value="60"></div>
+        <div class="ctrl"><label for="m23-bb-w">Pattern <span class="hint">two-way multiplies identical transmit and receive weights</span></label><select id="m23-bb-w"><option value="1">One-way</option><option value="2">Two-way (Tx = Rx)</option></select></div>
         <div class="ctrl"><label for="m23-bb-a">Apodization</label><select id="m23-bb-a"><option value="rect">Rectangular</option><option value="hann">Hann</option></select></div>
         <div class="readout" id="m23-bb-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> at \(d = 1.5\lambda_0\) the CW grating lobe at u = 0.667 is 0 dB, the pulsed peak about −32 dB and the energy about −15 dB: always say which pattern a plot shows. The lower panel shows why: at the grating lobe the element pulses arrive one period apart and form a train. Double N: the peak drops 6 dB, the energy 3 dB. Narrow the band to 10 %: the pulses overlap over many periods and the grating lobe climbs to about −17 dB. Set \(d = 0.5\lambda_0\) one-way rect: the far sidelobes follow the edge-wave line, 6 dB under the CW envelope.</div>
+    <div class="demo-foot"><strong>Try:</strong> at \(d = 1.5\lambda_0\) the CW grating lobe at u = 0.667 is 0 dB, the pulsed peak about −32 dB and the energy about −15 dB: always say which pattern a plot shows. The lower panel shows why: at the grating lobe the element pulses arrive one period apart and form a train. Double N: the peak drops 6 dB, the energy 3 dB. Narrow the band to 10 %: the pulses overlap over many periods and the grating lobe climbs to about −17 dB. Set \(d = 0.5\lambda_0\) one-way rect: the far sidelobes follow the edge-wave line, 6 dB under the CW envelope.<span class="symnote">Symbols used here: N, the number of elements; d/λ<sub>0</sub>, the pitch in wavelengths; D = N·d, the aperture in wavelengths; u = sin θ, the direction; B, the −6 dB fractional bandwidth; M = 0.883/B, the pulse length in cycles; T<sub>0</sub>, one period; c, the (two-way, if selected) element weights, so max c/Σc and Σc²/(Σc)² set the peak and energy laws.</span></div>
   </div>
   <div class="tbl-wrap"><table>
     <thead><tr><th>Mode (N = 128, uniform)</th><th class="num">Pulse length M (cycles)</th><th class="num">GL peak, 2-way (dB)</th><th class="num">GL energy, 2-way (dB)</th><th>What to watch</th></tr></thead>
@@ -302,6 +315,11 @@
   </table></div>
   <div class="prose"><p>Array factor only; time-domain sums as in Demo 23.5 (peak and energy simulated, within 0.2 dB of <span class="eqref">(23.9)</span>). The element factor multiplies every entry by \(\lvert E(u_g)/E(u_0)\rvert^2\) two-way.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Hydrophone scans and Field II beam plots are usually peak-pressure or time-integrated (energy) patterns, and they differ by 15–20 dB at a grating lobe. In an image, what matters is the beamformed echo of a point, which behaves like the two-way peak pattern of the pulse-echo pulse. The element factor (derived in <a href="{{PART3_URL}}" target="_blank" rel="noopener">Module 19</a>, <span class="eqref">(19.1)</span>–<span class="eqref">(19.3)</span>) multiplies all of these and lowers far lobes further.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Replicas sit at sin θ<sub>0</sub> + mλ/d; none is radiated for steering up to θ<sub>max</sub> if d &lt; λ/(1 + |sin θ<sub>max</sub>|): 0.586λ for ±45°.</li>
+    <li>At a broadband grating lobe the element pulses arrive one period apart and only about M = 0.883/FBW of them overlap: peak ≈ 1.064 M/N, −40.1 dB for N = 128, 1.5λ pitch, 75 % band, against −20.3 dB energy (two-way) and 0 dB in CW.</li>
+    <li>A bright point is imaged at the peak level, speckle at the energy level; far sidelobes of a pulsed uniform aperture are two edge waves 6 dB under the CW envelope.</li>
+  </ul></div>
 
   <!-- ===================== 23.4 ===================== -->
   <div class="prose">
@@ -348,19 +366,24 @@
         <canvas id="m23-co-ap" aria-label="Transmit and receive element positions and weights"></canvas>
         <canvas id="m23-co-co" aria-label="Coarray: sum of transmit and receive positions"></canvas>
         <canvas id="m23-co-psf" aria-label="Two-way point-spread function at 30 mm depth in dB"></canvas>
-        <div class="legend"><span><i style="background:var(--sig3)"></i>transmit (real or virtual sources)</span><span><i style="background:var(--sig4)"></i>receive</span><span><i style="background:var(--accent)"></i>coarray and two-way PSF</span><span><i style="background:var(--bad)"></i>predicted grating lobe / replica</span></div>
+        <div class="legend" id="m23-co-leg"><span data-s="tx"><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>transmit (real or virtual sources)</span><span data-s="rx"><i class="dot" style="color:var(--sig4);background:var(--sig4)"></i>receive</span><span data-s="co"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>coarray and two-way PSF</span><span data-s="gl"><i class="dash" style="color:var(--bad);background:var(--bad)"></i>predicted grating lobe / replica</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m23-co-case">Transmit / receive scheme</label><select id="m23-co-case">
+        <div class="ctrl"><label for="m23-co-case">Transmit / receive scheme <span class="hint">which positions transmit and receive</span></label><select id="m23-co-case">
           <option value="full">Focused, uniform Tx = Rx</option><option value="sa">Synthetic aperture (64 single-element firings)</option><option value="hann">Focused, Hann Tx, uniform Rx</option><option value="one">One element or one plane wave</option><option value="pw" selected>Plane-wave compounding</option><option value="sp2">Sparse: Tx = Rx every 2nd</option><option value="vern">Vernier: Tx every 3rd, Rx every 2nd</option><option value="rnd">Random 50 %, independent sets</option></select></div>
-        <div class="ctrl"><label for="m23-co-na">Plane-wave angles <output id="m23-co-na-o">11</output></label><input type="range" id="m23-co-na" min="0" max="20" step="1" value="5"></div>
-        <div class="ctrl"><label for="m23-co-st">Angle step Δθ <output id="m23-co-st-o">3.0°</output></label><input type="range" id="m23-co-st" min="0.5" max="15" step="0.5" value="3"></div>
+        <div class="ctrl"><label for="m23-co-na">Plane-wave angles N<sub>θ</sub> <output id="m23-co-na-o">11</output> <span class="hint">plane-wave scheme only</span></label><input type="range" id="m23-co-na" min="0" max="20" step="1" value="5"></div>
+        <div class="ctrl"><label for="m23-co-st">Angle step Δθ <output id="m23-co-st-o">3.0°</output> <span class="hint">spacing of the virtual sources ξ = z sin θ</span></label><input type="range" id="m23-co-st" min="0.5" max="15" step="0.5" value="3"></div>
         <div class="readout" id="m23-co-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> compare "Focused" and "Synthetic aperture": identical coarray, identical PSF, but 64 firings instead of one per line. In plane-wave mode each angle \(\theta_n\) is a virtual transmit element at \(\xi = z\sin\theta_n\); the coarray is the receive aperture copied at each virtual element. Raise the step to 6°: the virtual sources spread to about 3 mm apart, the coarray develops a periodic ripple and the PSF grows replicas at \(\lambda/\Delta(\sin\theta)\). One angle is the "One element" case.</div>
+    <div class="demo-foot"><strong>Try:</strong> compare "Focused" and "Synthetic aperture": identical coarray, identical PSF, but 64 firings instead of one per line. In plane-wave mode each angle \(\theta_n\) is a virtual transmit element at \(\xi = z\sin\theta_n\); the coarray is the receive aperture copied at each virtual element. Raise the step to 6°: the virtual sources spread to about 3 mm apart, the coarray develops a periodic ripple and the PSF grows replicas at \(\lambda/\Delta(\sin\theta)\). One angle is the "One element" case.<span class="symnote">Symbols used here: ξ<sub>t</sub> and ξ<sub>r</sub>, transmit and receive positions in mm; ξ = z sin θ, the virtual source of a plane wave at angle θ; z = 30 mm, the focal depth; N<sub>θ</sub>, the number of plane-wave angles and Δθ their step; T and R, the transmit and receive focal patterns; x, lateral position in mm; λ, the wavelength; PSL, the peak sidelobe level.</span></div>
   </div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>Coarray reasoning is how sparse and row-column 2D arrays for 3D imaging and volumetric ULM are designed: choose transmit and receive subsets whose coarray is filled and smooth, then the two-way PSF is clean even though each one-way pattern is not. The coarray lag \(\xi_r - \xi_{r'}\) between receive elements is also the lag of the spatial coherence function of Module 07; Module 25 builds coherence-based beamformers on it. The hardware that needs this reasoning (2D matrix, micro-beamformed and row-column arrays) is in <a href="{{PART3_URL}}" target="_blank" rel="noopener">Module 19</a>, Sections 19.4–19.6.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>The two-way lateral response is the Fourier transform of the coarray a ∗ b: its extent L<sub>T</sub> + L<sub>R</sub> sets the resolution, its gaps are grating lobes.</li>
+    <li>Transmit and receive on every 2nd element leave every odd lag empty and the PSF repeats at λz/(2d); a vernier pair (transmit every p-th, receive every (p − 1)-th) fills the coarray and has no two-way grating lobe.</li>
+    <li>Random thinning to K of N positions keeps the extent but sets a sidelobe floor at (N − K)/(K(N − 1)) ≈ 1/K of peak power, with the worst lobe about 7 dB above that mean (N = 64).</li>
+  </ul></div>
 
   <!-- ===================== 23.5 ===================== -->
   <div class="prose">
@@ -404,19 +427,19 @@
       <div class="stage">
         <canvas id="m23-pw-img" aria-label="Compounded point-spread function or cyst image in dB"></canvas>
         <canvas id="m23-pw-prof" aria-label="Lateral profile through the target at 30 mm"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>compounded, N angles</span><span><i style="background:var(--muted)"></i>one angle (0°)</span><span><i style="background:var(--bad)"></i>transmit replicas \(\pm\lambda/\Delta(\sin\theta)\)</span></div>
+        <div class="legend" id="m23-pw-leg"><span data-s="comp"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>compounded, N angles</span><span data-s="one"><i class="dash" style="color:var(--muted);background:var(--muted)"></i>one angle (0°)</span><span data-s="rep"><i class="dash" style="color:var(--bad);background:var(--bad)"></i>transmit replicas \(\pm\lambda/\Delta(\sin\theta)\)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m23-pw-n">Angles N <output id="m23-pw-n-o">11</output></label><input type="range" id="m23-pw-n" min="0" max="20" step="1" value="5"></div>
-        <div class="ctrl"><label for="m23-pw-st">Angle step Δθ <output id="m23-pw-st-o">3.0°</output></label><input type="range" id="m23-pw-st" min="0.5" max="15" step="0.5" value="3"></div>
-        <div class="ctrl"><label for="m23-pw-f">Receive F#</label><select id="m23-pw-f"><option value="1">1.0</option><option value="1.5" selected>1.5</option><option value="2">2.0</option><option value="3">3.0</option></select></div>
+        <div class="ctrl"><label for="m23-pw-n">Angles N <output id="m23-pw-n-o">11</output> <span class="hint">plane waves added coherently</span></label><input type="range" id="m23-pw-n" min="0" max="20" step="1" value="5"></div>
+        <div class="ctrl"><label for="m23-pw-st">Angle step Δθ <output id="m23-pw-st-o">3.0°</output> <span class="hint">replicas sit at ±λ/Δ(sin θ)</span></label><input type="range" id="m23-pw-st" min="0.5" max="15" step="0.5" value="3"></div>
+        <div class="ctrl"><label for="m23-pw-f">Receive F-number F#<sub>rx</sub> <span class="hint">depth over receive aperture width</span></label><select id="m23-pw-f"><option value="1">1.0</option><option value="1.5" selected>1.5</option><option value="2">2.0</option><option value="3">3.0</option></select></div>
         <div class="ctrl"><label for="m23-pw-ap">Receive apodization</label><select id="m23-pw-ap"><option value="rect">Rectangular</option><option value="hann">Hann</option></select></div>
         <div class="ctrl"><label for="m23-pw-v">View</label><select id="m23-pw-v"><option value="psf">Point target PSF</option><option value="cyst">Anechoic cyst in speckle</option></select></div>
-        <div class="ctrl"><label for="m23-pw-dr">Dynamic range <output id="m23-pw-dr-o">60 dB</output></label><input type="range" id="m23-pw-dr" min="30" max="80" step="5" value="60"></div>
+        <div class="ctrl"><label for="m23-pw-dr">Display dynamic range <output id="m23-pw-dr-o">60 dB</output> <span class="hint">span from black to white</span></label><input type="range" id="m23-pw-dr" min="30" max="80" step="5" value="60"></div>
         <div class="readout" id="m23-pw-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> start at 1 angle: the PSF is receive-only, wide, with X-shaped edge arms (peak sidelobe ≈ −17 dB). Go to 3 angles at 15°: the main lobe narrows but a −25 dB shoulder sits at 1.19 mm, the replica. 11 angles at 3° push it to 5.95 mm and about −53 dB; 31 at 1° moves it out of the window. Switch to the cyst: contrast improves from about −18 dB (1 angle) to about −37 dB (31 angles at 1°) while the background speckle \(\mathrm{SNR}_0\) stays near 1.9. Raise F# to 3: everything widens, and the replica is less suppressed by the receive pattern. 128 elements, pitch 0.3 mm, 5 MHz, 60 % band, target at 30 mm; angles limited to ±20°.</div>
+    <div class="demo-foot"><strong>Try:</strong> start at 1 angle: the PSF is receive-only, wide, with X-shaped edge arms (peak sidelobe ≈ −17 dB). Go to 3 angles at 15°: the main lobe narrows but a −25 dB shoulder sits at 1.19 mm, the replica. 11 angles at 3° push it to 5.95 mm and about −53 dB; 31 at 1° moves it out of the window. Switch to the cyst: contrast improves from about −18 dB (1 angle) to about −37 dB (31 angles at 1°) while the background speckle \(\mathrm{SNR}_0\) stays near 1.9. Raise F# to 3: everything widens, and the replica is less suppressed by the receive pattern. 128 elements, pitch 0.3 mm, 5 MHz, 60 % band, target at 30 mm; angles limited to ±20°.<span class="symnote">Symbols used here: N, the number of plane-wave angles and Δθ their step; θ, the steering angle; F#<sub>tx</sub> and F#<sub>rx</sub>, the synthetic transmit and receive F-numbers; λ, the wavelength in mm; x<sub>rep</sub> = λ/Δ(sin θ), the replica offset in mm; x and z, lateral position and depth in mm; PSL, the peak sidelobe level; CNR and gCNR, contrast-to-noise and generalized contrast-to-noise ratios; SNR<sub>0</sub>, the speckle mean over its standard deviation.</span></div>
   </div>
   <div class="prose">
     <p>The same experiment with simulated channel data, IQ sampling at 20 MHz and DAS (<code>m23_planewave_compounding.m</code>, ±15°, \(F_{\#,\mathrm{rx}}\) 1.5, rect):</p>
@@ -432,6 +455,11 @@
   </table></div>
   <div class="prose"><p>Contrast is the intensity ratio inside/outside the cyst, \(\mathrm{CNR} = \lvert\mu_i - \mu_o\rvert/\sqrt{\sigma_i^2 + \sigma_o^2}\) on the envelope, and gCNR = 1 − OVL, the overlap OVL of the inside and outside envelope histograms (100 bins): 0 when the two distributions coincide, 1 when they do not overlap at all. Module 26 develops these metrics and their statistics in full. Clutter is the 2D PSF energy outside the main lobe relative to inside, within ±4 mm. The 3-angle set is narrower than the 31-angle set because its transmit factor is a three-term cosine with a narrow central fringe; the price is the replica shoulder. Demo 23.7 reproduces these widths within 1.5 % and the PSLs within 1.6 dB with an analytic synthesis that skips channel sampling.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>"Compounding improves resolution" is only half true. Lateral width improves from receive-only toward two-way only as fast as the span grows (\(F_{\#,\mathrm{tx}} = 1/(2\tan\theta_{\max})\), <span class="eqref">(23.13)</span>); adding angles inside a fixed span does not narrow the main lobe at all, it moves the replicas out and lowers clutter. Speckle SNR stays at about 1.8–1.9 for every N: coherent compounding changes the PSF, not the number of independent looks (Module 26).</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Each plane wave at θ acts as a virtual transmit element at ξ = z sin θ, so coherent compounding builds a virtual transmit array whose span sets F#<sub>tx</sub> = 1/(2 tan θ<sub>max</sub>): ±15° gives 1.87, ±18.4° gives 1.5.</li>
+    <li>The angle step sets the transmit replica at λ/Δ(sin θ); keeping it outside an image of width W needs Δθ ≤ λ/W (0.46° for 38.4 mm at 5 MHz), and focused-equivalent quality needs N ≈ L/(λF#) = 83 angles.</li>
+    <li>Adding angles inside a fixed span moves the replicas out and lowers clutter but does not narrow the main lobe; speckle SNR stays at about 1.8–1.9 for every N.</li>
+  </ul></div>
 
   <!-- ===================== 23.6 ===================== -->
   <div class="prose">
@@ -487,24 +515,29 @@
       <div class="stage">
         <canvas id="m23-pg-img" aria-label="Two-way or transmit-only point-spread function around the target in dB"></canvas>
         <canvas id="m23-pg-lat" aria-label="Lateral transmit-only, receive-only and two-way patterns at the target depth"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>two-way (compounded)</span><span><i style="background:var(--sig3)"></i>Tx-only (synthetic transmit)</span><span><i style="background:var(--sig4)"></i>Rx-only (dynamic receive)</span><span><i style="background:var(--bad)"></i>max over depth in the image window (streaks)</span></div>
+        <div class="legend" id="m23-pg-leg"><span data-s="two"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>two-way (compounded)</span><span data-s="tx"><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>Tx-only (synthetic transmit)</span><span data-s="rx"><i class="dot" style="color:var(--sig4);background:var(--sig4)"></i>Rx-only (dynamic receive)</span><span data-s="str"><i class="dash" style="color:var(--bad);background:var(--bad)"></i>max over depth in the image window (streaks)</span></div>
       </div>
       <div class="controls">
         <div class="ctrl"><label for="m23-pg-n">Angles N <output id="m23-pg-n-o">11</output></label><input type="range" id="m23-pg-n" min="0" max="15" step="1" value="5"></div>
-        <div class="ctrl"><label for="m23-pg-s">Half-span θ<sub>max</sub> (steering if N = 1) <output id="m23-pg-s-o">15°</output></label><input type="range" id="m23-pg-s" min="0" max="20" step="1" value="15"></div>
-        <div class="ctrl"><label for="m23-pg-d">Pitch d <output id="m23-pg-d-o">0.30 mm</output></label><input type="range" id="m23-pg-d" min="0.15" max="0.6" step="0.01" value="0.3"></div>
+        <div class="ctrl"><label for="m23-pg-s">Half-span θ<sub>max</sub> (steering if N = 1) <output id="m23-pg-s-o">15°</output> <span class="hint">angles run from −θ<sub>max</sub> to +θ<sub>max</sub></span></label><input type="range" id="m23-pg-s" min="0" max="20" step="1" value="15"></div>
+        <div class="ctrl"><label for="m23-pg-d">Pitch d <output id="m23-pg-d-o">0.30 mm</output> <span class="hint">beyond λ/(1 + |sin θ|) a steered wave grows a grating lobe</span></label><input type="range" id="m23-pg-d" min="0.15" max="0.6" step="0.01" value="0.3"></div>
         <div class="ctrl"><label for="m23-pg-f">Frequency f<sub>0</sub> <output id="m23-pg-f-o">5.0 MHz</output></label><input type="range" id="m23-pg-f" min="2" max="8" step="0.5" value="5"></div>
-        <div class="ctrl"><label for="m23-pg-z">Target depth <output id="m23-pg-z-o">30 mm</output></label><input type="range" id="m23-pg-z" min="10" max="40" step="1" value="30"></div>
-        <div class="ctrl"><label for="m23-pg-b">Fractional bandwidth</label><select id="m23-pg-b"><option value="0.3">30 %</option><option value="0.6" selected>60 %</option><option value="1">100 %</option></select></div>
-        <div class="ctrl"><label for="m23-pg-fn">Receive F#</label><select id="m23-pg-fn"><option value="1">1.0</option><option value="1.5" selected>1.5</option><option value="2">2.0</option></select></div>
-        <div class="ctrl"><label for="m23-pg-v">Image</label><select id="m23-pg-v"><option value="two">Two-way PSF</option><option value="tx">Tx-only (synthetic transmit)</option></select></div>
+        <div class="ctrl"><label for="m23-pg-z">Target depth z<sub>t</sub> <output id="m23-pg-z-o">30 mm</output></label><input type="range" id="m23-pg-z" min="10" max="40" step="1" value="30"></div>
+        <div class="ctrl"><label for="m23-pg-b">Fractional bandwidth B</label><select id="m23-pg-b"><option value="0.3">30 %</option><option value="0.6" selected>60 %</option><option value="1">100 %</option></select></div>
+        <div class="ctrl"><label for="m23-pg-fn">Receive F-number F#</label><select id="m23-pg-fn"><option value="1">1.0</option><option value="1.5" selected>1.5</option><option value="2">2.0</option></select></div>
+        <div class="ctrl"><label for="m23-pg-v">Image <span class="hint">two-way or transmit-only PSF</span></label><select id="m23-pg-v"><option value="two">Two-way PSF</option><option value="tx">Tx-only (synthetic transmit)</option></select></div>
         <label class="check"><input type="checkbox" id="m23-pg-e" checked> Element directivity (width 0.9 d)</label>
         <div class="readout" id="m23-pg-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> set N = 1 and the half-span to 0: the Tx-only curve is flat and the two-way width equals the receive-only width (about 0.6 mm). Raise the half-span with N = 1: still one wave, now steered. Then take N to 11 and 31 at ±15°: the Tx-only beam forms (F# ≈ 1.9) and the two-way width falls toward the <span class="eqref">(23.18)</span> value. For the grating lobe: N = 1, 15°, depth 15 mm, then move the pitch from 0.15 to 0.30 mm; past 0.245 mm a streak grows below the target (red projection curve). Set 7.5 MHz at 30 mm and 15°: the streak is there with the reference 0.3 mm pitch (−22.6 dB). Unsteered it is weaker (−27.2 dB, about 4 dB above a 0.15 mm pitch): at \(f_0\) the ±43° rays miss an on-axis target (the readout says so) and only the upper band reaches it. Untick the element factor: it grows by 1–9 dB, most for the unsteered pair at ±43°. Go back to 11 angles: each angle puts its streak elsewhere and the projection drops by about 12 dB.</div>
+    <div class="demo-foot"><strong>Try:</strong> set N = 1 and the half-span to 0: the Tx-only curve is flat and the two-way width equals the receive-only width (about 0.6 mm). Raise the half-span with N = 1: still one wave, now steered. Then take N to 11 and 31 at ±15°: the Tx-only beam forms (F# ≈ 1.9) and the two-way width falls toward the <span class="eqref">(23.18)</span> value. For the grating lobe: N = 1, 15°, depth 15 mm, then move the pitch from 0.15 to 0.30 mm; past 0.245 mm a streak grows below the target (red projection curve). Set 7.5 MHz at 30 mm and 15°: the streak is there with the reference 0.3 mm pitch (−22.6 dB). Unsteered it is weaker (−27.2 dB, about 4 dB above a 0.15 mm pitch): at \(f_0\) the ±43° rays miss an on-axis target (the readout says so) and only the upper band reaches it. Untick the element factor: it grows by 1–9 dB, most for the unsteered pair at ±43°. Go back to 11 angles: each angle puts its streak elsewhere and the projection drops by about 12 dB.<span class="symnote">Symbols used here: N, the number of plane waves; θ<sub>max</sub>, the largest steering angle; d, the pitch in mm; f<sub>0</sub> and λ<sub>0</sub>, the centre frequency and wavelength; z<sub>t</sub>, the target depth in mm; B, the fractional bandwidth; F#, the receive F-number; Δ, the extra path of the grating-lobe wave in mm; κ, the width constant of (23.18); Δ(sin θ), the step between neighbouring angles.</span></div>
   </div>
-  <div class="callout pitfall"><span class="label">Pitfall</span><p>A comet-tail streak under a bright reflector in steered plane-wave data is easily mistaken for reverberation or a sound-speed error. Check the pitch rule <span class="eqref">(23.16)</span> at the largest steering angle and the highest frequency in the band: if the streak grows with steering and with frequency, and disappears when the steering is reversed for a target on the other side, it is a transmit grating lobe. Fixes: smaller steering, a lower transmit frequency, more angles, or a probe with a finer pitch.</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>A comet-tail streak under a bright reflector in steered plane-wave data is easily mistaken for reverberation or a sound-speed error. Check the pitch rule <span class="eqref">(23.16)</span> at the largest steering angle and the highest frequency in the band: if the streak grows with steering and with frequency, and disappears when the steering is reversed for a target on the other side, it is a transmit grating lobe. The fixes are smaller steering, a lower transmit frequency, more angles, or a probe with a finer pitch.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>A single plane wave has no transmit focus: its lateral resolution is the receive width 1.207 λF#<sub>rx</sub> = 0.558 mm at 5 MHz, F# 1.5.</li>
+    <li>A steered plane wave launches a second wave when d &gt; λ/(1 + |sin θ<sub>tx</sub>|): 0.794λ at 15°, exceeded by the 0.3 mm array at 5 MHz (0.974λ) and 7.5 MHz (1.46λ).</li>
+    <li>That second wave arrives late as a pulse train and is beamformed into a streak below the target (−24.3 dB at 5 MHz, 15 mm), a near-field effect that the 1.064 M/N rule does not predict; transmit and receive lobes land in different places, so the product suppresses each.</li>
+  </ul></div>
 
   <!-- ===================== 23.7 ===================== -->
   <div class="prose">
@@ -515,7 +548,7 @@
       <dl class="where"><dt>\(\text{SNR gain}\)</dt><dd>coherent-compounding gain against independent electronic noise, dB</dd><dt>\(N\)</dt><dd>number of angles</dd></dl>
       <span class="note">Against electronic noise only. Clutter and reverberation are coherent across angles to a degree that depends on their origin, and speckle is a deterministic part of the signal, so neither averages like noise.</span>
     </div>
-    <p><strong>Frame rate.</strong> One transmit per round trip, so</p>
+    <p><strong>Frame rate.</strong> Each angle costs one transmit per round trip, so</p>
     <div class="eqn" id="m23-eq21">
       <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &\mathrm{PRF} \le \frac{c}{2 z_{\max}}, \qquad f_{\text{frame}} = \frac{\mathrm{PRF}}{N} \\ &z_{\max} = 40\ \text{mm}:\ \mathrm{PRF} \le 19.25\ \text{kHz},\ \ 31\ \text{angles} \to 621\ \text{Hz} \end{aligned} \]</div><span class="eqn-no">(23.21)</span></div>
       <dl class="where"><dt>\(\mathrm{PRF}\)</dt><dd>transmit (pulse) repetition frequency, kHz</dd><dt>\(z_{\max}\)</dt><dd>deepest depth whose echoes must return before the next firing, mm</dd><dt>\(f_{\text{frame}}\)</dt><dd>compounded frame rate, Hz</dd><dt>\(c\)</dt><dd>sound speed, 1.54 mm/µs</dd><dt>\(N\)</dt><dd>angles per compounded frame</dd></dl>
@@ -531,6 +564,11 @@
     <p><strong>Diverging waves.</strong> A phased array is too narrow for plane waves to cover a sector. Instead each transmit uses a circular wavefront from a virtual source behind the array; the transmit delay to a pixel is its distance to the virtual source minus a constant, and tilting the virtual source position steers the wave. Compounding over virtual sources synthesizes the transmit aperture exactly as plane waves do, with the angle span now measured as seen from each pixel. Papadacci et al. (2014) used this for ultrafast cardiac imaging.</p>
   </div>
   <div class="rf-grid" id="m23-bud"></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Compounding N angles gains 10 log<sub>10</sub> N in SNR against electronic noise (14.9 dB for 31) and divides the frame rate by N (19.25 kHz PRF at 40 mm → 621 Hz for 31 angles).</li>
+    <li>Axial motion over the whole sequence costs −0.9 dB at λ/8 and −3.9 dB at λ/4, with a null at λ/2.</li>
+    <li>A constant receive F# holds the width until the aperture fills the array at z = L·F# (57.6 mm for 38.4 mm, F# 1.5); element directivity limits F#<sub>min</sub> to 0.53–0.69 for 0.27 mm elements at 5 MHz.</li>
+  </ul></div>
 
   <!-- ===================== 23.8 Visual summary ===================== -->
   <h2><span class="sec">23.8</span>Visual summary</h2>
@@ -544,43 +582,43 @@
     <div class="rule">
       <div class="say">An unfocused aperture stops converging at \(D^2/(4\lambda)\); focusing at or beyond that depth buys little.</div>
       <div class="keynum"><span>edge phase \(\pi\) at \(D^2/(4\lambda)\)</span><span>19.2 mm, 5 MHz: 299 mm</span><span>38.4 mm: 1.20 m</span></div>
-      <div class="why"><p>On axis, the edge-to-center path difference of an unfocused aperture is \(\approx D^2/(8z)\), a phase \(\pi D^2/(4\lambda z)\). While it exceeds \(\pi\) the Fresnel zones across the aperture alternate in sign and the axial intensity oscillates; at \(z = D^2/(4\lambda)\) exactly one zone is left and the last maximum occurs. The direct sum for a 19.2 mm line of point sources puts it at 297 mm (\(0.99\,D^2/(4\lambda)\)). A focusing law can only remove phase that exists, so focal gain needs F well inside this distance. The "far field" conventions \(D^2/\lambda\) (\(\pi/4\)) and \(2D^2/\lambda\) (\(\pi/8\)) are 4× and 8× further.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Direct CW point-source sum (23.1), 401 sources, JS.</span><canvas id="m23-rf-1" aria-label="Figure for rule 1"></canvas></div></div>
+      <div class="why"><p>On axis, the edge-to-center path difference of an unfocused aperture is \(\approx D^2/(8z)\), a phase \(\pi D^2/(4\lambda z)\). While it exceeds \(\pi\) the Fresnel zones across the aperture alternate in sign and the axial intensity oscillates; at \(z = D^2/(4\lambda)\) exactly one zone is left and the last maximum occurs. The direct sum for a 19.2 mm line of point sources puts it at 297 mm (\(0.99\,D^2/(4\lambda)\)). A focusing law can only remove phase that exists, so focal gain needs F well inside this distance. The "far field" conventions \(D^2/\lambda\) (\(\pi/4\)) and \(2D^2/\lambda\) (\(\pi/8\)) are 4× and 8× further.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Direct CW point-source sum (23.1), 401 sources, JS.</span><canvas id="m23-rf-1" aria-label="Figure for rule 1"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>on-axis intensity (direct sum)</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>D²/(4λ)</span></div></div></div>
       <div class="limits">Exact constant depends on aperture shape (circular piston: \(a^2/\lambda - \lambda/4\)); CW; attenuation shifts the effective frequency and shortens the near field.</div>
     </div>
     <div class="rule">
       <div class="say">Below a Fresnel number of about three, the focus moves toward the probe and the \(7\lambda F_\#^2\) rule fails.</div>
       <div class="keynum"><span>\(N_F = D^2/(4\lambda F)\)</span><span>peak at 0.99F (\(N_F\) 10), 0.90F (3), 0.61F (1)</span></div>
-      <div class="why"><p>\(N_F\) counts the Fresnel zones that focusing cancels; the unfocused edge phase at z = F is \(\pi N_F\) <span class="eqref">(23.2)</span>. When \(N_F\) is small, the focusing gain is modest and the 1/r amplitude growth toward the aperture wins, so the intensity maximum slides closer. The direct sum (D = 19.2 mm, 5 MHz) gives peak/F = 0.957 at \(N_F = 5\), 0.899 at 3, 0.735 at 1.5 and 0.605 at 1; the −3 dB DOF is 82 % of \(6.95\,\lambda F_\#^2\) at \(N_F = 3\) and 35 % at \(N_F = 1\). A 2.5 MHz, 20 mm phased array focused at 100 mm has \(N_F = 1.6\).</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Direct CW point-source sum at three Fresnel numbers, JS.</span><canvas id="m23-rf-2" aria-label="Figure for rule 2"></canvas></div></div>
+      <div class="why"><p>\(N_F\) counts the Fresnel zones that focusing cancels; the unfocused edge phase at z = F is \(\pi N_F\) <span class="eqref">(23.2)</span>. When \(N_F\) is small, the focusing gain is modest and the 1/r amplitude growth toward the aperture wins, so the intensity maximum slides closer. The direct sum (D = 19.2 mm, 5 MHz) gives peak/F = 0.957 at \(N_F = 5\), 0.899 at 3, 0.735 at 1.5 and 0.605 at 1; the −3 dB DOF is 82 % of \(6.95\,\lambda F_\#^2\) at \(N_F = 3\) and 35 % at \(N_F = 1\). A 2.5 MHz, 20 mm phased array focused at 100 mm has \(N_F = 1.6\).</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Direct CW point-source sum at three Fresnel numbers, JS.</span><canvas id="m23-rf-2" aria-label="Figure for rule 2"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>N<sub>F</sub> = 10</span><span><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>N<sub>F</sub> = 3</span><span><i class="dot" style="color:var(--sig2);background:var(--sig2)"></i>N<sub>F</sub> = 1</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>geometric focus z = F</span></div></div></div>
       <div class="limits">CW line aperture with 1/r point sources; a pulse's low-frequency content has lower \(N_F\); in tissue, attenuation pushes the effective peak shallower still.</div>
     </div>
     <div class="rule">
       <div class="say">At F# 1.5 the focal plane is only approximately a Fourier plane: expect a few percent wider beams and sidelobes 0.5–3 dB higher than the transform.</div>
       <div class="keynum"><span>rect: −12.7 vs −13.3 dB</span><span>Hann: −28.8 vs −31.5 dB</span><span>width +3.5 %</span></div>
-      <div class="why"><p>The Fourier relation drops the non-paraxial path terms and the 1/r amplitude variation across the aperture. At F = 30 mm with D = 19.2 mm (F# 1.56) the edge rays are 18° off axis, enough to matter: the direct sum gives a −6 dB width of 0.596 mm against 0.576 mm from the transform, and raised first sidelobes. At F# 3.1 the width error drops to 1 % and the sidelobe error to 0.1 dB (rect). Low-sidelobe windows suffer most, because the error is a small additive field.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Direct point-source sum (solid) vs exact Fourier transform of the aperture (dashed), JS.</span><canvas id="m23-rf-3" aria-label="Figure for rule 3"></canvas></div></div>
+      <div class="why"><p>The Fourier relation drops the non-paraxial path terms and the 1/r amplitude variation across the aperture. At F = 30 mm with D = 19.2 mm (F# 1.56) the edge rays are 18° off axis, enough to matter: the direct sum gives a −6 dB width of 0.596 mm against 0.576 mm from the transform, and raised first sidelobes. At F# 3.1 the width error drops to 1 % and the sidelobe error to 0.1 dB (rect). Low-sidelobe windows suffer most, because the error is a small additive field.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Direct point-source sum (solid) vs exact Fourier transform of the aperture (dashed), JS.</span><canvas id="m23-rf-3" aria-label="Figure for rule 3"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>direct sum</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>Fourier transform (sinc)</span></div></div></div>
       <div class="limits">Point-source line aperture in 3D; real elements add directivity, which acts as an extra taper and lowers the error. Use full-wave or Field II style models for sidelobe claims below F# 2.</div>
     </div>
     <div class="rule">
       <div class="say">Apodize on receive for clutter, and remember it costs SNR; apodizing on transmit costs radiated energy.</div>
       <div class="keynum"><span>Rx Hann: −1.76 dB SNR</span><span>Tx Hann: −6.0 dB focal amplitude</span><span>Hamming Rx: −1.34 dB</span></div>
-      <div class="why"><p>On receive, coherent signal adds as \(\sum w_n\) and independent channel noise as \(\sum w_n^2\), so SNR scales with \((\sum w)^2/(N\sum w^2)\) <span class="eqref">(23.4)</span>: 0.667 for Hann (−1.76 dB). On transmit, each element is already driven at the peak the pulser and the MI limit allow, so a weight below 1 just radiates less: focal amplitude \(\propto \sum w/N\) (Hann: 0.5, −6.0 dB) and energy \(\propto \sum w^2/N\) (0.375, −4.3 dB). The two-way pattern is the same whichever side carries the taper.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m23-rf-4" aria-label="Figure for rule 4"></canvas></div></div>
+      <div class="why"><p>On receive, coherent signal adds as \(\sum w_n\) and independent channel noise as \(\sum w_n^2\), so SNR scales with \((\sum w)^2/(N\sum w^2)\) <span class="eqref">(23.4)</span>: 0.667 for Hann (−1.76 dB). On transmit, each element is already driven at the peak the pulser and the MI limit allow, so a weight below 1 just radiates less: focal amplitude \(\propto \sum w/N\) (Hann: 0.5, −6.0 dB) and energy \(\propto \sum w^2/N\) (0.375, −4.3 dB). The two-way pattern is the same whichever side carries the taper.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m23-rf-4" aria-label="Figure for rule 4"></canvas><div class="legend"><span><i class="fill" style="color:var(--accent);background:var(--accent)"></i>receive SNR loss</span><span><i class="fill" style="color:var(--sig3);background:var(--sig3)"></i>transmit focal-amplitude loss</span></div></div></div>
       <div class="limits">Assumes white noise independent across channels; with coherent clutter or reverberation the "noise" is suppressed by apodization rather than penalized. Transmit apodization by pulse width modulation trades bandwidth too.</div>
     </div>
     <div class="rule">
       <div class="say">PSL predicts ghosts of bright points; integrated sidelobe level predicts how much a cyst fills in.</div>
       <div class="keynum"><span>rect ISLR −9.7 / −25.3 dB</span><span>Hann −32.9 / −64.7 dB</span><span>Hamming PSL −42.7, ISLR −34.4</span></div>
-      <div class="why"><p>An anechoic region is filled by sidelobe energy from all surrounding scatterers, so its floor follows the integral of \(\lvert P\rvert^2\) outside the main lobe, not the single highest lobe. Hamming shows the difference: its first sidelobe (−42.7 dB) is far below Hann's (−31.5 dB), but its far sidelobes decay at −6 dB/octave because the window edge stays at 0.08, so its ISLR (−34.4 dB) is close to Hann's (−32.9 dB). Two-way ISLR falls to −25.3 dB for rect and −64.7 dB for Hann.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Closed-form Hann and Hamming transforms; PSL and ISLR integrated numerically.</span><canvas id="m23-rf-5" aria-label="Figure for rule 5"></canvas></div></div>
+      <div class="why"><p>An anechoic region is filled by sidelobe energy from all surrounding scatterers, so its floor follows the integral of \(\lvert P\rvert^2\) outside the main lobe, not the single highest lobe. Hamming shows the difference: its first sidelobe (−42.7 dB) is far below Hann's (−31.5 dB), but its far sidelobes decay at −6 dB/octave because the window edge stays at 0.08, so its ISLR (−34.4 dB) is close to Hann's (−32.9 dB). Two-way ISLR falls to −25.3 dB for rect and −64.7 dB for Hann.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Closed-form Hann and Hamming transforms; PSL and ISLR integrated numerically.</span><canvas id="m23-rf-5" aria-label="Figure for rule 5"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>Hann</span><span><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>Hamming</span></div></div></div>
       <div class="limits">1D, narrowband. In images, 2D PSF energy (axial sidelobes, edge arms) dominates; measure clutter on the 2D PSF and report gCNR.</div>
     </div>
     <div class="rule">
-      <div class="say">A broadband grating lobe is about M/N of the main lobe, not 0 dB.</div>
-      <div class="keynum"><span>peak \(\approx 1.064\,M/N\)</span><span>\(M = 0.883/\mathrm{FBW}\) cycles</span><span>N 128, 60 %: −38 dB</span></div>
-      <div class="why"><p>At the grating lobe the element delays differ by exactly one period: the pulses are in phase but strung out into a train of N pulses spaced \(T_0\). Only the \(\approx M\) pulses inside one pulse length overlap, so the peak is \(\approx \sqrt{2\pi}\,\sigma_t f_0/N = 1.064\,M/N\) of the main lobe <span class="eqref">(23.9)</span>, for one-way and two-way alike (simulated within 0.1 dB for \(M \ge 1.5\)). The energy pattern is much higher: \(1.505\,M/N\) one-way (−17.6 dB for N = 128, 60 %, a 10 log power ratio), \(1.003\,M/N\) two-way. Doubling N lowers the peak by 6 dB and the energy by 3 dB.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Law 1.064 M/N of (23.9): Gaussian pulse, point elements.</span><canvas id="m23-rf-6" aria-label="Figure for rule 6"></canvas></div></div>
-      <div class="limits">Needs \(M &lt; N\) and point elements; the element factor lowers it further. Peak and energy plots differ by 15–20 dB at the lobe: always state which one is shown.</div>
+      <div class="say">A broadband grating lobe peaks at about M/N of the main lobe, not 0 dB, but that is what a point target sees; speckle sees the energy pattern, 15–20 dB higher.</div>
+      <div class="keynum"><span>peak \(\approx 1.064\,M/N\), \(M = 0.883/\mathrm{FBW}\) cycles</span><span>N 128, 60 %: −38 dB peak</span><span>N 128, 1.5λ, 75 %: peak −40.1 dB, energy −20.3 dB (2-way), CW 0 dB</span></div>
+      <div class="why"><p>At the grating lobe the element delays differ by exactly one period: the pulses are in phase but strung out into a train of N pulses spaced \(T_0\). Only the \(\approx M\) pulses inside one pulse length overlap, so the peak is \(\approx \sqrt{2\pi}\,\sigma_t f_0/N = 1.064\,M/N\) of the main lobe <span class="eqref">(23.9)</span>, for one-way and two-way alike (simulated within 0.1 dB for \(M \ge 1.5\)). The energy pattern is much higher: \(1.505\,M/N\) one-way (−17.6 dB for N = 128, 60 %, a 10 log power ratio), \(1.003\,M/N\) two-way. Doubling N lowers the peak by 6 dB and the energy by 3 dB. Which one matters depends on the target. By Parseval, averaging \(\lvert B(u;f)\rvert^2\) over the pulse power spectrum is the time-integrated energy of the pulse train <span class="eqref">(23.7)</span>. A bright point is imaged at the instant its echo peaks; diffuse scatterers at all ranges sample every instant of the \(NT_0\)-long train and add incoherently, so their clutter follows \(1.003\,M/N\) in power (two-way) per unit angle, and integrated over the broad smeared lobe it is comparable to the main lobe's, so only the element factor keeps it out of a cyst. Hydrophone energy plots and frequency-averaged beam plots therefore look 15–20 dB worse than point-target images.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Law 1.064 M/N of (23.9): Gaussian pulse, point elements.</span><canvas id="m23-rf-6" aria-label="Figure for rule 6"></canvas><div class="legend"><span><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>30 % band</span><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>60 % band</span><span><i class="dot" style="color:var(--sig3);background:var(--sig3)"></i>90 % band</span></div></div></div>
+      <div class="limits">Needs \(M &lt; N\) and point elements; the element factor lowers it further. Peak and energy plots differ by 15–20 dB at the lobe: always state which one is shown. Doppler bursts (M ≈ 8: −23.7 dB peak) and pushes (\(M \ge N\): CW) lose the benefit.</div>
     </div>
     <div class="rule">
       <div class="say">Far from the main lobe, a pulsed beam's sidelobes are two edge waves, 6 dB below the CW envelope.</div>
       <div class="keynum"><span>\(\lambda/(2\pi D\lvert u\rvert)\)</span><span>for \(\lvert u\rvert > M\lambda/D\)</span><span>D 19.7 mm, u 0.1: −32 dB</span></div>
-      <div class="why"><p>Off axis, a uniform aperture spreads the element pulses evenly over \(D\lvert u\rvert/c\). Convolving a zero-mean pulse with a long rect cancels everything except the two ends, each equal to the running integral of the pulse, \(\approx 1/(2\pi f_0)\) of its peak. Dividing by the spread gives \(\lambda/(2\pi D\lvert u\rvert) = 1/(2x)\), \(x = \pi D\lvert u\rvert/\lambda\) <span class="eqref">(23.10)</span>, against the CW envelope \(1/x\). Simulated: −25.4, −31.4, −37.3 dB at u = 0.05, 0.1, 0.2 vs −26.1, −32.1, −38.1 dB predicted (N = 128, λ/2 pitch, 60 %).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Edge-wave law (23.10) and CW envelope; dots are the simulated values of m23_broadband_beams.m.</span><canvas id="m23-rf-7" aria-label="Figure for rule 7"></canvas></div></div>
+      <div class="why"><p>Off axis, a uniform aperture spreads the element pulses evenly over \(D\lvert u\rvert/c\). Convolving a zero-mean pulse with a long rect cancels everything except the two ends, each equal to the running integral of the pulse, \(\approx 1/(2\pi f_0)\) of its peak. Dividing by the spread gives \(\lambda/(2\pi D\lvert u\rvert) = 1/(2x)\), \(x = \pi D\lvert u\rvert/\lambda\) <span class="eqref">(23.10)</span>, against the CW envelope \(1/x\). Simulated: −25.4, −31.4, −37.3 dB at u = 0.05, 0.1, 0.2 vs −26.1, −32.1, −38.1 dB predicted (N = 128, λ/2 pitch, 60 %).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Edge-wave law (23.10) and CW envelope; dots are the simulated values of m23_broadband_beams.m.</span><canvas id="m23-rf-7" aria-label="Figure for rule 7"></canvas><div class="legend"><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>CW envelope 1/x</span><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>pulsed edge waves 1/(2x)</span><span><i class="mark" style="color:var(--sig3);background:var(--sig3)"></i>reported simulation</span></div></div></div>
       <div class="limits">Uniform aperture; a smooth taper removes the sharp edges and the edge waves with them. Near the main lobe (\(\lvert u\rvert &lt; M\lambda/D\)) the edge waves overlap and the CW picture returns.</div>
     </div>
     <div class="rule">
@@ -590,45 +628,33 @@
       <div class="limits">Far field or focal plane, narrowband at the highest significant frequency; bandwidth and the element factor lower the lobes but do not move them.</div>
     </div>
     <div class="rule">
-      <div class="say">A point target sees the peak pattern, speckle sees the energy pattern: at a broadband grating lobe they are 20 dB apart.</div>
-      <div class="keynum"><span>N 128, 1.5λ, 75 %: peak −40.1 dB</span><span>energy −20.3 dB (2-way)</span><span>CW 0 dB</span></div>
-      <div class="why"><p>By Parseval, averaging \(\lvert B(u;f)\rvert^2\) over the pulse power spectrum is the time-integrated energy of the pulse train <span class="eqref">(23.7)</span>. A bright point is imaged at the instant its echo peaks, \(\approx 1.064\,M/N\); diffuse scatterers at all ranges sample every instant of the \(NT_0\)-long train and add incoherently, so the clutter they contribute follows \(1.003\,M/N\) in power (two-way) per unit angle; integrated over the broad smeared lobe it is comparable to the main lobe's, so only the element factor keeps it out of a cyst. Hydrophone energy plots and frequency-averaged beam plots therefore look 15–20 dB worse than point-target images.</p></div>
-      <div class="limits">Gaussian pulse, point elements, \(M &lt; N\). Doppler bursts (M ≈ 8: −23.7 dB peak) and pushes (\(M \ge N\): CW) lose the benefit.</div>
-    </div>
-    <div class="rule">
-      <div class="say">The two-way PSF is the Fourier transform of the coarray, the convolution of the transmit and receive apertures.</div>
-      <div class="keynum"><span>\(P_2 = \mathcal{F}\{a * b\}\)</span><span>\(k_x = (\xi_t + \xi_r)/(\lambda z)\)</span><span>extent \(L_T + L_R\)</span></div>
-      <div class="why"><p>Each transmit/receive element pair measures one lateral spatial frequency, \((\xi_t + \xi_r)/(\lambda z)\). Summing pairs with the same sum gives the coarray \(a * b\), and \(T(x)R(x) = \mathcal{F}\{a * b\}\) exactly <span class="eqref">(23.11)</span> (\(2\times 10^{-15}\) in <code>m23_kspace_coarray.m</code>). Equal uniform apertures give a triangle, hence \(\mathrm{sinc}^2\) and the −26.5 dB two-way sidelobe; any scheme with the same coarray has the same narrowband focal-plane PSF, regardless of how many firings it needs.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Triangle coarray and its transform, paraxial focal plane.</span><canvas id="m23-rf-8" aria-label="Figure for rule 8"></canvas></div></div>
-      <div class="limits">Narrowband, focal plane, paraxial, linear (Born) scattering. Away from the focus or for broadband 2D PSFs, the coarray must be extended to \((k_x, k_z)\) as in Walker &amp; Trahey (1998).</div>
-    </div>
-    <div class="rule">
-      <div class="say">Gaps in the coarray are grating lobes; a vernier pair, transmit every p-th and receive every (p−1)-th element, fills them.</div>
-      <div class="keynum"><span>Tx = Rx every 2nd: 0 dB lobe at \(\lambda z/(2d)\)</span><span>vernier 3/2: −26.5 dB, 22 + 32 elements</span></div>
-      <div class="why"><p>Transmit and receive on every 2nd element leave every odd lag of the coarray empty: it is periodic with 2d, so the PSF repeats at \(\lambda z/(2d)\) = 15.4 mm (z = 30 mm, d = 0.3 mm, 5 MHz) at full height. With transmit spacing pd and receive spacing (p−1)d, every interior lag is reachable (Figure 23.B); in the pattern picture each factor's grating lobes land near the other factor's nulls. The 3/2 vernier with 22 transmit and 32 receive elements matches the full aperture's −26.5 dB PSL and its width.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Exact pair counts, 24 elements.</span><canvas id="m23-rf-9" aria-label="Figure for rule 9"></canvas></div></div>
-      <div class="limits">Narrowband and same frequency on both sides; the nulls only line up at \(f_0\), so broadband pulses leave residual lobes. Fewer elements still cost SNR.</div>
+      <div class="say">The two-way PSF is the Fourier transform of the coarray, the convolution of the transmit and receive apertures, so any scheme with the same coarray has the same focal PSF however many firings it takes, and a gap in the coarray is a grating lobe.</div>
+      <div class="keynum"><span>\(P_2 = \mathcal{F}\{a * b\}\), \(k_x = (\xi_t + \xi_r)/(\lambda z)\)</span><span>extent \(L_T + L_R\)</span><span>Tx = Rx every 2nd: 0 dB lobe at \(\lambda z/(2d)\)</span><span>vernier 3/2: −26.5 dB, 22 + 32 elements</span></div>
+      <div class="why"><p>Each transmit/receive element pair measures one lateral spatial frequency, \((\xi_t + \xi_r)/(\lambda z)\). Summing pairs with the same sum gives the coarray \(a * b\), and \(T(x)R(x) = \mathcal{F}\{a * b\}\) exactly <span class="eqref">(23.11)</span> (\(2\times 10^{-15}\) in <code>m23_kspace_coarray.m</code>). Equal uniform apertures give a triangle, hence \(\mathrm{sinc}^2\) and the −26.5 dB two-way sidelobe; any scheme with the same coarray has the same narrowband focal-plane PSF, regardless of how many firings it needs. The converse is the design tool: transmit and receive on every 2nd element leave every odd lag empty, the coarray is periodic with 2d, and the PSF repeats at \(\lambda z/(2d)\) = 15.4 mm (z = 30 mm, d = 0.3 mm, 5 MHz) at full height. With transmit spacing pd and receive spacing (p−1)d (a vernier pair) every interior lag is reachable (Figure 23.B); in the pattern picture each factor's grating lobes land near the other factor's nulls. The 3/2 vernier with 22 transmit and 32 receive elements matches the full aperture's −26.5 dB PSL and its width.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Triangle coarray and its transform, paraxial focal plane.</span><canvas id="m23-rf-8" aria-label="Figure for rule 8"></canvas><div class="legend"><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>apertures a, b (rect)</span><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>coarray a ∗ b and its PSF</span><span><i class="dot" style="color:var(--muted);background:var(--muted)"></i>−26.5 dB level</span></div></div><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Exact pair counts, 24 elements.</span><canvas id="m23-rf-9" aria-label="Figure for rule 9"></canvas><div class="legend"><span><i class="stem" style="color:var(--sig2);background:var(--sig2)"></i>Tx = Rx every 2nd</span><span><i class="stem" style="color:var(--accent);background:var(--accent)"></i>vernier Tx 3, Rx 2</span></div></div></div>
+      <div class="limits">Narrowband, focal plane, paraxial, linear (Born) scattering. Away from the focus or for broadband 2D PSFs, the coarray must be extended to \((k_x, k_z)\) as in Walker &amp; Trahey (1998). Vernier nulls line up only at \(f_0\), so broadband pulses leave residual lobes, and fewer elements still cost SNR.</div>
     </div>
     <div class="rule">
       <div class="say">Random thinning trades grating lobes for a flat sidelobe floor near 1/K.</div>
       <div class="keynum"><span>mean SL \(= \frac{N-K}{K(N-1)}\)</span><span>K = 16 of 64: −13.2 dB</span><span>peak ≈ mean + 7 dB</span></div>
-      <div class="why"><p>With element positions drawn at random, the far-field phasors at any sidelobe direction add like a random walk: mean power \(\approx K(N-K)/(N-1)\) against a peak of \(K^2\). Monte Carlo over 300 draws (N = 64, λ/2 pitch): −9.52, −13.14, −17.79 dB for K = 8, 16, 32 vs −9.54, −13.22, −17.99 predicted. The highest sidelobe of a single draw sits about 7 dB above the mean. Thinning to K elements therefore buys aperture width (resolution) at a clutter floor of \(\approx 10\log_{10}(1/K)\).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Mean floor exact; the dashed peak line is the empirical +7 dB offset from Monte Carlo.</span><canvas id="m23-rf-10" aria-label="Figure for rule 10"></canvas></div></div>
+      <div class="why"><p>With element positions drawn at random, the far-field phasors at any sidelobe direction add like a random walk: mean power \(\approx K(N-K)/(N-1)\) against a peak of \(K^2\). Monte Carlo over 300 draws (N = 64, λ/2 pitch): −9.52, −13.14, −17.79 dB for K = 8, 16, 32 vs −9.54, −13.22, −17.99 predicted. The highest sidelobe of a single draw sits about 7 dB above the mean. Thinning to K elements therefore buys aperture width (resolution) at a clutter floor of \(\approx 10\log_{10}(1/K)\).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Mean floor exact; the dashed peak line is the empirical +7 dB offset from Monte Carlo.</span><canvas id="m23-rf-10" aria-label="Figure for rule 10"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>mean sidelobe (N − K)/(K(N − 1))</span><span><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>worst lobe ≈ mean + 7 dB</span><span><i class="dot" style="color:var(--muted);background:var(--muted)"></i>10 log(1/K)</span></div></div></div>
       <div class="limits">Mean over designs; a given layout can be optimized well below it. As K → N the full-array sidelobes add back (0.7 dB at K = 48).</div>
     </div>
     <div class="rule">
       <div class="say">One plane wave has no transmit focus: lateral resolution is receive-only and the PSF carries X-shaped edge arms.</div>
       <div class="keynum"><span>width \(\approx 1.21\,\lambda F_{\#,\mathrm{rx}}\)</span><span>0.574 mm sim vs 0.558 mm</span><span>PSL ≈ −17 dB</span></div>
-      <div class="why"><p>In the coarray picture one plane wave is a single virtual transmit element at \(\xi = 0\), so the coarray is just the receive aperture and the lateral pattern is the one-way receive sinc: \(1.207\,\lambda F_\#\) = 0.558 mm at 5 MHz, F# 1.5, simulated 0.574 mm with a 60 % band. In 2D, the receive-only PSF has arms along the hyperbola of arrival times that the transmit does not suppress: the 2D peak sidelobe is −17 dB and the integrated clutter −9.8 dB.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Narrowband focal plane: receive-only sinc vs two-way sinc².</span><canvas id="m23-rf-11" aria-label="Figure for rule 11"></canvas></div></div>
+      <div class="why"><p>In the coarray picture one plane wave is a single virtual transmit element at \(\xi = 0\), so the coarray is just the receive aperture and the lateral pattern is the one-way receive sinc: \(1.207\,\lambda F_\#\) = 0.558 mm at 5 MHz, F# 1.5, simulated 0.574 mm with a 60 % band. In 2D, the receive-only PSF has arms along the hyperbola of arrival times that the transmit does not suppress: the 2D peak sidelobe is −17 dB and the integrated clutter −9.8 dB.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Narrowband focal plane: receive-only sinc vs two-way sinc².</span><canvas id="m23-rf-11" aria-label="Figure for rule 11"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>one plane wave (Rx only)</span><span><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>two-way, F# 1.5</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>−6 dB</span></div></div></div>
       <div class="limits">Lateral width also depends on the effective transmit footprint at the edges of the image; steering does not change the width at the target but moves the arms.</div>
     </div>
     <div class="rule">
-      <div class="say">Coherent compounding synthesizes the transmit aperture in k-space; the angle span sets the transmit F-number.</div>
-      <div class="keynum"><span>\(F_{\#,\mathrm{tx}} = 1/(2\tan\theta_{\max})\)</span><span>±15°: 1.87</span><span>\(F_{\#,\mathrm{tx}}\) 1.5: ±18.4°</span></div>
-      <div class="why"><p>A plane wave at \(\theta\) contributes the phase \(e^{j2\pi x\sin\theta/\lambda}\), like a virtual element at \(\xi = z\sin\theta\). N angles form a virtual transmit array spanning \(k_x = \pm\sin\theta_{\max}/\lambda\), the same support as a focused aperture with half-angle \(\theta_{\max}\) <span class="eqref">(23.13)</span>. With ±15° and \(F_{\#,\mathrm{rx}} = 1.5\) the narrowband prediction is 0.456 mm, the channel-data simulation 0.459 mm (31 angles), against 0.56 mm receive-only and 0.41 mm for a true two-way F# 1.5.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m23-rf-12" aria-label="Figure for rule 12"></canvas></div></div>
-      <div class="limits">Focal-plane, narrowband reasoning; the plane-wave footprint shrinks at large angles near the image edges, so the synthetic aperture is not uniform across the image.</div>
+      <div class="say">Coherent compounding synthesizes the transmit aperture in k-space: the angle span sets the transmit F-number and the resolution, \(w \approx \kappa\,\lambda/(\sin\theta_{\max} + 1/(2F_{\#,\mathrm{rx}}))\); the angle count does not.</div>
+      <div class="keynum"><span>\(F_{\#,\mathrm{tx}} = 1/(2\tan\theta_{\max})\): ±15° → 1.87; 1.5 → ±18.4°</span><span>κ 0.60–0.89</span><span>5 MHz, F# 1.5: 0.557 → 0.456 mm (±15°)</span><span>Tx-only ±15°: 0.72 mm</span></div>
+      <div class="why"><p>A plane wave at \(\theta\) contributes the phase \(e^{j2\pi x\sin\theta/\lambda}\), like a virtual element at \(\xi = z\sin\theta\). N angles form a virtual transmit array spanning \(k_x = \pm\sin\theta_{\max}/\lambda\), the same support as a focused aperture with half-angle \(\theta_{\max}\) <span class="eqref">(23.13)</span>. With ±15° and \(F_{\#,\mathrm{rx}} = 1.5\) the narrowband prediction is 0.456 mm, the channel-data simulation 0.459 mm (31 angles), against 0.56 mm receive-only and 0.41 mm for a true two-way F# 1.5. In general the transmit support \(\pm\sin\theta_{\max}/\lambda\) and the dynamic receive support \(\pm 1/(2F_\#\lambda)\) convolve into a trapezoid <span class="eqref">(23.18)</span>: κ = 0.603 when one support dominates (one angle gives \(1.207\,\lambda F_\#\)), 0.886 when they are equal (the focused two-way \(0.886\,\lambda F_\#\)). The full-wave simulation sits 7–10 % above (0.611 → 0.490 mm), from the near-field spectral tilt and element factor.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m23-rf-12" aria-label="Figure for rule 12"></canvas></div></div>
+      <div class="limits">Focal-plane, narrowband reasoning; the plane-wave footprint shrinks at large angles near the image edges, so the synthetic aperture is not uniform across the image. Within a fixed span, extra angles only remove replicas and clutter.</div>
     </div>
     <div class="rule">
-      <div class="say">The angle step sets a transmit grating lobe at \(\lambda/\Delta(\sin\theta)\), at the same lateral distance at every depth.</div>
-      <div class="keynum"><span>5 MHz: 1° → 17.6 mm</span><span>3° → 5.9 mm</span><span>\(\Delta\theta \le \lambda/W\): 0.46° for 38.4 mm</span></div>
-      <div class="why"><p>Uniform steps sample the transmit k-space, so \(T_N(x) = \frac{1}{N}\sum e^{j2\pi x\sin\theta_n/\lambda}\) is periodic in x with period \(\lambda/\Delta(\sin\theta)\) <span class="eqref">(23.14)</span>. The period does not involve z, unlike a focused array's grating lobe (\(\lambda z/d\)). A bright target at \(x_0\) reappears at \(x_0 \pm x_{\mathrm{rep}}\), suppressed only by the receive pattern there; requiring \(x_{\mathrm{rep}} \ge W\) keeps it outside an image of width W, \(\Delta\theta \le \lambda/W\). The analytic synthesis finds the ghost hump at 5.55 mm (prediction 5.95 mm, smeared by ±FBW/2) at 20, 30 and 45 mm depth.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Narrowband transmit factor (23.12) and receive sinc.</span><canvas id="m23-rf-13" aria-label="Figure for rule 13"></canvas></div></div>
+      <div class="say">The angle step is a pitch: virtual elements \(z\,\Delta(\sin\theta)\) apart put a transmit grating lobe at \(\lambda/\Delta(\sin\theta)\), the same lateral distance at every depth.</div>
+      <div class="keynum"><span>5 MHz: 1° → 17.6 mm, 3° → 5.9 mm</span><span>gap-free coarray: \(\Delta\sin\theta \le 1/F_\#\)</span><span>replica out of image: \(\Delta\theta \le \lambda/W\), 0.46° for 38.4 mm</span></div>
+      <div class="why"><p>Uniform steps sample the transmit k-space, so \(T_N(x) = \frac{1}{N}\sum e^{j2\pi x\sin\theta_n/\lambda}\) is periodic in x with period \(\lambda/\Delta(\sin\theta)\) <span class="eqref">(23.14)</span>. The period does not involve z, unlike a focused array's grating lobe (\(\lambda z/d\)). A bright target at \(x_0\) reappears at \(x_0 \pm x_{\mathrm{rep}}\), suppressed only by the receive pattern there; requiring \(x_{\mathrm{rep}} \ge W\) keeps it outside an image of width W, \(\Delta\theta \le \lambda/W\). The analytic synthesis finds the ghost hump at 5.55 mm (prediction 5.95 mm, smeared by ±FBW/2) at 20, 30 and 45 mm depth. In array terms, \(\xi_n = z\sin\theta_n\) makes the angle set an array of pitch \(d_v = z\Delta(\sin\theta)\) whose lobe at \(\lambda z/d_v\) is depth independent <span class="eqref">(23.19)</span>. If \(d_v\) is no larger than the receive sub-aperture \(z/F_\#\), the coarray has no gaps and the replica sits beyond the first receive null \(\lambda F_\#\), attenuated by receive sidelobes (3 × 15°: −25 dB at 1.19 mm); moving it out of the image takes Montaldo's \(\lambda/W\).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Narrowband transmit factor (23.12) and receive sinc.</span><canvas id="m23-rf-13" aria-label="Figure for rule 13"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>transmit factor |T<sub>N</sub>|</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>receive pattern</span></div></div></div>
       <div class="limits">Uniform in \(\sin\theta\), not \(\theta\) (negligible below ±20°). Broadband pulses smear the replica over \(\approx \pm\mathrm{FBW}/2\) of \(x_{\mathrm{rep}}\) and lower it by \(\approx 1.06\,M/N\).</div>
     </div>
     <div class="rule">
@@ -638,34 +664,16 @@
       <div class="limits">Worse with steering and frequency; the target must lie in the lobe's footprint (\(\lvert x_T - z\tan\theta_g\rvert \le L/2\)), so at low frequency it is a shallow-depth artifact. Compounding spreads the streaks.</div>
     </div>
     <div class="rule">
-      <div class="say">Plane-wave lateral resolution: \(w \approx \kappa\,\lambda/(\sin\theta_{\max} + 1/(2F_{\#,\mathrm{rx}}))\), κ between 0.60 and 0.89; the span sets it, the angle count does not.</div>
-      <div class="keynum"><span>5 MHz, F# 1.5: 0.557 → 0.456 mm (±15°)</span><span>sim 0.611 → 0.490 mm</span><span>Tx-only ±15°: 0.72 mm</span></div>
-      <div class="why"><p>Dense angles fill the transmit k-space uniformly over \(\pm\sin\theta_{\max}/\lambda\), the dynamic receive aperture over \(\pm 1/(2F_\#\lambda)\); the two-way PSF is the product of the two sincs, so its support is their trapezoidal convolution <span class="eqref">(23.18)</span>. κ = 0.603 when one support dominates (one angle gives \(1.207\,\lambda F_\#\)), 0.886 when they are equal (the focused two-way \(0.886\,\lambda F_\#\)). The full-wave simulation sits 7–10 % above, from the near-field spectral tilt and element factor.</p></div>
-      <div class="limits">Narrowband, focal plane, uniform weights; image edges lose span. Within a fixed span, extra angles only remove replicas and clutter.</div>
-    </div>
-    <div class="rule">
-      <div class="say">The angle step is a pitch: virtual elements \(z\,\Delta(\sin\theta)\) apart give a replica at \(\lambda/\Delta(\sin\theta)\), a grating lobe in the angle domain.</div>
-      <div class="keynum"><span>gap-free coarray: \(\Delta\sin\theta \le 1/F_\#\)</span><span>replica out of image: \(\Delta\theta \lesssim \lambda/W\)</span><span>0.46° at 5 MHz, 38.4 mm</span></div>
-      <div class="why"><p>With \(\xi_n = z\sin\theta_n\), the angle set is an array of pitch \(d_v = z\Delta(\sin\theta)\); its lobe at \(\lambda z/d_v\) is depth independent <span class="eqref">(23.19)</span>. If \(d_v\) is no larger than the receive sub-aperture \(z/F_\#\), the coarray has no gaps and the replica sits beyond the first receive null \(\lambda F_\#\), attenuated by receive sidelobes (3 × 15°: −25 dB at 1.19 mm). Moving it out of the image takes Montaldo's \(\lambda/W\).</p></div>
-      <div class="limits">Uniform in \(\sin\theta\); bandwidth smears and lowers the replica further.</div>
-    </div>
-    <div class="rule">
       <div class="say">Montaldo's count \(N \approx L/(\lambda F_\#)\) is the focused-equivalent upper bound; far fewer angles suffice when the receive pattern already hides the replicas.</div>
       <div class="keynum"><span>5 MHz, 38.4 mm, F# 1.5: 83</span><span>11 × 3°: ghost −53 dB</span></div>
-      <div class="why"><p>A span \(2\theta_{\max} \approx 1/F_\#\) sampled at \(\lambda/L\) gives \(N \approx L/(\lambda F_\#)\) <span class="eqref">(23.15)</span>: 83 angles at 5 MHz for a 38.4 mm array and F# 1.5, 125 at 7.5 MHz. That bound puts every replica outside the array width. But a ghost is the transmit replica times the receive pattern and times the broadband factor \(1.06\,M/N\): in the channel-data simulation, 11 angles at 3° leave the ghost at −52.9 dB and the cyst contrast at −28 dB, while 31 angles reach −37.7 dB contrast mostly through lower diffuse clutter.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Receive sidelobe envelope × 1.064 M/N, the estimate of (23.14).</span><canvas id="m23-rf-14" aria-label="Figure for rule 14"></canvas></div></div>
+      <div class="why"><p>A span \(2\theta_{\max} \approx 1/F_\#\) sampled at \(\lambda/L\) gives \(N \approx L/(\lambda F_\#)\) <span class="eqref">(23.15)</span>: 83 angles at 5 MHz for a 38.4 mm array and F# 1.5, 125 at 7.5 MHz. That bound puts every replica outside the array width. But a ghost is the transmit replica times the receive pattern and times the broadband factor \(1.06\,M/N\): in the channel-data simulation, 11 angles at 3° leave the ghost at −52.9 dB and the cyst contrast at −28 dB, while 31 angles reach −37.7 dB contrast mostly through lower diffuse clutter.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Receive sidelobe envelope × 1.064 M/N, the estimate of (23.14).</span><canvas id="m23-rf-14" aria-label="Figure for rule 14"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>ghost estimate</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>L/(λF#) = 83</span></div></div></div>
       <div class="limits">Very bright specular reflectors (bone, needles, vessel walls) can still produce visible ghosts at −50 dB; contrast-limited tasks need more angles than detection tasks.</div>
     </div>
     <div class="rule">
-      <div class="say">Compounding N angles buys \(10\log_{10} N\) of SNR against noise, and nothing against speckle.</div>
-      <div class="keynum"><span>31 angles: +14.9 dB</span><span>simulated 14.86 dB</span><span>speckle \(\mathrm{SNR}_0\) 1.85 → 1.80</span></div>
-      <div class="why"><p>The target echo adds in phase across angles (amplitude N), independent electronic noise adds in power (N), so SNR grows by N: 4.74, 10.35, 14.86 dB simulated for 3, 11, 31 angles vs 4.77, 10.41, 14.91 dB. Speckle is the deterministic response of the scatterers to the compounded PSF; coherent summation only changes the PSF, so the envelope stays Rayleigh (\(\mathrm{SNR}_0 \approx\) 1.8–1.9 here, 1.91 in theory). Incoherent (envelope) compounding of decorrelated looks is the one that averages speckle (Module 26).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m23-rf-15" aria-label="Figure for rule 15"></canvas></div></div>
-      <div class="limits">Assumes noise independent across firings; coherent interference (EMI, reverberation) does not average. Motion between firings erodes the coherent gain.</div>
-    </div>
-    <div class="rule">
-      <div class="say">Every angle costs frame rate: \(f_{\text{frame}} = \mathrm{PRF}/N\), with \(\mathrm{PRF} \le c/(2z_{\max})\).</div>
-      <div class="keynum"><span>40 mm: 19.25 kHz</span><span>31 angles: 621 Hz</span><span>100 mm: 7.7 kHz, 248 Hz</span></div>
-      <div class="why"><p>Each transmit must wait for echoes from \(z_{\max}\) to return, a round trip of \(2z_{\max}/c\) (51.9 µs at 40 mm), so PRF ≤ 19.25 kHz. N angles per compounded frame divide that by N. This is the central trade of ultrafast imaging: a handful of angles at kHz frame rates for Doppler, shear-wave and ULM ensembles, many angles when contrast matters and the scene is slow.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m23-rf-16" aria-label="Figure for rule 16"></canvas></div></div>
-      <div class="limits">Reverberation from beyond \(z_{\max}\) forces a lower PRF in practice; interleaving across sub-apertures or multiplexed codes can relax it.</div>
+      <div class="say">Each extra angle buys \(10\log_{10} N\) of SNR against noise, nothing against speckle, and costs frame rate, \(\mathrm{PRF}/N\) with \(\mathrm{PRF} \le c/(2z_{\max})\).</div>
+      <div class="keynum"><span>31 angles: +14.9 dB (simulated 14.86)</span><span>speckle \(\mathrm{SNR}_0\) 1.85 → 1.80</span><span>40 mm: 19.25 kHz, 31 angles → 621 Hz</span><span>100 mm: 7.7 kHz, 248 Hz</span></div>
+      <div class="why"><p>The target echo adds in phase across angles (amplitude N), independent electronic noise adds in power (N), so SNR grows by N: 4.74, 10.35, 14.86 dB simulated for 3, 11, 31 angles vs 4.77, 10.41, 14.91 dB. Speckle is the deterministic response of the scatterers to the compounded PSF; coherent summation only changes the PSF, so the envelope stays Rayleigh (\(\mathrm{SNR}_0 \approx\) 1.8–1.9 here, 1.91 in theory). Incoherent (envelope) compounding of decorrelated looks is the one that averages speckle (Module 26). The price is time: each transmit must wait for echoes from \(z_{\max}\) (51.9 µs round trip at 40 mm), so N angles divide a PRF of at most 19.25 kHz by N. This is the central trade of ultrafast imaging: a handful of angles at kHz frame rates for Doppler, shear-wave and ULM ensembles, many angles when contrast matters and the scene is slow.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m23-rf-15" aria-label="Figure for rule 15"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>gain against electronic noise</span><span><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>speckle SNR₀ (no gain)</span></div></div><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m23-rf-16" aria-label="Figure for rule 16"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>z<sub>max</sub> = 40 mm</span><span><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>z<sub>max</sub> = 100 mm</span></div></div></div>
+      <div class="limits">Assumes noise independent across firings; coherent interference (EMI, reverberation) does not average. Motion between firings erodes the coherent gain. Reverberation from beyond \(z_{\max}\) forces a lower PRF in practice; interleaving across sub-apertures or multiplexed codes can relax it.</div>
     </div>
     <div class="rule">
       <div class="say">Motion between angles is a phase ramp: λ/4 of axial displacement over the sequence costs about 4 dB.</div>
@@ -676,7 +684,7 @@
     <div class="rule">
       <div class="say">Keep the receive F-number constant and the lateral resolution is depth-independent, but element directivity sets the floor.</div>
       <div class="keynum"><span>\(F_{\#,\min} \approx 1/(2\tan\alpha_{-6\,\mathrm{dB}})\)</span><span>5 MHz, w 0.27 mm: 0.53–0.69</span><span>saturation at \(z = L\cdot F_\#\)</span></div>
-      <div class="why"><p>A dynamic aperture \(z/F_\#\) keeps \(\lambda z/L_{\mathrm{rx}} = \lambda F_\#\) fixed until the aperture reaches the array length at \(z = L\cdot F_\#\) (57.6 mm for 38.4 mm, F# 1.5). Lowering F# further only helps while the edge elements still see the pixel: with \(E(\theta) = \mathrm{sinc}(w\sin\theta/\lambda)\) the −6 dB half-angle is 43.5° at 5 MHz for w = 0.27 mm (\(F_{\#,\min}\) 0.53), 36.0° with the soft-baffle \(\cos\theta\) (0.69); at 7.5 MHz 0.97–1.05 (Module 19, <span class="eqref">(19.2)</span>). Beyond that, edge channels add noise and clutter faster than signal.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Strip element in a rigid baffle (sinc) and soft baffle (× cos θ).</span><canvas id="m23-rf-18" aria-label="Figure for rule 18"></canvas></div></div>
+      <div class="why"><p>A dynamic aperture \(z/F_\#\) keeps \(\lambda z/L_{\mathrm{rx}} = \lambda F_\#\) fixed until the aperture reaches the array length at \(z = L\cdot F_\#\) (57.6 mm for 38.4 mm, F# 1.5). Lowering F# further only helps while the edge elements still see the pixel: with \(E(\theta) = \mathrm{sinc}(w\sin\theta/\lambda)\) the −6 dB half-angle is 43.5° at 5 MHz for w = 0.27 mm (\(F_{\#,\min}\) 0.53), 36.0° with the soft-baffle \(\cos\theta\) (0.69); at 7.5 MHz 0.97–1.05 (Module 19, <span class="eqref">(19.2)</span>). Beyond that, edge channels add noise and clutter faster than signal.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Strip element in a rigid baffle (sinc) and soft baffle (× cos θ).</span><canvas id="m23-rf-18" aria-label="Figure for rule 18"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>rigid baffle</span><span><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>soft baffle ×cos θ</span><span><i class="mark" style="color:var(--ink);background:var(--ink)"></i>−6 dB points</span></div></div></div>
       <div class="limits">Element directivity models are idealized (crosstalk, lens, kerf); many systems use F# 1–2 and taper the aperture edge instead of a hard cut.</div>
     </div>
   </div>
@@ -868,8 +876,8 @@
     { const cv = $('m23-fr-map'); const { ctx, w } = Lab.canvas(cv, 240); const box = { x: 50, y: 18, w: w - 66, h: 240 - 54 };
       Lab.image(ctx, img, nx, nz, { x: box.x, y: box.y, w: box.w, h: box.h, smooth: true }, -40, 0, 'gray');
       const ax = Lab.axes(ctx, box, [zmin, zmax], [-xr, xr], { xlabel: 'depth z (mm)', ylabel: 'x (mm)', grid: false, title: (S.foc ? 'focused' : 'unfocused') + ' CW intensity, 40 dB (depth →)' });
-      ctx.save(); ctx.strokeStyle = c.sig4; ctx.setLineDash([4, 3]); ctx.beginPath(); if (S.foc && F < zmax) { ctx.moveTo(ax.X(F), box.y); ctx.lineTo(ax.X(F), box.y + box.h); }
-      ctx.stroke(); ctx.strokeStyle = c.sig3; ctx.beginPath(); if (NFL < zmax) { ctx.moveTo(ax.X(NFL), box.y); ctx.lineTo(ax.X(NFL), box.y + box.h); } ctx.stroke(); ctx.restore(); }
+      const LG = 'm23-fr-leg'; ctx.save(); ctx.strokeStyle = c.sig4; ctx.setLineDash([4, 3]); ctx.beginPath(); if (S.foc && F < zmax && Lab.on(LG, 'F')) { ctx.moveTo(ax.X(F), box.y); ctx.lineTo(ax.X(F), box.y + box.h); }
+      ctx.stroke(); ctx.strokeStyle = c.sig3; ctx.setLineDash([2, 3]); ctx.beginPath(); if (NFL < zmax && Lab.on(LG, 'nf')) { ctx.moveTo(ax.X(NFL), box.y); ctx.lineTo(ax.X(NFL), box.y + box.h); } ctx.stroke(); ctx.restore(); }
     /* --- axial --- */
     const na = 360, zs = [], Ia = [];
     for (let i = 0; i < na; i++) { const z = zmin + (zmax - zmin) * i / (na - 1); zs.push(z); Ia.push(inten(S, 0, z)); }
@@ -883,11 +891,11 @@
       let ys, yr, lab;
       if (S.foc) { ys = Ia.map(v => Math.max(-40, 10 * Math.log10(v / Ip + 1e-12))); yr = [-40, 3]; lab = 'on-axis intensity (dB)'; }
       else { const ref = isNaN(zLast) ? Ia[na - 1] : Ia[zs.findIndex(z => z === zLast)]; ys = Ia.map(v => Math.max(-30, Math.min(12, 10 * Math.log10(v / ref + 1e-12)))); yr = [-30, 12]; lab = 'on-axis intensity (dB re last max)'; }
-      const ax = Lab.axes(ctx, box, [zmin, zmax], yr, { xlabel: 'depth z (mm)', title: lab });
-      ax.clip(); Lab.line(ctx, ax, zs, ys, c.accent, 1.8);
-      ctx.save(); ctx.fillStyle = c.sig3; ctx.globalAlpha = 0.15; if (S.foc) ctx.fillRect(ax.X(zs[lo]), box.y, ax.X(zs[hi]) - ax.X(zs[lo]), box.h); ctx.restore();
+      const ax = Lab.axes(ctx, box, [zmin, zmax], yr, { xlabel: 'depth z (mm)', ylabel: 'I (dB)', title: lab }), LG = 'm23-fr-leg';
+      ax.clip(); if (Lab.on(LG, 'dir')) Lab.line(ctx, ax, zs, ys, c.accent, 1.8);
+      ctx.save(); ctx.fillStyle = c.sig7; ctx.globalAlpha = 0.15; if (S.foc && Lab.on(LG, 'pk')) ctx.fillRect(ax.X(zs[lo]), box.y, ax.X(zs[hi]) - ax.X(zs[lo]), box.h); ctx.restore();
       const vl = (z, col, dash) => { if (z > zmin && z < zmax) { ctx.save(); ctx.strokeStyle = col; ctx.setLineDash(dash || []); ctx.beginPath(); ctx.moveTo(ax.X(z), box.y); ctx.lineTo(ax.X(z), box.y + box.h); ctx.stroke(); ctx.restore(); } };
-      if (S.foc) { vl(F, c.sig4, [4, 3]); vl(zs[ip], c.sig3); } vl(NFL, c.sig3, [2, 3]); ax.unclip(); }
+      if (S.foc) { if (Lab.on(LG, 'F')) vl(F, c.sig4, [4, 3]); if (Lab.on(LG, 'pk')) vl(zs[ip], c.sig7); } if (Lab.on(LG, 'nf')) vl(NFL, c.sig3, [2, 3]); ax.unclip(); }
     /* --- lateral at z = F --- */
     const nl = 401, xl = 6 * lam * Fn * (S.ap === 'hann' ? 1.4 : 1), xs = [], pf = [], pa = [];
     for (let i = 0; i < nl; i++) { const x = -xl + 2 * xl * i / (nl - 1); xs.push(x); pf.push(Math.sqrt(inten(S, x, F)));
@@ -897,12 +905,12 @@
     const w6 = p => { let i = mid; while (i < nl - 1 && p[i] >= 0.5) i++; const x0 = xs[i - 1] + (0.5 - p[i - 1]) / (p[i] - p[i - 1]) * (xs[i] - xs[i - 1]); return 2 * x0; };
     const sl = p => { let i = mid; while (i < nl - 1 && p[i + 1] < p[i]) i++; let m = 0; for (let j = i; j < nl; j++) m = Math.max(m, p[j]); return 20 * Math.log10(m + 1e-12); };
     { const cv = $('m23-fr-lat'); const { ctx, w } = Lab.canvas(cv, 170); const box = { x: 50, y: 18, w: w - 66, h: 170 - 52 };
-      const ax = Lab.axes(ctx, box, [-xl, xl], [-50, 3], { xlabel: 'x (mm) at z = F', title: 'lateral profile at z = F (dB)' });
-      ax.clip(); Lab.line(ctx, ax, xs, pa.map(v => Math.max(-60, 20 * Math.log10(v + 1e-9))), c.sig2, 1.4, [5, 3]);
-      Lab.line(ctx, ax, xs, pf.map(v => Math.max(-60, 20 * Math.log10(v + 1e-9))), c.accent, 1.8); ax.unclip(); }
+      const ax = Lab.axes(ctx, box, [-xl, xl], [-50, 3], { xlabel: 'x (mm) at z = F', ylabel: '|p| (dB)', title: 'lateral profile at z = F (dB)' });
+      ax.clip(); if (Lab.on('m23-fr-leg', 'four')) Lab.line(ctx, ax, xs, pa.map(v => Math.max(-60, 20 * Math.log10(v + 1e-9))), c.sig2, 1.4, [5, 3]);
+      if (Lab.on('m23-fr-leg', 'dir')) Lab.line(ctx, ax, xs, pf.map(v => Math.max(-60, 20 * Math.log10(v + 1e-9))), c.accent, 1.8); ax.unclip(); }
     const k6 = S.ap === 'hann' ? 2.00 : 1.207, kS = S.ap === 'hann' ? -31.5 : -13.3;
     const fm = v => v >= 1000 ? (v / 1000).toFixed(2) + ' m' : v.toFixed(0) + ' mm';
-    $('m23-fr-read').innerHTML = 'λ = <b>' + lam.toFixed(3) + '</b> mm · F# = <b>' + Fn.toFixed(2) + '</b> · N<sub>F</sub> = D²/(4λF) = <b>' + NF.toFixed(2) + '</b><br>' +
+    $('m23-fr-read').innerHTML = 'wavelength λ = <b>' + lam.toFixed(3) + '</b> mm · F# = <b>' + Fn.toFixed(2) + '</b> · N<sub>F</sub> = D²/(4λF) = <b>' + NF.toFixed(2) + '</b><br>' +
       'near field D²/(4λ) = <b>' + fm(NFL) + '</b>; far field D²/λ = ' + fm(4 * NFL) + ', 2D²/λ = ' + fm(8 * NFL) + '<br>' +
       (S.foc ? 'intensity peak at <b>' + zs[ip].toFixed(1) + '</b> mm = <b>' + (zs[ip] / F).toFixed(3) + ' F</b><br>−3 dB DOF <b>' + dof.toFixed(1) + '</b> mm (uniform-aperture rule 6.95λF#² = ' + (6.95 * lam * Fn * Fn).toFixed(1) + ' mm)'
         : 'unfocused: last axial max ' + (isNaN(zLast) ? 'beyond the plot' : 'at <b>' + zLast.toFixed(0) + '</b> mm = ' + (zLast / NFL).toFixed(2) + ' D²/(4λ)')) + '<br>' +
@@ -910,7 +918,7 @@
       'first sidelobe <b>' + sl(pf).toFixed(1) + '</b> dB (Fourier ' + sl(pa).toFixed(1) + ', continuous ' + kS + ')';
   }
   ['m23-fr-f0', 'm23-fr-D', 'm23-fr-F'].forEach(id => $(id).addEventListener('input', sched));
-  ['m23-fr-foc', 'm23-fr-ap'].forEach(id => $(id).addEventListener('change', sched));
+  ['m23-fr-foc', 'm23-fr-ap'].forEach(id => $(id).addEventListener('change', sched)); Lab.legendToggle('m23-fr-leg', sched);
   Lab.onShow('m23', draw);
 })();
 </script>
@@ -977,20 +985,20 @@
     const At = pattern(wt, d, lam, s0, ss, ef), Ar = pattern(wr, d, lam, s0, ss, ef);
     const db = v => Math.max(-80, 20 * Math.log10(v + 1e-12));
     { const cv = $('m23-ap-cv'); const { ctx, w } = Lab.canvas(cv, 230); const box = { x: 50, y: 18, w: w - 66, h: 230 - 52 };
-      const ax = Lab.axes(ctx, box, [-90, 90], [-80, 3], { xlabel: 'angle θ (degrees)', ylabel: 'dB', title: 'Tx, Rx and two-way patterns', xticks: [-90, -60, -30, 0, 30, 60, 90] });
-      ax.clip();
-      Lab.line(ctx, ax, th, At.map(v => db(v / nT)), c.sig3, 1, [4, 3]); Lab.line(ctx, ax, th, Ar.map(v => db(v / nR)), c.sig4, 1, [1.5, 2.5]);
-      Lab.line(ctx, ax, th, At.map((v, i) => db(v * Ar[i] / (nT * nR))), c.accent, 1.5);
+      const ax = Lab.axes(ctx, box, [-90, 90], [-80, 3], { xlabel: 'angle θ (degrees)', ylabel: 'level (dB)', title: 'Tx, Rx and two-way patterns', xticks: [-90, -60, -30, 0, 30, 60, 90] });
+      ax.clip(); const LG = 'm23-ap-leg';
+      if (Lab.on(LG, 'tx')) Lab.line(ctx, ax, th, At.map(v => db(v / nT)), c.sig3, 1, [4, 3]); if (Lab.on(LG, 'rx')) Lab.line(ctx, ax, th, Ar.map(v => db(v / nR)), c.sig4, 1, [1.5, 2.5]);
+      if (Lab.on(LG, 'two')) Lab.line(ctx, ax, th, At.map((v, i) => db(v * Ar[i] / (nT * nR))), c.accent, 1.5);
       const gl = []; for (let m = -6; m <= 6; m++) { if (!m) continue; const sg = s0 + m * lam / d; if (Math.abs(sg) <= 1) gl.push(Math.asin(sg) * 180 / PI); }
-      ctx.save(); ctx.strokeStyle = c.bad; ctx.setLineDash([3, 3]); gl.forEach(g => { ctx.beginPath(); ctx.moveTo(ax.X(g), box.y); ctx.lineTo(ax.X(g), box.y + box.h); ctx.stroke(); }); ctx.restore(); ax.unclip();
+      ctx.save(); ctx.strokeStyle = c.bad; ctx.setLineDash([3, 3]); if (Lab.on(LG, 'gl')) gl.forEach(g => { ctx.beginPath(); ctx.moveTo(ax.X(g), box.y); ctx.lineTo(ax.X(g), box.y + box.h); ctx.stroke(); }); ctx.restore(); ax.unclip();
       draw.gl = gl; }
     /* zoom vs (sin - sin0) D / lambda */
     const nZ = 801, uz = new Float64Array(nZ), sz = new Float64Array(nZ); for (let i = 0; i < nZ; i++) { uz[i] = -8 + 16 * i / (nZ - 1); sz[i] = s0 + uz[i] * lam / D; }
     const Zt = pattern(wt, d, lam, s0, sz, ef), Zr = pattern(wr, d, lam, s0, sz, ef);
     { const cv = $('m23-ap-zoom'); const { ctx, w } = Lab.canvas(cv, 190); const box = { x: 50, y: 18, w: w - 66, h: 190 - 52 };
-      const ax = Lab.axes(ctx, box, [-8, 8], [-80, 3], { xlabel: '(sin θ − sin θ₀) in units of λ/D', ylabel: 'dB', title: 'main lobe region' });
-      ax.clip(); Lab.line(ctx, ax, uz, Zt.map(v => db(v / nT)), c.sig3, 1.1, [4, 3]); Lab.line(ctx, ax, uz, Zr.map(v => db(v / nR)), c.sig4, 1.1, [1.5, 2.5]);
-      Lab.line(ctx, ax, uz, Zt.map((v, i) => db(v * Zr[i] / (nT * nR))), c.accent, 1.8); ax.unclip(); }
+      const ax = Lab.axes(ctx, box, [-8, 8], [-80, 3], { xlabel: '(sin θ − sin θ₀) in units of λ/D', ylabel: 'level (dB)', title: 'main lobe region' });
+      const LG = 'm23-ap-leg'; ax.clip(); if (Lab.on(LG, 'tx')) Lab.line(ctx, ax, uz, Zt.map(v => db(v / nT)), c.sig3, 1.1, [4, 3]); if (Lab.on(LG, 'rx')) Lab.line(ctx, ax, uz, Zr.map(v => db(v / nR)), c.sig4, 1.1, [1.5, 2.5]);
+      if (Lab.on(LG, 'two')) Lab.line(ctx, ax, uz, Zt.map((v, i) => db(v * Zr[i] / (nT * nR))), c.accent, 1.8); ax.unclip(); }
     /* metrics on a uniform grid over the visible region */
     const nM = Math.min(16001, Math.max(4001, Math.ceil(16 * D / lam))), sm = new Float64Array(nM); for (let i = 0; i < nM; i++) sm[i] = -1 + 2 * i / (nM - 1);
     const i0 = Math.round((s0 + 1) / 2 * (nM - 1)); sm[i0] = s0;
@@ -1004,12 +1012,12 @@
     const f1 = v => isFinite(v) ? v.toFixed(1).padStart(6) : '   n/a', f2 = v => isFinite(v) ? v.toFixed(2).padStart(6) : '   n/a';
     $('m23-ap-read').innerHTML = '<span style="white-space:pre">        PSL    PSL   ISLR  −6 dB\n       near    all\n' +
       'Tx   ' + f1(nt) + ' ' + f1(mt.psl) + ' ' + f1(mt.islr) + ' ' + f2(wT) + '\n' + 'Rx   ' + f1(nr) + ' ' + f1(mr.psl) + ' ' + f1(mr.islr) + ' ' + f2(wR) + '\n' +
-      '2-way<b>' + f1(n2) + '</b> ' + f1(m2.psl) + ' ' + f1(m2.islr) + ' <b>' + f2(w2) + '</b></span><br>dB (near: within ±8 λ/D; all: visible region, incl. grating-lobe skirts); width in λ/D, D = ' + D.toFixed(1) + ' mm<br>' +
-      'Tx price: focal amp. <b>' + txAmp.toFixed(1) + '</b> dB, energy ' + txE.toFixed(1) + ' dB<br>Rx SNR price <b>' + rxS.toFixed(2) + '</b> dB<br>' +
+      '2-way<b>' + f1(n2) + '</b> ' + f1(m2.psl) + ' ' + f1(m2.islr) + ' <b>' + f2(w2) + '</b></span><br>PSL, peak sidelobe level, and ISLR, integrated sidelobe ratio, in dB (near: within ±8 λ/D; all: visible region, incl. grating-lobe skirts); −6 dB main-lobe width in λ/D, D = N·d = ' + D.toFixed(1) + ' mm<br>' +
+      'Tx price: focal amplitude <b>' + txAmp.toFixed(1) + '</b> dB, energy ' + txE.toFixed(1) + ' dB<br>Rx SNR price <b>' + rxS.toFixed(2) + '</b> dB<br>' +
       'grating lobes (pitch d): ' + (draw.gl.length ? draw.gl.map(g => g.toFixed(1) + '°').join(', ') : 'none visible');
   }
   ['m23-ap-n', 'm23-ap-d', 'm23-ap-f', 'm23-ap-th'].forEach(id => $(id).addEventListener('input', sched));
-  ['m23-ap-tx', 'm23-ap-rx', 'm23-ap-ef'].forEach(id => $(id).addEventListener('change', sched));
+  ['m23-ap-tx', 'm23-ap-rx', 'm23-ap-ef'].forEach(id => $(id).addEventListener('change', sched)); Lab.legendToggle('m23-ap-leg', sched);
   Lab.onShow('m23', draw);
 })();
 </script>
@@ -1048,19 +1056,19 @@
     const D = N * dl; /* in wavelengths */
     { const cv = $('m23-bb-cv'); const { ctx, w: W } = Lab.canvas(cv, 250); const box = { x: 50, y: 18, w: W - 66, h: 250 - 52 };
       const ax = Lab.axes(ctx, box, [0, 1], [-80, 3], { xlabel: 'u = sin θ', ylabel: 'dB re main lobe', title: (way === 2 ? 'two-way' : 'one-way') + ', N ' + N + ', d ' + dl.toFixed(2) + 'λ₀, ' + Math.round(FBW * 100) + ' %' });
-      ax.clip(); Lab.line(ctx, ax, us, cwv.map(db), c.muted, 0.8); Lab.line(ctx, ax, us, env.map(db), c.sig2, 1.4, [5, 3]); Lab.line(ctx, ax, us, pkv.map(db), c.accent, 2);
-      if (way === 1 && ap === 'rect') { const ue = us.filter(u => u > 0.02); Lab.line(ctx, ax, ue, ue.map(u => 20 * Math.log10(1 / (2 * PI * D * u))), c.sig3, 1.2, [2, 3]); }
-      if (glVis) { ctx.save(); ctx.strokeStyle = c.sig3; ctx.lineWidth = 3; const y = ax.Y(20 * Math.log10(predPk)); ctx.beginPath(); ctx.moveTo(ax.X(Math.max(0, ug - 0.05)), y); ctx.lineTo(ax.X(Math.min(1, ug + 0.05)), y); ctx.stroke(); ctx.restore(); }
+      const LG = 'm23-bb-leg'; ax.clip(); if (Lab.on(LG, 'cw')) Lab.line(ctx, ax, us, cwv.map(db), c.muted, 0.8, [6, 2, 1, 2]); if (Lab.on(LG, 'en')) Lab.line(ctx, ax, us, env.map(db), c.sig2, 1.4, [5, 3]); if (Lab.on(LG, 'pk')) Lab.line(ctx, ax, us, pkv.map(db), c.accent, 2);
+      if (way === 1 && ap === 'rect' && Lab.on(LG, 'law')) { const ue = us.filter(u => u > 0.02); Lab.line(ctx, ax, ue, ue.map(u => 20 * Math.log10(1 / (2 * PI * D * u))), c.sig3, 1.2, [2, 3]); }
+      if (glVis && Lab.on(LG, 'law')) { ctx.save(); ctx.strokeStyle = c.sig3; ctx.lineWidth = 3; const y = ax.Y(20 * Math.log10(predPk)); ctx.beginPath(); ctx.moveTo(ax.X(Math.max(0, ug - 0.05)), y); ctx.lineTo(ax.X(Math.min(1, ug + 0.05)), y); ctx.stroke(); ctx.restore(); }
       ax.unclip(); }
     /* received envelope at the grating lobe (or at u = 0.5 if no lobe is visible) */
     const uT = glVis ? ug : 0.5, rT = resp(cw, dl * uT, sg, true);
     { const cv = $('m23-bb-t'); const { ctx, w: W } = Lab.canvas(cv, 150); const box = { x: 50, y: 18, w: W - 66, h: 150 - 50 };
       const ts = rT.env.map(p => p[0]), vs = rT.env.map(p => p[1] / pk0), vmax = Math.max(predPk * 1.6, ...vs) * 1.1;
-      const ax = Lab.axes(ctx, box, [ts[0], ts[ts.length - 1]], [0, vmax], { xlabel: 'time (periods T₀)', title: 'envelope at u = ' + uT.toFixed(3) + (glVis ? ' (grating lobe)' : '') + ', linear' });
+      const ax = Lab.axes(ctx, box, [ts[0], ts[ts.length - 1]], [0, vmax], { xlabel: 'time (periods T₀)', ylabel: 'envelope / main peak', title: 'envelope at u = ' + uT.toFixed(3) + (glVis ? ' (grating lobe)' : '') + ', linear' });
       ax.clip(); Lab.line(ctx, ax, ts, vs, c.accent, 1.6);
-      if (glVis) { ctx.save(); ctx.strokeStyle = c.sig3; ctx.setLineDash([4, 3]); const y = ax.Y(predPk); ctx.beginPath(); ctx.moveTo(box.x, y); ctx.lineTo(box.x + box.w, y); ctx.stroke(); ctx.restore(); }
+      if (glVis && Lab.on('m23-bb-leg', 'law')) { ctx.save(); ctx.strokeStyle = c.sig3; ctx.setLineDash([4, 3]); const y = ax.Y(predPk); ctx.beginPath(); ctx.moveTo(box.x, y); ctx.lineTo(box.x + box.w, y); ctx.stroke(); ctx.restore(); }
       ax.unclip(); }
-    let txt = 'M = 0.883/FBW = <b>' + M.toFixed(2) + '</b> cycles · D = ' + D.toFixed(0) + ' λ₀<br>';
+    let txt = 'pulse length M = 0.883/B = <b>' + M.toFixed(2) + '</b> cycles · aperture D = ' + D.toFixed(0) + ' λ₀<br>';
     if (glVis) { const rg = resp(cw, dl * ug, sg, false);
       txt += 'grating lobe at u = ' + ug.toFixed(3) + ' (' + (Math.asin(ug) * 180 / PI).toFixed(1) + '°)<br>peak <b>' + db(rg.pk / pk0).toFixed(1) + '</b> dB (law 1.064 M·max c/Σc: ' + (20 * Math.log10(predPk)).toFixed(1) + ')<br>' +
         'energy <b>' + (10 * Math.log10(rg.en / en0)).toFixed(1) + '</b> dB (law 1.505 M·Σc²/(Σc)²: ' + (10 * Math.log10(predEn)).toFixed(1) + ')<br>CW: 0 dB<br>'; }
@@ -1069,7 +1077,7 @@
     $('m23-bb-read').innerHTML = txt;
   }
   ['m23-bb-n', 'm23-bb-d', 'm23-bb-b'].forEach(id => $(id).addEventListener('input', sched));
-  ['m23-bb-w', 'm23-bb-a'].forEach(id => $(id).addEventListener('change', sched));
+  ['m23-bb-w', 'm23-bb-a'].forEach(id => $(id).addEventListener('change', sched)); Lab.legendToggle('m23-bb-leg', sched);
   Lab.onShow('m23', draw);
 })();
 </script>
@@ -1102,37 +1110,37 @@
     $('m23-co-na').disabled = !S.pw; $('m23-co-st').disabled = !S.pw;
     /* apertures */
     { const cv = $('m23-co-ap'); const { ctx, w } = Lab.canvas(cv, 130); const box = { x: 50, y: 16, w: w - 66, h: 130 - 46 };
-      const ax = Lab.axes(ctx, box, [-20, 20], [-1.15, 1.15], { xlabel: 'position ξ (mm)', title: 'Tx (up' + (S.pw ? ', ξ = z sin θ' : '') + '), Rx (down)', yticks: [-1, 0, 1], yfmt: v => v > 0 ? 'Tx' : v < 0 ? 'Rx' : '0' });
+      const ax = Lab.axes(ctx, box, [-20, 20], [-1.15, 1.15], { xlabel: 'position ξ (mm)', ylabel: 'weight', title: 'Tx (up' + (S.pw ? ', ξ = z sin θ' : '') + '), Rx (down)', yticks: [-1, 0, 1], yfmt: v => v > 0 ? 'Tx' : v < 0 ? 'Rx' : '0' });
       ctx.save(); ctx.lineWidth = 1.5; const mx = Math.max(...S.T.map(p => p[1]));
-      ctx.strokeStyle = c.sig3; S.T.forEach(([p, wt]) => { ctx.beginPath(); ctx.moveTo(ax.X(p), ax.Y(0)); ctx.lineTo(ax.X(p), ax.Y(wt / mx)); ctx.stroke(); });
-      ctx.strokeStyle = c.sig4; S.R.forEach(([p, wt]) => { ctx.beginPath(); ctx.moveTo(ax.X(p), ax.Y(0)); ctx.lineTo(ax.X(p), ax.Y(-wt)); ctx.stroke(); }); ctx.restore(); }
+      const LG = 'm23-co-leg'; ctx.strokeStyle = c.sig3; if (Lab.on(LG, 'tx')) S.T.forEach(([p, wt]) => { ctx.beginPath(); ctx.moveTo(ax.X(p), ax.Y(0)); ctx.lineTo(ax.X(p), ax.Y(wt / mx)); ctx.stroke(); });
+      ctx.strokeStyle = c.sig4; if (Lab.on(LG, 'rx')) S.R.forEach(([p, wt]) => { ctx.beginPath(); ctx.moveTo(ax.X(p), ax.Y(0)); ctx.lineTo(ax.X(p), ax.Y(-wt)); ctx.stroke(); }); ctx.restore(); }
     /* coarray binned on the pitch grid of xi_t + xi_r */
     const nb = Math.round(80 / d) + 1, bins = new Float64Array(nb);
     S.T.forEach(([pt, wt]) => S.R.forEach(([pr, wr]) => { const i = Math.round((pt + pr + 40) / d); if (i >= 0 && i < nb) bins[i] += wt * wr; }));
     let bmax = 0, lo = nb, hi = -1; bins.forEach((v, i) => { if (v > bmax) bmax = v; if (v > 1e-9) { lo = Math.min(lo, i); hi = Math.max(hi, i); } });
     let gaps = 0; for (let i = lo; i <= hi; i++) if (bins[i] < 1e-9) gaps++;
     { const cv = $('m23-co-co'); const { ctx, w } = Lab.canvas(cv, 120); const box = { x: 50, y: 16, w: w - 66, h: 120 - 46 };
-      const ax = Lab.axes(ctx, box, [-40, 40], [0, 1.1], { xlabel: 'ξt + ξr (mm), per-pitch bins', title: 'coarray (normalized)', yticks: [0, 0.5, 1] });
+      const ax = Lab.axes(ctx, box, [-40, 40], [0, 1.1], { xlabel: 'ξt + ξr (mm), per-pitch bins', ylabel: 'weight', title: 'coarray (normalized)', yticks: [0, 0.5, 1] });
       ctx.save(); ctx.fillStyle = c.accent; const bw = Math.max(1, ax.X(d) - ax.X(0) - 0.5);
-      bins.forEach((v, i) => { if (v > 0) { const xx = ax.X(-40 + i * d) - bw / 2, y = ax.Y(v / bmax); ctx.fillRect(xx, y, bw, ax.Y(0) - y); } }); ctx.restore(); }
+      if (Lab.on('m23-co-leg', 'co')) bins.forEach((v, i) => { if (v > 0) { const xx = ax.X(-40 + i * d) - bw / 2, y = ax.Y(v / bmax); ctx.fillRect(xx, y, bw, ax.Y(0) - y); } }); ctx.restore(); }
     /* PSF */
     const nx = 2001, xs = [], Tv = [], Rv = []; for (let i = 0; i < nx; i++) { const x = -20 + 40 * i / (nx - 1); xs.push(x); Tv.push(fac(S.T, x)); Rv.push(fac(S.R, x)); }
     const mid = (nx - 1) / 2, t0 = Tv[mid], r0 = Rv[mid], P = Tv.map((v, i) => v * Rv[i] / (t0 * r0));
     const db = v => Math.max(-70, 20 * Math.log10(v + 1e-12));
     { const cv = $('m23-co-psf'); const { ctx, w } = Lab.canvas(cv, 210); const box = { x: 50, y: 16, w: w - 66, h: 210 - 50 };
-      const ax = Lab.axes(ctx, box, [-20, 20], [-60, 3], { xlabel: 'x at z = 30 mm (mm)', ylabel: 'dB', title: 'two-way PSF = |T·R|' });
-      ax.clip(); Lab.line(ctx, ax, xs, Tv.map(v => db(v / t0)), c.sig3, 1, [4, 3]); Lab.line(ctx, ax, xs, Rv.map(v => db(v / r0)), c.sig4, 1, [1.5, 2.5]); Lab.line(ctx, ax, xs, P.map(db), c.accent, 1.6);
-      if (S.pred) { ctx.save(); ctx.strokeStyle = c.bad; ctx.setLineDash([3, 3]); [-S.pred, S.pred].forEach(p => { if (Math.abs(p) < 20) { ctx.beginPath(); ctx.moveTo(ax.X(p), box.y); ctx.lineTo(ax.X(p), box.y + box.h); ctx.stroke(); } }); ctx.restore(); }
+      const ax = Lab.axes(ctx, box, [-20, 20], [-60, 3], { xlabel: 'x at z = 30 mm (mm)', ylabel: 'level (dB)', title: 'two-way PSF = |T·R|' });
+      const LG = 'm23-co-leg'; ax.clip(); if (Lab.on(LG, 'tx')) Lab.line(ctx, ax, xs, Tv.map(v => db(v / t0)), c.sig3, 1, [4, 3]); if (Lab.on(LG, 'rx')) Lab.line(ctx, ax, xs, Rv.map(v => db(v / r0)), c.sig4, 1, [1.5, 2.5]); if (Lab.on(LG, 'co')) Lab.line(ctx, ax, xs, P.map(db), c.accent, 1.6);
+      if (S.pred && Lab.on(LG, 'gl')) { ctx.save(); ctx.strokeStyle = c.bad; ctx.setLineDash([3, 3]); [-S.pred, S.pred].forEach(p => { if (Math.abs(p) < 20) { ctx.beginPath(); ctx.moveTo(ax.X(p), box.y); ctx.lineTo(ax.X(p), box.y + box.h); ctx.stroke(); } }); ctx.restore(); }
       ax.unclip(); }
     let r = mid; while (r < nx - 1 && P[r + 1] <= P[r]) r++; let psl = 0, ipk = mid; for (let i = 0; i < nx; i++) if (Math.abs(i - mid) > r - mid && P[i] > psl) { psl = P[i]; ipk = i; }
     let w6 = mid; while (w6 < nx - 1 && P[w6] >= 0.5) w6++; const x6 = xs[w6 - 1] + (0.5 - P[w6 - 1]) / (P[w6] - P[w6 - 1]) * (xs[w6] - xs[w6 - 1]);
     let lev = ''; if (S.pred && S.pred < 19.5) { let m = 0; for (let i = 0; i < nx; i++) if (Math.abs(xs[i] - S.pred) <= 0.5) m = Math.max(m, P[i]); lev = ', level <b>' + db(m).toFixed(1) + '</b> dB'; }
-    $('m23-co-read').innerHTML = 'Tx ' + S.T.length + ' / Rx ' + S.R.length + ' positions; firings: ' + S.fir + '<br>coarray extent <b>' + ((hi - lo) * d).toFixed(1) + '</b> mm, empty bins inside: <b>' + gaps + '</b><br>' +
-      'two-way −6 dB width <b>' + (2 * x6).toFixed(2) + '</b> mm<br>PSL <b>' + db(psl).toFixed(1) + '</b> dB at |x| = ' + Math.abs(xs[ipk]).toFixed(1) + ' mm' +
+    $('m23-co-read').innerHTML = 'Tx ' + S.T.length + ' / Rx ' + S.R.length + ' positions; firings: ' + S.fir + '<br>coarray extent (span of ξ<sub>t</sub> + ξ<sub>r</sub>) <b>' + ((hi - lo) * d).toFixed(1) + '</b> mm, empty bins inside: <b>' + gaps + '</b><br>' +
+      'two-way −6 dB width <b>' + (2 * x6).toFixed(2) + '</b> mm<br>peak sidelobe level PSL <b>' + db(psl).toFixed(1) + '</b> dB at |x| = ' + Math.abs(xs[ipk]).toFixed(1) + ' mm' +
       (S.pred ? '<br>' + S.note + ' = <b>' + S.pred.toFixed(2) + '</b> mm' + lev : (S.note ? '<br>' + S.note : ''));
   }
   ['m23-co-na', 'm23-co-st'].forEach(id => $(id).addEventListener('input', sched));
-  $('m23-co-case').addEventListener('change', sched);
+  $('m23-co-case').addEventListener('change', sched); Lab.legendToggle('m23-co-leg', sched);
   Lab.onShow('m23', draw);
 })();
 </script>
@@ -1208,7 +1216,7 @@
     let ds = 0; if (N > 1) { for (let k = 1; k < N; k++) ds += Math.sin(ang[k] * PI / 180) - Math.sin(ang[k - 1] * PI / 180); ds /= N - 1; }
     const xrep = N > 1 ? lam / ds : Infinity, thmax = Math.abs(ang[N - 1]);
     let txt = N + ' angles, span ±' + thmax.toFixed(1) + '°, F#<sub>tx</sub> = ' + (N > 1 ? (1 / (2 * Math.tan(thmax * PI / 180))).toFixed(2) : '∞') + ' (F#<sub>rx</sub> ' + Fnum + ')<br>';
-    txt += 'replica λ/Δ(sin θ) = <b>' + (isFinite(xrep) ? xrep.toFixed(2) + ' mm' : '–') + '</b><br>SNR gain 10 log N = <b>' + (10 * Math.log10(N)).toFixed(1) + '</b> dB; frame rate at 40 mm ≤ <b>' + Math.round(19250 / N) + '</b> Hz<br>';
+    txt += 'replica λ/Δ(sin θ) = <b>' + (isFinite(xrep) ? xrep.toFixed(2) + ' mm' : '–') + '</b><br>SNR gain 10 log N = <b>' + (10 * Math.log10(N)).toFixed(1) + '</b> dB; maximum frame rate at 40 mm depth ≤ <b>' + Math.round(19250 / N) + '</b> Hz<br>';
     const imgCv = $('m23-pw-img');
     if (view === 'psf') {
       const im = new Float64Array(NP); for (let p = 0; p < NP; p++) im[p] = 20 * Math.log10(env[p] / pk + 1e-12);
@@ -1230,11 +1238,11 @@
       txt += 'contrast <b>' + m.contrast.toFixed(1) + '</b> dB (1 angle ' + m1.contrast.toFixed(1) + ')<br>CNR <b>' + m.cnr.toFixed(2) + '</b>, gCNR <b>' + m.gcnr.toFixed(3) + '</b> (1 angle ' + m1.cnr.toFixed(2) + ', ' + m1.gcnr.toFixed(3) + ')<br>background SNR<sub>0</sub> ' + m.snr0.toFixed(2) + ' (Rayleigh 1.91)';
     }
     { const cv = $('m23-pw-prof'); const { ctx, w } = Lab.canvas(cv, 170); const box = { x: 50, y: 18, w: w - 66, h: 170 - 52 };
-      const ax = Lab.axes(ctx, box, [-8, 8], [-80, 3], { xlabel: 'x (mm) at z = 30 mm', ylabel: 'dB', title: 'lateral profile at 30 mm' });
-      const xs = []; for (let ix = 0; ix < nx; ix++) xs.push(x0 + ix * dx);
-      ax.clip(); Lab.line(ctx, ax, xs, Array.from(row1, v => Math.max(-90, 20 * Math.log10(v / rp1 + 1e-12))), c.muted, 1.1, [4, 3]);
-      Lab.line(ctx, ax, xs, Array.from(row, v => Math.max(-90, 20 * Math.log10(v / rp + 1e-12))), c.accent, 1.8);
-      if (xrep < 8) { ctx.save(); ctx.strokeStyle = c.bad; ctx.setLineDash([3, 3]); [-xrep, xrep].forEach(p => { ctx.beginPath(); ctx.moveTo(ax.X(p), box.y); ctx.lineTo(ax.X(p), box.y + box.h); ctx.stroke(); }); ctx.restore(); }
+      const ax = Lab.axes(ctx, box, [-8, 8], [-80, 3], { xlabel: 'x (mm) at z = 30 mm', ylabel: 'level (dB)', title: 'lateral profile at 30 mm' });
+      const xs = []; for (let ix = 0; ix < nx; ix++) xs.push(x0 + ix * dx); const LG = 'm23-pw-leg';
+      ax.clip(); if (Lab.on(LG, 'one')) Lab.line(ctx, ax, xs, Array.from(row1, v => Math.max(-90, 20 * Math.log10(v / rp1 + 1e-12))), c.muted, 1.1, [4, 3]);
+      if (Lab.on(LG, 'comp')) Lab.line(ctx, ax, xs, Array.from(row, v => Math.max(-90, 20 * Math.log10(v / rp + 1e-12))), c.accent, 1.8);
+      if (xrep < 8 && Lab.on(LG, 'rep')) { ctx.save(); ctx.strokeStyle = c.bad; ctx.setLineDash([3, 3]); [-xrep, xrep].forEach(p => { ctx.beginPath(); ctx.moveTo(ax.X(p), box.y); ctx.lineTo(ax.X(p), box.y + box.h); ctx.stroke(); }); ctx.restore(); }
       ax.unclip(); }
     $('m23-pw-read').innerHTML = txt;
   }
@@ -1262,7 +1270,7 @@
   let raf = 0; const sched = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; update(); }); };
   ['m23-pw-n', 'm23-pw-st'].forEach(id => $(id).addEventListener('input', sched));
   $('m23-pw-dr').addEventListener('input', () => { if (G && angles().every(a => G.cache.has(a.toFixed(2)))) sched(); });
-  ['m23-pw-f', 'm23-pw-ap', 'm23-pw-v'].forEach(id => $(id).addEventListener('change', sched));
+  ['m23-pw-f', 'm23-pw-ap', 'm23-pw-v'].forEach(id => $(id).addEventListener('change', sched)); Lab.legendToggle('m23-pw-leg', sched);
   Lab.onShow('m23', update);
 })();
 </script>
@@ -1291,27 +1299,27 @@
     return winStats; }
 
   const BUD = [
-    { prov: 'exact', q: 'What does each added angle buy, and what does it cost?', a: 'SNR against noise grows as <b>10 log<sub>10</sub> N</b> (blue, dB); the compounded frame rate falls as <b>PRF/N</b> (pink, kHz, z<sub>max</sub> = 40 mm, PRF 19.25 kHz). 31 angles: +14.9 dB at 621 Hz.',
+    { prov: 'exact', leg: [['SNR gain 10 log N (dB)', 'a', 'solid'], ['frame rate PRF/N (kHz)', 'b', 'dash'], ['31 angles: 14.9 dB', 'mu', 'dash']], q: 'What does each added angle buy, and what does it cost?', a: 'SNR against noise grows as <b>10 log<sub>10</sub> N</b> (blue, dB); the compounded frame rate falls as <b>PRF/N</b> (pink, kHz, z<sub>max</sub> = 40 mm, PRF 19.25 kHz). 31 angles: +14.9 dB at 621 Hz.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140); const m = panel(x, B, [1, 41], [0, 20], { lab: 'dB  |  kHz', ticks: [[1, '1'], [11, '11'], [21, '21'], [31, '31 angles']], hlines: [[14.9, '14.9 dB']] });
-        curve(x, m, n => 10 * Math.log10(n), c.a); curve(x, m, n => 19.25 / n, c.b); } },
-    { prov: 'exact', q: 'How long does a constant receive F# hold the resolution?', a: 'With L<sub>rx</sub> = z/F# the receive width 1.21λF# stays flat until the aperture fills the array at <b>z = L·F#</b>: 57.6 mm for F# 1.5 (blue), 38.4 mm for F# 1.0 (pink); beyond, it grows ∝ z. 5 MHz, L = 38.4 mm.',
+        curve(x, m, n => 10 * Math.log10(n), c.a); curve(x, m, n => 19.25 / n, c.b, { dash: [6, 4] }); } },
+    { prov: 'exact', leg: [['F# 1.5', 'a', 'solid'], ['F# 1.0', 'b', 'dash'], ['1.21λF# at F# 1.5', 'mu', 'dash']], q: 'How long does a constant receive F# hold the resolution?', a: 'With L<sub>rx</sub> = z/F# the receive width 1.21λF# stays flat until the aperture fills the array at <b>z = L·F#</b>: 57.6 mm for F# 1.5 (blue), 38.4 mm for F# 1.0 (pink); beyond, it grows ∝ z. 5 MHz, L = 38.4 mm.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140), lam = C / 5, L = 38.4; const m = panel(x, B, [0, 120], [0, 1.4], { lab: 'one-way −6 dB width (mm) vs depth z (mm)', ticks: [[38.4, '38.4'], [57.6, '57.6'], [100, '100']], hlines: [[0.558, '0.56 mm']] });
-        curve(x, m, z => 1.207 * lam * Math.max(1.5, z / L), c.a); curve(x, m, z => 1.207 * lam * Math.max(1.0, z / L), c.b); } },
-    { prov: 'model', q: 'How low can the receive F-number go?', a: 'Until the edge elements drop below −6 dB directivity: <b>F#<sub>min</sub> = 1/(2 tan α)</b>, |E(α)| = 0.5. Rigid baffle (blue) and soft baffle ×cos θ (pink) vs element width; w = 0.27 mm is 0.88λ at 5 MHz (0.53–0.69) and 1.31λ at 7.5 MHz (0.97–1.05).',
+        curve(x, m, z => 1.207 * lam * Math.max(1.5, z / L), c.a); curve(x, m, z => 1.207 * lam * Math.max(1.0, z / L), c.b, { dash: [6, 4] }); } },
+    { prov: 'model', leg: [['rigid baffle', 'a', 'solid'], ['soft baffle ×cos θ', 'b', 'dash'], ['0.53 (rigid, 0.88λ)', 'mu', 'dash']], q: 'How low can the receive F-number go?', a: 'Until the edge elements drop below −6 dB directivity: <b>F#<sub>min</sub> = 1/(2 tan α)</b>, |E(α)| = 0.5. Rigid baffle (blue) and soft baffle ×cos θ (pink) vs element width; w = 0.27 mm is 0.88λ at 5 MHz (0.53–0.69) and 1.31λ at 7.5 MHz (0.97–1.05).',
       draw: cv => { const c = col(), { x, B } = one(cv, 140); const m = panel(x, B, [0.3, 1.6], [0, 1.6], { lab: 'F#min vs element width w/λ', ticks: [[0.5, '0.5'], [0.877, '0.88'], [1.315, '1.31']], hlines: [[0.53, '0.53']] });
         const rigid = r => { const s = 0.6034 / r; return s >= 1 ? 0 : 1 / (2 * Math.tan(Math.asin(s))); };
         const soft = r => { const f = s => Math.abs(sinc(r * s)) * Math.sqrt(1 - s * s) - 0.5; let a = 1e-6, b = 0.999999; if (f(b) > 0) return 0; for (let i = 0; i < 60; i++) { const mm = (a + b) / 2; if (f(mm) > 0) a = mm; else b = mm; } return 1 / (2 * Math.tan(Math.asin(a))); };
-        curve(x, m, rigid, c.a); curve(x, m, soft, c.b); } },
-    { prov: 'exact', q: 'How much axial motion can an angle sequence absorb?', a: 'At the target the loss is the phase-ramp sum <b>|sin(Nφ/2)/(N sin(φ/2))|</b>, φ ≈ 4πδ/λ per firing. Displacement over the sequence <b>λ/8 → −0.9 dB, λ/4 → −3.9 dB</b>, null at λ/2 (N = 31 blue, N = 5 pink). 31 angles at 10 kHz: λ/4 = 25 mm/s.',
+        curve(x, m, rigid, c.a); curve(x, m, soft, c.b, { dash: [6, 4] }); } },
+    { prov: 'exact', leg: [['N = 31', 'a', 'solid'], ['N = 5', 'b', 'dash']], q: 'How much axial motion can an angle sequence absorb?', a: 'At the target the loss is the phase-ramp sum <b>|sin(Nφ/2)/(N sin(φ/2))|</b>, φ ≈ 4πδ/λ per firing. Displacement over the sequence <b>λ/8 → −0.9 dB, λ/4 → −3.9 dB</b>, null at λ/2 (N = 31 blue, N = 5 pink). 31 angles at 10 kHz: λ/4 = 25 mm/s.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140); const m = panel(x, B, [0, 0.6], [-30, 1], { lab: 'loss (dB) vs displacement over the sequence (λ)', base: -30, ticks: [[0.125, '1/8'], [0.25, '1/4'], [0.5, '1/2']] });
-        [[31, c.a], [5, c.b]].forEach(([N, cc]) => curve(x, m, D => { if (D < 1e-6) return 0; const ph = 4 * PI * D / N; return db20(Math.sin(N * ph / 2) / (N * Math.sin(ph / 2)), -30); }, cc)); } }
+        [[31, c.a, null], [5, c.b, [6, 4]]].forEach(([N, cc, ds]) => curve(x, m, D => { if (D < 1e-6) return 0; const ph = 4 * PI * D / N; return db20(Math.sin(N * ph / 2) / (N * Math.sin(ph / 2)), -30); }, cc, ds ? { dash: ds } : {})); } }
   ];
 
   const VIS = [
-    { prov: 'sim', q: 'How far does an unfocused aperture keep converging?', a: 'To the last axial maximum at <b>D²/(4λ)</b>, where the edge phase πD²/(4λz) reaches π: <b>299 mm</b> for 19.2 mm at 5 MHz (direct sum: 297 mm). Beyond it the intensity only decays, as 1/z².',
+    { prov: 'sim', leg: [['on-axis intensity (direct sum)', 'a', 'solid'], ['0 dB at z = D²/(4λ)', 'mu', 'dash']], q: 'How far does an unfocused aperture keep converging?', a: 'To the last axial maximum at <b>D²/(4λ)</b>, where the edge phase πD²/(4λz) reaches π: <b>299 mm</b> for 19.2 mm at 5 MHz (direct sum: 297 mm). Beyond it the intensity only decays, as 1/z².',
       draw: cv => { const c = col(), { x, B } = one(cv, 140), D = 19.2, lam = C / 5, NFL = D * D / (4 * lam), I1 = axI(D, lam, 0, NFL, 160); const m = panel(x, B, [0.2, 2.5], [-10, 4], { lab: 'on-axis intensity (dB re z = D²/4λ) vs z/(D²/4λ)', base: -10, ticks: [[0.5, '0.5'], [1, '1'], [1.5, '1.5'], [2, '2']], hlines: [[0, '']] });
         curve(x, m, u => Math.max(-10, Math.min(4, 10 * Math.log10(axI(D, lam, 0, u * NFL, 160) / I1))), c.a); } },
-    { prov: 'sim', q: 'Does the intensity peak sit at the geometric focus?', a: 'Only at high Fresnel number <b>N<sub>F</sub> = D²/(4λF)</b>: peak at 0.99F for N<sub>F</sub> = 10, <b>0.90F at 3</b> and 0.61F at 1. Below N<sub>F</sub> ≈ 3 the 7λF#² rule overestimates the depth of field.',
+    { prov: 'sim', leg: [['intensity-peak depth / F', 'a', 'solid'], ['computed points', 'a', 'mark'], ['peak at F', 'mu', 'dash']], q: 'Does the intensity peak sit at the geometric focus?', a: 'Only at high Fresnel number <b>N<sub>F</sub> = D²/(4λF)</b>: peak at 0.99F for N<sub>F</sub> = 10, <b>0.90F at 3</b> and 0.61F at 1. Below N<sub>F</sub> ≈ 3 the 7λF#² rule overestimates the depth of field.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140), D = 19.2, lam = C / 5; const m = panel(x, B, [Math.log10(0.8), Math.log10(20)], [0.4, 1.05], { lab: 'peak / F vs N_F (log)', base: 0.4, ticks: [[0, '1'], [Math.log10(3), '3'], [1, '10']], hlines: [[1, '']] });
         const pts = []; for (let i = 0; i <= 24; i++) { const lg = Math.log10(0.8) + (Math.log10(20) - Math.log10(0.8)) * i / 24, NF = Math.pow(10, lg), F = D * D / (4 * lam * NF); let best = 0, zb = F;
           for (let j = 0; j <= 140; j++) { const z = F * (0.35 + 1.3 * j / 140), v = axI(D, lam, F, z, 120); if (v > best) { best = v; zb = z; } } pts.push([lg, zb / F]); }
@@ -1323,37 +1331,37 @@
     { prov: 'exact', q: 'What does receive apodization cost in SNR?', a: '<b>(Σw)²/(NΣw²)</b> against white channel noise: Tukey −0.87, Hamming −1.34, Gaussian −1.60, <b>Hann −1.76</b>, Blackman −2.37 dB. On transmit the currency is field: Hann −6.0 dB focal amplitude at fixed drive.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140), S = stats(), ks = Object.keys(S); const m = panel(x, B, [-0.6, ks.length - 0.4], [-2.8, 0.3], { lab: 'receive SNR price (dB)' });
         bars(x, m, ks.map((k, i) => [i, S[k].snr]), c.a, 18); ks.forEach((k, i) => text(x, k, m.X(i), m.Y(0) - 7, c.mu, 'center')); } },
-    { prov: 'model', q: 'How high is a broadband grating lobe?', a: 'Peak ≈ <b>1.064 M/N</b> with M = 0.883/FBW cycles, one- or two-way: at 60 % band <b>−32 dB for N = 64</b> (blue), −38 dB for 128 (pink), −42 dB for 192 (green), instead of 0 dB in CW.',
+    { prov: 'model', leg: [['N = 64', 'a', 'solid'], ['N = 128', 'b', 'dash'], ['N = 192', 'd', 'dot']], q: 'How high is a broadband grating lobe?', a: 'Peak ≈ <b>1.064 M/N</b> with M = 0.883/FBW cycles, one- or two-way: at 60 % band <b>−32 dB for N = 64</b> (blue), −38 dB for 128 (pink), −42 dB for 192 (green), instead of 0 dB in CW.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140); const m = panel(x, B, [0.2, 1.2], [-50, -15], { lab: 'grating-lobe peak (dB) vs FBW', base: -50, ticks: [[0.3, '30 %'], [0.6, '60 %'], [0.9, '90 %'], [1.2, '120 %']] });
-        [[64, c.a], [128, c.b], [192, c.d]].forEach(([N, cc]) => curve(x, m, f => 20 * Math.log10(1.064 * 0.883 / (f * N)), cc)); } },
-    { prov: 'model', q: 'What are the far sidelobes of a pulsed uniform aperture?', a: 'Two edge waves of peak <b>λ/(2πD|u|)</b> (blue), 6 dB under the CW envelope λ/(πD|u|) (pink dashed) once |u| &gt; Mλ/D. CW pattern in gray; N = 128, λ/2 pitch: <b>−32 dB at u = 0.1</b>.',
+        [[64, c.a, null], [128, c.b, [6, 4]], [192, c.d, [2, 3]]].forEach(([N, cc, ds]) => curve(x, m, f => 20 * Math.log10(1.064 * 0.883 / (f * N)), cc, ds ? { dash: ds } : {})); } },
+    { prov: 'model', leg: [['CW pattern', 'mu', 'solid'], ['CW envelope λ/(πD|u|)', 'b', 'dash'], ['edge waves λ/(2πD|u|)', 'a', 'solid']], q: 'What are the far sidelobes of a pulsed uniform aperture?', a: 'Two edge waves of peak <b>λ/(2πD|u|)</b> (blue), 6 dB under the CW envelope λ/(πD|u|) (pink dashed) once |u| &gt; Mλ/D. CW pattern in gray; N = 128, λ/2 pitch: <b>−32 dB at u = 0.1</b>.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140), N = 128, Dl = 64; const m = panel(x, B, [0, 0.4], [-60, 0], { lab: 'one-way pattern (dB) vs u = sin θ', base: -60, ticks: [[0.1, '0.1'], [0.2, '0.2'], [0.3, '0.3']] });
         curve(x, m, u => { const s = Math.sin(PI * 0.5 * u); return db20(Math.abs(s) < 1e-9 ? 1 : Math.sin(N * PI * 0.5 * u) / (N * s), -60); }, c.mu, { w: 0.7 });
         curve(x, m, u => db20(1 / (PI * Dl * u), -60), c.b, { dash: [4, 3] }); curve(x, m, u => db20(1 / (2 * PI * Dl * u), -60), c.a, { w: 2 }); } },
-    { prov: 'exact', q: 'How can two sparse apertures give a clean two-way beam?', a: 'Make the coarray gap-free. Tx every 3rd, Rx every 2nd (blue, top) reaches every lag: <b>no two-way grating lobe</b>. Tx = Rx every 2nd (pink, bottom) leaves every odd lag empty: a <b>0 dB lobe at λz/(2d)</b>. 24 elements.',
+    { prov: 'exact', leg: [['Tx every 3rd, Rx every 2nd (top)', 'a', 'fill'], ['Tx = Rx every 2nd (bottom)', 'b', 'fill']], q: 'How can two sparse apertures give a clean two-way beam?', a: 'Make the coarray gap-free. Tx every 3rd, Rx every 2nd (blue, top) reaches every lag: <b>no two-way grating lobe</b>. Tx = Rx every 2nd (pink, bottom) leaves every odd lag empty: a <b>0 dB lobe at λz/(2d)</b>. 24 elements.',
       draw: cv => { const c = col(), { x, w } = size(cv, 140), N = 24; const conv = (a, b) => { const o = new Array(a.length + b.length - 1).fill(0); a.forEach((u, i) => b.forEach((v, j) => { o[i + j] += u * v; })); return o; };
         const t3 = [...Array(N)].map((_, n) => n % 3 === 0 ? 1 : 0), r2 = [...Array(N)].map((_, n) => n % 2 === 0 ? 1 : 0), A = conv(t3, r2), Bc = conv(r2, r2);
         const mA = panel(x, { x: 4, y: 16, w: w - 8, h: 44 }, [-1, 47], [0, Math.max(...A) * 1.15], { lab: 'coarray, vernier 3/2', yaxis: false });
         const mB = panel(x, { x: 4, y: 82, w: w - 8, h: 44 }, [-1, 47], [0, Math.max(...Bc) * 1.15], { lab: 'coarray, Tx = Rx every 2nd', yaxis: false });
         bars(x, mA, A.map((v, i) => [i, v]), c.a, 3); bars(x, mB, Bc.map((v, i) => [i, v]), c.b, 3); } },
-    { prov: 'exact', q: 'What does random thinning do to sidelobes?', a: 'It trades grating lobes for a flat floor at <b>(N − K)/(K(N − 1)) ≈ 1/K</b> of peak power (blue, N = 64; dashed 1/K): K = 16 gives <b>−13.2 dB</b>. The worst lobe of one draw sits about 7 dB higher.',
+    { prov: 'exact', leg: [['(N − K)/(K(N − 1)), N = 64', 'a', 'solid'], ['1/K', 'mu', 'dash']], q: 'What does random thinning do to sidelobes?', a: 'It trades grating lobes for a flat floor at <b>(N − K)/(K(N − 1)) ≈ 1/K</b> of peak power (blue, N = 64; dashed 1/K): K = 16 gives <b>−13.2 dB</b>. The worst lobe of one draw sits about 7 dB higher.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140), N = 64; const m = panel(x, B, [4, 60], [-25, 0], { lab: 'mean sidelobe power (dB) vs K of 64', base: -25, ticks: [[16, '16'], [32, '32'], [48, '48']] });
         curve(x, m, K => 10 * Math.log10((N - K) / (K * (N - 1))), c.a); curve(x, m, K => 10 * Math.log10(1 / K), c.mu, { dash: [4, 3] }); } },
-    { prov: 'model', q: 'What does compounding add to one plane wave laterally?', a: 'One plane wave is receive-only: the <b>1.21 λF#</b> sinc (gray). 31 angles over ±15° multiply it by the transmit factor (blue): −6 dB width <b>0.46 mm instead of 0.56 mm</b> at 5 MHz, F#<sub>rx</sub> 1.5, and lower sidelobes.',
+    { prov: 'model', leg: [['one plane wave (receive only)', 'mu', 'dash'], ['31 angles over ±15°', 'a', 'solid']], q: 'What does compounding add to one plane wave laterally?', a: 'One plane wave is receive-only: the <b>1.21 λF#</b> sinc (gray). 31 angles over ±15° multiply it by the transmit factor (blue): −6 dB width <b>0.46 mm instead of 0.56 mm</b> at 5 MHz, F#<sub>rx</sub> 1.5, and lower sidelobes.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140), lam = C / 5; const m = panel(x, B, [-3, 3], [-50, 0], { lab: 'lateral pattern (dB) vs x (mm), narrowband', base: -50, ticks: [[-2, '−2'], [-1, '−1'], [1, '1'], [2, '2']] });
         const R = xx => sinc(xx / (lam * 1.5)), T = xx => { let re = 0, im = 0; for (let k = -15; k <= 15; k++) { const a = 2 * PI * xx * Math.sin(k * PI / 180) / lam; re += Math.cos(a); im += Math.sin(a); } return Math.hypot(re, im) / 31; };
-        curve(x, m, xx => db20(R(xx), -50), c.mu, { w: 1.2 }); curve(x, m, xx => db20(R(xx) * T(xx), -50), c.a, { w: 1.8 }); } },
+        curve(x, m, xx => db20(R(xx), -50), c.mu, { w: 1.2, dash: [6, 4] }); curve(x, m, xx => db20(R(xx) * T(xx), -50), c.a, { w: 1.8 }); } },
     { prov: 'model', q: 'What is the coarray of a plane-wave set?', a: 'The receive aperture copied at every virtual source ξ = z sin θ<sub>n</sub>. 11 angles × 3° at 30 mm with a 64-element receive: a staircase trapezoid <b>34.4 mm</b> wide (L<sub>rx</sub> + 2z sin θ<sub>max</sub>); its ripple period z Δ(sin θ) sets the replica.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140), d = 0.3, z = 30, nb = 241, bins = new Float64Array(nb);
         for (let k = -5; k <= 5; k++) { const v = z * Math.sin(3 * k * PI / 180); for (let e = 0; e < 64; e++) { const i = Math.round((v + (e - 31.5) * d + 36) / d); if (i >= 0 && i < nb) bins[i] += 1; } }
         const mx = Math.max(...bins); const m = panel(x, B, [-36, 36], [0, 1.1], { lab: 'coarray vs ξt + ξr (mm), binned per pitch', ticks: [[-17.2, '−17.2'], [17.2, '17.2']] });
         bars(x, m, Array.from(bins, (v, i) => [-36 + i * d, v / mx]), c.a, Math.max(1, m.X(d) - m.X(0) - 0.3)); } },
-    { prov: 'exact', q: 'What angle span gives what transmit F-number?', a: '<b>F#<sub>tx</sub> = 1/(2 tan θ<sub>max</sub>)</b>: ±15° gives 1.87, <b>±18.4° gives 1.5</b>, ±26.6° gives 1.0. Adding angles inside a fixed span moves replicas and lowers clutter but does not narrow the main lobe.',
+    { prov: 'exact', leg: [['1/(2 tan θmax)', 'a', 'solid'], ['F# 1.5', 'mu', 'dash']], q: 'What angle span gives what transmit F-number?', a: '<b>F#<sub>tx</sub> = 1/(2 tan θ<sub>max</sub>)</b>: ±15° gives 1.87, <b>±18.4° gives 1.5</b>, ±26.6° gives 1.0. Adding angles inside a fixed span moves replicas and lowers clutter but does not narrow the main lobe.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140); const m = panel(x, B, [4, 30], [0, 6], { lab: 'F#tx vs half-span θmax (degrees)', ticks: [[10, '10'], [15, '15'], [18.4, '18.4'], [26.6, '26.6']], hlines: [[1.5, 'F# 1.5']] });
         curve(x, m, t => 1 / (2 * Math.tan(t * PI / 180)), c.a); } },
-    { prov: 'model', q: 'How many angles for focused-equivalent quality?', a: '<b>N ≈ L/(λF#)</b> (step λ/L over a span 1/F#): <b>83</b> at 5 MHz for L = 38.4 mm and F# 1.5 (blue), 125 at 7.5 MHz (green), 50 at 3 MHz (pink). An upper bound: the receive pattern and the band already suppress most replicas.',
+    { prov: 'model', leg: [['3 MHz', 'b', 'dash'], ['5 MHz', 'a', 'solid'], ['7.5 MHz', 'd', 'dot'], ['83 (5 MHz, F# 1.5)', 'mu', 'dash']], q: 'How many angles for focused-equivalent quality?', a: '<b>N ≈ L/(λF#)</b> (step λ/L over a span 1/F#): <b>83</b> at 5 MHz for L = 38.4 mm and F# 1.5 (blue), 125 at 7.5 MHz (green), 50 at 3 MHz (pink). An upper bound: the receive pattern and the band already suppress most replicas.',
       draw: cv => { const c = col(), { x, B } = one(cv, 140), L = 38.4; const m = panel(x, B, [1, 4], [0, 200], { lab: 'angles vs F#', ticks: [[1.5, '1.5'], [2, '2'], [3, '3'], [4, '4']], hlines: [[83, '83']] });
-        [[3, c.b], [5, c.a], [7.5, c.d]].forEach(([f, cc]) => curve(x, m, F => L / ((C / f) * F), cc)); } }
+        [[3, c.b, [6, 4]], [5, c.a, null], [7.5, c.d, [2, 3]]].forEach(([f, cc, ds]) => curve(x, m, F => L / ((C / f) * F), cc, ds ? { dash: ds } : {})); } }
   ];
   Lab.cardGrid('m23', 'm23-bud', BUD);
   Lab.cardGrid('m23', 'm23-vis', VIS);
@@ -1390,34 +1398,34 @@
     1: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), zN = D * D / (4 * LAM);
       const T2 = tab('ax0b', 80, 800, 400, z => fieldAx(z)), mx = maxOf(T2);
       if (!cache.zl) { let a = lastMax(T2) - 2.5, b = a + 5; for (let i = 0; i < 40; i++) { const m1 = a + (b - a) * 0.382, m2 = a + (b - a) * 0.618; if (fieldAx(m1) < fieldAx(m2)) a = m1; else b = m2; } cache.zl = (a + b) / 2; } const zl = cache.zl;
-      const m = Mi.panel(x, bx(w, h), [80, 800], [0, 1.1], { lab: nw(w) ? 'on-axis I (unfocused) vs z (mm)' : 'on-axis intensity, unfocused 19.2 mm aperture, 5 MHz, vs z (mm)', ticks: [[100, '100'], [zN, zN.toFixed(0)], [500, '500'], [800, '800']] });
+      const m = Mi.panel(x, bx(w, h), [80, 800], [0, 1.1], { lab: nw(w) ? 'on-axis I (unfocused) vs z (mm)' : 'on-axis intensity, unfocused D = 19.2 mm, 5 MHz vs z (mm)', ticks: [[100, '100'], [zN, zN.toFixed(0)], [500, '500'], [800, '800']] });
       Mi.curve(x, m, z => look(T2, z) / mx, c.a, { w: 2 }); vl(x, m, zN, c.mu);
       lbl(x, 'last max ' + zl.toFixed(0) + ' mm', m.X(zl) + 6, m.Y(0.95), c.a); lbl(x, 'D²/(4λ) = ' + zN.toFixed(0) + ' mm', m.X(zN) + 6, m.Y(0.75), c.mu); },
     /* 2 focal shift at low Fresnel number */
     2: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [0.2, 1.8], [0, 1.1], { lab: nw(w) ? 'on-axis I vs z/F, D = 19.2 mm' : 'on-axis intensity (norm.) vs z/F, D = 19.2 mm, 5 MHz', ticks: [[0.5, '0.5'], [1, 'F'], [1.5, '1.5']] });
       [[10, c.a], [3, c.c], [1, c.b]].forEach(([NF, col], i) => { const F = D * D / (4 * LAM * NF), t = tab('foc' + NF, 0.2, 1.8, 200, u => field(0, u * F, F)), mx = maxOf(t), pk = argMax(t);
-        Mi.curve(x, m, u => look(t, u) / mx, col, { w: 1.8 }); dots(x, m, [[pk, 1]], col, 2.8); lbl(x, 'N_F ' + NF + ': ' + pk.toFixed(2) + 'F', m.X(1.78), m.Y(0.95 - 0.13 * i), col, 'right'); }); vl(x, m, 1, c.mu); },
+        Mi.curve(x, m, u => look(t, u) / mx, col, { w: 1.8, dash: [null, [6, 4], [2, 3]][i] || undefined }); dots(x, m, [[pk, 1]], col, 2.8); lbl(x, 'N_F ' + NF + ': ' + pk.toFixed(2) + 'F', m.X(1.78), m.Y(0.95 - 0.13 * i), col, 'right'); }); vl(x, m, 1, c.mu); },
     /* 3 direct sum vs Fourier transform at F# 1.56 */
     3: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), F = 30, td = tab('lat', -4, 4, 480, x0 => field(x0, F, F)), mx = maxOf(td);
-      const m = Mi.panel(x, bx(w, h), [-4, 4], [-45, 2], { lab: nw(w) ? 'focal profile (dB) vs x (mm), F 30' : 'focal profile (dB) vs x (mm): direct sum vs transform, F = 30 mm', base: -45, ticks: [[-3, '−3'], [-1, '−1'], [1, '1'], [3, '3']] });
+      const m = Mi.panel(x, bx(w, h), [-4, 4], [-45, 2], { yl: nw(w) ? 'focal profile (dB), F 30' : 'focal profile (dB): direct sum, transform, F = 30 mm', xl: 'x (mm)', base: -45, ticks: [[-3, '−3'], [-1, '−1'], [1, '1'], [3, '3']] });
       Mi.curve(x, m, u => db(sinc(u * D / (LAM * F))), c.mu, { dash: [4, 3], w: 1.3 }); Mi.curve(x, m, u => db10(look(td, u) / mx), c.a, { w: 1.6 });
       const sl = t => { let i = Math.round(t.n / 2); while (i < t.n && t.v[i + 1] < t.v[i]) i++; let q = 0; for (; i <= t.n; i++) q = Math.max(q, t.v[i]); return db10(q / mx); };
       lbl(x, 'first sidelobe ' + mn(sl(td).toFixed(1)) + ' vs ' + mn((() => { let q = 0; for (let u = 1; u < 2; u += 1e-4) q = Math.max(q, Math.abs(sinc(u))); return db(q); })().toFixed(1)) + ' dB', m.X(-3.9), m.Y(-3), c.fg);
       lbl(x, 'direct sum', m.X(1.3), m.Y(-9), c.a); lbl(x, 'FT (dashed)', m.X(1.3), m.Y(-17), c.mu); },
     /* 4 apodization price */
     4: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), N = 4096, W = { Rect: () => 1, Hann: i => 0.5 - 0.5 * Math.cos(2 * PI * (i + 0.5) / N), Hamming: i => 0.54 - 0.46 * Math.cos(2 * PI * (i + 0.5) / N) };
-      const m = Mi.panel(x, bx(w, h), [-8.6, 0.6], [0, 6.4], { lab: nw(w) ? 'loss (dB): Rx SNR | Tx focal amplitude' : 'price of apodization (dB): receive SNR (blue), transmit focal amplitude (amber)', base: 0, yaxis: false, ticks: [[-6, '−6'], [-4, '−4'], [-2, '−2'], [0, '0']] });
+      const m = Mi.panel(x, bx(w, h), [-8.6, 0.6], [0, 6.4], { yl: nw(w) ? 'window: Rx SNR | Tx focal' : 'window: receive SNR (blue), transmit focal amplitude (amber)', xl: 'loss (dB)', base: 0, yaxis: false, ticks: [[-6, '−6'], [-4, '−4'], [-2, '−2'], [0, '0']] });
       Object.keys(W).forEach((k, j) => { let s = 0, s2 = 0; for (let i = 0; i < N; i++) { const v = W[k](i); s += v; s2 += v * v; } const snr = db10(s * s / (N * s2)), tx = db(s / N), y = 5.6 - 2.1 * j;
         x.save(); x.fillStyle = c.a; x.fillRect(m.X(Math.min(snr, -0.05)), m.Y(y + 0.25), m.X(0) - m.X(Math.min(snr, -0.05)), m.Y(y - 0.3) - m.Y(y + 0.25)); x.fillStyle = c.c; x.fillRect(m.X(Math.min(tx, -0.05)), m.Y(y - 0.45), m.X(0) - m.X(Math.min(tx, -0.05)), m.Y(y - 1.0) - m.Y(y - 0.45)); x.restore();
         lbl(x, k, m.X(-8.5), m.Y(y - 0.1), c.fg); if (j) { lbl(x, snr.toFixed(2), m.X(snr) - 4, m.Y(y), c.a, 'right'); lbl(x, tx.toFixed(1), m.X(tx) - 4, m.Y(y - 0.72), c.c, 'right'); } }); },
     /* 5 PSL vs ISLR: Hann and Hamming */
     5: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [0, 14], [-80, 2], { lab: nw(w) ? 'one-way |P| (dB) vs u (λ/D)' : 'one-way pattern |P| (dB) vs u in units of λ/D', base: -80, ticks: [[2, '2'], [5, '5'], [10, '10'], [14, '14']] });
-      Mi.curve(x, m, u => db(Phan(u) / 0.5), c.a, { w: 1.5 }); Mi.curve(x, m, u => db(Pham(u) / 0.54), c.c, { w: 1.5 });
+      Mi.curve(x, m, u => db(Phan(u) / 0.5), c.a, { w: 1.5 }); Mi.curve(x, m, u => db(Pham(u) / 0.54), c.c, { w: 1.5, dash: [6, 4] });
       lbl(x, 'Hann: PSL ' + psl(Phan, 2).toFixed(1) + ', ISLR ' + islr(Phan, 2).toFixed(1), m.X(13.9), m.Y(-6), c.a, 'right');
       lbl(x, 'Hamming: PSL ' + psl(Pham, 2).toFixed(1) + ', ISLR ' + islr(Pham, 2).toFixed(1), m.X(13.9), m.Y(-17), c.c, 'right'); },
     /* 6 broadband grating lobe peak */
     6: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [Math.log2(16), Math.log2(256)], [-50, -10], { lab: nw(w) ? 'GL peak (dB) vs N elements' : 'grating-lobe peak re main lobe (dB) vs N, 1.064 M/N', base: -50, ticks: [[4, '16'], [5, '32'], [6, '64'], [7, '128'], [8, '256']] });
-      [[0.3, c.b], [0.6, c.a], [0.9, c.c]].forEach(([fb, col]) => { const M = 0.883 / fb; Mi.curve(x, m, u => db(1.064 * M / Math.pow(2, u)), col, { w: fb === 0.6 ? 2.2 : 1.4 }); lbl(x, (fb * 100) + ' %', m.X(7.95), m.Y(db(1.064 * M / Math.pow(2, 7.95))) + (fb === 0.9 ? 9 : -8), col, 'right'); });
+      [[0.3, c.b, [6, 4]], [0.6, c.a, null], [0.9, c.c, [2, 3]]].forEach(([fb, col, ds]) => { const M = 0.883 / fb; Mi.curve(x, m, u => db(1.064 * M / Math.pow(2, u)), col, { w: fb === 0.6 ? 2.2 : 1.4, dash: ds || undefined }); lbl(x, (fb * 100) + ' %', m.X(7.95), m.Y(db(1.064 * M / Math.pow(2, 7.95))) + (fb === 0.9 ? 9 : -8), col, 'right'); });
       const v = db(1.064 * 0.883 / 0.6 / 128); dots(x, m, [[7, v]], c.a); lbl(x, 'N = 128, 60 %: ' + mn(v.toFixed(1)) + ' dB', m.X(4.1), m.Y(-47), c.a); },
     /* 7 edge waves: pulsed sidelobe 6 dB below CW envelope */
     7: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), Dd = 19.7, m = Mi.panel(x, bx(w, h), [0.03, 0.3], [-45, -15], { lab: nw(w) ? 'sidelobe envelope (dB) vs u = sin θ' : 'far sidelobe level (dB) vs u = sin θ, D = 19.7 mm, 5 MHz', base: -45, ticks: [[0.05, '0.05'], [0.1, '0.1'], [0.2, '0.2'], [0.3, '0.3']] });
@@ -1426,24 +1434,23 @@
       lbl(x, nw(w) ? 'dots: reported sim.' : 'dots: reported simulation', m.X(0.29), m.Y(-17.5), c.c, 'right'); lbl(x, 'u 0.1: ' + db(1 / (2 * X(0.1))).toFixed(1) + ' dB', m.X(0.29), m.Y(-24), c.a, 'right'); },
     /* 8 coarray -> PSF */
     8: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), half = (w - 28) / 2;
-      const m1 = Mi.panel(x, { x: 6, y: 18, w: half - 6, h: h - 38 }, [-1.2, 1.2], [0, 1.15], { lab: 'a, b and a ∗ b (k_x)', ticks: [[-1, '−L'], [1, 'L']] });
+      const m1 = Mi.panel(x, { x: 6, y: 18, w: half - 6, h: h - 38 }, [-1.2, 1.2], [0, 1.15], { yl: 'a, b and a ∗ b', xl: 'k_x', ticks: [[-1, '−L'], [1, 'L']] });
       Mi.curve(x, m1, u => Mi.rect(u) * 0.55, c.mu, { dash: [4, 3], w: 1.2 }); Mi.curve(x, m1, u => Mi.tri(u), c.a, { fill: true, w: 2 });
-      const m2 = Mi.panel(x, { x: half + 24, y: 18, w: half - 6, h: h - 38 }, [-3, 3], [-50, 2], { lab: 'PSF = FT, dB', base: -50, ticks: [[-1, '−1'], [1, '1'], [2, '2']] });
-      Mi.curve(x, m2, u => db(sinc(u) ** 2), c.a, { w: 1.6 }); Mi.curve(x, m2, () => -26.5, c.mu, { dash: [3, 3], w: 1 }); lbl(x, '−26.5', m2.X(2.95), m2.Y(-26.5) - 7, c.mu, 'right');
+      const m2 = Mi.panel(x, { x: half + 24, y: 18, w: half - 6, h: h - 38 }, [-3, 3], [-50, 2], { yl: 'PSF = FT (dB)', xl: 'x (λz/L)', base: -50, ticks: [[-1, '−1'], [1, '1'], [2, '2']] });
+      Mi.curve(x, m2, u => db(sinc(u) ** 2), c.a, { w: 1.6 }); Mi.curve(x, m2, () => -26.5, c.mu, { dash: [2, 3], w: 1 }); lbl(x, '−26.5', m2.X(2.95), m2.Y(-26.5) - 7, c.mu, 'right');
       x.save(); x.fillStyle = c.mu; x.font = '600 15px ' + c.mono; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('→', half + 12, h / 2); x.restore(); },
     /* 9 vernier fills coarray gaps */
     9: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), NE = 24, co = (tx, rx) => { const a = new Float64Array(2 * NE - 1); for (let i = 0; i < NE; i++) for (let j = 0; j < NE; j++) if (tx(i) && rx(j)) a[i + j]++; return a; };
       const A = co(i => i % 2 === 0, j => j % 2 === 0), B = co(i => i % 3 === 0, j => j % 2 === 0), hh = (h - 44) / 2;
       [[A, 'Tx 2, Rx 2: odd lags empty', c.b, 16], [B, 'vernier Tx 3, Rx 2: all lags', c.a, 22 + hh]].forEach(([arr, t, col, y0]) => { let mx = 0; arr.forEach(v => mx = Math.max(mx, v));
-        const m = Mi.panel(x, { x: 6, y: y0 + 2, w: w - 12, h: hh - 8 }, [-1, 2 * NE - 1], [0, 1.1], { lab: t }); x.save(); x.strokeStyle = col; x.lineWidth = 2; arr.forEach((v, i) => { if (!v) return; x.beginPath(); x.moveTo(m.X(i), m.y0); x.lineTo(m.X(i), m.Y(v / mx)); x.stroke(); }); x.restore(); });
-      lbl(x, 'coarray lag (elements)', w - 8, h - 8, c.mu, 'right'); },
+        const m = Mi.panel(x, { x: 6, y: y0 + 2, w: w - 12, h: hh - 8 }, [-1, 2 * NE - 1], [0, 1.1], { yl: 'coarray weight: ' + t, xl: 'lag (elements)' }); x.save(); x.strokeStyle = col; x.lineWidth = 2; arr.forEach((v, i) => { if (!v) return; x.beginPath(); x.moveTo(m.X(i), m.y0); x.lineTo(m.X(i), m.Y(v / mx)); x.stroke(); }); x.restore(); }); },
     /* 10 random thinning floor */
     10: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), N = 64, m = Mi.panel(x, bx(w, h), [2, 6], [-24, 0], { lab: nw(w) ? 'sidelobe floor (dB) vs K of 64' : 'mean sidelobe (dB) vs K elements kept of N = 64', base: -24, ticks: [[3, '8'], [4, '16'], [5, '32'], [6, '64']] });
       const ms = u => { const Kk = Math.pow(2, u); return db10((N - Kk) / (Kk * (N - 1))); }; Mi.curve(x, m, ms, c.a, { w: 2 }); Mi.curve(x, m, u => ms(u) + 7, c.c, { dash: [4, 3] }); Mi.curve(x, m, u => db10(1 / Math.pow(2, u)), c.mu, { dash: [2, 3], w: 1.1 });
       dots(x, m, [[4, ms(4)]], c.a); lbl(x, 'K = 16: ' + mn(ms(4).toFixed(1)) + ' dB', m.X(4) - 6, m.Y(ms(4)) + 12, c.a, 'right'); lbl(x, 'peak ≈ mean + 7 (dashed)', m.X(2.05), m.Y(-21.5), c.c); lbl(x, '10 log(1/K) dotted', m.X(5.95), m.Y(-1.8), c.mu, 'right'); },
     /* 11 single plane wave: receive-only width */
     11: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), lF = LAM * 1.5, m = Mi.panel(x, bx(w, h), [-1.5, 1.5], [0, 1.08], { lab: nw(w) ? 'lateral |P| vs x (mm), F# 1.5' : 'lateral amplitude vs x (mm), 5 MHz, F# 1.5', ticks: [[-1, '−1'], [-0.279, ''], [0.279, '0.28'], [1, '1']] });
-      Mi.curve(x, m, u => Math.abs(sinc(u / lF)), c.a, { w: 2 }); Mi.curve(x, m, u => sinc(u / lF) ** 2, c.c, { w: 1.5 });
+      Mi.curve(x, m, u => Math.abs(sinc(u / lF)), c.a, { w: 2 }); Mi.curve(x, m, u => sinc(u / lF) ** 2, c.c, { w: 1.5, dash: [6, 4] });
       x.save(); x.strokeStyle = c.mu; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(m.b.x, m.Y(0.5)); x.lineTo(m.b.x + m.b.w, m.Y(0.5)); x.stroke(); x.restore();
       const hw = (p) => { let lo = 0, hi = 1; for (let i = 0; i < 50; i++) { const md = (lo + hi) / 2; if (Math.abs(sinc(md)) ** p > 0.5) lo = md; else hi = md; } return 2 * lo; };
       lbl(x, (nw(w) ? 'Rx only: ' : 'one plane wave (Rx only): ') + (hw(1) * lF).toFixed(2) + ' mm', m.X(-1.45), m.Y(1.0), c.a); lbl(x, (nw(w) ? 'two-way: ' : 'two-way F# 1.5: ') + (hw(2) * lF).toFixed(2) + ' mm', m.X(-1.45), m.Y(0.86), c.c);
@@ -1455,7 +1462,7 @@
     /* 13 transmit replica at lambda / delta sin theta */
     13: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), NA = 11, dth = 3, lF = LAM * 1.5, xr = LAM / Math.sin(dth * PI / 180);
       const TN = u => { let re = 0, im = 0; for (let n = 0; n < NA; n++) { const s = Math.sin((n - (NA - 1) / 2) * dth * PI / 180), p = 2 * PI * u * s / LAM; re += Math.cos(p); im += Math.sin(p); } return Math.hypot(re, im) / NA; };
-      const m = Mi.panel(x, bx(w, h), [-8, 8], [0, 1.1], { lab: nw(w) ? '|T_N(x)|, 11 × 3°, 5 MHz (mm)' : 'transmit factor |T_N(x)|, 11 angles 3° apart, 5 MHz, vs x (mm)', ticks: [[-xr, mn('−' + xr.toFixed(1))], [0, '0'], [xr, xr.toFixed(1)]] });
+      const m = Mi.panel(x, bx(w, h), [-8, 8], [0, 1.1], { lab: nw(w) ? '|T_N|, 11 × 3°, 5 MHz vs x (mm)' : 'transmit factor |T_N(x)|, 11 angles 3° apart, 5 MHz, vs x (mm)', ticks: [[-xr, mn('−' + xr.toFixed(1))], [0, '0'], [xr, xr.toFixed(1)]] });
       const tn = tab('tn', -8, 8, 800, TN); Mi.curve(x, m, u => look(tn, u), c.a, { w: 1.8 }); Mi.curve(x, m, u => Math.abs(sinc(u / lF)), c.mu, { dash: [4, 3], w: 1.2 });
       lbl(x, 'replica at λ/Δsinθ', m.X(xr) - 4, m.Y(1.04), c.a, 'right'); lbl(x, 'Rx pattern (dashed)', m.X(-7.8), m.Y(0.5), c.mu); },
     /* 14 ghost estimate vs number of angles */
@@ -1465,20 +1472,20 @@
       lbl(x, '11: ' + g(11).toFixed(0) + ' dB', m.X(11) + 6, m.Y(g(11)) - 8, c.a); lbl(x, 'L/(λF#) = 83', m.X(82), m.Y(-24), c.mu, 'right');
       lbl(x, nw(w) ? 'Rx envelope × 1.06M/N' : 'receive envelope 1/(πx/λF#) × 1.064M/N', m.X(nw(w) ? 20 : 25), m.Y(nw(w) ? -38 : -30), c.fg); },
     /* 15 SNR gain 10 log N */
-    15: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [1, 41], [0, 18], { lab: nw(w) ? 'SNR gain (dB) vs angles N' : 'SNR gain vs electronic noise (dB) vs angles N', ticks: [[3, '3'], [11, '11'], [21, '21'], [31, '31'], [41, '41']] });
-      Mi.curve(x, m, N => 10 * Math.log10(N), c.a, { w: 2 }); Mi.curve(x, m, () => 0, c.c, { w: 2 });
+    15: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [1, 41], [0, 18], { lab: nw(w) ? 'SNR gain (dB) vs angles N' : 'SNR gain over electronic noise (dB) vs angles N', ticks: [[3, '3'], [11, '11'], [21, '21'], [31, '31'], [41, '41']] });
+      Mi.curve(x, m, N => 10 * Math.log10(N), c.a, { w: 2 }); Mi.curve(x, m, () => 0, c.c, { w: 2, dash: [6, 4] });
       [3, 11, 31].forEach(N => { const v = 10 * Math.log10(N); dots(x, m, [[N, v]], c.a); lbl(x, v.toFixed(2), m.X(N) + 5, m.Y(v) + 10, c.a); }); lbl(x, 'speckle SNR₀: no gain', m.X(40), m.Y(0) - 8, c.c, 'right'); },
     /* 16 frame rate */
     16: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), m = Mi.panel(x, bx(w, h), [1, 41], [1, 4.5], { lab: nw(w) ? 'frame rate (Hz, log) vs N' : 'compounded frame rate (Hz, log) vs angles N', base: 1, ticks: [[1, '1'], [11, '11'], [21, '21'], [31, '31'], [41, '41']], hlines: [[2, '100 Hz'], [3, '1 kHz'], [4, '10 kHz']] });
-      [[40, c.a], [100, c.c]].forEach(([zm, col], i) => { const prf = 1540e3 / (2 * zm); Mi.curve(x, m, N => Math.log10(prf / N), col, { w: 2 }); dots(x, m, [[31, Math.log10(prf / 31)]], col);
+      [[40, c.a], [100, c.c]].forEach(([zm, col], i) => { const prf = 1540e3 / (2 * zm); Mi.curve(x, m, N => Math.log10(prf / N), col, { w: 2, dash: i ? [6, 4] : undefined }); dots(x, m, [[31, Math.log10(prf / 31)]], col);
         lbl(x, zm + ' mm: ' + (prf / 1e3).toFixed(2) + ' kHz → ' + (prf / 31).toFixed(0) + ' Hz', m.X(1.5), m.Y(1.75 - 0.42 * i), col); }); },
     /* 17 motion phase ramp */
     17: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), N = 31, m = Mi.panel(x, bx(w, h), [0, 0.6], [-30, 1], { lab: nw(w) ? 'coherent loss (dB) vs displacement/λ' : 'coherent loss (dB) vs total axial displacement / λ, N = 31', base: -30, ticks: [[0.125, 'λ/8'], [0.25, 'λ/4'], [0.5, 'λ/2']] });
       const L = d => { const ph = 4 * PI * d / N; return Math.abs(Math.sin(N * ph / 2) / (N * Math.sin(ph / 2 + 1e-15))); }; Mi.curve(x, m, d => d < 1e-6 ? 0 : db(L(d)), c.a, { w: 2 });
       dots(x, m, [[0.125, db(L(0.125))], [0.25, db(L(0.25))]], c.a); lbl(x, db(L(0.125)).toFixed(1) + ' dB', m.X(0.125) + 4, m.Y(db(L(0.125))) + 13, c.a); lbl(x, db(L(0.25)).toFixed(1) + ' dB', m.X(0.25) + 4, m.Y(db(L(0.25))) + 13, c.a); lbl(x, 'null', m.X(0.5) + 5, m.Y(-27), c.mu); },
     /* 18 element directivity sets F#min */
-    18: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), wl = 0.27 / LAM, m = Mi.panel(x, bx(w, h), [0, 80], [-20, 1], { lab: nw(w) ? '|E(θ)| (dB), w 0.27 mm, 5 MHz' : 'element directivity |E(θ)| (dB) vs θ (°), w = 0.27 mm, 5 MHz', base: -20, ticks: [[20, '20'], [40, '40'], [60, '60'], [80, '80']], hlines: [[-6.02, '−6 dB']] });
-      const Er = d => Math.abs(sinc(wl * Math.sin(d * PI / 180))), Es = d => Er(d) * Math.cos(d * PI / 180); Mi.curve(x, m, d => db(Er(d)), c.a, { w: 2 }); Mi.curve(x, m, d => db(Es(d)), c.c, { w: 2 });
+    18: cv => { const c = Mi.col(), { x, w, h } = Mi.size(cv, RH), wl = 0.27 / LAM, m = Mi.panel(x, bx(w, h), [0, 80], [-20, 1], { lab: nw(w) ? '|E(θ)| (dB), w 0.27 mm vs θ (°)' : 'element directivity |E(θ)| (dB) vs θ (°), w = 0.27 mm, 5 MHz', base: -20, ticks: [[20, '20'], [40, '40'], [60, '60'], [80, '80']], hlines: [[-6.02, '−6 dB']] });
+      const Er = d => Math.abs(sinc(wl * Math.sin(d * PI / 180))), Es = d => Er(d) * Math.cos(d * PI / 180); Mi.curve(x, m, d => db(Er(d)), c.a, { w: 2 }); Mi.curve(x, m, d => db(Es(d)), c.c, { w: 2, dash: [6, 4] });
       const a6 = E => { let lo = 0, hi = 89.9; for (let i = 0; i < 60; i++) { const md = (lo + hi) / 2; if (E(md) > 0.5) lo = md; else hi = md; } return lo; }, ar = a6(Er), as = a6(Es), fn = a => 1 / (2 * Math.tan(a * PI / 180));
       dots(x, m, [[ar, -6.02], [as, -6.02]], c.fg, 2.8); lbl(x, 'rigid ' + ar.toFixed(1) + '° → F# ' + fn(ar).toFixed(2), m.X(2), m.Y(-12), c.a); lbl(x, 'soft ' + as.toFixed(1) + '° → F# ' + fn(as).toFixed(2), m.X(2), m.Y(-16), c.c); }
   };
@@ -1543,19 +1550,19 @@
     const db = x => Math.max(-60, 20 * Math.log10(x / pk + 1e-12));
     const cv = $('m23-gl-cv'); const { ctx, w } = Lab.canvas(cv, 280); const box = { x: 50, y: 18, w: w - 66, h: 280 - 52 };
     const ax = Lab.axes(ctx, box, [umin, umax], [-60, 3], { xlabel: 'u = sin θ', ylabel: 'dB re visible max', title: { tx: 'one-way transmit', rx: 'one-way receive', two: 'two-way Tx × Rx' }[P.pat] + (P.bw ? ', ' + Math.round(P.bw * 100) + ' % band (energy pattern)' : ', CW'), yticks: [-60, -40, -20, 0] });
-    ctx.save(); ctx.globalAlpha = 0.7; ctx.fillStyle = c.grid; ctx.fillRect(ax.X(-1), box.y, ax.X(1) - ax.X(-1), box.h); ctx.restore();
+    const LG = 'm23-gl-leg'; if (Lab.on(LG, 'vis')) { ctx.save(); ctx.globalAlpha = 0.7; ctx.fillStyle = c.grid; ctx.fillRect(ax.X(-1), box.y, ax.X(1) - ax.X(-1), box.h); ctx.restore(); }
     ax.clip();
     const dlt = P.at === 'sp2' ? 2 * P.dl : P.dl, dlr = P.ar === 'sp2' ? 2 * P.dl : P.dl, u0t = Math.sin(P.tt * PI / 180), u0r = Math.sin(P.tr * PI / 180);
-    const marks = (u0, dle, col, lab) => { const out = []; ctx.save(); ctx.strokeStyle = col; ctx.setLineDash([2, 3]); ctx.fillStyle = col; ctx.font = '10px ' + c.mono;
+    const marks = (u0, dle, col, lab) => { const out = []; ctx.save(); if (!Lab.on(LG, lab === 'T' ? 'tx' : 'rx')) ctx.globalAlpha = 0; ctx.strokeStyle = col; ctx.setLineDash([2, 3]); ctx.fillStyle = col; ctx.font = '10px ' + c.mono;
       for (let m = -12; m <= 12; m++) { const um = u0 + m / dle; if (um < umin || um > umax) continue; ctx.beginPath(); ctx.moveTo(ax.X(um), box.y); ctx.lineTo(ax.X(um), box.y + box.h); ctx.stroke();
         if (m) { ctx.fillText(lab + (m > 0 ? '+' : '') + m, ax.X(um) + 2, box.y + (lab === 'T' ? 11 : 23)); if (Math.abs(um) <= 1) out.push([m, um]); } }
       ctx.restore(); return out; };
     const glT = (P.pat !== 'rx') ? marks(u0t, dlt, c.sig3, 'T') : [], glR = (P.pat !== 'tx') ? marks(u0r, dlr, c.sig4, 'R') : [];
     const xs = Array.from(us);
-    if (P.ep) Lab.line(ctx, ax, xs, xs.map(u => Math.max(-60, 20 * Math.log10(evalAt(P, F, u, 'el') + 1e-12))), c.sig2, 1.2, [5, 4]);
+    if (P.ep && Lab.on(LG, 'el')) Lab.line(ctx, ax, xs, xs.map(u => Math.max(-60, 20 * Math.log10(evalAt(P, F, u, 'el') + 1e-12))), c.sig2, 1.4, [10, 5]);
     if (P.pat === 'two') { const tv = xs.map(u => evalAt(P, F, u, 'tx')), rv = xs.map(u => evalAt(P, F, u, 'rx')), tm = Math.max(...tv), rm = Math.max(...rv);
-      Lab.line(ctx, ax, xs, tv.map(x => Math.max(-60, 20 * Math.log10(x / tm + 1e-12))), c.sig3, 1, [4, 3]); Lab.line(ctx, ax, xs, rv.map(x => Math.max(-60, 20 * Math.log10(x / rm + 1e-12))), c.sig4, 1, [1.5, 2.5]); }
-    Lab.line(ctx, ax, xs, Array.from(v, db), c.accent, 1.8);
+      if (Lab.on(LG, 'tx')) Lab.line(ctx, ax, xs, tv.map(x => Math.max(-60, 20 * Math.log10(x / tm + 1e-12))), c.sig3, 1, [4, 3]); if (Lab.on(LG, 'rx')) Lab.line(ctx, ax, xs, rv.map(x => Math.max(-60, 20 * Math.log10(x / rm + 1e-12))), c.sig4, 1, [1.5, 2.5]); }
+    if (Lab.on(LG, 'sel')) Lab.line(ctx, ax, xs, Array.from(v, db), c.accent, 1.8);
     ax.unclip();
     /* -6 dB width of the main lobe around the visible maximum */
     const half = 0.5 * pk; let lo = ipk, hi = ipk; while (lo > 0 && v[lo] >= half) lo--; while (hi < n && v[hi] >= half) hi++;
@@ -1571,7 +1578,7 @@
     $('m23-gl-read').innerHTML = txt;
   }
   ['m23-gl-d', 'm23-gl-tt', 'm23-gl-tr', 'm23-gl-n', 'm23-gl-b'].forEach(id => $(id).addEventListener('input', sched));
-  ['m23-gl-pat', 'm23-gl-at', 'm23-gl-ar', 'm23-gl-e'].forEach(id => $(id).addEventListener('change', sched));
+  ['m23-gl-pat', 'm23-gl-at', 'm23-gl-ar', 'm23-gl-e'].forEach(id => $(id).addEventListener('change', sched)); Lab.legendToggle('m23-gl-leg', sched);
   document.querySelectorAll('#m23-gl-pre [data-p]').forEach(b => b.addEventListener('click', () => {
     const [pat, d, tt, tr, N, bw, at, ar, e] = b.dataset.p.split(',');
     $('m23-gl-pat').value = pat; $('m23-gl-d').value = d; $('m23-gl-tt').value = tt; $('m23-gl-tr').value = tr; $('m23-gl-n').value = N; $('m23-gl-b').value = bw; $('m23-gl-at').value = at; $('m23-gl-ar').value = ar; $('m23-gl-e').checked = e === '1'; sched(); }));
@@ -1584,16 +1591,16 @@
   const $ = id => document.getElementById(id), PI = Math.PI, N = 8;
   let raf = 0; const sched = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); };
   function panel(cv, tau1, sg, title, c) {
-    const { ctx, w } = Lab.canvas(cv, 250); const box = { x: 30, y: 18, w: w - 40, h: 250 - 46 };
+    const { ctx, w } = Lab.canvas(cv, 250); const box = { x: 44, y: 18, w: w - 54, h: 250 - 46 };
     const t0 = -4 * sg - 0.5, t1 = (N - 1) * tau1 + 4 * sg + 0.5, nt = 600, ts = [], sr = [], se = [];
-    const ax = Lab.axes(ctx, box, [t0, t1], [-1.6, N + 0.8], { xlabel: 'time (periods T₀)', title, yticks: [], noYLabels: true, grid: false });
-    ax.clip();
+    const ax = Lab.axes(ctx, box, [t0, t1], [-1.6, N + 0.8], { xlabel: 'time (periods T₀)', ylabel: 'pulses (offset), sum/N', title, yticks: [], noYLabels: true, grid: false });
+    ax.clip(); const LG = 'm23-ps-leg';
     for (let k = 0; k < nt; k++) { const t = t0 + (t1 - t0) * k / (nt - 1); ts.push(t); let re = 0, im = 0;
       for (let n = 0; n < N; n++) { const a = t - n * tau1, g = Math.exp(-a * a / (2 * sg * sg)); re += g * Math.cos(2 * PI * a); im += g * Math.sin(2 * PI * a); }
       sr.push(re / N); se.push(Math.hypot(re, im) / N); }
-    for (let n = 0; n < N; n++) { const y0 = 1.2 + n * (N - 0.6) / N + 0.4, ys = ts.map(t => { const a = t - n * tau1; return y0 + 0.42 * Math.exp(-a * a / (2 * sg * sg)) * Math.cos(2 * PI * a); }); Lab.line(ctx, ax, ts, ys, c.muted, 0.9); }
+    for (let n = 0; n < N; n++) { const y0 = 1.2 + n * (N - 0.6) / N + 0.4, ys = ts.map(t => { const a = t - n * tau1; return y0 + 0.42 * Math.exp(-a * a / (2 * sg * sg)) * Math.cos(2 * PI * a); }); if (Lab.on(LG, 'el')) Lab.line(ctx, ax, ts, ys, c.muted, 0.9); }
     ctx.save(); ctx.strokeStyle = c.rule; ctx.setLineDash([2, 3]); [1, -1].forEach(v => { ctx.beginPath(); ctx.moveTo(box.x, ax.Y(v * 0.75 - 0.0)); ctx.lineTo(box.x + box.w, ax.Y(v * 0.75)); ctx.stroke(); }); ctx.restore();
-    Lab.line(ctx, ax, ts, sr.map(v => v * 0.75), c.accent, 1.5); Lab.line(ctx, ax, ts, se.map(v => v * 0.75), c.sig3, 1.2, [4, 3]);
+    if (Lab.on(LG, 'sum')) Lab.line(ctx, ax, ts, sr.map(v => v * 0.75), c.accent, 1.5); if (Lab.on(LG, 'env')) Lab.line(ctx, ax, ts, se.map(v => v * 0.75), c.sig3, 1.2, [4, 3]);
     ax.unclip();
     ctx.save(); ctx.font = '10px ' + c.mono; ctx.fillStyle = c.muted; ctx.textAlign = 'right'; ctx.fillText('sum/N = 1', box.x + box.w - 3, ax.Y(0.75) - 4); ctx.restore();
     return Math.max(...se);
@@ -1606,12 +1613,12 @@
     const pa = panel($('m23-ps-a'), 0, sg, '(a) main lobe, u = 0', c);
     const pb = panel($('m23-ps-b'), 1, sg, '(b) grating lobe, u = ' + ug.toFixed(3), c);
     const pc = panel($('m23-ps-c'), dl * u, sg, '(c) sidelobe, u = ' + u.toFixed(2), c);
-    $('m23-ps-read').innerHTML = 'M = 0.883/FBW = <b>' + M.toFixed(2) + '</b> cycles; delay per element τ₁ = d u/c<br>' +
+    $('m23-ps-read').innerHTML = 'pulse length M = 0.883/B = <b>' + M.toFixed(2) + '</b> cycles; delay per element τ₁ = d u/c<br>' +
       '(a) τ₁ = 0: peak <b>' + pa.toFixed(3) + '</b> (CW 1)<br>' +
       '(b) τ₁ = T₀: peak <b>' + pb.toFixed(3) + '</b> = ' + (20 * Math.log10(pb)).toFixed(1) + ' dB (law 1.064 M/N = ' + Math.min(1, 1.064 * M / N).toFixed(3) + '; CW 1)' + (ug > 1 ? '' : '') + '<br>' +
       '(c) τ₁ = ' + (dl * u).toFixed(3) + ' T₀: peak <b>' + pc.toFixed(3) + '</b> = ' + (20 * Math.log10(pc)).toFixed(1) + ' dB (CW ' + (cwv(u) < 1e-4 ? 'null' : (20 * Math.log10(cwv(u))).toFixed(1) + ' dB') + ')';
   }
-  ['m23-ps-d', 'm23-ps-bw', 'm23-ps-u'].forEach(id => $(id).addEventListener('input', sched));
+  ['m23-ps-d', 'm23-ps-bw', 'm23-ps-u'].forEach(id => $(id).addEventListener('input', sched)); Lab.legendToggle('m23-ps-leg', sched);
   Lab.onShow('m23', draw);
 })();
 </script>
@@ -1683,10 +1690,10 @@
     for (let p = 0; p < n2; p++) { const v = Math.hypot(re[p], im[p]) / m2; if (v > proj[p % NX]) proj[p % NX] = v; }
     const nrm = a => { const m = Math.max(...a); return a.map(v => Math.max(-70, 20 * Math.log10(v / m + 1e-9))); };
     { const cv = $('m23-pg-lat'); const { ctx, w } = Lab.canvas(cv, 190); const box = { x: 50, y: 18, w: w - 66, h: 190 - 52 };
-      const ax = Lab.axes(ctx, box, [-XL, XL], [-60, 3], { xlabel: 'x (mm) at z = ' + P.zt + ' mm', ylabel: 'dB', title: 'lateral patterns at the target depth', yticks: [-60, -40, -20, 0] });
-      ax.clip(); Lab.line(ctx, ax, xs, nrm(tx), c.sig3, 1.2, [5, 3]); Lab.line(ctx, ax, xs, nrm(Array.from(G.rx)), c.sig4, 1.2, [1.5, 2.5]);
-      const xp = []; for (let i = 0; i < NX; i++) xp.push(X0 + XW * i / (NX - 1)); Lab.line(ctx, ax, xp, Array.from(proj, v => Math.max(-70, 20 * Math.log10(v + 1e-9))), c.bad, 1, [3, 2]);
-      Lab.line(ctx, ax, xs, nrm(tw), c.accent, 1.8); ax.unclip(); }
+      const ax = Lab.axes(ctx, box, [-XL, XL], [-60, 3], { xlabel: 'x (mm) at z = ' + P.zt + ' mm', ylabel: 'level (dB)', title: 'lateral patterns at the target depth', yticks: [-60, -40, -20, 0] });
+      const LG = 'm23-pg-leg'; ax.clip(); if (Lab.on(LG, 'tx')) Lab.line(ctx, ax, xs, nrm(tx), c.sig3, 1.2, [5, 3]); if (Lab.on(LG, 'rx')) Lab.line(ctx, ax, xs, nrm(Array.from(G.rx)), c.sig4, 1.2, [1.5, 2.5]);
+      const xp = []; for (let i = 0; i < NX; i++) xp.push(X0 + XW * i / (NX - 1)); if (Lab.on(LG, 'str')) Lab.line(ctx, ax, xp, Array.from(proj, v => Math.max(-70, 20 * Math.log10(v + 1e-9))), c.bad, 1, [3, 2]);
+      if (Lab.on(LG, 'two')) Lab.line(ctx, ax, xs, nrm(tw), c.accent, 1.8); ax.unclip(); }
     /* readout */
     const lam = G.lam, wTW = width(xs, tw), wTX = width(xs, tx), wRX = width(xs, Array.from(G.rx));
     const stx = N > 1 ? Math.sin(P.hs * PI / 180) : 0, srx = 1 / (2 * P.fn); let wf = Infinity;
@@ -1697,7 +1704,7 @@
       gl.push((tg * 180 / PI).toFixed(1) + '° (Δ = ' + Dp.toFixed(1) + ' mm; ray from x = ' + xo.toFixed(1) + ' mm, ' + (Math.abs(xo) <= NEL * P.d / 2 ? 'reaches' : 'misses') + ' the target)'); } }
     let ds = 0; if (N > 1) ds = Math.sin(A[1] * PI / 180) - Math.sin(A[0] * PI / 180);
     const f2 = v => isFinite(v) ? v.toFixed(3) : 'flat';
-    $('m23-pg-read').innerHTML = 'd/λ₀ = <b>' + (P.d / lam).toFixed(2) + '</b>; no Tx lobe at ' + thm + '° needs d &lt; λ/(1+|sin θ|) = <b>' + dmax.toFixed(3) + '</b> mm<br>' +
+    $('m23-pg-read').innerHTML = 'pitch d/λ₀ = <b>' + (P.d / lam).toFixed(2) + '</b>; no Tx lobe at ' + thm + '° needs d &lt; λ/(1+|sin θ|) = <b>' + dmax.toFixed(3) + '</b> mm<br>' +
       'Tx grating-lobe wave' + (N > 1 ? ' (largest angle +' + thm + '°)' : '') + ': ' + (gl.length ? '<b>' + gl.slice(0, 2).join('; ') + '</b>' + (gl.length > 2 ? ' (+' + (gl.length - 2) + ' more)' : '') : '<span style="color:var(--good)">none</span>') + '<br>' +
       '−6 dB width: two-way <b>' + f2(wTW) + '</b>, Tx-only ' + f2(wTX) + ', Rx-only ' + f2(wRX) + ' mm<br>' +
       'formula <span class="eqref">(23.18)</span>: ' + wf.toFixed(3) + ' mm (κ = ' + (wf / lam * (stx + srx)).toFixed(3) + ')<br>' +
@@ -1721,7 +1728,7 @@
   }
   let raf = 0; const sched = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; update(); }); };
   ['m23-pg-n', 'm23-pg-s', 'm23-pg-d', 'm23-pg-f', 'm23-pg-z'].forEach(id => $(id).addEventListener('input', sched));
-  ['m23-pg-b', 'm23-pg-fn', 'm23-pg-e', 'm23-pg-v'].forEach(id => $(id).addEventListener('change', sched));
+  ['m23-pg-b', 'm23-pg-fn', 'm23-pg-e', 'm23-pg-v'].forEach(id => $(id).addEventListener('change', sched)); Lab.legendToggle('m23-pg-leg', sched);
   Lab.onShow('m23', update);
 })();
 </script>

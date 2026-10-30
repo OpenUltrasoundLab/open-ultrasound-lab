@@ -47,6 +47,7 @@ PARTS = [  # (roman, name, first, last)
     ('III', 'Physics & hardware', 15, 22),
     ('IV', 'Image formation & quality', 23, 27),
     ('V', 'Imaging modes & capstones', 28, 33),
+    ('VI', 'Systems & practice', 34, 40),
 ]
 def part_of(n):
     return next(i + 1 for i, p in enumerate(PARTS) if p[2] <= n <= p[3])
@@ -113,13 +114,13 @@ def balanced(s, start, tag):
 
 # ---------------------------------------------------------------- read modules
 short = {}
-for k in range(1, 6):
+for k in range(1, 7):
     f = root / f'rail{k}.html'
     if f.exists():
         for m in re.finditer(r'data-view="m(\d+)"><span class="num">\d+</span><span class="t">(.*?)</span>', f.read_text(encoding="utf-8")):
             short[int(m.group(1))] = html.unescape(m.group(2))
 subs, part_lede = {}, {}
-for k in range(1, 6):
+for k in range(1, 7):
     f = root / f'home{k}.html'
     if not f.exists():
         continue
@@ -131,7 +132,7 @@ for k in range(1, 6):
         part_lede[k] = plain(m.group(1))
 
 MODS = {}
-for n in range(1, 34):
+for n in range(1, 41):
     f = root / f'm{n}.html'
     if not f.exists():
         continue
@@ -272,14 +273,14 @@ SITE_CSS = r'''<style>
 .hero .cta a { text-decoration: none; }
 .aperture-wrap { margin: 34px 0 6px; }
 .aperture-cap { font: 400 0.84rem/1.45 var(--f-display); color: var(--muted); margin: 0 0 8px; max-width: 72ch; }
-.aperture { display: grid; grid-template-columns: repeat(33, minmax(0, 1fr)); gap: 3px; }
+.aperture { display: grid; grid-template-columns: repeat(var(--nmods, 34), minmax(0, 1fr)); gap: 3px; }
 .aperture a.el { display: flex; align-items: flex-end; justify-content: center; height: 78px; border-radius: 3px 3px 1px 1px; text-decoration: none;
   background: color-mix(in srgb, var(--pc) 24%, var(--panel)); color: var(--ink); font: 600 0.7rem/1 var(--f-mono); padding-bottom: 6px; transition: background .25s, color .25s, transform .25s; }
 .aperture a.el:hover, .aperture a.el:focus-visible { background: var(--pc); color: var(--panel); }
-:root { --part1: #1F5FD1; --part2: #0F7A63; --part3: #A86E05; --part4: #C2366F; --part5: #6B48C8; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --part1: #7FA3FF; --part2: #4CCFAE; --part3: #E3B04B; --part4: #F07DAE; --part5: #B39CFF; } }
-:root[data-theme="dark"] { --part1: #7FA3FF; --part2: #4CCFAE; --part3: #E3B04B; --part4: #F07DAE; --part5: #B39CFF; }
-.p1 { --pc: var(--part1); } .p2 { --pc: var(--part2); } .p3 { --pc: var(--part3); } .p4 { --pc: var(--part4); } .p5 { --pc: var(--part5); }
+:root { --part1: #1F5FD1; --part2: #0F7A63; --part3: #A86E05; --part4: #C2366F; --part5: #6B48C8; --part6: #0E7C86; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --part1: #7FA3FF; --part2: #4CCFAE; --part3: #E3B04B; --part4: #F07DAE; --part5: #B39CFF; --part6: #5FD3DC; } }
+:root[data-theme="dark"] { --part1: #7FA3FF; --part2: #4CCFAE; --part3: #E3B04B; --part4: #F07DAE; --part5: #B39CFF; --part6: #5FD3DC; }
+.p1 { --pc: var(--part1); } .p2 { --pc: var(--part2); } .p3 { --pc: var(--part3); } .p4 { --pc: var(--part4); } .p5 { --pc: var(--part5); } .p6 { --pc: var(--part6); }
 .tier { border-left: 4px solid var(--pc, var(--accent)); padding: 2px 12px 6px 14px; background: color-mix(in srgb, var(--pc, var(--accent)) 6%, transparent); border-radius: 0 10px 10px 0; }
 .tier h3 { color: var(--pc, inherit); }
 .tier li .num, .site-rail .part .num { color: var(--pc, var(--muted)) !important; }
@@ -424,7 +425,8 @@ SEARCH_INDEX = {'mods': {}, 'e': []}
 GLOSS = json.loads((root / 'glossary.json').read_text(encoding="utf-8")) if (root / 'glossary.json').exists() else []
 GL_BY = {g['t']: g for g in GLOSS}
 GL_RX = re.compile(r'(?<![\w\-/.#&])(' + '|'.join(re.escape(t) for t in sorted(GL_BY, key=len, reverse=True)) + r')(?=s?(?![\w\-]))') if GLOSS else None
-GL_SKIP = {'script', 'style', 'pre', 'code', 'a', 'h1', 'h2', 'h3', 'h4', 'summary', 'canvas', 'svg', 'button', 'select', 'option', 'textarea', 'label', 'abbr', 'title'}
+GL_SKIP = {'script', 'style', 'pre', 'code', 'a', 'h1', 'canvas', 'svg', 'button', 'select', 'option', 'textarea', 'label', 'abbr', 'title'}
+GL_BLOCK = {'p', 'li', 'td', 'th', 'dd', 'dt', 'h2', 'h3', 'h4', 'summary', 'figcaption', 'blockquote', 'caption'}
 GL_FIRST = {}   # term -> (module, section id) of first tagged use in its teaching module
 GL_USED = {}    # term -> set of modules where it is tagged
 
@@ -433,8 +435,109 @@ def gl_id(t):
     return 'g-' + re.sub(r'[^A-Za-z0-9]+', '-', t).strip('-')
 
 
+HEADER_V2 = set(range(1, 41))   # all modules (28 Oct 2026): compact header, contents, collapsed objectives, "↑ Contents" links
+
+
+def header_v2(body, n):
+    """Builds-on line, grouped linked contents and collapsed objectives in the header; collapsed badge legend; ↑ Contents after each h2."""
+    m = re.search(r'<div class="objectives">\s*<div><h4>You will be able to</h4>(<ul>.*?</ul>)</div>\s*<div><h4>Assumes</h4><ul>(.*?)</ul></div>\s*</div>', body, re.S)
+    if not m:
+        return body
+    obj_ul, ass = m.group(1), m.group(2)
+    items = []
+    for li in re.findall(r'<li>(.*?)</li>', ass, re.S):
+        a = re.search(r'(<a [^>]*>)Module (\d+)</a>', li)
+        rest = re.sub(r'^.*?</a>\s*·?\s*', '', li, flags=re.S).strip()
+        hint = rest.split(':', 1)[1].strip() if ':' in rest else rest
+        items.append((a.group(1) + a.group(2) + '</a> ' if a else '') + hint)
+    builds = '<p class="builds"><span class="lbl">Builds on</span> ' + ' · '.join(items) + '</p>' if items else ''
+    heads = re.findall(r'<h2 id="(m%d-(?:s[^"]+|interview))">\s*<span class="sec">([\d.]+)</span>(.*?)</h2>' % n, body, re.S)
+    kw = TOC_KW.get(str(n), {})
+    theory, practice, in_p = [], [], False
+    for i, num, t in heads:
+        t = plain(t).strip()
+        short = next((v for k, v in STD_SECS if t.startswith(k)), None)
+        if short: in_p = True
+        if in_p:
+            practice.append(f'<a class="chip-s" href="#{i}">{esc(short or t)}</a>')
+            continue
+        if ':' in t:
+            h1, h2 = t.split(':', 1); label = f'<b>{esc(h1.strip())}</b> <span class="det">· {esc(h2.strip())}</span>'
+        elif kw.get(num) and kw[num] in t:
+            k = kw[num]; j = t.index(k); label = esc(t[:j]) + f'<b>{esc(k)}</b>' + esc(t[j + len(k):])
+        else:
+            label = esc(t)
+        theory.append(f'<li><a href="#{i}"><span class="tn">{num}</span>{label}</a></li>')
+    contents = (f'<details class="mtoc" id="m{n}-toc"><summary>Contents <span class="muted">({len(heads)} sections)</span></summary>'
+                f'<div class="grp-l">Theory</div><ol>{"".join(theory)}</ol>'
+                + (f'<div class="grp-l">Review &amp; practice</div><div class="chips-s">{"".join(practice)}</div>' if practice else '') + '</details>'
+                '<script>(function(){var d=document.currentScript.previousElementSibling;if(window.matchMedia("(min-width: 760px)").matches)d.open=true;})();</script>')
+    nobj = obj_ul.count('<li>')
+    objd = f'<details class="mobj"><summary>What you will be able to do <span class="muted">({nobj})</span></summary>{obj_ul}</details>'
+    syms, seen_s = [], set()
+    for dl in re.findall(r'<dl class="where">(.*?)</dl>', body, re.S):
+        for dt, dd in re.findall(r'<dt>(.*?)</dt>\s*<dd>(.*?)</dd>', dl, re.S):
+            key = re.sub(r'\s+', '', dt)
+            if key in seen_s: continue
+            seen_s.add(key); syms.append((dt, dd))
+    symd = (f'<details class="msym"><summary>Symbols in this module <span class="muted">({len(syms)})</span></summary>'
+            '<dl class="where">' + ''.join(f'<dt>{a}</dt><dd>{b}</dd>' for a, b in syms) + '</dl></details>') if syms else ''
+    body = body[:m.start()] + builds + contents + objd + symd + body[m.end():]
+    body = re.sub(r'<div class="prov-legend"([^>]*)>(.*?)</div>', r'<details class="provd"><summary>How to read the figure badges</summary><div class="prov-legend"\1>\2</div></details>', body, count=1, flags=re.S)
+    body = re.sub(r'(<h2 id="m%d-(?:s[^"]+|interview)">\s*<span class="sec">[\d.]+</span>.*?</h2>)' % n, r'\1<a class="toc-up" href="#m%d-toc">↑ Contents</a>' % n, body, flags=re.S)
+    return body
+
+STD_SECS = [('Visual summary', 'Visual summary'), ('How experts think', 'How experts think'), ('Cheat sheet', 'Cheat sheet'),
+            ('Interview', 'Interview'), ('MATLAB lab', 'MATLAB lab'), ('Practical exercises', 'Exercises'), ('Self-check', 'Self-check'),
+            ('Check yourself', 'Self-check'), ('Figures from the literature', 'Literature'), ('Go deeper', 'Go deeper'), ('Primary documents', 'Primary documents')]
+TOC_KW = json.loads((root / 'toc_keywords.json').read_text(encoding='utf-8')) if (root / 'toc_keywords.json').exists() else {}
+
+
+def _div_block(s, i):
+    d = 0
+    for m in re.finditer(r'<(/?)div\b[^>]*>', s[i:]):
+        d += -1 if m.group(1) else 1
+        if d == 0:
+            return i + m.end()
+    return len(s)
+
+
+def compact_rules(body):
+    """Rule cards: expert line, key numbers and figure stay visible; 'why' text and 'breaks when' fold into <details> (28 Oct 2026)."""
+    out, pos = [], 0
+    for m in re.finditer(r'<div class="rule"(?: id="[^"]*")?>', body):
+        if m.start() < pos:
+            continue
+        end = _div_block(body, m.start())
+        card = body[m.start():end]
+        opentag = m.group(0); inner = card[len(opentag):-len('</div>')]
+        parts, figs, why, lim = [], [], '', ''
+        j = 0
+        for cm in re.finditer(r'<div class="(say|keynum|why|limits)"[^>]*>', inner):
+            if cm.start() < j:
+                continue
+            e = _div_block(inner, cm.start()); blk = inner[cm.start():e]; j = e
+            k = cm.group(1)
+            if k == 'why':
+                w = blk
+                for fm in list(re.finditer(r'<div class="rule-fig"', w))[::-1]:
+                    fe = _div_block(w, fm.start()); figs.insert(0, w[fm.start():fe]); w = w[:fm.start()] + w[fe:]
+                why = w
+            elif k == 'limits':
+                lim = blk
+            else:
+                parts.append(blk)
+        if not why and not lim:
+            out.append(body[pos:end]); pos = end; continue
+        det = '<details class="rdet"><summary>Why it holds · when it breaks</summary>' + why + lim + '</details>'
+        out.append(body[pos:m.start()] + opentag + ''.join(parts) + ''.join(figs) + det + '</div>')
+        pos = end
+    out.append(body[pos:])
+    return ''.join(out)
+
+
 def tag_terms(body, n):
-    """Wrap the first use of each glossary term in every h2 section (text only; not math, code, links, headings)."""
+    """Wrap the first use of each glossary term in every block (paragraph, list item, cell, card, heading (text only; not math, code, links, headings)."""
     if not GL_RX:
         return body, set()
     out, used, seen, stack = [], set(), set(), []
@@ -447,7 +550,9 @@ def tag_terms(body, n):
             if tm:
                 close, name, attrs, selfc = tm.group(1), tm.group(2).lower(), tm.group(3), tm.group(4)
                 if name == 'h2' and not close:
-                    seen = set(); hid = re.search(r'id="([^"]+)"', attrs); sec = hid.group(1) if hid else sec
+                    hid = re.search(r'id="([^"]+)"', attrs); sec = hid.group(1) if hid else sec
+                if not close and (name in GL_BLOCK or (name == 'div' and re.search(r'class="[^"]*\b(rule|say|why|limits|callout|takeaways|k60|rf-card|litfig|note)\b', attrs or ''))):
+                    seen = set()
                 skip = name in GL_SKIP or re.search(r'class="[^"]*\b(eqn-math|where|tag|sec|num|page-meta|dl-bar)\b', attrs or '')
                 if not close and not selfc and name not in ('br', 'img', 'input', 'hr', 'meta', 'link', 'wbr', 'source', 'col'):
                     stack.append((name, bool(skip) or (stack[-1][1] if stack else False)))
@@ -523,6 +628,26 @@ GL_JS = """<script>
   }
   document.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('abbr.gl'); if (a) { e.preventDefault(); cur === a ? close() : open(a); } else if (card && !card.contains(e.target)) close(); });
   document.addEventListener('keydown', function (e) { var a = e.target.closest && e.target.closest('abbr.gl'); if (a && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(a); } if (e.key === 'Escape') close(); });
+  var keys = Object.keys(D).sort(function (a, b) { return b.length - a.length; });
+  var RX = keys.length ? new RegExp('(^|[^\\\\w\\\\-/.#&])(' + keys.map(function (k) { return k.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'); }).join('|') + ')(?=s?(?![\\\\w\\\\-]))', 'g') : null;
+  var SKIPT = /^(SCRIPT|STYLE|PRE|CODE|A|ABBR|CANVAS|SVG|BUTTON|SELECT|OPTION|TEXTAREA|LABEL|MJX-CONTAINER)$/;
+  function tagBlock(el) {
+    if (!RX) return; var seen = {}, inm = false, nodes = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), t;
+    while ((t = w.nextNode())) { var p = t.parentNode, skip = false; while (p && p !== el) { if (SKIPT.test(p.nodeName) || (p.classList && p.classList.contains('prov'))) { skip = true; break; } p = p.parentNode; } if (!skip) nodes.push(t); }
+    nodes.forEach(function (n) {
+      var parts = n.nodeValue.split(/(\\\\\\(|\\\\\\)|\\\\\\[|\\\\\\])/), html = '', hit = false;
+      parts.forEach(function (q) {
+        if (q === '\\\\(' || q === '\\\\[') { inm = true; html += esc(q); return; }
+        if (q === '\\\\)' || q === '\\\\]') { inm = false; html += esc(q); return; }
+        if (inm) { html += esc(q); return; }
+        html += esc(q).replace(RX, function (m0, pre, k) { if (seen[k]) return m0; seen[k] = 1; hit = true; return pre + '<abbr class="gl" tabindex="0" data-g="' + k + '">' + k + '</abbr>'; });
+      });
+      if (hit) { var s = document.createElement('span'); s.innerHTML = html; while (s.firstChild) n.parentNode.insertBefore(s.firstChild, n); n.remove(); }
+    });
+  }
+  function esc(x) { return x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  window.glTag = function (root) { (root || document).querySelectorAll('.rf-card h4, .rf-card p, [data-gltag]').forEach(function (b) { if (!b.querySelector('abbr.gl')) tagBlock(b); }); };
+  window.glTag();
   var hov; document.addEventListener('mouseover', function (e) { if (!window.matchMedia('(hover: hover)').matches) return; var a = e.target.closest && e.target.closest('abbr.gl'); if (a) { clearTimeout(hov); hov = setTimeout(function () { open(a); }, 250); } });
   document.addEventListener('mouseout', function (e) { var a = e.target.closest && e.target.closest('abbr.gl'); if (a) clearTimeout(hov); });
 })();
@@ -664,7 +789,7 @@ def jsonld(obj):
 
 AUTHOR_LD = {'@type': 'Person', 'name': 'M. Nguyen', 'url': AUTHOR, 'sameAs': [AUTHOR, f"https://orcid.org/{CFG.get('ORCID', '')}"]}
 COURSE_LD = {'@type': 'Course', 'name': 'Open Ultrasound Lab', '@id': SITE_URL + '#course', 'url': SITE_URL,
-             'description': 'A free, open, interactive course on the mathematics, physics, hardware and signal processing of ultrasound imaging: 33 modules with live demos and MATLAB/Octave labs.',
+             'description': f'A free, open, interactive course on the mathematics, physics, hardware and signal processing of ultrasound imaging: {len(MODS)} modules with live demos and MATLAB/Octave labs.',
              'provider': {'@type': 'Person', 'name': 'M. Nguyen', 'url': AUTHOR}, 'author': AUTHOR_LD,
              'isAccessibleForFree': True, 'inLanguage': 'en', 'license': 'https://creativecommons.org/licenses/by/4.0/',
              'educationalLevel': 'Graduate / professional', 'teaches': 'Ultrasound signal processing, beamforming, transducers, Doppler, elastography, ULM, sound speed estimation, aberration correction',
@@ -721,7 +846,7 @@ def rail_html(cur):
     up = rel('.', from_dir) if from_dir else '.'
     up = up + '/'
     h = [f'<aside class="rail site-rail" aria-label="Course modules">',
-         f'<a class="brand" href="{up}index.html">Open Ultrasound Lab<small>33 modules in five parts</small></a>',
+         f'<a class="brand" href="{up}index.html">Open Ultrasound Lab<small>{len(MODS)} modules in six parts</small></a>',
          f'<div class="quick"><a href="{up}index.html#paths">Learning paths</a><a href="{up}formula-sheet/index.html">Formula sheet</a>'
          f'<a href="{up}interview/index.html">Interview prep</a></div>', search_box('rail', 2)]
     for i, (ro, name, a, z) in enumerate(PARTS, 1):
@@ -768,7 +893,9 @@ for a, b in SHELL_FIXES:
     shell_body = shell_body.replace(a, b, 1)
 
 for _n, _M in MODS.items():   # glossary pre-pass: where each term is first used in its teaching module
-    tag_terms(add_anchors(re.sub(r'<script\b[^>]*>.*?</script>', '', _M['src'], flags=re.S), _n), _n)
+    _b = re.sub(r'<script\b[^>]*>.*?</script>', '', _M['src'], flags=re.S)
+    _b = re.sub(r'<h2>(<span class="sec">[\d.]+</span>Interview and qualifying-exam questions)</h2>', f'<h2 id="m{_n}-interview">\\1</h2>', _b, count=1)
+    tag_terms(add_anchors(_b, _n), _n)
 
 link_count = 0
 for n, M in MODS.items():
@@ -782,6 +909,20 @@ for n, M in MODS.items():
     body = re.sub(r'<h2>(<span class="sec">[\d.]+</span>Interview and qualifying-exam questions)</h2>',
                   f'<h2 id="m{n}-interview">\\1</h2>', body, count=1)
     body = add_anchors(body, n)
+    _ids = set(re.findall(r'\bid="([^"]+)"', body))
+    def _fixref(mm):
+        h = mm.group(1)
+        if h in _ids: return mm.group(0)
+        k = re.match(r'm(\d+)-s0*(\d+)-(\d+)$', h)
+        if k:
+            for cand in (f'm{k.group(1)}-s{int(k.group(2)):02d}-{k.group(3)}', f'm{k.group(1)}-s{int(k.group(2))}-{k.group(3)}', f'm{k.group(1)}-interview'):
+                if cand in _ids and (cand != f'm{k.group(1)}-interview' or 'Interview' in body[body.find('id="' + cand + '"'):body.find('id="' + cand + '"') + 200]):
+                    return f'href="#{cand}"'
+        return mm.group(0)
+    body = re.sub(r'href="#([^"]+)"', _fixref, body)
+    if n in HEADER_V2:
+        body = header_v2(body, n)
+    body = compact_rules(body)
     index_module(n, M, body)
     body = inline_code(body)
     body, gl_used = tag_terms(body, n)
@@ -803,7 +944,9 @@ for n, M in MODS.items():
             + '</div>')
     main = meta + '\n' + body + '\n' + footer(2)
     out = shell_body.replace('<!--RAIL-->', rail_html(n)).replace('<!--HOME-->', '').replace('<!--MODULES-->', main)
-    out = out.replace('<!--MODULE-SCRIPTS-->', scripts_txt + '\n' + ANCHOR_JS + '\n' + gl_data(gl_used, 2) + GL_JS)
+    js_terms = {t for t in set(GL_RX.findall('\n'.join(scripts))) if 'only' not in GL_BY[t] or n in GL_BY[t]['only']} if GL_RX else set()
+    for t in js_terms - gl_used: GL_USED.setdefault(t, set()).add(n)
+    out = out.replace('<!--MODULE-SCRIPTS-->', scripts_txt + '\n' + ANCHOR_JS + '\n' + gl_data(gl_used | js_terms, 2) + GL_JS)
     out = out.replace('<!--MATHJAX-->', mj_tag(2))
     secs = [re.sub(r'^\d+\.\d+\s*', '', ptxt(h)) for h in re.findall(r'<h2 id="m\d+-s[^"]*">(.*?)</h2>', body, re.S)]
     secs = [x for x in secs if x and not re.match(r'(Cheat sheet|Interview|Check yourself|References|Further reading|MATLAB|Summary)', x)]
@@ -877,8 +1020,10 @@ def landing():
             if n in MODS:
                 ttl = attr(f'{n:02d} {MODS[n]["title"]}')
                 els.append(f'<a class="el p{i}" href="{MODS[n]["url"]}" data-n="{n}" title="{ttl}" aria-label="{ttl}">{n:02d}</a>')
-        labs.append(f'<span class="plab p{i}" style="grid-column: {a} / {z + 1}">Part {ro} · {esc(name)}</span>')
-    aperture = ('<div class="aperture" id="aperture">' + ''.join(els) + ''.join(labs) + '</div>')
+        zz = max([n for n in MODS if a <= n <= z] or [a])
+        if any(a <= n <= z for n in MODS):
+            labs.append(f'<span class="plab p{i}" style="grid-column: {a} / {zz + 1}">Part {ro} · {esc(name)}</span>')
+    aperture = (f'<div class="aperture" id="aperture" style="--nmods:{max(MODS)}">' + ''.join(els) + ''.join(labs) + '</div>')
 
     tiers = []
     for i, (ro, name, a, z) in enumerate(PARTS, 1):
@@ -888,8 +1033,10 @@ def landing():
             for n in range(a, z + 1) if n in MODS)
         lede = part_lede.get(i, '')
         first = clip(lede.split('. ')[0] + '.', 220) if lede else ''
+        have = [n for n in range(a, z + 1) if n in MODS]
         tiers.append(f'<div class="tier p{i}" id="part-{i}"><h3>Part {ro} · {esc(name)}</h3>'
-                     f'<p class="sub">Modules {a:02d}–{z:02d}</p>'
+                     + (f'<p class="sub">Modules {a:02d}–{z:02d}</p>' if all(n in MODS for n in range(a, z + 1))
+                        else f'<p class="sub">Module{"s" if len(have) > 1 else ""} {", ".join(f"{n:02d}" for n in have)} · more in preparation</p>')
                      + (f'<p class="muted" style="font-size:.9rem;margin:0 0 10px">{esc(first)}</p>' if first else '')
                      + f'<ol>{items}</ol></div>')
 
@@ -927,17 +1074,18 @@ def landing():
     body = f'''<div class="hero">
   <p class="eyebrow">Free · open · interactive</p>
   <h1>Open Ultrasound Lab</h1>
-  <p class="lede">The mathematics, physics and signal processing behind modern ultrasound imaging, from phasors and the FFT to transducers, beamforming, localization microscopy, sound-speed estimation and aberration correction. Every idea comes with a figure you can change.</p>
+  <p class="lede">The mathematics, physics and signal processing behind modern ultrasound imaging, from phasors and the FFT to transducers, beamforming, Doppler, elastography, localization microscopy, sound-speed estimation and aberration correction, and on to the display chain, image enhancement and getting a device cleared. Every idea comes with a figure you can change.</p>
   <ul class="stats" aria-label="Course at a glance">
-    <li><b>{len(MODS)}</b><span>modules in 5 parts</span></li>
+    <li><b>{len(MODS)}</b><span>modules in 6 parts</span></li>
     <li><b>{n_demos}</b><span>live demos</span></li>
     <li><b>{n_eq}</b><span>numbered equations</span></li>
     <li><b>{n_scripts}</b><span>MATLAB/Octave labs</span></li>
     <li><b>{n_questions}</b><span>interview questions</span></li>
+    <li><b>{len(GLOSS)}</b><span>glossary terms</span></li>
   </ul>
   {search_box('hero', 0)}
   <div class="cta"><a class="btn solid" href="{MODS[min(MODS)]["url"]}">Start with module 01</a><a class="btn" href="#paths">Choose a learning path</a><a class="btn" href="formula-sheet/index.html">Formula sheet</a></div>
-  <p class="by">Version {esc(VERSION)} · {esc(DATE)}</p>
+  <p class="by">Version {esc(VERSION)} · last reviewed {esc(DATE)}</p>
 </div>
 <section class="note" aria-labelledby="note-h">
   <div class="note-mark" aria-hidden="true">&ldquo;</div>
@@ -956,7 +1104,7 @@ def landing():
   </div>
 </section>
 <div class="aperture-wrap">
-  <p class="aperture-cap">The course as a {len(MODS)}-element array, one element per module, grouped into five parts. Pick a learning path below to light up its active aperture; select an element to open that module.</p>
+  <p class="aperture-cap">The course as a {len(MODS)}-element array, one element per module, grouped into six parts. Pick a learning path below to light up its active aperture; select an element to open that module.</p>
   {aperture}
 </div>
 
@@ -965,16 +1113,17 @@ def landing():
 <div class="pathbar" id="pathbar" hidden>{"".join(btns)}</div>
 <div class="paths" id="paths-list">{"".join(paths)}</div>
 
-<h2 id="map">The five parts</h2>
-<div class="prose"><p>{len(MODS)} modules, {n_demos} interactive demos, {n_eq} numbered equations and {n_scripts} MATLAB/Octave scripts. Each module follows the same arc: derivations with live figures, a visual summary, how experts think about it, a cheat sheet, interview questions, a MATLAB lab, a self-check, figures from the literature and further reading.</p></div>
+<h2 id="map">The six parts</h2>
+<div class="prose"><p>{len(MODS)} modules, {n_demos} interactive demos, {n_eq} numbered equations and {n_scripts} MATLAB/Octave scripts. Each module follows the same arc: an "In 60 seconds" summary and practical lessons "From the field", derivations with live figures and key takeaways per section, a visual summary, how experts think about it, a cheat sheet, interview questions, a MATLAB lab, a self-check, figures from the literature and further reading.</p></div>
 <div class="map">{"".join(tiers)}</div>
 
 <h2 id="different">What makes it different</h2>
 <div class="diff">
+  <div><h3>Key messages first</h3><p>Every module opens with the five to seven messages an expert wants you to keep and with practical lessons from industry practice, and every section ends with its key takeaways. Tap any abbreviation for its definition; the glossary has {len(GLOSS)} terms.</p></div>
   <div><h3>Every figure says where it comes from</h3><p>Each plot carries one of four badges: <span class="prov exact">Exact formula</span><span class="prov sim">Simulation</span><span class="prov model">Approx. model</span><span class="prov schem">Schematic</span>. Simulations name the solver that actually ran; approximate models state their assumptions beside the figure.</p></div>
-  <div><h3>Runnable MATLAB and Octave</h3><p>{n_scripts} scripts in base MATLAB with no toolboxes. Every one runs unchanged in GNU Octave 8 and is executed headless on each change; the numbers it prints match the page text.</p></div>
+  <div><h3>Runnable MATLAB and Octave</h3><p>{n_scripts} scripts in base MATLAB with no toolboxes. Each runs unchanged in GNU Octave 8; all of them are run headless before a release (and on every change once the release workflow's checks are in place), and the numbers they print were matched to the page text when each script was written.</p></div>
   <div><h3>Literature you can check</h3><p>{n_lit} "Figures from the literature" entries point to a specific figure in a published paper, with citation and DOI, each looked up before it was included. Unverifiable details are removed or listed on the <a href="errata.html">errata page</a>.</p></div>
-  <div><h3>Checked, and still learning</h3><p>Every number on these pages was checked by running code. The author and several reviewers from the ultrasound field reviewed modules in their areas, and every module was independently audited: key results re-derived, every claim and citation checked, every lab run. The full <a href="errata.html#review">review record</a> lists every pass, every correction and the few claims still open. The most valuable review of all comes from readers, so corrections are always welcome.</p></div>
+  <div><h3>Checked, and still learning</h3><p>Numbers on these pages were checked by recomputing them in code wherever a formula or simulation produces them; values taken from the literature are cited, and the few claims still awaiting a primary source are listed openly. The author and several reviewers from the ultrasound field reviewed modules in their areas, and every module was independently audited: key results re-derived, every claim and citation checked, every lab run. The full <a href="errata.html#review">review record</a> lists every pass, every correction and the few claims still open. The most valuable review of all comes from readers, so corrections are always welcome.</p></div>
 </div>
 
 <h2 id="sheet">Formula sheet</h2>
@@ -985,7 +1134,7 @@ def landing():
 <p>BibTeX and CITATION.cff are on the <a href="cite.html">citation page</a>. Found a mistake? <a href="{attr(REPO)}/issues/new">Open an issue</a> or read <a href="contribute.html">how to contribute</a>. Please read the <a href="disclaimer.html">disclaimer</a> before relying on anything here.</p></div>
 '''
     static_page('index.html', 'Open Ultrasound Lab: free interactive course on ultrasound imaging, physics and signal processing',
-                'A free, open, interactive course: 33 modules on the math, physics, hardware and signal processing of ultrasound imaging, with live figures and runnable MATLAB/Octave.',
+                f'A free, open, interactive course: {len(MODS)} modules on the math, physics, hardware and signal processing of ultrasound imaging, with live figures and runnable MATLAB/Octave.',
                 body + js, 'home', ld={'@context': 'https://schema.org', '@graph': [{'@type': 'WebSite', 'name': 'Open Ultrasound Lab', 'url': SITE_URL, 'author': AUTHOR_LD}, COURSE_LD]})
 
 
@@ -1239,12 +1388,12 @@ audited_list = AUD['audited']
 aud_txt = (f'{len(audited_list)} of {len(MODS)}' if audited_list else 'none yet')
 
 static_page('about.html', 'About — Open Ultrasound Lab', 'What Open Ultrasound Lab is, how it was built with an AI model, and how it is checked.', f'''
-<div class="hero"><h1>About</h1><p class="lede">Open Ultrasound Lab is a free course on the mathematics, physics, hardware and signal processing of ultrasound imaging, written for engineers and researchers who want to read, and then extend, current work in localization microscopy, sound-speed estimation and aberration correction.</p></div>
+<div class="hero"><h1>About</h1><p class="lede">Open Ultrasound Lab is a free course on the mathematics, physics, hardware and signal processing of ultrasound imaging, written for engineers and researchers who build, evaluate or bring ultrasound systems to market, and for those who want to read, and then extend, current research in localization microscopy, sound-speed estimation and aberration correction.</p></div>
 <div class="prose">
 <h2>The project</h2>
-<p>The course has {len(MODS)} modules in five parts, from complex numbers and the FFT to the three capstones. Each module derives its results, puts {n_demos // len(MODS)}-odd interactive demos next to the equations, collects the rules of thumb experts quote, and ends with interview questions, a MATLAB lab and a self-check. Modules link to each other by number, so you can start anywhere and follow the prerequisites back.</p>
+<p>The course has {len(MODS)} modules in six parts: (1) math and signal foundations, (2) ultrasound signal processing and estimation, (3) physics and hardware, (4) image formation and quality, (5) imaging modes and the three research capstones, and (6) systems and practice: the display chain, image enhancement, and taking a device from prototype to an FDA 510(k) clearance and CE marking. Each module opens with an "In 60 seconds" summary and practical lessons "From the field", derives its results with {n_demos // len(MODS)}-odd interactive demos next to the equations, ends each section with key takeaways, collects the rules of thumb experts quote, and closes with interview questions, a MATLAB lab and a self-check. Every abbreviation links to the {len(GLOSS)}-term glossary, and modules link to each other by number, so you can start anywhere and follow the prerequisites back.</p>
 <h2>How it was built</h2>
-<p>M. Nguyen, an ultrasound engineer, planned the course, set its scope and accuracy rules, and reviewed modules together with several reviewers from the ultrasound field. Most of the text, demos and scripts were drafted with an AI model (Claude, by Anthropic) working to written accuracy and style rules (summarized in CONTRIBUTING.md in the repository). Because a language model can state wrong things fluently, the build relies on checks rather than trust:</p>
+<p>M. Nguyen, an ultrasound engineer, planned the course, set its scope and accuracy rules, and reviewed modules together with several reviewers from the ultrasound field. Most of the text, demos and scripts were drafted with an AI model (Claude, by Anthropic) working to the author's written accuracy and style rules. Because a language model can state wrong things fluently, the build relies on checks rather than trust:</p>
 <ul>
 <li><strong>Provenance badges.</strong> Every figure is labeled <span class="prov exact">Exact formula</span>, <span class="prov sim">Simulation</span>, <span class="prov model">Approx. model</span> or <span class="prov schem">Schematic</span>. A simulation badge is allowed only for solvers that actually run in the page or in Octave, and approximate models must state their assumptions.</li>
 <li><strong>Render tests.</strong> A headless browser opens every page at desktop and phone width in light and dark themes and fails the build on JavaScript errors, horizontal overflow, canvases that stay blank, MathJax errors or unrendered TeX.</li>
@@ -1252,7 +1401,7 @@ static_page('about.html', 'About — Open Ultrasound Lab', 'What Open Ultrasound
 <li><strong>Independent audit.</strong> An independent audit re-derives each module's key results, extracts every quantitative claim and citation into a table, and marks each correct, wrong, imprecise, unverifiable or disputed. Wrong and imprecise items are fixed and the fixes re-verified; every module ({aud_txt}) was audited before release. Claims the audit could not confirm were then rechecked against primary sources; the full <a href="errata.html#review">review record</a> lists every pass and the few claims still open. External audits then ran all 159 labs, 609 numerical checks and resolved 127 DOIs.</li>
 <li><strong>Verified literature.</strong> References and figure numbers in "Figures from the literature" were looked up before inclusion; ones that could not be confirmed were dropped.</li>
 </ul>
-<p>None of this makes the course error-free. Every correction and every claim still open is listed in the <a href="errata.html#review">review record</a>. Read the <a href="disclaimer.html">disclaimer</a>, and please report what you find.</p>
+<p>Last reviewed {esc(DATE)} (version {esc(VERSION)}). None of this makes the course error-free. Every correction and every claim still open is listed in the <a href="errata.html#review">review record</a>. Read the <a href="disclaimer.html">disclaimer</a>, and please report what you find.</p>
 <h2>Who made it</h2>
 <p>M. Nguyen, with Claude (Anthropic). More about the author on <a href="{attr(AUTHOR)}">LinkedIn</a>. This is a personal project and does not represent any employer.</p>
 <h2 id="license">License</h2>
@@ -1322,7 +1471,7 @@ def formula_sheet():
         return f'<h3 class="kmod" id="k-m{n}"><a href="../{MODS[n]["url"]}">' if n in MODS else m.group(0)
     s = re.sub(r'<h3 class="kmod" id="k-m(\d+)"><a href="[^"]*"(?: target="_blank")?(?: rel="noopener")?>', kmod, s)
     s = s.replace('<title>Ultrasound Formula Sheet</title>',
-                  '<title>Formula sheet — Open Ultrasound Lab</title>\n<meta name="description" content="Key equations of all 33 Open Ultrasound Lab modules on one page, organized by part.">', 1)
+                  '<title>Formula sheet — Open Ultrasound Lab</title>\n<meta name="description" content="Key equations of all Open Ultrasound Lab modules on one page, organized by part.">', 1)
     s = s.replace('</head>', seo_tags('Formula sheet', '', 'formula-sheet/index.html') + SITE_CSS + '\n' + search_script(1) + '</head>', 1)
     s = s.replace('<body>', '<body>\n' + topbar(1, 'sheet') + '<span id="main"></span>', 1)
     s = s.replace('</body>', f'<div class="page" style="padding-top:0">{footer(1)}</div>\n</body>', 1)

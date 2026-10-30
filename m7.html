@@ -21,6 +21,9 @@
   </header>
   <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>Monte Carlo or numerical computation run in this page (JS) or in the Octave scripts</span><span><span class="prov model">Approx. model</span>simplified physics or an approximate distribution; the assumption is stated under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not to scale</span><span>Channel data in the demos come from a narrowband focal-plane model in the page; the MATLAB lab adds exact-geometry, time-domain channel data from diffuse scatterers. No Field II or k-Wave output is shown.</span></div>
 
+  <div class="k60"><span class="label">In 60 seconds</span><ol><li><b>Correlated samples count less:</b> Samples that move together carry less independent information, so averaging them helps less than their count suggests. The variance of a mean is \(\sigma^2/N_\text{eff}\), with σ² the per-sample variance and \(N_\text{eff}\) the effective count, about N samples divided by the correlation length. Speckle statistics must count speckle cells, not pixels. <a class="sref" href="#m7-s7-1">§07.1</a></li><li><b>The correlation coefficient is a cosine:</b> Correlation measures how well two centred variables line up, like the cosine between two vectors, so it lies between −1 and 1. Remove the means first: two independent speckle envelopes show a raw correlation of π/4 otherwise. Uncorrelated also does not mean independent, except for jointly Gaussian variables. <a class="sref" href="#m7-s7-2">§07.2</a></li><li><b>Estimates of correlation and variance are noisy:</b> A correlation computed from few samples is unreliable: with N = 10 and no true correlation, the estimate exceeds 0.5 in magnitude about 14 % of the time. A variance estimate from N samples has relative standard deviation \(\sqrt{2/(N-1)}\). Report uncertainties, and use the effective count when samples are correlated. <a class="sref" href="#m7-s7-3">§07.3</a></li><li><b>For Gaussian IQ data the covariance matrix is everything:</b> Circular Gaussian IQ data, such as speckle, are fully described by their covariance matrix R across channels; weights w give beamformer output power \(\mathbf{w}^H R\mathbf{w}\). Estimated from K snapshots (data vectors), R has rank at most K, so adaptive beamformers such as minimum variance (MVDR) need diagonal loading or sub-aperture averaging. <a class="sref" href="#m7-s7-4">§07.4</a></li><li><b>Spectrum and autocorrelation are a Fourier pair:</b> How fast a random signal decorrelates sets its spectrum. For speckle the RF autocorrelation equals the pulse autocorrelation, so the imaging system sets it, not the tissue: a Gaussian 5 MHz pulse at 60 % bandwidth gives an axial speckle cell of 0.32 mm. Single-record spectra stay noisy, so average them (Welch’s method). <a class="sref" href="#m7-s7-5">§07.5</a></li><li><b>Channel coherence mirrors the transmit aperture:</b> Diffuse echoes look alike on nearby elements. By the van Cittert–Zernike theorem this coherence is the transmit aperture’s autocorrelation: \(1 - \lvert m\rvert/N_t\) for a uniform aperture, with m the element lag and \(N_t\) the transmit elements. Noise, aberration and a wrong sound speed lower it, so coherence peaks at the true speed. <a class="sref" href="#m7-s7-6">§07.6</a></li></ol></div>
+  <div class="field"><span class="label">From the field</span><ul><li><b>Measure the correlation between looks before promising a compounding gain.</b> <span class="why">Compounding, averaging images from different angles, improves speckle SNR by the square root of the effective number of independent looks, and correlation shrinks that number. Thirty-two angles with look-to-look correlation 0.1 give a gain of 2.8, not √32 = 5.7. <a class="sref" href="#m7-s7-1">§07.1</a></span></li><li><b>Quote every region-of-interest (ROI) value with an uncertainty, counting speckle cells, not pixels.</b> <span class="why">Samples in one speckle cell are not independent. For a 5 MHz, 60 % bandwidth pulse the axial cell is about 0.32 mm, so a 5 mm window at 50 MHz holds 325 RF samples but about 16 independent cells. <a class="sref" href="#m7-s7-1">§07.1</a> <a class="sref" href="#m7-s7-3">§07.3</a></span></li><li><b>Check that a reference speckle region is fully developed before trusting statistics from it.</b> <span class="why">Estimates calibrated on a region inherit its bias if it holds structure or noise. Fully developed speckle has an envelope mean-to-standard-deviation ratio of 1.91 and log-envelope spread of 5.57 dB; a region that misses these is not a valid reference. <a class="sref" href="#m7-s7-4">§07.4</a></span></li><li><b>Regularize the sample covariance before an adaptive beamformer inverts it.</b> <span class="why">With few snapshots the estimate is rank-deficient and its inverse amplifies noise. Adding about 1 % of the mean diagonal power to the diagonal caps the condition number; averaging sub-apertures of L of N elements multiplies the snapshots by N − L + 1. <a class="sref" href="#m7-s7-4">§07.4</a></span></li></ul></div>
+
   <!-- ============ 07.1 ============ -->
   <div class="prose">
     <h2><span class="sec">07.1</span>Random variables, vectors and the expectation operator</h2>
@@ -37,13 +40,19 @@
     <p>You never observe the ensemble. You observe one tissue realization and average over space (pixels in an ROI), time (slow-time frames) or channels. That replacement is legitimate only under two conditions:</p>
     <ul>
       <li><strong>Stationarity</strong> (wide-sense, WSS): the mean is constant and the covariance between two samples depends only on their separation, \(C(t_{1}, t_{2}) = C(t_{1} - t_{2})\). For speckle this means a statistically homogeneous region: same scatterer density, same attenuation-compensated level, same PSF.</li>
-      <li><strong>Ergodicity</strong> (in the mean or in correlation): the sample average along one realization converges to the ensemble average. For the mean, a sufficient condition is that the autocovariance decays fast enough to be summable, \(\sum _{k} |C(k)| &lt; \infty\).</li>
+      <li><strong>Ergodicity</strong> (in the mean or in correlation): the sample average along one realization converges to the ensemble average. For the mean, a sufficient condition is an autocovariance that decays fast enough to be summable, \(\sum _{k} |C(k)| &lt; \infty\).</li>
     </ul>
-    <p>The price of correlated samples is quantified by the variance of the sample mean. For N samples of a WSS sequence with correlation coefficient \(\rho (k)\) between samples k apart:</p>
+    <p>The variance of the sample mean quantifies the price of correlated samples. For N samples of a WSS sequence with correlation coefficient \(\rho (k)\) between samples k apart:</p>
     <div class="eqn key" id="m7-eq4"><div class="eqn-body"><div class="eqn-math">\[ \operatorname{var}(\bar{x}) = \frac{\sigma^2}{N} \sum_{k=-(N-1)}^{N-1} \left(1 - \frac{\lvert k\rvert}{N}\right) \rho(k) \;\equiv\; \frac{\sigma^2}{N_{\mathrm{eff}}} \]</div><span class="eqn-no">(07.4)</span></div><dl class="where"><dt>\(\bar{x}\)</dt><dd>sample mean of N samples of a WSS sequence</dd><dt>\(\sigma^2\)</dt><dd>variance of one sample</dd><dt>\(\rho(k)\)</dt><dd>correlation coefficient between samples k apart</dd><dt>\(N_{\mathrm{eff}}\)</dt><dd>effective number of independent samples (\(\approx N/\ell\) for a correlation length of \(\ell\) samples)</dd><dt>\(\operatorname{var}(\cdot)\)</dt><dd>variance of the sample mean</dd><dt>\(N\)</dt><dd>number of samples averaged</dd><dt>\(k\)</dt><dd>lag between samples, in samples</dd><dt>\(\sum_{k}\)</dt><dd>sum over all lags from \(-(N-1)\) to \(N-1\)</dd><dt>\(\equiv\)</dt><dd>defines \(N_{\mathrm{eff}}\)</dd></dl><span class="note">Derivation: \(\operatorname{var} (\bar{x}) = (1/N^{2}) \sum _{i}\sum _{j} \operatorname{cov} (x_{i}, x_{j})\) and there are \(N - |k|\) pairs at separation k. If \(\rho (k) \approx 1\) over a correlation length of \(\ell\) samples and 0 beyond, \(N_{\mathrm{eff}} \approx N/\ell\): the number of independent speckle cells, not the number of pixels.</span></div>
   </div>
   <div class="rf-grid" id="m7-rv"></div>
-  <div class="callout us"><span class="label">Ultrasound link</span><p>Two different "repeats" are often confused. Re-acquiring a static phantom at the same probe position gives the <em>same</em> speckle realization: frame averaging removes electronic noise but not speckle. Independent realizations come from different scatterer draws: moving the probe by more than a resolution cell, a different phantom region, elevational translation, or tissue motion. A spatial average over an ROI stands in for the ensemble only if the ROI is homogeneous (stationary) and spans many speckle cells. This is the assumption behind every QUS estimate (backscatter coefficient, attenuation, envelope statistics) and behind the spatial-coherence estimates in section 07.6.</p></div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>People often confuse two different "repeats". Re-acquiring a static phantom at the same probe position gives the <em>same</em> speckle realization: frame averaging removes electronic noise but not speckle. Independent realizations come from different scatterer draws: moving the probe by more than a resolution cell, a different phantom region, elevational translation, or tissue motion. A spatial average over an ROI stands in for the ensemble only if the ROI is homogeneous (stationary) and spans many speckle cells. This is the assumption behind every QUS estimate (backscatter coefficient, attenuation, envelope statistics) and behind the spatial-coherence estimates in section 07.6.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>E[·] is linear for any joint distribution; variance is not: var(x + y) = var x + var y + 2 Re cov(x, y).</li>
+    <li>A spatial or temporal average replaces the ensemble only for a stationary (homogeneous) region with summable autocovariance (ergodic).</li>
+    <li>var(x̄) = σ²/N<sub>eff</sub> with N<sub>eff</sub> ≈ N/ℓ; re-imaging the same static speckle averages out noise, not speckle.</li>
+  </ul></div>
 
   <!-- ============ 07.2 ============ -->
   <div class="prose">
@@ -60,7 +69,7 @@
     <p>Independence means \(p(x, y) = p(x)p(y)\), which forces \(\mathrm{E}[f(x)g(y)] = \mathrm{E}[f(x)]\mathrm{E}[g(y)]\) for every f, g. Uncorrelated asks this only for f, g linear. Example: \(x \sim N(0,\ 1), y = x^{2}\). Then \(\operatorname{cov} (x, y) = \mathrm{E}[x^{3}] = 0\), yet y is a deterministic function of x. The ultrasound version: the in-phase component I and the envelope |z| of circular speckle are uncorrelated (by symmetry) but obviously dependent.</p>
     <p><strong>Gaussian exception.</strong> If x and y are <em>jointly</em> Gaussian, uncorrelated implies independent, because the joint density factorizes when the off-diagonal of \(\Sigma\) is zero. Two marginally Gaussian variables are not enough; joint Gaussianity is the requirement.</p>
     <h3>Mean removal</h3>
-    <p>\(\mathrm{E}[xy^{*}]\) (the "correlation" in the signal-processing sense) and cov(x, y) differ by \(\mu _{x}\mu _{y}^{*}\). RF and IQ samples of speckle are zero-mean, so the two coincide. Envelopes, intensities and B-mode pixels are not zero-mean: correlating them without removing the mean gives a large coefficient for two speckle patterns that have nothing to do with each other: \(\mathrm{E}[a]^{2}/\mathrm{E}[a^{2}] = \pi/4 \approx 0.79\) for two independent Rayleigh envelopes, 0.5 for two independent intensities, and close to 1 for log-compressed (dB) B-mode pixels.</p>
+    <p>\(\mathrm{E}[xy^{*}]\) (the "correlation" in the signal-processing sense) and cov(x, y) differ by \(\mu _{x}\mu _{y}^{*}\). RF and IQ samples of speckle are zero-mean, so the two coincide. Envelopes, intensities and B-mode pixels are not zero-mean: correlating them without removing the mean gives a large coefficient even for two unrelated speckle patterns: \(\mathrm{E}[a]^{2}/\mathrm{E}[a^{2}] = \pi/4 \approx 0.79\) for two independent Rayleigh envelopes, 0.5 for two independent intensities, and close to 1 for log-compressed (dB) B-mode pixels.</p>
     <h3>Covariance ellipse, principal axes and the two regression lines</h3>
     <p>For a 2D Gaussian with covariance \(\Sigma\), the contours of constant density are ellipses \((x - \mu )^{T}\Sigma ^{-1}(x - \mu ) = k^{2}\). Their axes are the eigenvectors of \(\Sigma\) (Module 06), with semi-axis lengths \(k\sqrt{\lambda _{i}}\). Three different lines go through the cloud:</p>
     <div class="eqn" id="m7-eq8"><div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} &amp;\text{principal axis (PCA, total least squares): } \tan 2\theta = \frac{2\rho\sigma_x\sigma_y}{\sigma_x^2 - \sigma_y^2} \\ &amp;\text{regression of } y \text{ on } x\text{: } \mathrm{E}[y \mid x] = \mu_y + \rho\,\frac{\sigma_y}{\sigma_x}(x - \mu_x) \quad (\text{slope } \Sigma_{xy}/\Sigma_{xx}) \\ &amp;\text{regression of } x \text{ on } y\text{: } \mathrm{E}[x \mid y] = \mu_x + \rho\,\frac{\sigma_x}{\sigma_y}(y - \mu_y) \\ &amp;\qquad (\text{as a line in the } x\text{–}y \text{ plane: slope } \Sigma_{yy}/\Sigma_{xy}) \end{aligned} \]</div><span class="eqn-no">(07.8)</span></div><dl class="where"><dt>\(\theta\)</dt><dd>angle of the major axis from the x axis</dd><dt>\(\Sigma_{xx},\ \Sigma_{xy},\ \Sigma_{yy}\)</dt><dd>entries of the 2 × 2 covariance matrix \(\Sigma\)</dd><dt>\(\rho,\ \sigma_x,\ \sigma_y\)</dt><dd>correlation coefficient and standard deviations, <span class="eqref">(07.6)</span></dd><dt>\(\mu_x,\ \mu_y\)</dt><dd>means</dd><dt>\(\mathrm{E}[y \mid x]\)</dt><dd>conditional mean of y given x</dd><dt>\(\tan\)</dt><dd>tangent</dd><dt>\(\Sigma\)</dt><dd>2 × 2 covariance matrix of (x, y)</dd></dl><span class="note">y-on-x minimises vertical errors, x-on-y horizontal errors, the principal axis perpendicular errors. All three coincide only when \(|\rho | = 1\). For \(|\rho | &lt; 1\) the y-on-x slope is shrunk toward zero by the factor \(\rho\) ("regression to the mean").</span></div>
@@ -71,23 +80,30 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m7-d1-cv" aria-label="Scatter of a 2D Gaussian with covariance ellipses, principal axes and regression lines"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>samples</span><span><i style="background:var(--sig4)"></i>1σ / 2σ ellipse, principal axes</span><span><i style="background:var(--sig2)"></i>regression y on x</span><span><i style="background:var(--sig3)"></i>regression x on y</span></div>
+        <div class="legend" id="m7-d1-leg"><span data-s="smp"><i class="mark" style="background:var(--accent)"></i>samples</span><span data-s="ell"><i style="background:var(--sig4)"></i>1σ / 2σ ellipse</span><span data-s="pa"><i class="dash" style="color:var(--sig5)"></i>principal axes</span><span data-s="yx"><i style="background:var(--sig2)"></i>regression y on x</span><span data-s="xy"><i class="dot" style="color:var(--sig3)"></i>regression x on y</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m7-d1-sx">σ<sub>x</sub> <output id="m7-d1-sx-out">1.50</output></label><input type="range" id="m7-d1-sx" min="0.2" max="3" step="0.05" value="1.5"></div>
-        <div class="ctrl"><label for="m7-d1-sy">σ<sub>y</sub> <output id="m7-d1-sy-out">1.00</output></label><input type="range" id="m7-d1-sy" min="0.2" max="3" step="0.05" value="1"></div>
-        <div class="ctrl"><label for="m7-d1-rho">ρ <output id="m7-d1-rho-out">0.60</output></label><input type="range" id="m7-d1-rho" min="-0.99" max="0.99" step="0.01" value="0.6"></div>
-        <div class="ctrl"><label for="m7-d1-n">N points <output id="m7-d1-n-out">400</output></label><input type="range" id="m7-d1-n" min="10" max="2000" step="10" value="400"></div>
+        <div class="ctrl"><label for="m7-d1-sx"><span>Standard deviation of x, σ<sub>x</sub> (a.u.)</span> <output id="m7-d1-sx-out">1.50</output></label><input type="range" id="m7-d1-sx" min="0.2" max="3" step="0.05" value="1.5"></div>
+        <div class="ctrl"><label for="m7-d1-sy"><span>Standard deviation of y, σ<sub>y</sub> (a.u.)</span> <output id="m7-d1-sy-out">1.00</output></label><input type="range" id="m7-d1-sy" min="0.2" max="3" step="0.05" value="1"></div>
+        <div class="ctrl"><label for="m7-d1-rho"><span>Correlation coefficient ρ (−1 to 1)</span> <output id="m7-d1-rho-out">0.60</output></label><input type="range" id="m7-d1-rho" min="-0.99" max="0.99" step="0.01" value="0.6"></div>
+        <div class="ctrl"><label for="m7-d1-n"><span>Number of points N</span> <output id="m7-d1-n-out">400</output></label><input type="range" id="m7-d1-n" min="10" max="2000" step="10" value="400"></div>
         <div class="btn-row"><button class="btn" id="m7-d1-seed" type="button">Reseed</button></div>
         <div class="readout" id="m7-d1-read"></div>
       </div>
     </div>
     <div class="mx-scroll m7-mxbox"><div class="mx-row" id="m7-d1-mx"></div></div>
-    <div class="demo-foot"><strong>Try:</strong> set \(\sigma _{x} = \sigma _{y}\) and move \(\rho\): the principal axis stays at \(\pm 45^{\circ}\) while the two regression lines swing apart as \(|\rho |\) drops. Then set \(\rho = 0\) with \(\sigma _{x} \neq \sigma _{y}\): the principal axes lie on the coordinate axes and both regression lines are flat in their own variable. Count the fraction inside the \(1\sigma\) ellipse: 39%, not 68%. The matrix row shows the sample \(\hat{\Sigma }\) next to \(\Sigma\) and its factorization \(\Sigma = U\Lambda U^{T}\): the columns of U are the arrow directions, the diagonal of \(\Lambda\) the squared semi-axes of the \(1\sigma\) ellipse.</div>
+    <div class="demo-foot"><strong>Try:</strong> set \(\sigma _{x} = \sigma _{y}\) and move \(\rho\): the principal axis stays at \(\pm 45^{\circ}\) while the two regression lines swing apart as \(|\rho |\) drops. Then set \(\rho = 0\) with \(\sigma _{x} \neq \sigma _{y}\): the principal axes lie on the coordinate axes and both regression lines are flat in their own variable. Count the fraction inside the \(1\sigma\) ellipse: 39%, not 68%. The matrix row shows the sample \(\hat{\Sigma }\) next to \(\Sigma\) and its factorization \(\Sigma = U\Lambda U^{T}\): the columns of U are the arrow directions, the diagonal of \(\Lambda\) the squared semi-axes of the \(1\sigma\) ellipse.<span class="symnote">Symbols used here: σ<sub>x</sub>, σ<sub>y</sub>, the standard deviations of x and y (a.u.); ρ, their correlation coefficient (−1 to 1) and ρ̂ its sample estimate; N, the number of points; Σ, the 2×2 covariance matrix (Σ̂ estimated with 1/(N−1)); λ₁, λ₂, its eigenvalues (variances along the principal axes); θ, the major-axis angle.</span></div>
   </div>
 
   <div class="callout pitfall"><span class="label">Pitfall</span><p>A "1σ ellipse" in 2D contains \(1 - e^{-1/2}\) = 39.3% of the probability and the \(2\sigma\) ellipse 86.5%, because the squared Mahalanobis distance is \(\chi ^{2}\) with 2 degrees of freedom: \(P(d \le k) = 1 - e^{-k^{2}/2}\). The 68% / 95% rule is one-dimensional. A 95% confidence region in 2D needs \(k = 2.45\).</p></div>
   <div class="callout intuit"><span class="label">Intuition</span><p>Fitting a line to a calibration plot (measured vs true attenuation, estimated vs reference sound speed) with ordinary least squares regresses one variable on the other and assumes the regressor is noise-free. If both carry error, the OLS slope is biased toward zero (attenuation bias, or regression dilution); the principal axis (total least squares) treats both symmetrically. Module 05 has the least-squares geometry; here you see it as the difference between the red and teal lines.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>ρ = cov(x, y)/(σ<sub>x</sub>σ<sub>y</sub>) lies in [−1, 1]; |ρ| = 1 only for an exact affine relation.</li>
+    <li>Uncorrelated is not independent (x and x², I and |z|); joint, not marginal, Gaussianity is the exception.</li>
+    <li>Remove the mean before correlating envelopes or intensities: two independent Rayleigh envelopes otherwise give π/4 ≈ 0.79, independent intensities 0.5.</li>
+    <li>A 2D 1σ ellipse holds 39.3% (2σ: 86.5%); the y-on-x slope is shrunk by ρ, while the principal axis treats both variables alike.</li>
+  </ul></div>
 
   <!-- ============ 07.3 ============ -->
   <div class="prose">
@@ -113,19 +129,26 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m7-d2-cv" aria-label="Histogram of sample correlation coefficients with Fisher-z predicted density"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>histogram of ρ̂ (500 experiments)</span><span><i style="background:var(--sig2)"></i>Fisher-z prediction</span><span><i style="background:var(--sig3)"></i>true ρ</span></div>
+        <div class="legend" id="m7-d2-leg"><span data-s="hist"><i class="fill" style="background:var(--accent)"></i>histogram of ρ̂ (500 experiments)</span><span data-s="fz"><i style="background:var(--sig2)"></i>Fisher-z prediction</span><span data-s="true"><i class="dash" style="color:var(--sig3)"></i>true ρ</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m7-d2-n">N pairs per experiment <output id="m7-d2-n-out">50</output></label><input type="range" id="m7-d2-n" min="0" max="16" step="1" value="8"></div>
-        <div class="ctrl"><label for="m7-d2-rho">true ρ <output id="m7-d2-rho-out">0.50</output></label><input type="range" id="m7-d2-rho" min="-0.95" max="0.95" step="0.05" value="0.5"></div>
+        <div class="ctrl"><label for="m7-d2-n"><span>Pairs per experiment N<span class="hint">each of 500 experiments estimates ρ̂ from N pairs</span></span> <output id="m7-d2-n-out">50</output></label><input type="range" id="m7-d2-n" min="0" max="16" step="1" value="8"></div>
+        <div class="ctrl"><label for="m7-d2-rho"><span>True correlation coefficient ρ</span> <output id="m7-d2-rho-out">0.50</output></label><input type="range" id="m7-d2-rho" min="-0.95" max="0.95" step="0.05" value="0.5"></div>
         <div class="btn-row"><button class="btn solid" id="m7-d2-run" type="button">Draw 500 experiments</button></div>
         <div class="readout" id="m7-d2-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> \(\rho = 0\) and N = 5–10: the histogram is nearly flat and \(|\hat{\rho }| \ge 0.5\) is common. Then push \(\rho\) to 0.9 at \(N = 20\): the distribution is visibly skewed toward 0, which the Fisher curve captures and a Gaussian would not. The empirical std tracks \((1 - \rho ^{2})/\sqrt{N - 1}\) once N ≳ 20.</div>
+    <div class="demo-foot"><strong>Try:</strong> \(\rho = 0\) and N = 5–10: the histogram is nearly flat and \(|\hat{\rho }| \ge 0.5\) is common. Then push \(\rho\) to 0.9 at \(N = 20\): the distribution is visibly skewed toward 0, which the Fisher curve captures and a Gaussian would not. The empirical std tracks \((1 - \rho ^{2})/\sqrt{N - 1}\) once N ≳ 20.<span class="symnote">Symbols used here: ρ, the true correlation coefficient; ρ̂, its estimate from N pairs; N, the pairs per experiment (500 experiments); z = atanh ρ̂, the Fisher transform, approximately Gaussian with standard deviation 1/√(N−3); CI, confidence interval.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>In speckle tracking (Module 11) and elastography, the correlation coefficient of two kernels is computed from a window of a few wavelengths. A 2 mm axial kernel at 5 MHz, 60% bandwidth contains roughly 6 axial speckle cells even if it holds 130 RF samples at 50 MHz. The exact effective count depends on the statistic (rule 11 in 07.8): for a correlation coefficient between RF kernels it is about 2.7 times the cell count, ≈ 17 here. Either way it is of order ten, not 130, and the jitter of the correlation peak, and hence of displacement, scales with it, not with the sample count. The same applies to the per-pixel coherence estimates in SLSC imaging: the axial kernel length sets their variance.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Divide by N − 1 when the mean is estimated from the same data; zero-mean IQ with (1/K)Σ<b>x</b><b>x</b><sup>H</sup> is already unbiased.</li>
+    <li>A variance estimate has relative std √(2/(N − 1)): ±20% at N = 50.</li>
+    <li>Fisher z = atanh ρ̂ is ≈ normal with variance 1/(N − 3); 95% interval tanh(z ± 1.96/√(N − 3)).</li>
+    <li>At ρ = 0 and N = 10, |ρ̂| ≥ 0.5 occurs about 14% of the time; with serially correlated samples use N<sub>eff</sub>, not N.</li>
+  </ul></div>
 
   <!-- ============ 07.4 ============ -->
   <div class="prose">
@@ -153,16 +176,16 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m7-d3-cv" aria-label="IQ scatter, envelope histogram and phase histogram"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>samples / histograms</span><span><i style="background:var(--sig2)"></i>circular theory (Rayleigh, uniform)</span><span><i style="background:var(--sig4)"></i>1σ covariance ellipse of (I, Q)</span></div>
+        <div class="legend" id="m7-d3-leg"><span data-s="smp"><i class="mark" style="background:var(--accent)"></i>samples</span><span data-s="hist"><i class="fill" style="background:var(--accent)"></i>histograms</span><span data-s="th"><i class="dash" style="color:var(--sig2)"></i>circular theory (Rayleigh, uniform)</span><span data-s="ell"><i style="background:var(--sig4)"></i>1σ covariance ellipse of (I, Q)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m7-d3-eps">I/Q gain imbalance ε <output id="m7-d3-eps-out">0.00</output></label><input type="range" id="m7-d3-eps" min="0" max="0.6" step="0.02" value="0"></div>
-        <div class="ctrl"><label for="m7-d3-psi">I/Q phase skew <output id="m7-d3-psi-out">0°</output></label><input type="range" id="m7-d3-psi" min="0" max="75" step="1" value="0"></div>
-        <div class="ctrl"><label for="m7-d3-a">coherent component A (mean) <output id="m7-d3-a-out">0.00</output></label><input type="range" id="m7-d3-a" min="0" max="3" step="0.05" value="0"></div>
+        <div class="ctrl"><label for="m7-d3-eps"><span>I/Q gain imbalance ε (fraction)<span class="hint">0 = balanced channels</span></span> <output id="m7-d3-eps-out">0.00</output></label><input type="range" id="m7-d3-eps" min="0" max="0.6" step="0.02" value="0"></div>
+        <div class="ctrl"><label for="m7-d3-psi"><span>I/Q phase skew (degrees)<span class="hint">0° = exact quadrature</span></span> <output id="m7-d3-psi-out">0°</output></label><input type="range" id="m7-d3-psi" min="0" max="75" step="1" value="0"></div>
+        <div class="ctrl"><label for="m7-d3-a"><span>Coherent component A (a.u.)<span class="hint">a fixed phasor added to every sample (the mean)</span></span> <output id="m7-d3-a-out">0.00</output></label><input type="range" id="m7-d3-a" min="0" max="3" step="0.05" value="0"></div>
         <div class="readout" id="m7-d3-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> with all controls at zero the pseudo-covariance is at the \(1/\sqrt{N}\) noise floor and the envelope matches Rayleigh with \(\mathrm{SNR} \approx 1.91\). Gain imbalance or phase skew make |P|/R non-zero and the phase histogram non-uniform, while the envelope histogram still looks almost Rayleigh: the envelope is a poor detector of non-circularity. A coherent component leaves R and P unchanged (they are mean-removed) but turns the envelope Rician.</div>
+    <div class="demo-foot"><strong>Try:</strong> with all controls at zero the pseudo-covariance is at the \(1/\sqrt{N}\) noise floor and the envelope matches Rayleigh with \(\mathrm{SNR} \approx 1.91\). Gain imbalance or phase skew make |P|/R non-zero and the phase histogram non-uniform, while the envelope histogram still looks almost Rayleigh: the envelope is a poor detector of non-circularity. A coherent component leaves R and P unchanged (they are mean-removed) but turns the envelope Rician.<span class="symnote">Symbols used here: z = I + jQ, the complex IQ sample (a.u.); ε, the I/Q gain imbalance (fraction); the phase skew in degrees; A, the coherent (mean) component; μ, the sample mean of z; R = E|z−μ|², the power; P = E[(z−μ)²], the pseudo-covariance (0 for a circular signal); N, the number of samples.</span></div>
   </div>
 
   <div class="prose">
@@ -178,17 +201,17 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m7-d4-cv" aria-label="Sorted eigenvalue spectra of true, sample and diagonally loaded covariance matrices"></canvas>
-        <div class="legend"><span><i style="background:var(--ink)"></i>true R (VCZ speckle + 20 dB noise)</span><span><i style="background:var(--accent)"></i>sample R̂</span><span><i style="background:var(--sig2)"></i>R̂ + δI</span><span><i style="background:var(--sig3)"></i>loading level δ</span></div>
+        <div class="legend" id="m7-d4-leg"><span data-s="true"><i class="dot" style="color:var(--ink)"></i>true R (VCZ speckle + 20 dB noise)</span><span data-s="smp"><i style="background:var(--accent)"></i>sample R̂</span><span data-s="load"><i class="dash" style="color:var(--sig2)"></i>R̂ + δI</span><span data-s="lvl"><i class="dash" style="color:var(--sig3)"></i>loading level δ (horizontal)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m7-d4-k">snapshots K <output id="m7-d4-k-out">16</output></label><input type="range" id="m7-d4-k" min="0" max="13" step="1" value="4"></div>
-        <div class="ctrl"><label for="m7-d4-dl">loading δ re tr(R̂)/N <output id="m7-d4-dl-out">−20 dB</output></label><input type="range" id="m7-d4-dl" min="-50" max="0" step="1" value="-20"></div>
+        <div class="ctrl"><label for="m7-d4-k"><span>Snapshots K<span class="hint">independent channel vectors averaged into R̂</span></span> <output id="m7-d4-k-out">16</output></label><input type="range" id="m7-d4-k" min="0" max="13" step="1" value="4"></div>
+        <div class="ctrl"><label for="m7-d4-dl"><span>Diagonal loading δ (dB re tr(R̂)/N)<span class="hint">tr(R̂)/N = mean eigenvalue</span></span> <output id="m7-d4-dl-out">−20 dB</output></label><input type="range" id="m7-d4-dl" min="-50" max="0" step="1" value="-20"></div>
         <label class="check"><input type="checkbox" id="m7-d4-on" checked> apply diagonal loading</label>
         <div class="btn-row"><button class="btn" id="m7-d4-seed" type="button">Reseed</button><button class="btn solid" id="m7-d4-smi" type="button">SMI SINR loss, 100 trials</button></div>
         <div class="readout" id="m7-d4-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> \(K = 16 &lt; N = 32\): half the sample eigenvalues are exactly zero (drawn on the floor) and \(\kappa\) is infinite. Raise K to 64 (= 2N): rank is full, but the small eigenvalues still sit several dB below the true noise floor. Loading lifts them all to ≈ \(\delta\) and caps \(\kappa\). The Frobenius error follows \(\operatorname{tr} (R)/(\sqrt{K}\| R\| _{F})\), the Isserlis prediction from 07.3. Press <em>SMI SINR loss</em> at \(K = 64\) with loading off: the Monte Carlo mean sits near the RMB value \((K - N + 2)/(K + 1) = 0.52\) (−2.8 dB). Turn loading on at the default −20 dB: the mean rises to ≈ 0.71 (−1.5 dB), and to ≈ 0.89 (−0.5 dB) at −10 dB. Loading even makes \(K = 16 &lt; N\) usable (\(\approx -2.9\) dB at −20 dB), because it replaces the noise-driven small eigenvalues that dominate \(\hat{R}^{-1}\) by a fixed floor. The gain depends on R: here the speckle subspace is low-dimensional and the loading sits at the true noise level, the favourable case.</div>
+    <div class="demo-foot"><strong>Try:</strong> \(K = 16 &lt; N = 32\): half the sample eigenvalues are exactly zero (drawn on the floor) and \(\kappa\) is infinite. Raise K to 64 (= 2N): rank is full, but the small eigenvalues still sit several dB below the true noise floor. Loading lifts them all to ≈ \(\delta\) and caps \(\kappa\). The Frobenius error follows \(\operatorname{tr} (R)/(\sqrt{K}\| R\| _{F})\), the Isserlis prediction from 07.3. Press <em>SMI SINR loss</em> at \(K = 64\) with loading off: the Monte Carlo mean sits near the RMB value \((K - N + 2)/(K + 1) = 0.52\) (−2.8 dB). Turn loading on at the default −20 dB: the mean rises to ≈ 0.71 (−1.5 dB), and to ≈ 0.89 (−0.5 dB) at −10 dB. Loading even makes \(K = 16 &lt; N\) usable (\(\approx -2.9\) dB at −20 dB), because it replaces the noise-driven small eigenvalues that dominate \(\hat{R}^{-1}\) by a fixed floor. The gain depends on R: here the speckle subspace is low-dimensional and the loading sits at the true noise level, the favourable case.<span class="symnote">Symbols used here: N = 32 channels; K, the number of snapshots; R, the true covariance and R̂ = XXᴴ/K its sample estimate; δ, the diagonal loading added to R̂, set in dB re tr(R̂)/N (mean eigenvalue); κ = λ<sub>max</sub>/λ<sub>min</sub>, the condition number; ‖·‖<sub>F</sub>, the Frobenius norm.</span></div>
   </div>
 
   <div class="prose">
@@ -198,7 +221,14 @@
   </div>
 
   <div class="rf-grid" id="m7-th"></div>
-  <div class="callout us"><span class="label">Ultrasound link</span><p>In adaptive beamforming the "snapshots" for one pixel are the few axial samples in a short range gate (and possibly a few transmit events), typically far fewer than the 64–128 channels. Hence subarray averaging plus loading in every published ultrasound MVDR implementation (Module 25). The same rank argument appears in the reflection-matrix and distortion-matrix methods for aberration correction: the number of independent speckle realizations (isoplanatic patches times transmit angles) bounds the rank you can trust.</p></div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>In adaptive beamforming the "snapshots" for one pixel are the few axial samples in a short range gate (and possibly a few transmit events), typically far fewer than the 64–128 channels. Hence every published ultrasound MVDR implementation combines subarray averaging with loading (Module 25). The same rank argument appears in the reflection-matrix and distortion-matrix methods for aberration correction: the number of independent speckle realizations (isoplanatic patches times transmit angles) bounds the rank you can trust.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>R is Hermitian positive semidefinite; <b>w</b><sup>H</sup>R<b>w</b> is beamformer output power, and unit-weight DAS power is the sum of all entries of R.</li>
+    <li>Circular (pseudo-covariance P = 0) Gaussian IQ: R is complete; envelope Rayleigh (mean/std 1.91), phase uniform.</li>
+    <li>R̂ from K snapshots has rank ≤ min(K, N); mean SMI SINR ratio (K − N + 2)/(K + 1): −3 dB at K = 2N − 3, −12.2 dB at K = N = 32.</li>
+    <li>Loading δ = Δ·tr(R̃)/L with Δ ≈ 10<sup>−2</sup> caps κ at (λ<sub>max</sub> + δ)/δ; sub-aperture averaging multiplies snapshots by N − L + 1, usually with L ≤ N/2.</li>
+  </ul></div>
 
   <!-- ============ 07.5 ============ -->
   <div class="prose">
@@ -222,16 +252,16 @@
     <div class="demo-body stack">
       <div class="stage">
         <canvas id="m7-d5-cv" aria-label="Simulated RF line, its autocorrelation and its power spectral density"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>simulated RF / estimate</span><span><i style="background:var(--sig2)"></i>theory: pulse autocorrelation, |P(f)|<sup>2</sup></span><span><i style="background:var(--sig4)"></i>envelope of R̂(τ), FWHM</span></div>
+        <div class="legend" id="m7-d5-leg"><span data-s="sim"><i style="background:var(--accent)"></i>simulated RF / estimate</span><span data-s="th"><i class="dash" style="color:var(--sig2)"></i>theory: pulse autocorrelation, |P(f)|<sup>2</sup></span><span data-s="env"><i class="dot" style="color:var(--sig5)"></i>envelope of R̂(τ)</span><span data-s="fw"><i style="background:var(--sig4)"></i>FWHM, −6 dB band (bars)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m7-d5-f0">centre frequency f<sub>0</sub> <output id="m7-d5-f0-out">5.0 MHz</output></label><input type="range" id="m7-d5-f0" min="2" max="7.5" step="0.5" value="5"></div>
-        <div class="ctrl"><label for="m7-d5-bw">fractional bandwidth (−6 dB) <output id="m7-d5-bw-out">60%</output></label><input type="range" id="m7-d5-bw" min="20" max="120" step="5" value="60"></div>
+        <div class="ctrl"><label for="m7-d5-f0"><span>Centre frequency f<sub>0</sub> (MHz)</span> <output id="m7-d5-f0-out">5.0 MHz</output></label><input type="range" id="m7-d5-f0" min="2" max="7.5" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m7-d5-bw"><span>Fractional bandwidth B/f<sub>0</sub> (−6 dB, %)</span> <output id="m7-d5-bw-out">60%</output></label><input type="range" id="m7-d5-bw" min="20" max="120" step="5" value="60"></div>
         <div class="ctrl"><div class="btn-row"><button class="btn" id="m7-d5-seed" type="button">Reseed scatterers</button></div></div>
         <div class="readout" id="m7-d5-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> halve the bandwidth: the autocorrelation envelope doubles in width and the PSD band halves in width; their product \(\tau _{\mathrm{FWHM}}\cdot B\) stays at 1.25. The estimate fluctuates around the theory curve at large lags because the record holds only a finite number of correlation cells (\(N_{\mathrm{eff}}\) in the readout).</div>
+    <div class="demo-foot"><strong>Try:</strong> halve the bandwidth: the autocorrelation envelope doubles in width and the PSD band halves in width; their product \(\tau _{\mathrm{FWHM}}\cdot B\) stays at 1.25. The estimate fluctuates around the theory curve at large lags because the record holds only a finite number of correlation cells (\(N_{\mathrm{eff}}\) in the readout).<span class="symnote">Symbols used here: f<sub>0</sub>, the centre frequency in MHz; B, the −6 dB bandwidth in MHz; τ, the lag in µs; ρ(τ), the normalized autocorrelation; τ<sub>FWHM</sub>, its full width at half maximum; P(f), the pulse spectrum; PSD, power spectral density; N<sub>eff</sub>, the number of independent correlation cells in the record.</span></div>
   </div>
 
   <div class="prose">
@@ -242,14 +272,21 @@
     <thead><tr><th>Name</th><th>Definition</th><th>Normalization / range</th><th>Ultrasound use</th></tr></thead>
     <tbody>
       <tr><td>Correlation coefficient</td><td>\(\rho = \operatorname{cov} (x, y)/(\sigma _{x}\sigma _{y})\), one number</td><td>mean removed, scale removed; [−1, 1] (complex: \(|\rho | \le 1\))</td><td>Kernel match quality, decorrelation, NCC peak height in speckle tracking</td></tr>
-      <tr><td>Correlation function</td><td>\(R_{xy}(\tau ) = \mathrm{E}[x(t + \tau )y^{*}(t)]\), a function of lag</td><td>raw (power units) or normalized \(\mathrm{NCC}(\tau )\): real data in [−1, 1]; complex data have magnitude at most 1</td><td>Time-delay estimation (Module 11), Kasai Doppler: \(\bar{f}\) = PRF·arg \(R(1)/(2\pi )\) on slow-time IQ</td></tr>
-      <tr><td>Correlation matrix</td><td>\(\mathrm{E}[\mathbf{x}\mathbf{x}^{H}]\) (signal processing) or \(\mathbf{D}^{-1/2}\mathbf{RD}^{-1/2}\) (statistics)</td><td>first: no mean removal; second: unit diagonal</td><td>Channel or slow-time ensembles; identical to \(\mathbf{R}\) for zero-mean IQ</td></tr>
+      <tr><td>Correlation function</td><td>\(R_{xy}(\tau ) = \mathrm{E}[x(t + \tau )y^{*}(t)]\), a function of lag</td><td>raw (power units) or normalized cross-correlation \(\mathrm{NCC}(\tau )\): real data in [−1, 1]; complex data have magnitude at most 1</td><td>Time-delay estimation (Module 11), Kasai Doppler: \(\bar{f}\) = PRF·arg \(R(1)/(2\pi )\) on slow-time IQ</td></tr>
+      <tr><td>Correlation matrix</td><td>\(\mathrm{E}[\mathbf{x}\mathbf{x}^{H}]\) (signal processing) or \(\mathbf{D}^{-1/2}\mathbf{RD}^{-1/2}\) (statistics, D = diagonal of R)</td><td>first: no mean removal; second: unit diagonal</td><td>Channel or slow-time ensembles; identical to \(\mathbf{R}\) for zero-mean IQ</td></tr>
       <tr><td>Covariance matrix</td><td>\(\mathbf{R} = \mathrm{E}[(\mathbf{x} - \pmb{\mu})(\mathbf{x} - \pmb{\mu})^{H}]\)</td><td>Hermitian PSD, power units</td><td>MVDR, PCA / SVD clutter filtering, eigen-based Doppler</td></tr>
       <tr><td>Spatial coherence</td><td>\(C(m) = \langle R_{i,i+m}/\sqrt{R_{ii}R_{i+m,i+m}}\rangle _{i}\), function of element lag</td><td>normalized per element pair; 1 at \(m = 0\)</td><td>VCZ, SLSC imaging, coherence factor CF, sound-speed and aberration metrics (07.6)</td></tr>
-      <tr><td>Spectral coherence (magnitude-squared)</td><td>\(\gamma ^{2}_{xy}(f) = |S_{xy}(f)|^{2}/(S_{xx}(f)S_{yy}(f))\)</td><td>[0, 1] per frequency; needs averaging (=1 for one segment)</td><td>Frequency-resolved similarity, e.g. of RF echoes before and after deformation; system identification</td></tr>
+      <tr><td>Spectral coherence (magnitude-squared)</td><td>\(\gamma ^{2}_{xy}(f) = |S_{xy}(f)|^{2}/(S_{xx}(f)S_{yy}(f))\), with \(S_{xy}\) the cross-spectrum and \(S_{xx}, S_{yy}\) the power spectra</td><td>[0, 1] per frequency; needs averaging (=1 for one segment)</td><td>Frequency-resolved similarity, e.g. of RF echoes before and after deformation; system identification</td></tr>
     </tbody>
   </table></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Magnitude-squared coherence estimated from a single segment is identically 1 for any two signals, because \(|X Y^{*}|^{2} = |X|^{2}|Y|^{2}\). Coherence of any kind is a statement about an average. The same holds for spatial coherence from one snapshot: \(\hat{R}_{ij}/\sqrt{\hat{R}_{ii}\hat{R}_{jj}}\) has unit magnitude for every pair. SLSC uses an axial kernel (several snapshots) for exactly this reason, and takes the real part of the normalized correlation.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>S(f) = FT{R(τ)} ≥ 0 and S<sub>yy</sub> = |H|²S<sub>xx</sub>: the speckle RF autocorrelation is the pulse autocorrelation, set by the system, not the tissue.</li>
+    <li>Gaussian pulse: τ<sub>FWHM</sub> ≈ 1.25/B; 5 MHz, 60% gives 0.42 µs, or 0.32 mm axially after the round-trip factor c/2.</li>
+    <li>The biased R̂ is PSD; periodogram bins stay exponential (std/mean ≈ 1) at any record length, so average segments (Welch).</li>
+    <li>"Correlation" and "coherence" name six different objects; any coherence from a single snapshot or segment is identically 1.</li>
+  </ul></div>
 
   <!-- ============ 07.6 ============ -->
   <div class="prose">
@@ -404,22 +441,22 @@
     <div class="demo-body stack">
       <div class="stage">
         <canvas id="m7-d6-a" aria-label="Heatmap of the normalized sample spatial covariance and coherence versus lag"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>sample coherence Ĉ(m)</span><span><i style="background:var(--muted)"></i>VCZ triangle 1 − m/N</span><span><i style="background:var(--sig2)"></i>expected under current settings (M → ∞)</span><span><i style="background:var(--grid)"></i>SLSC window, lags 1–6</span></div>
+        <div class="legend" id="m7-d6-leg1"><span data-s="smp"><i style="background:var(--accent)"></i>sample coherence Ĉ(m)</span><span data-s="vcz"><i class="dash" style="color:var(--muted)"></i>VCZ triangle 1 − m/N</span><span data-s="exp"><i class="dot" style="color:var(--sig2)"></i>expected under current settings (M → ∞)</span><span data-s="win"><i class="fill" style="background:var(--grid)"></i>SLSC window, lags 1–6</span></div>
         <canvas id="m7-d6-b" aria-label="Residual phase across the aperture and expected SLSC and CF versus assumed sound speed"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>total residual phase / normalized SLSC</span><span><i style="background:var(--sig3)"></i>phase screen</span><span><i style="background:var(--sig2)"></i>sound-speed residual / CF</span><span><i style="background:var(--sig4)"></i>current ĉ</span></div>
+        <div class="legend" id="m7-d6-leg2"><span data-s="a"><i style="background:var(--accent)"></i>total residual phase / normalized SLSC</span><span data-s="scr"><i class="dot" style="color:var(--sig3)"></i>phase screen</span><span data-s="b"><i class="dash" style="color:var(--sig2)"></i>sound-speed residual / CF</span><span data-s="cur"><i style="background:var(--sig4)"></i>current ĉ</span><span data-s="true"><i class="dash" style="color:var(--muted)"></i>true c = 1540 m/s</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m7-d6-m">snapshots M <output id="m7-d6-m-out">256</output></label><input type="range" id="m7-d6-m" min="0" max="9" step="1" value="7"></div>
-        <div class="ctrl"><label for="m7-d6-snr">channel SNR <output id="m7-d6-snr-out">30 dB</output></label><input type="range" id="m7-d6-snr" min="-10" max="40" step="1" value="30"></div>
-        <div class="ctrl"><label for="m7-d6-ab">phase screen rms <output id="m7-d6-ab-out">0.00 rad</output></label><input type="range" id="m7-d6-ab" min="0" max="2" step="0.05" value="0"></div>
-        <div class="ctrl"><label for="m7-d6-ell">screen correlation length <output id="m7-d6-ell-out">6 el.</output></label><input type="range" id="m7-d6-ell" min="1" max="32" step="1" value="6"></div>
-        <div class="ctrl"><label for="m7-d6-c">assumed sound speed ĉ (true 1540) <output id="m7-d6-c-out">1540 m/s</output></label><input type="range" id="m7-d6-c" min="1400" max="1700" step="5" value="1540"></div>
+        <div class="ctrl"><label for="m7-d6-m"><span>Snapshots M<span class="hint">independent speckle realizations averaged</span></span> <output id="m7-d6-m-out">256</output></label><input type="range" id="m7-d6-m" min="0" max="9" step="1" value="7"></div>
+        <div class="ctrl"><label for="m7-d6-snr"><span>Channel signal-to-noise ratio SNR (dB)</span> <output id="m7-d6-snr-out">30 dB</output></label><input type="range" id="m7-d6-snr" min="-10" max="40" step="1" value="30"></div>
+        <div class="ctrl"><label for="m7-d6-ab"><span>Phase screen rms (rad)<span class="hint">aberration added across the aperture</span></span> <output id="m7-d6-ab-out">0.00 rad</output></label><input type="range" id="m7-d6-ab" min="0" max="2" step="0.05" value="0"></div>
+        <div class="ctrl"><label for="m7-d6-ell"><span>Screen correlation length (elements)</span> <output id="m7-d6-ell-out">6 el.</output></label><input type="range" id="m7-d6-ell" min="1" max="32" step="1" value="6"></div>
+        <div class="ctrl"><label for="m7-d6-c"><span>Assumed sound speed ĉ (m/s)<span class="hint">true c = 1540 m/s; a mismatch adds a residual focusing phase</span></span> <output id="m7-d6-c-out">1540 m/s</output></label><input type="range" id="m7-d6-c" min="1400" max="1700" step="5" value="1540"></div>
         <div class="ctrl"><div class="btn-row"><button class="btn" id="m7-d6-rs" type="button">Reseed speckle</button><button class="btn" id="m7-d6-rp" type="button">Reseed screen</button></div></div>
         <div class="readout" id="m7-d6-read"></div>
       </div>
     </div>
     <div class="mx-scroll m7-mxbox"><div class="mx-row" id="m7-d6-mx"></div></div>
-    <div class="demo-foot"><strong>Model:</strong> M independent speckle realizations of delta-correlated complex scatterers on a 256-point lateral grid spanning the focal plane, weighted by the (aberrated) transmit beam, received with focusing applied (narrowband, Fraunhofer at the focus). <strong>Try:</strong> \(M = 1000, \mathrm{SNR}\ 40\) dB: the sample curve sits on the triangle. Drop SNR to 0 dB: lag 0 stays at 1, lag 1 falls to ≈ 0.49. Add a 1 rad screen and shorten its correlation length: the curve collapses and the heatmap loses its band. Sweep \(\hat{c}: \mathrm{SLSC}\) peaks at 1540 m/s; with a screen the peak is lower and flatter, which is why aberration biases coherence-based sound-speed estimates. The matrices show the top-left 5 × 5 corner of the normalized sample covariance next to its expectation: highlighted entries are lag 1. With a screen the expected entries become complex, \(e^{j(\varphi _{i} - \varphi _{j})}\) times the transmit term, and change along each diagonal: \(\mathbf{R}\) is no longer Toeplitz.</div>
+    <div class="demo-foot"><strong>Model:</strong> M independent speckle realizations of delta-correlated complex scatterers on a 256-point lateral grid spanning the focal plane, weighted by the (aberrated) transmit beam, received with focusing applied (narrowband, Fraunhofer at the focus). <strong>Try:</strong> \(M = 1000, \mathrm{SNR}\ 40\) dB: the sample curve sits on the triangle. Drop SNR to 0 dB: lag 0 stays at 1, lag 1 falls to ≈ 0.49. Add a 1 rad screen and shorten its correlation length: the curve collapses and the heatmap loses its band. Sweep \(\hat{c}: \mathrm{SLSC}\) peaks at 1540 m/s; with a screen the peak is lower and flatter, which is why aberration biases coherence-based sound-speed estimates. The matrices show the top-left 5 × 5 corner of the normalized sample covariance next to its expectation: highlighted entries are lag 1. With a screen the expected entries become complex, \(e^{j(\varphi _{i} - \varphi _{j})}\) times the transmit term, and change along each diagonal: \(\mathbf{R}\) is no longer Toeplitz.<span class="symnote">Symbols used here: N = 64 elements; i, j, element indices and m = j − i, the lag in elements; M, the number of snapshots; R̂, the sample channel covariance; C(m), the spatial coherence at lag m; SNR, channel signal-to-noise ratio in dB; ĉ, the assumed sound speed in m/s (true 1540); SLSC, short-lag spatial coherence (sum over lags 1–6); CF, coherence factor.</span></div>
   </div>
 
   <div class="prose">
@@ -430,7 +467,14 @@
   </div>
   <div class="callout us"><span class="label">Ultrasound link: targets B and C</span><p><strong>Target B (sound speed):</strong> global estimators sweep \(\hat{c}\) and maximize a focus-quality metric (coherence factor, SLSC, image sharpness); local estimators (tomographic or differentiable-beamforming methods) need the same coherence logic per region plus an inversion. <strong>Target C (aberration):</strong> the measured coherence deficit is both the diagnostic and the cost function; the distortion-matrix approach (Module 06) can be read as finding the phase law that makes the de-scanned field maximally coherent. <strong>ULM (Target A)</strong> uses coherence indirectly: microbubbles are point-like, not diffuse, so their channel covariance is rank one (no VCZ triangle), and that contrast is what coherence-based bubble detection exploits.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>The coherence factor \(\mathrm{CF} = |\sum _{i}s_{i}|^{2}/(N \sum _{i}|s_{i}|^{2})\) for diffuse speckle with a uniform aperture has an ensemble value (ratio of expectations) of \(\sum _{m}(N - |m|)^{2}/N^{3}\) \(= 2/3 + 1/(3N^{2}) \approx 2/3\). For white noise it is exactly 1/N. The average of the per-snapshot ratio is different (\(\approx 0.57\) for \(N = 64\)), because \(\mathrm{E}[X/Y] \neq \mathrm{E}[X]/\mathrm{E}[Y]\). Papers differ on which they report, and on whether CF is computed per sample or over an axial kernel; the readout shows both.</p></div>
-  <div class="callout pitfall"><span class="label">Pitfall: SLSC lag conventions</span><p>Lediju et al. (2011) compute, for each lag m, the normalized correlation of the delayed RF signals of elements i and \(i + m\) over a short axial kernel, average it over the \(N - m\) element pairs, and sum lags 1 to \(M: \mathrm{SLSC} = \sum _{m=1}^{M} \hat{R}(m)\). With IQ data the real part of the complex normalized correlation is used. Check three things before comparing numbers across papers: (1) whether "lag" counts element separation (adjacent elements = lag 1, as here) or is expressed as a fraction of the aperture; (2) whether M is quoted in elements or as \(Q = M/N\), so the same Q on a 64- and a 128-element array means different element counts; (3) whether the curve is averaged with \(1/(N - m)\) and whether the sum is normalized (by M or by the ideal VCZ value, as in the demo's "% of ideal"). The ideal value depends on the transmit aperture through the VCZ triangle, so an SLSC value is meaningful only together with \(N_{t}, M\) and the apodization.</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall: SLSC lag conventions</span><p>For each lag m, Lediju et al. (2011) compute the normalized correlation of the delayed RF signals of elements i and \(i + m\) over a short axial kernel, average it over the \(N - m\) element pairs, and sum lags 1 to \(M: \mathrm{SLSC} = \sum _{m=1}^{M} \hat{R}(m)\). With IQ data the real part of the complex normalized correlation is used. Before comparing numbers across papers, check three things.</p><ol><li>Whether "lag" counts element separation (adjacent elements = lag 1, as here) or is expressed as a fraction of the aperture.</li><li>Whether M is quoted in elements or as \(Q = M/N\); the same Q on a 64- and a 128-element array means different element counts.</li><li>Whether the curve is averaged with \(1/(N - m)\) and whether the sum is normalized (by M or by the ideal VCZ value, as in the demo's "% of ideal").</li></ol><p>The ideal value depends on the transmit aperture through the VCZ triangle, so an SLSC value is meaningful only together with \(N_{t}, M\) and the apodization.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>C(m) is the transmit-apodization autocorrelation: uniform 1 − |m|/N<sub>t</sub>, zero at the transmit width; 64-element Hann C(32) = 0.18. Receive apodization cancels.</li>
+    <li>Channel noise only raises lag 0: C(m ≥ 1) is divided by 1 + 1/SNR, so 0 dB halves lag-1 coherence.</li>
+    <li>A near-field phase screen costs ≈ e<sup>−D<sub>φ</sub>(m)</sup> two-way (half receive, half transmit broadening), so long lags decorrelate first.</li>
+    <li>The triangle is an upper bound, so coherence versus ĉ peaks at the true c: a 40 m/s error at F/1.6 costs ≈ 4% of SLSC (lags 1–6) and ≈ 28% of CF.</li>
+  </ul></div>
 
   <!-- ============ 07.7 ============ -->
   <h2><span class="sec">07.7</span>Visual summary</h2>
@@ -446,27 +490,21 @@
   <div class="prose"><p>The expert model has three layers. Speckle is a circular complex Gaussian field, so one covariance matrix is the whole story. That covariance is set by the imaging system, not the tissue: in time by the pulse spectrum (Wiener–Khinchin), across the array by the transmit intensity at the focus (van Cittert–Zernike). Every departure from the system-predicted covariance (noise, aberration, a wrong sound speed, a point target, motion) is a measurable signal, and every estimate of it carries a sampling error set by the number of independent speckle cells, not by the number of samples.</p></div>
   <div class="rules">
     <div class="rule">
-      <div class="say">Spatial coherence across the receive aperture is the Fourier transform of the intensity at the focus.</div>
-      <div class="keynum"><span>van Cittert–Zernike</span><span>\(C \propto \mathrm{FT}\{|P_{t}|^{2}\}\)</span><span>= \((t \star t)(m)\)</span></div>
-      <div class="why"><p>Delta-correlated scatterers make every point of the focal plane an independent source, weighted by the transmit intensity \(|P_{t}(\xi )|^{2}\). After focusing, the receive kernel is \(e^{-jkx_{i}\xi /z}\), so</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Paraxial focal-plane intensity of a 32-element transmit (30 mm, 5 MHz); dots: its Fourier transform by numerical quadrature, line: the triangle.</span><canvas id="m7-rf-1" aria-label="Figure for rule 1"></canvas></div><div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ \mathrm{E}[s_i s_j^*] \propto \int \lvert P_t(\xi)\rvert^2\, e^{-jk(x_i - x_j)\xi/z}\, d\xi \]</div></div><dl class="where"><dt>\(\mathrm{E}[\cdot]\)</dt><dd>expectation over scatterer realizations</dd><dt>\(s_i,\ s_j\)</dt><dd>focused IQ samples on receive elements i and j</dd><dt>\(P_t(\xi)\)</dt><dd>transmit field across the focal plane</dd><dt>\(\xi,\ z\)</dt><dd>lateral position and focal depth, mm</dd><dt>\(x_i,\ x_j\)</dt><dd>element positions, mm</dd><dt>\(k\)</dt><dd>wavenumber \(2\pi/\lambda\), rad/mm</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(\propto\)</dt><dd>proportional to (constant factor is the reflectivity power \(\sigma_a^2\)), as in <span class="eqref">(07.27)</span></dd></dl></div><p>Because \(|P_{t}|^{2}\) is itself the transform of the transmit-aperture autocorrelation, C(m) is that autocorrelation in element units, independent of frequency. It is the optical VCZ theorem with the transmit beam as the incoherent source (Mallart and Fink 1991). The phase of \(P_{t}\) drops out: only the insonified intensity matters.</p></div>
-      <div class="limits">Fully developed speckle; Fresnel approximation; homogeneous, isoplanatic medium; receive focused at the scatterer depth.</div>
-    </div>
-    <div class="rule">
-      <div class="say">A uniform focused transmit gives a triangle that reaches zero at a lag equal to the transmit aperture width.</div>
-      <div class="keynum"><span>\(C(m) = 1 - m/N_{t}\)</span><span>\(N_{t} = 64: C(32) = 0.50\)</span><span>Hann: \(C(32) = 0.18\)</span></div>
-      <div class="why"><p>The autocorrelation of a rect is a triangle. The receive array only samples it: receive apodization cancels in the per-pair normalization, and the receive width sets only the largest available lag, \(N_{r} - 1\). A 32-element transmit received on 64 elements gives \(1 - m/32\): the MATLAB lab with Ntx = 32 prints \(C(16) = 0.51\) and \(C(32) = 0.01\). A 64-element Hann transmit gives 0.67, 0.18, 0.01 at lags 16, 32, 48. A single-element transmit insonifies a wide region and the coherence is gone within a lag or two. See <span class="eqref">(07.28)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-2" aria-label="Figure for rule 2"></canvas></div></div>
-      <div class="limits">A single plane or diverging wave is unfocused and its coherence is low; after coherent compounding the angular span acts roughly as the transmit aperture (width ≈ 2z tan \(\theta _{\max}\)).</div>
+      <div class="say">Spatial coherence across the receive aperture is the Fourier transform of the focal intensity, i.e. the transmit-aperture autocorrelation: a uniform transmit gives a triangle that reaches zero at a lag equal to the transmit width.</div>
+      <div class="keynum"><span>van Cittert–Zernike: \(C \propto \mathrm{FT}\{|P_{t}|^{2}\} = (t \star t)(m)\)</span><span>uniform: \(C(m) = 1 - m/N_{t}\)</span><span>\(N_{t} = 64: C(32) = 0.50\)</span><span>Hann 64: \(C(32) = 0.18\)</span></div>
+      <div class="why"><p>Delta-correlated scatterers make every point of the focal plane an independent source, weighted by the transmit intensity \(|P_{t}(\xi )|^{2}\). After focusing, the receive kernel is \(e^{-jkx_{i}\xi /z}\), so</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Paraxial focal-plane intensity of a 32-element transmit (30 mm, 5 MHz); dots: its Fourier transform by numerical quadrature, line: the triangle.</span><canvas id="m7-rf-1" aria-label="Figure for rule 1"></canvas><div class="legend"><span><i style="background:var(--accent)"></i>t ⋆ t triangle</span><span><i class="mark" style="background:var(--sig2)"></i>FT of |P_t|², quadrature</span><span><i class="fill" style="background:var(--sig2)"></i>focal intensity (left)</span></div></div><div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ \mathrm{E}[s_i s_j^*] \propto \int \lvert P_t(\xi)\rvert^2\, e^{-jk(x_i - x_j)\xi/z}\, d\xi \]</div></div><dl class="where"><dt>\(\mathrm{E}[\cdot]\)</dt><dd>expectation over scatterer realizations</dd><dt>\(s_i,\ s_j\)</dt><dd>focused IQ samples on receive elements i and j</dd><dt>\(P_t(\xi)\)</dt><dd>transmit field across the focal plane</dd><dt>\(\xi,\ z\)</dt><dd>lateral position and focal depth, mm</dd><dt>\(x_i,\ x_j\)</dt><dd>element positions, mm</dd><dt>\(k\)</dt><dd>wavenumber \(2\pi/\lambda\), rad/mm</dd><dt>\(j\)</dt><dd>imaginary unit</dd><dt>\(\propto\)</dt><dd>proportional to (constant factor is the reflectivity power \(\sigma_a^2\)), as in <span class="eqref">(07.27)</span></dd></dl></div><p>Because \(|P_{t}|^{2}\) is itself the transform of the transmit-aperture autocorrelation, C(m) is that autocorrelation in element units, independent of frequency. It is the optical VCZ theorem with the transmit beam as the incoherent source (Mallart and Fink 1991). The phase of \(P_{t}\) drops out: only the insonified intensity matters.</p><p>The autocorrelation of a rect is a triangle. The receive array only samples it: receive apodization cancels in the per-pair normalization, and the receive width sets only the largest available lag, \(N_{r} - 1\). A 32-element transmit received on 64 elements gives \(1 - m/32\): the MATLAB lab with Ntx = 32 prints \(C(16) = 0.51\) and \(C(32) = 0.01\). A 64-element Hann transmit gives 0.67, 0.18, 0.01 at lags 16, 32, 48. A single-element transmit insonifies a wide region and the coherence is gone within a lag or two. See <span class="eqref">(07.28)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-2" aria-label="Figure for rule 2"></canvas><div class="legend"><span><i style="background:var(--accent)"></i>uniform 64</span><span><i class="dash" style="color:var(--sig2)"></i>Hann 64</span><span><i class="dot" style="color:var(--muted)"></i>uniform 32</span></div></div></div>
+      <div class="limits">Fully developed speckle; Fresnel approximation; homogeneous, isoplanatic medium; receive focused at the scatterer depth. A single plane or diverging wave is unfocused and its coherence is low; after coherent compounding the angular span acts roughly as the transmit aperture (width ≈ 2z tan \(\theta _{\max}\)).</div>
     </div>
     <div class="rule">
       <div class="say">The triangle lives in the focal zone; off focus the insonified width grows and the coherence collapses toward short lags.</div>
       <div class="keynum"><span>\(w \approx D|1 - z/z_{f}|\)</span><span>first null ≈ \(\lambda z/w\)</span><span>27 mm: \(C(16) = 0.18\) vs 0.73</span></div>
-      <div class="why"><p>Receive focusing still forms the VCZ integral at any depth z, but the source is now the defocused transmit beam. Geometrically it is about \(D|1 - z/z_{f}|\) wide, and the FT of a source of width w has its first null at a separation \(\lambda z/w\). Exact-geometry check (64 elements, 0.3 mm pitch, 5 MHz, \(z_{f} = 30\) mm, F/1.6): at 27 mm the −6 dB beam is 1.5 mm and \(C(16) = 0.18\) instead of 0.73; at 40 mm \(C(4) = 0.50\); at 15 mm \(C(1) = 0.59\). The depth of field \(7\lambda F\#^{2}\) is only ≈ 5 mm here.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Geometric beam width \(D|1 - z/z_{f}|\) and first-null estimate \(\lambda z/w\).</span><canvas id="m7-rf-3" aria-label="Figure for rule 3"></canvas></div></div>
+      <div class="why"><p>Receive focusing still forms the VCZ integral at any depth z, but the source is now the defocused transmit beam. Geometrically it is about \(D|1 - z/z_{f}|\) wide, and the FT of a source of width w has its first null at a separation \(\lambda z/w\). Exact-geometry check (64 elements, 0.3 mm pitch, 5 MHz, \(z_{f} = 30\) mm, F/1.6): at 27 mm the −6 dB beam is 1.5 mm and \(C(16) = 0.18\) instead of 0.73; at 40 mm \(C(4) = 0.50\); at 15 mm \(C(1) = 0.59\). The depth of field \(7\lambda F\#^{2}\) is only ≈ 5 mm here.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Geometric beam width \(D|1 - z/z_{f}|\) and first-null estimate \(\lambda z/w\).</span><canvas id="m7-rf-3" aria-label="Figure for rule 3"></canvas><div class="legend"><span><i style="background:var(--accent)"></i>first-null lag</span><span><i class="dash" style="color:var(--muted)"></i>aperture, 64 elements</span><span><i class="fill" style="background:var(--sig4)"></i>depth of field</span></div></div></div>
       <div class="limits">Single scatterer plane, no range-gate averaging. Coherence studies away from the focus therefore need synthetic transmit focusing (compounding, retrospective transmit beamforming) or must model the transmit beam.</div>
     </div>
     <div class="rule">
       <div class="say">Incoherent noise hits only lag 0: every lag ≥ 1 is scaled by \(\mathrm{SNR}/(1 + \mathrm{SNR})\), and so is any correlation coefficient.</div>
       <div class="keynum"><span>0 dB: × 0.50</span><span>10 dB: × 0.91</span><span>20 dB: × 0.99</span></div>
-      <div class="why"><p>Noise independent across channels adds \(\sigma _{n}^{2}\mathbf{I}\): only the diagonal grows, so every normalized off-diagonal entry is divided by \(1 + 1/\mathrm{SNR}\). The step between lag 0 and lag 1 is a channel-SNR meter: See <span class="eqref">(07.29)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-4" aria-label="Figure for rule 4"></canvas></div><div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ \mathrm{SNR} = \frac{C(1)}{C_{\mathrm{VCZ}}(1) - C(1)}, \qquad \rho_{\mathrm{meas}} = \frac{\rho}{\sqrt{(1 + 1/\mathrm{SNR}_1)(1 + 1/\mathrm{SNR}_2)}} \]</div></div><dl class="where"><dt>\(\mathrm{SNR}\)</dt><dd>per-element signal-to-noise power ratio (dimensionless; dB = 10 log)</dd><dt>\(C(1)\)</dt><dd>measured lag-one coherence, as in <span class="eqref">(07.29)</span></dd><dt>\(C_{\mathrm{VCZ}}(1)\)</dt><dd>noise-free lag-one coherence, as in <span class="eqref">(07.28)</span></dd><dt>\(\rho,\ \rho_{\mathrm{meas}}\)</dt><dd>true and noise-biased correlation coefficient between two kernels</dd><dt>\(\mathrm{SNR}_1,\ \mathrm{SNR}_2\)</dt><dd>SNRs of the two kernels</dd></dl></div><p>\(N = 128\), measured \(C(1) = 0.80,\) \(C_{\mathrm{VCZ}}(1) = 0.992: \mathrm{SNR} = 4.2\) (6.2 dB). This is lag-one coherence as an image-quality metric (Long, Bottenus and Trahey 2018). The second formula is the same bias for a correlation coefficient between two noisy kernels.</p></div>
+      <div class="why"><p>Noise independent across channels adds \(\sigma _{n}^{2}\mathbf{I}\): only the diagonal grows, so every normalized off-diagonal entry is divided by \(1 + 1/\mathrm{SNR}\). The step between lag 0 and lag 1 is a channel-SNR meter: See <span class="eqref">(07.29)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-4" aria-label="Figure for rule 4"></canvas><div class="legend"><span><i class="dash" style="color:var(--muted)"></i>no noise (VCZ)</span><span><i style="background:var(--accent)"></i>20 dB</span><span><i class="dash" style="color:var(--sig2)"></i>10 dB</span><span><i class="dot" style="color:var(--sig4)"></i>0 dB</span></div></div><div class="eqn"><div class="eqn-body"><div class="eqn-math">\[ \mathrm{SNR} = \frac{C(1)}{C_{\mathrm{VCZ}}(1) - C(1)}, \qquad \rho_{\mathrm{meas}} = \frac{\rho}{\sqrt{(1 + 1/\mathrm{SNR}_1)(1 + 1/\mathrm{SNR}_2)}} \]</div></div><dl class="where"><dt>\(\mathrm{SNR}\)</dt><dd>per-element signal-to-noise power ratio (dimensionless; dB = 10 log)</dd><dt>\(C(1)\)</dt><dd>measured lag-one coherence, as in <span class="eqref">(07.29)</span></dd><dt>\(C_{\mathrm{VCZ}}(1)\)</dt><dd>noise-free lag-one coherence, as in <span class="eqref">(07.28)</span></dd><dt>\(\rho,\ \rho_{\mathrm{meas}}\)</dt><dd>true and noise-biased correlation coefficient between two kernels</dd><dt>\(\mathrm{SNR}_1,\ \mathrm{SNR}_2\)</dt><dd>SNRs of the two kernels</dd></dl></div><p>\(N = 128\), measured \(C(1) = 0.80,\) \(C_{\mathrm{VCZ}}(1) = 0.992: \mathrm{SNR} = 4.2\) (6.2 dB). This is lag-one coherence as an image-quality metric (Long, Bottenus and Trahey 2018). The second formula is the same bias for a correlation coefficient between two noisy kernels.</p></div>
       <div class="limits">Needs noise uncorrelated between elements. Reverberation clutter is partly coherent at short lags; electrical crosstalk correlates neighbours and inflates C(1).</div>
     </div>
     <div class="rule">
@@ -478,13 +516,13 @@
     <div class="rule">
       <div class="say">Maximize coherence over the assumed sound speed and the peak sits at the true c.</div>
       <div class="keynum"><span>\(\Delta c = 40\) m/s, F/1.6</span><span>SLSC −4%</span><span>CF −28 to −36%</span></div>
-      <div class="why"><p>For a given transmit aperture the VCZ curve is an upper bound: any residual phase can only lower \(|\langle e^{j\Delta \varphi}\rangle |\). A wrong \(\hat{c}\) leaves a mostly quadratic residual with edge phase ≈ \((\pi D^{2}/(2\lambda z))(\Delta c/c),\ 1.6\) rad for \(D = 19.2\) mm, \(z = 30\) mm, 5 MHz, \(\Delta c = 40\) m/s. With \(\hat{c}\) the only free parameter the residual vanishes at \(\hat{c} = c\), so CF, SLSC or the full curve peak there. CF weights all lags and is sharp (−28% in the paraxial demo, −30 to −36% with exact geometry); short-lag SLSC is flat (−4%) but robust to noise. The MATLAB lab recovers \(c_{\mathrm{true}} = 1510\) m/s to within 1 m/s.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Paraxial quadratic residual phase; point target, receive only.</span><canvas id="m7-rf-6" aria-label="Figure for rule 6"></canvas></div></div>
+      <div class="why"><p>For a given transmit aperture the VCZ curve is an upper bound: any residual phase can only lower \(|\langle e^{j\Delta \varphi}\rangle |\). A wrong \(\hat{c}\) leaves a mostly quadratic residual with edge phase ≈ \((\pi D^{2}/(2\lambda z))(\Delta c/c),\ 1.6\) rad for \(D = 19.2\) mm, \(z = 30\) mm, 5 MHz, \(\Delta c = 40\) m/s. With \(\hat{c}\) the only free parameter the residual vanishes at \(\hat{c} = c\), so CF, SLSC or the full curve peak there. CF weights all lags and is sharp (−28% in the paraxial demo, −30 to −36% with exact geometry); short-lag SLSC is flat (−4%) but robust to noise. The MATLAB lab recovers \(c_{\mathrm{true}} = 1510\) m/s to within 1 m/s.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Paraxial quadratic residual phase; point target, receive only.</span><canvas id="m7-rf-6" aria-label="Figure for rule 6"></canvas><div class="legend"><span><i style="background:var(--accent)"></i>Δc = 40 m/s</span><span><i class="dash" style="color:var(--sig2)"></i>Δc = 20 m/s</span><span><i class="dash" style="color:var(--muted)"></i>true c</span></div></div></div>
       <div class="limits">In layered media the peak gives a path-averaged speed. A phase screen lowers, flattens and can shift the peak (+25 m/s for SLSC in the MATLAB lab). Short kernels make a 4% peak depth comparable to estimator noise.</div>
     </div>
     <div class="rule">
       <div class="say">Short-lag coherence is a clutter-robust image: it measures how coherent the echo is, not how bright.</div>
       <div class="keynum"><span>\(\mathrm{SLSC} = \sum _{m=1}^{M} \hat{C}(m)\)</span><span>ideal \(N = 64, M = 6:\ 5.67\)</span></div>
-      <div class="why"><p>Mainlobe speckle keeps C(m) near the triangle at small m whatever its amplitude, while thermal noise and much reverberation clutter have almost no coherence beyond lag 0. Summing only short lags keeps the speckle signal and avoids the long lags that aberration and finite kernels make noisy. A hypoechoic lesion filled with clutter turns dark in SLSC because its coherence is low, not because its echo is weak (Lediju et al. 2011).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-7" aria-label="Figure for rule 7"></canvas></div></div>
+      <div class="why"><p>Mainlobe speckle keeps C(m) near the triangle at small m whatever its amplitude, while thermal noise and much reverberation clutter have almost no coherence beyond lag 0. Summing only short lags keeps the speckle signal and avoids the long lags that aberration and finite kernels make noisy. A hypoechoic lesion filled with clutter turns dark in SLSC because its coherence is low, not because its echo is weak (Lediju et al. 2011).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-7" aria-label="Figure for rule 7"></canvas><div class="legend"><span><i style="background:var(--accent)"></i>speckle C(m)</span><span><i class="fill" style="background:var(--accent)"></i>lags summed by SLSC</span><span><i class="dash" style="color:var(--sig2)"></i>noise / clutter</span></div></div></div>
       <div class="limits">Not a reflectivity map: bright and dim speckle look alike. Each pixel needs an axial kernel of about a wavelength or more. Lag, M and normalization conventions differ between papers.</div>
     </div>
     <div class="rule">
@@ -494,9 +532,9 @@
       <div class="limits">Breaks with a coherent component (Rician), few scatterers per cell (K distribution), I/Q gain or phase imbalance, and for real RF samples \((P = R)\).</div>
     </div>
     <div class="rule">
-      <div class="say">Uncorrelated is not independent, except for jointly Gaussian variables.</div>
+      <div class="say">I and Q of speckle are independent, yet I and the envelope are merely uncorrelated: zero correlation proves independence only for jointly Gaussian variables.</div>
       <div class="keynum"><span>\(\operatorname{cov} (x, x^{2}) = 0\)</span><span>\(\operatorname{corr} (I, |z|) = 0\)</span><span>\(\operatorname{corr} (I^{2}, |z|^{2}) = 0.71\)</span></div>
-      <div class="why"><p>Correlation tests only linear dependence: for symmetric \(x, \operatorname{cov} (x, x^{2}) = \mathrm{E}[x^{3}] = 0\). A jointly Gaussian density with diagonal covariance factorizes, so there uncorrelated implies independent: I and Q of circular speckle are independent. I and the envelope are uncorrelated by symmetry yet dependent: \(\operatorname{var} (I^{2}) = 2\sigma _{I}^{4}\) and \(\operatorname{var} (|z|^{2}) = 4\sigma _{I}^{4}\), so \(\operatorname{corr} (I^{2}, |z|^{2}) = 2/\sqrt{8} = 1/\sqrt{2}\).</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Monte Carlo, 20 000 circular Gaussian draws (JS).</span><canvas id="m7-rf-9" aria-label="Figure for rule 9"></canvas></div></div>
+      <div class="why"><p>Correlation tests only linear dependence: for symmetric \(x, \operatorname{cov} (x, x^{2}) = \mathrm{E}[x^{3}] = 0\). A jointly Gaussian density with diagonal covariance factorizes, so there uncorrelated implies independent: I and Q of circular speckle are independent. I and the envelope are uncorrelated by symmetry yet dependent: \(\operatorname{var} (I^{2}) = 2\sigma _{I}^{4}\) and \(\operatorname{var} (|z|^{2}) = 4\sigma _{I}^{4}\), so \(\operatorname{corr} (I^{2}, |z|^{2}) = 2/\sqrt{8} = 1/\sqrt{2}\).</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Monte Carlo, 20 000 circular Gaussian draws (JS).</span><canvas id="m7-rf-9" aria-label="Figure for rule 9"></canvas><div class="legend"><span><i class="mark" style="background:var(--muted)"></i>600 draws</span><span><i class="dash" style="color:var(--sig2)"></i>|z| = |I|</span></div></div></div>
       <div class="limits">Joint, not marginal, Gaussianity is required. A small-sample \(\hat{\rho } \approx 0\) does not even establish uncorrelatedness.</div>
     </div>
     <div class="rule">
@@ -508,37 +546,31 @@
     <div class="rule">
       <div class="say">Count speckle cells, not samples, and know which count your statistic needs.</div>
       <div class="keynum"><span>5 mm, 5 MHz, 60%: 325 samples</span><span>cells 16</span><span>intensity mean 21</span><span>\(\hat{\rho }\ 41\)</span></div>
-      <div class="why"><p>\(\operatorname{var} (\bar{x}) = (\sigma ^{2}/N)\sum _{k}(1 - |k|/N)\rho (k)\), so \(N_{\mathrm{eff}} = T/\int \rho _{q}(\tau )d\tau\), where \(\rho _{q}\) is the correlation of the quantity being averaged. For an intensity mean \(\rho _{q}\) = |envelope of \(r|^{2}, \int = \sqrt{2\pi}\sigma _{t} = 0.94/B\). For \(\hat{\rho }\) between RF kernels (Bartlett) \(\rho _{q} = r^{2}, \int \approx 0.47/B\), since the carrier averages \(\cos ^{2}\) to \(\tfrac{1}{2}\). A 5 mm window (T·B = 19.5) holds 15.6 cells of 1.25/B but \(N_{\mathrm{eff}} = 20.8\) for an intensity mean and 41.5 for \(\hat{\rho }\); Monte Carlo 21.8 and 40.0. See <span class="eqref">(07.4)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-11" aria-label="Figure for rule 11"></canvas></div></div>
+      <div class="why"><p>\(\operatorname{var} (\bar{x}) = (\sigma ^{2}/N)\sum _{k}(1 - |k|/N)\rho (k)\), so \(N_{\mathrm{eff}} = T/\int \rho _{q}(\tau )d\tau\), where \(\rho _{q}\) is the correlation of the quantity being averaged. For an intensity mean \(\rho _{q}\) = |envelope of \(r|^{2}, \int = \sqrt{2\pi}\sigma _{t} = 0.94/B\). For \(\hat{\rho }\) between RF kernels (Bartlett) \(\rho _{q} = r^{2}, \int \approx 0.47/B\), since the carrier averages \(\cos ^{2}\) to \(\tfrac{1}{2}\). A 5 mm window (T·B = 19.5) holds 15.6 cells of 1.25/B but \(N_{\mathrm{eff}} = 20.8\) for an intensity mean and 41.5 for \(\hat{\rho }\); Monte Carlo 21.8 and 40.0. See <span class="eqref">(07.4)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-11" aria-label="Figure for rule 11"></canvas><div class="legend"><span><i style="background:var(--accent)"></i>intensity: |envelope|²</span><span><i class="fill" style="background:var(--sig2)"></i>RF ρ̂: r²</span></div></div></div>
       <div class="limits">Gaussian pulse; the cell count T·B/1.25 is a conservative rule of thumb. Sampling finer than the pulse adds no independent information in any case.</div>
     </div>
     <div class="rule">
       <div class="say">Speckle correlation length is the PSF size: axially about 1/bandwidth, laterally about \(\lambda F\#\).</div>
       <div class="keynum"><span>RF: \(\tau _{\mathrm{FWHM}} = 1.25/B\)</span><span>5 MHz, 60%: 0.32 mm</span><span>intensity lateral: \(0.83 \lambda F\#\)</span></div>
-      <div class="why"><p>White scatterers convolved with the PSF give a speckle autocorrelation equal to the PSF autocorrelation. Gaussian pulse: the RF autocorrelation envelope has FWHM \(4\sqrt{2} \ln 2/(\pi B) = 1.25/B\) (MATLAB: 1.246). The intensity autocovariance is \(|R|^{2}\) (Isserlis), FWHM \(1/\sqrt{2}\) of that, 0.88/B (0.23 mm here). Laterally, the two-way uniform-aperture PSF \(\operatorname{sinc} ^{2}\) has a −6 dB width of \(0.89 \lambda F\#\) and an intensity-speckle FWHM of \(0.83 \lambda F\#\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-12" aria-label="Figure for rule 12"></canvas></div></div>
+      <div class="why"><p>White scatterers convolved with the PSF give a speckle autocorrelation equal to the PSF autocorrelation. Gaussian pulse: the RF autocorrelation envelope has FWHM \(4\sqrt{2} \ln 2/(\pi B) = 1.25/B\) (MATLAB: 1.246). The intensity autocovariance is \(|R|^{2}\) (Isserlis), FWHM \(1/\sqrt{2}\) of that, 0.88/B (0.23 mm here). Laterally, the two-way uniform-aperture PSF \(\operatorname{sinc} ^{2}\) has a −6 dB width of \(0.89 \lambda F\#\) and an intensity-speckle FWHM of \(0.83 \lambda F\#\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-12" aria-label="Figure for rule 12"></canvas><div class="legend"><span><i style="background:var(--muted)"></i>RF R(τ)</span><span><i style="background:var(--accent)"></i>envelope / PSF sinc²</span><span><i class="dash" style="color:var(--sig2)"></i>intensity |R|²</span><span><i class="dash" style="color:var(--rule)"></i>half maximum</span></div></div></div>
       <div class="limits">Focal zone, Gaussian pulse, uniform aperture. Attenuation lowers \(f_{0}\) and B with depth and lengthens the cells.</div>
     </div>
     <div class="rule">
-      <div class="say">The power spectrum is the Fourier transform of the autocorrelation, and the speckle spectrum is the system spectrum.</div>
+      <div class="say">The speckle power spectrum is the system's |H|², not the tissue's, which is why spectral QUS divides by a reference-phantom spectrum before reading anything about scatterers.</div>
       <div class="keynum"><span>S = FT{R}</span><span>\(S_{yy} = |H|^{2}S_{xx}\)</span><span>periodogram std/mean = 1</span></div>
-      <div class="why"><p>Wiener–Khinchin for WSS processes; equivalently the DFT approximately diagonalizes a Toeplitz covariance, with PSD samples as eigenvalues. White reflectivity through the system gives \(S_{yy} = N_{0}|H|^{2}\), which is why spectral QUS divides by a reference-phantom spectrum to remove the system. For a finite record the periodogram is exactly the DFT of the biased \(\hat{R}\) (MATLAB: agreement to \(5 \times 10^{-16}\)), and each bin stays exponential, std/mean ≈ 1, at 256 or 4096 samples. See <span class="eqref">(07.22)</span>.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">White noise filtered by a sampled Gaussian pulse, one 1024-point periodogram (JS).</span><canvas id="m7-rf-13" aria-label="Figure for rule 13"></canvas></div></div>
+      <div class="why"><p>Wiener–Khinchin for WSS processes; equivalently the DFT approximately diagonalizes a Toeplitz covariance, with PSD samples as eigenvalues. White reflectivity through the system gives \(S_{yy} = N_{0}|H|^{2}\), which is why spectral QUS divides by a reference-phantom spectrum to remove the system. For a finite record the periodogram is exactly the DFT of the biased \(\hat{R}\) (MATLAB: agreement to \(5 \times 10^{-16}\)), and each bin stays exponential, std/mean ≈ 1, at 256 or 4096 samples. See <span class="eqref">(07.22)</span>.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">White noise filtered by a sampled Gaussian pulse, one 1024-point periodogram (JS).</span><canvas id="m7-rf-13" aria-label="Figure for rule 13"></canvas><div class="legend"><span><i class="mark" style="background:var(--sig2)"></i>periodogram bins</span><span><i style="background:var(--accent)"></i>|H(f)|²</span></div></div></div>
       <div class="limits">Needs stationarity; depth-dependent attenuation and focusing make RF lines nonstationary, so spectra come from short windows with a bias–variance trade.</div>
     </div>
     <div class="rule">
-      <div class="say">The sample covariance has rank at most K: invert it only with \(K \ge N\), and expect 3 dB loss at \(K \approx 2N (\mathrm{RMB})\).</div>
-      <div class="keynum"><span>\(\mathrm{E}[\mathrm{loss}] = (K - N + 2)/(K + 1)\)</span><span>−3 dB at \(K = 2N - 3\)</span><span>\(K = N:\ -12.2\) dB \((N = 32)\)</span></div>
-      <div class="why"><p>\(\hat{\mathbf{R}} = \mathbf{XX}^{H}/K\) is a sum of K rank-one terms. Reed, Mallett and Brennan showed that the SINR of \(\hat{\mathbf{R}}^{-1}\mathbf{s}\) relative to \(\mathbf{R}^{-1}\mathbf{s}\) is \(\mathrm{Beta}(K - N + 2, N - 1)\) distributed for any \(\mathbf{R}\) and \(\mathbf{s}\). Monte Carlo, \(N = 32: K = 61\) gives \(0.501, K = 128\) gives 0.759 (theory 0.760), \(K = 32\) gives \(0.061 = 2/33\). See <span class="eqref">(07.18)</span>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-14" aria-label="Figure for rule 14"></canvas></div></div>
-      <div class="limits">I.i.d. Gaussian training snapshots free of the desired signal. In ultrasound MVDR the snapshots contain the signal and neighbouring axial samples are correlated, so convergence is slower than RMB.</div>
-    </div>
-    <div class="rule">
-      <div class="say">Diagonal loading and sub-aperture averaging are what make MVDR usable with a handful of range samples.</div>
-      <div class="keynum"><span>\(\delta = \Delta \cdot \operatorname{tr} (\hat{R})/L, \Delta \approx 10^{-2}\)</span><span>snapshots × \((N - L + 1)\)</span><span>\(L \le N/2\)</span></div>
-      <div class="why"><p>Loading adds \(\delta\) to every eigenvalue with eigenvectors unchanged, capping \(\kappa\) at \((\lambda _{\max} + \delta )/\delta\) and bounding the white-noise gain, hence the sensitivity to delay errors (Cox, Zeskind and Owen 1987). In Demo 07.4 \((N = 32, K = 64)\) loading at −20 dB raises the mean SINR ratio from 0.52 to 0.71. Sub-aperture averaging of the \(N - L + 1\) overlapping \(L \times L\) covariances multiplies the snapshots and decorrelates coherent echoes (Shan, Wax and Kailath 1985): 64 elements, \(K = 40, L = 32\) gives 1320 snapshots for a 32 × 32 matrix.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Eigenvalues of one sample covariance, 16 snapshots of a rank-4 signal plus noise (JS).</span><canvas id="m7-rf-15" aria-label="Figure for rule 15"></canvas></div></div>
-      <div class="limits">Smoothing shrinks the adaptive aperture to L and assumes shift-invariant (Toeplitz-like) statistics; large \(\delta\) turns MVDR back into DAS.</div>
+      <div class="say">The sample covariance has rank at most K and RMB costs 3 dB at K ≈ 2N, so MVDR with a handful of range samples works only because of sub-aperture averaging and diagonal loading.</div>
+      <div class="keynum"><span>\(\mathrm{E}[\mathrm{loss}] = (K - N + 2)/(K + 1)\)</span><span>−3 dB at \(K = 2N - 3\); \(K = N\): −12.2 dB (N = 32)</span><span>\(\delta = \Delta \cdot \operatorname{tr} (\hat{R})/L, \Delta \approx 10^{-2}\)</span><span>snapshots × \((N - L + 1)\), \(L \le N/2\)</span></div>
+      <div class="why"><p>\(\hat{\mathbf{R}} = \mathbf{XX}^{H}/K\) is a sum of K rank-one terms. Reed, Mallett and Brennan showed that the SINR of \(\hat{\mathbf{R}}^{-1}\mathbf{s}\) relative to \(\mathbf{R}^{-1}\mathbf{s}\) is \(\mathrm{Beta}(K - N + 2, N - 1)\) distributed for any \(\mathbf{R}\) and \(\mathbf{s}\) <span class="eqref">(07.18)</span>; Monte Carlo at \(N = 32\): \(K = 61\) gives 0.501, \(K = 128\) gives 0.759 (theory 0.760), \(K = 32\) gives \(0.061 = 2/33\). Loading adds \(\delta\) to every eigenvalue with eigenvectors unchanged, capping \(\kappa\) at \((\lambda _{\max} + \delta )/\delta\) and bounding the white-noise gain, hence the sensitivity to delay errors (Cox, Zeskind and Owen 1987); in Demo 07.4 \((N = 32, K = 64)\) loading at −20 dB raises the mean SINR ratio from 0.52 to 0.71. Sub-aperture averaging of the \(N - L + 1\) overlapping \(L \times L\) covariances multiplies the snapshots and decorrelates coherent echoes (Shan, Wax and Kailath 1985): 64 elements, \(K = 40, L = 32\) gives 1320 snapshots for a 32 × 32 matrix.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-14" aria-label="Figure for rule 14"></canvas></div><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Eigenvalues of one sample covariance, 16 snapshots of a rank-4 signal plus noise (JS).</span><canvas id="m7-rf-15" aria-label="Figure for rule 15"></canvas><div class="legend"><span><i style="background:var(--sig2)"></i>R̂ eigenvalues</span><span><i class="dash" style="color:var(--accent)"></i>R̂ + δI</span><span><i class="dot" style="color:var(--muted)"></i>loading δ</span></div></div></div>
+      <div class="limits">RMB assumes i.i.d. Gaussian training snapshots free of the desired signal; in ultrasound MVDR the snapshots contain the signal and neighbouring axial samples are correlated, so convergence is slower. Smoothing shrinks the adaptive aperture to L and assumes shift-invariant (Toeplitz-like) statistics; large \(\delta\) turns MVDR back into DAS.</div>
     </div>
     <div class="rule">
       <div class="say">The coherence factor is coherent sum over incoherent sum: 1 for a point at focus, 2/3 for speckle, 1/N for noise.</div>
       <div class="keynum"><span>speckle: \(2/3 + 1/(3N^{2})\)</span><span>point: 1</span><span>noise: 1/N</span></div>
-      <div class="why"><p>\(\mathrm{CF} = |\sum s_{i}|^{2}/(N\sum |s_{i}|^{2})\), by Parseval the fraction of aperture-domain energy at zero spatial frequency. In lag form its ensemble value is \(\mathrm{CF} = \sum _{m}(N - |m|)C(m)/N^{2}\): the uniform triangle gives \(\sum (N - |m|)^{2}/N^{3}\) \(= 2/3 + 1/(3N^{2}) = 0.667\) for \(N = 64\). A point at focus has identical channels, \(\mathrm{CF} = 1\). For white noise only \(m = 0\) survives, \(\mathrm{CF} = N/N^{2} = 1/N\); its per-snapshot value is \(\mathrm{Beta}(1, N - 1)\), mean also 1/N. With noise: \((N\cdot \mathrm{CF}_{s} + \sigma _{n}^{2})/(N(1 + \sigma _{n}^{2})),\) \(0.34\) at 0 dB.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-16" aria-label="Figure for rule 16"></canvas></div></div>
+      <div class="why"><p>\(\mathrm{CF} = |\sum s_{i}|^{2}/(N\sum |s_{i}|^{2})\), by Parseval the fraction of aperture-domain energy at zero spatial frequency. In lag form its ensemble value is \(\mathrm{CF} = \sum _{m}(N - |m|)C(m)/N^{2}\): the uniform triangle gives \(\sum (N - |m|)^{2}/N^{3}\) \(= 2/3 + 1/(3N^{2}) = 0.667\) for \(N = 64\). A point at focus has identical channels, \(\mathrm{CF} = 1\). For white noise only \(m = 0\) survives, \(\mathrm{CF} = N/N^{2} = 1/N\); its per-snapshot value is \(\mathrm{Beta}(1, N - 1)\), mean also 1/N. With noise: \((N\cdot \mathrm{CF}_{s} + \sigma _{n}^{2})/(N(1 + \sigma _{n}^{2})),\) \(0.34\) at 0 dB.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m7-rf-16" aria-label="Figure for rule 16"></canvas><div class="legend"><span><i class="dot" style="color:var(--sig3)"></i>point at focus</span><span><i style="background:var(--accent)"></i>speckle</span><span><i class="dash" style="color:var(--sig2)"></i>noise 1/N</span></div></div></div>
       <div class="limits">The mean of per-snapshot ratios (0.57 paraxial, 0.56 in the MATLAB geometry) differs from the ratio of means. CF mixes focusing quality with SNR. Mallart and Fink (1994) proposed a closely related coherence-based focusing criterion.</div>
     </div>
     <div class="rule">
@@ -807,7 +839,7 @@
       $('m7-d1-sx-out').textContent = sx.toFixed(2); $('m7-d1-sy-out').textContent = sy.toFixed(2);
       $('m7-d1-rho-out').textContent = rho.toFixed(2); $('m7-d1-n-out').textContent = n;
       const { ctx, w, h } = Lab.canvas($('m7-d1-cv'), 340);
-      const box = { x: 50, y: 12, w: w - 62, h: h - 52 };
+      const box = { x: 56, y: 12, w: w - 68, h: h - 52 };
       const Lr = 3.3 * Math.max(sx, sy), xa = Lr * box.w / box.h;
       const ax = Lab.axes(ctx, box, [-xa, xa], [-Lr, Lr], { xlabel: 'x (a.u.)', ylabel: 'y (a.u.)', nx: Math.max(3, Math.round(box.w / 80)) });
       const s2 = Math.sqrt(1 - rho * rho);
@@ -820,17 +852,17 @@
       const disc = Math.sqrt(Math.max(0, tr * tr / 4 - det)), l1 = tr / 2 + disc, l2 = tr / 2 - disc;
       const th = 0.5 * Math.atan2(2 * Sxy, Sxx - Syy), e1 = [Math.cos(th), Math.sin(th)], e2 = [-Math.sin(th), Math.cos(th)];
       ax.clip();
-      ctx.globalAlpha = 0.45; Lab.dots(ctx, ax, xs, ys, c.accent, n > 800 ? 1.3 : 2); ctx.globalAlpha = 1;
+      const LG = 'm7-d1-leg'; if (Lab.on(LG, 'smp')) { ctx.globalAlpha = 0.45; Lab.dots(ctx, ax, xs, ys, c.accent, n > 800 ? 1.3 : 2); ctx.globalAlpha = 1; }
       // principal axis (dashed), full length
-      Lab.line(ctx, ax, [-e1[0] * 4 * Lr, e1[0] * 4 * Lr], [-e1[1] * 4 * Lr, e1[1] * 4 * Lr], c.sig4, 1.2, [5, 4]);
-      for (const k of [1, 2]) {
+      if (Lab.on(LG, 'pa')) Lab.line(ctx, ax, [-e1[0] * 4 * Lr, e1[0] * 4 * Lr], [-e1[1] * 4 * Lr, e1[1] * 4 * Lr], c.sig5, 1.4, [5, 4]);
+      for (const k of (Lab.on(LG, 'ell') ? [1, 2] : [])) {
         const ex = [], ey = [];
         for (let t = 0; t <= 120; t++) { const a = TAU * t / 120, u = k * Math.sqrt(l1) * Math.cos(a), v = k * Math.sqrt(Math.max(l2, 0)) * Math.sin(a); ex.push(u * e1[0] + v * e2[0]); ey.push(u * e1[1] + v * e2[1]); }
         Lab.line(ctx, ax, ex, ey, c.sig4, k === 1 ? 2 : 1.4);
       }
       // regression lines
-      const byx = Sxy / Sxx; Lab.line(ctx, ax, [-xa, xa], [-xa * byx, xa * byx], c.sig2, 2);
-      const bxy = Sxy / Syy; Lab.line(ctx, ax, [-Lr * bxy, Lr * bxy], [-Lr, Lr], c.sig3, 2);
+      const byx = Sxy / Sxx; if (Lab.on(LG, 'yx')) Lab.line(ctx, ax, [-xa, xa], [-xa * byx, xa * byx], c.sig2, 2);
+      const bxy = Sxy / Syy; if (Lab.on(LG, 'xy')) Lab.line(ctx, ax, [-Lr * bxy, Lr * bxy], [-Lr, Lr], c.sig3, 2, [2, 3]);
       ax.unclip();
       Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(2 * Math.sqrt(l1) * e1[0]), ax.Y(2 * Math.sqrt(l1) * e1[1]), c.sig4, 2.2);
       Lab.arrow(ctx, ax.X(0), ax.Y(0), ax.X(2 * Math.sqrt(Math.max(l2, 0)) * e2[0]), ax.Y(2 * Math.sqrt(Math.max(l2, 0)) * e2[1]), c.sig4, 2.2);
@@ -853,7 +885,7 @@
         Lab.matHTML([[l1, 0], [0, sl2]], { cap: 'Λ', d: 3, hl: [[0, 0], [1, 1]] }) +
         Lab.matHTML([[e1[0], e1[1]], [e2[0], e2[1]]], { cap: 'Uᵀ', d: 3 });
     }
-    ['m7-d1-sx', 'm7-d1-sy', 'm7-d1-rho', 'm7-d1-n'].forEach(id => $(id).addEventListener('input', draw));
+    ['m7-d1-sx', 'm7-d1-sy', 'm7-d1-rho', 'm7-d1-n'].forEach(id => $(id).addEventListener('input', draw)); Lab.legendToggle('m7-d1-leg', draw);
     $('m7-d1-seed').addEventListener('click', () => { seed++; gen(); draw(); });
     return { draw };
   })();
@@ -885,8 +917,8 @@
       const tx = [], ty = [];
       for (let k = 0; k <= 300; k++) { const r = lo + (hi - lo) * k / 300; const rr = Math.min(0.999999, Math.max(-0.999999, r)); const z = Math.atanh(rr); tx.push(r); ty.push(Math.exp(-0.5 * Math.pow((z - mz) / sz, 2)) / (sz * Math.sqrt(TAU) * (1 - rr * rr))); }
       let ymax = 0; for (const v of H.h) ymax = Math.max(ymax, v); for (const v of ty) ymax = Math.max(ymax, v);
-      const ax = Lab.axes(ctx, box, [lo, hi], [0, ymax * 1.12], { xlabel: 'sample correlation coefficient ρ̂', ylabel: 'density', nx: Math.max(3, Math.round(box.w / 80)) });
-      ax.clip(); bars(ctx, ax, lo, H.bw, H.h, c.accent); Lab.line(ctx, ax, tx, ty, c.sig2, 2.2); vline(ctx, ax, rho, c.sig3, null, 2); ax.unclip();
+      const ax = Lab.axes(ctx, box, [lo, hi], [0, ymax * 1.12], { xlabel: 'sample correlation coefficient ρ̂ (dimensionless)', ylabel: 'probability density (per unit ρ̂)', nx: Math.max(3, Math.round(box.w / 80)) });
+      const LG = 'm7-d2-leg'; ax.clip(); if (Lab.on(LG, 'hist')) bars(ctx, ax, lo, H.bw, H.h, c.accent); if (Lab.on(LG, 'fz')) Lab.line(ctx, ax, tx, ty, c.sig2, 2.2); if (Lab.on(LG, 'true')) vline(ctx, ax, rho, c.sig3, [6, 4], 2); ax.unclip();
       let m = 0; for (const v of res) m += v; m /= E; let s = 0, mzE = 0, szE = 0, cov = 0, sp = 0;
       for (const v of res) { s += (v - m) * (v - m); const z = Math.atanh(Math.min(0.999999, Math.max(-0.999999, v))); mzE += z; if (Math.abs(z - Math.atanh(rho)) <= 1.96 * sz) cov++; if (Math.abs(v) >= 0.5) sp++; }
       mzE /= E; for (const v of res) { const z = Math.atanh(Math.min(0.999999, Math.max(-0.999999, v))); szE += (z - mzE) * (z - mzE); }
@@ -900,7 +932,7 @@
     }
     const live = () => { const n = NL[+$('m7-d2-n').value]; if (n * E <= 250000) draw(); else { $('m7-d2-n-out').textContent = n; $('m7-d2-rho-out').textContent = (+$('m7-d2-rho').value).toFixed(2); } };
     ['m7-d2-n', 'm7-d2-rho'].forEach(id => { $(id).addEventListener('input', live); $(id).addEventListener('change', () => draw()); });
-    $('m7-d2-run').addEventListener('click', () => { seed++; draw(); });
+    $('m7-d2-run').addEventListener('click', () => { seed++; draw(); }); Lab.legendToggle('m7-d2-leg', () => draw());
     return { draw };
   })();
 
@@ -926,31 +958,31 @@
       // panel 1: scatter, equal aspect
       const b0 = lay.boxes[0], Lr = 2.6 + A, xa = Lr * b0.w / b0.h;
       const a0 = Lab.axes(ctx, b0, [-xa, xa], [-Lr, Lr], { xlabel: 'I (a.u.)', ylabel: 'Q (a.u.)', title: 'IQ plane', nx: Math.max(3, Math.round(b0.w / 70)) });
-      a0.clip(); ctx.globalAlpha = 0.35;
-      const xs = [], ys = []; for (let i = 0; i < 1500; i++) { xs.push(I[i]); ys.push(Q[i]); } Lab.dots(ctx, a0, xs, ys, c.accent, 1.4); ctx.globalAlpha = 1;
+      a0.clip(); ctx.globalAlpha = 0.35; const LG = 'm7-d3-leg';
+      const xs = [], ys = []; for (let i = 0; i < 1500; i++) { xs.push(I[i]); ys.push(Q[i]); } if (Lab.on(LG, 'smp')) Lab.dots(ctx, a0, xs, ys, c.accent, 1.4); ctx.globalAlpha = 1;
       const tr = cII + cQQ, det = cII * cQQ - cIQ * cIQ, disc = Math.sqrt(Math.max(0, tr * tr / 4 - det)), l1 = tr / 2 + disc, l2 = tr / 2 - disc, th = 0.5 * Math.atan2(2 * cIQ, cII - cQQ);
       const ex = [], ey = []; for (let t = 0; t <= 100; t++) { const a = TAU * t / 100, u = Math.sqrt(l1) * Math.cos(a), v = Math.sqrt(Math.max(0, l2)) * Math.sin(a); ex.push(mI + u * Math.cos(th) - v * Math.sin(th)); ey.push(mQ + u * Math.sin(th) + v * Math.cos(th)); }
-      Lab.line(ctx, a0, ex, ey, c.sig4, 2.2); a0.unclip();
+      if (Lab.on(LG, 'ell')) Lab.line(ctx, a0, ex, ey, c.sig4, 2.2); a0.unclip();
       // panel 2: envelope histogram vs Rayleigh with sigma^2 = E|z|^2
       const b1 = lay.boxes[1], amax = Math.max(3, 2.2 + A * 1.3);
       const H1 = hist(amp, 0, amax, 36);
       const rx = [], ry = []; for (let k = 0; k <= 200; k++) { const a = amax * k / 200; rx.push(a); ry.push(2 * a / pw * Math.exp(-a * a / pw)); }
       let y1 = 0; for (const v of H1.h) y1 = Math.max(y1, v); for (const v of ry) y1 = Math.max(y1, v);
-      const a1 = Lab.axes(ctx, b1, [0, amax], [0, y1 * 1.12], { xlabel: 'envelope |z|', ylabel: 'density', title: 'envelope vs Rayleigh', nx: Math.max(3, Math.round(b1.w / 70)) });
-      a1.clip(); bars(ctx, a1, 0, H1.bw, H1.h, c.accent); Lab.line(ctx, a1, rx, ry, c.sig2, 2); a1.unclip();
+      const a1 = Lab.axes(ctx, b1, [0, amax], [0, y1 * 1.12], { xlabel: 'envelope |z| (a.u.)', ylabel: 'density (1/a.u.)', title: 'envelope vs Rayleigh', nx: Math.max(3, Math.round(b1.w / 70)) });
+      a1.clip(); if (Lab.on(LG, 'hist')) bars(ctx, a1, 0, H1.bw, H1.h, c.accent); if (Lab.on(LG, 'th')) Lab.line(ctx, a1, rx, ry, c.sig2, 2, [6, 4]); a1.unclip();
       // panel 3: phase histogram
       const b2 = lay.boxes[2]; const H2 = hist(ph, -Math.PI, Math.PI, 36); let y2 = 1 / TAU; for (const v of H2.h) y2 = Math.max(y2, v);
-      const a2 = Lab.axes(ctx, b2, [-Math.PI, Math.PI], [0, y2 * 1.15], { xlabel: 'phase arg z (rad)', ylabel: 'density', title: 'phase vs uniform', xticks: [-3, -2, -1, 0, 1, 2, 3] });
-      a2.clip(); bars(ctx, a2, -Math.PI, H2.bw, H2.h, c.accent); Lab.line(ctx, a2, [-Math.PI, Math.PI], [1 / TAU, 1 / TAU], c.sig2, 2); a2.unclip();
+      const a2 = Lab.axes(ctx, b2, [-Math.PI, Math.PI], [0, y2 * 1.15], { xlabel: 'phase arg z (rad)', ylabel: 'density (1/rad)', title: 'phase vs uniform', xticks: [-3, -2, -1, 0, 1, 2, 3] });
+      a2.clip(); if (Lab.on(LG, 'hist')) bars(ctx, a2, -Math.PI, H2.bw, H2.h, c.accent); if (Lab.on(LG, 'th')) Lab.line(ctx, a2, [-Math.PI, Math.PI], [1 / TAU, 1 / TAU], c.sig2, 2, [6, 4]); a2.unclip();
       $('m7-d3-read').innerHTML =
         row('mean μ', fx(mI, 3) + (mQ < 0 ? ' − j' : ' + j') + fx(Math.abs(mQ), 3)) +
-        row('R = E|z−μ|²', '<b>' + fx(R, 3) + '</b>') +
+        row('power R = E|z−μ|²', '<b>' + fx(R, 3) + '</b>') +
         row('P = E[(z−μ)²]', fx(Pr, 3) + (Pi < 0 ? ' − j' : ' + j') + fx(Math.abs(Pi), 3)) +
         row('|P|/R (0 = circular)', '<b>' + fx(circ, 3) + '</b>') + row('noise floor ≈ 1/√N', fx(1 / Math.sqrt(NP), 3)) +
         hd('real covariance of (I, Q)') + row('[cII cIQ; cQQ]', fx(cII, 3) + ' ' + fx(cIQ, 3) + '; ' + fx(cQQ, 3)) +
         hd('envelope') + row('mean/std', '<b>' + fx(ma / sa, 2) + '</b> (Rayleigh 1.91)');
     }
-    ['m7-d3-eps', 'm7-d3-psi', 'm7-d3-a'].forEach(id => $(id).addEventListener('input', draw));
+    ['m7-d3-eps', 'm7-d3-psi', 'm7-d3-a'].forEach(id => $(id).addEventListener('input', draw)); Lab.legendToggle('m7-d3-leg', draw);
     return { draw };
   })();
 
@@ -988,14 +1020,14 @@
       const s = sampleEig(K), delta = on ? Math.pow(10, dl / 10) * s.tr / N : 0;
       const { ctx, w, h } = Lab.canvas($('m7-d4-cv'), 300);
       const box = { x: 52, y: 14, w: w - 66, h: h - 56 }, floor = -60;
-      const ax = Lab.axes(ctx, box, [0.5, N + 0.5], [floor, 20], { xlabel: 'eigenvalue index (sorted)', ylabel: 'eigenvalue (dB)', xticks: [1, 8, 16, 24, 32] });
+      const ax = Lab.axes(ctx, box, [0.5, N + 0.5], [floor, 20], { xlabel: 'eigenvalue index (sorted, largest first)', ylabel: 'eigenvalue λ (dB)', xticks: [1, 8, 16, 24, 32] });
       const db = v => Math.max(floor + 0.5, 10 * Math.log10(Math.max(v, 1e-12)));
       const idx = lt.map((_, i) => i + 1);
       ax.clip();
-      if (on) Lab.line(ctx, ax, [0.5, N + 0.5], [db(delta), db(delta)], c.sig3, 1.4, [5, 4]);
-      Lab.line(ctx, ax, idx, lt.map(db), c.fg, 1.6); Lab.dots(ctx, ax, idx, lt.map(db), c.fg, 2.2);
-      Lab.line(ctx, ax, idx, s.lam.map(db), c.accent, 2); Lab.dots(ctx, ax, idx, s.lam.map(db), c.accent, 3);
-      if (on) { Lab.line(ctx, ax, idx, s.lam.map(v => db(v + delta)), c.sig2, 2); Lab.dots(ctx, ax, idx, s.lam.map(v => db(v + delta)), c.sig2, 2.5); }
+      const LG = 'm7-d4-leg'; if (on && Lab.on(LG, 'lvl')) Lab.line(ctx, ax, [0.5, N + 0.5], [db(delta), db(delta)], c.sig3, 1.4, [5, 4]);
+      if (Lab.on(LG, 'true')) { Lab.line(ctx, ax, idx, lt.map(db), c.fg, 1.6, [2, 3]); Lab.dots(ctx, ax, idx, lt.map(db), c.fg, 2.2); }
+      if (Lab.on(LG, 'smp')) { Lab.line(ctx, ax, idx, s.lam.map(db), c.accent, 2); Lab.dots(ctx, ax, idx, s.lam.map(db), c.accent, 3); }
+      if (on && Lab.on(LG, 'load')) { Lab.line(ctx, ax, idx, s.lam.map(v => db(v + delta)), c.sig2, 2, [6, 4]); Lab.dots(ctx, ax, idx, s.lam.map(v => db(v + delta)), c.sig2, 2.5); }
       ax.unclip();
       const lmax = s.lam[0], lmin = s.lam[N - 1], rank = s.lam.filter(v => v > 1e-9 * lmax).length;
       const kap = lmin > 1e-9 * lmax ? lmax / lmin : Infinity;
@@ -1051,7 +1083,7 @@
     }
     ['m7-d4-k', 'm7-d4-dl', 'm7-d4-on'].forEach(id => $(id).addEventListener('input', draw));
     $('m7-d4-on').addEventListener('change', draw);
-    $('m7-d4-smi').addEventListener('click', runSMI);
+    $('m7-d4-smi').addEventListener('click', runSMI); Lab.legendToggle('m7-d4-leg', draw);
     $('m7-d4-seed').addEventListener('click', () => { seed++; gen(); draw(); });
     return { draw };
   })();
@@ -1102,24 +1134,24 @@
       else { const P = panels(wcss, 3, 0, [220, 240, 240]); boxes = P.boxes; H = P.h; }
       const { ctx } = Lab.canvas(cv, H);
       const nshow = Math.round(10e-6 * fs), sx = [], sy = []; for (let i = 0; i < nshow; i++) { sx.push(i / fs * 1e6); sy.push(yr[i]); }
-      const a0 = Lab.axes(ctx, boxes[0], [0, 10], [-3.5, 3.5], { xlabel: 'time t (µs)', ylabel: 'RF (σ units)', title: 'speckle RF line (first 10 µs of 82 µs)', yticks: [-3, 0, 3] });
-      a0.clip(); Lab.line(ctx, a0, sx, sy, c.accent, 1.2); a0.unclip();
-      const a1 = Lab.axes(ctx, boxes[1], [-1.6, 1.6], [-1.05, 1.1], { xlabel: 'lag τ (µs)', ylabel: 'ρ(τ)', title: 'autocorrelation', yticks: [-1, -0.5, 0, 0.5, 1] });
-      a1.clip(); Lab.line(ctx, a1, lx, lenv, c.sig4, 1.4); Lab.line(ctx, a1, lx, le, c.accent, 1.8); Lab.line(ctx, a1, lx, lt, c.sig2, 1.6, [5, 4]);
-      ctx.save(); ctx.strokeStyle = c.sig4; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a1.X(-kh / fs * 1e6), a1.Y(0.5)); ctx.lineTo(a1.X(kh / fs * 1e6), a1.Y(0.5)); ctx.stroke(); ctx.restore();
+      const a0 = Lab.axes(ctx, boxes[0], [0, 10], [-3.5, 3.5], { xlabel: 'time t (µs)', ylabel: 'RF (units of its std σ)', title: 'speckle RF line (first 10 µs of 82 µs)', yticks: [-3, 0, 3] });
+      const LG = 'm7-d5-leg'; a0.clip(); if (Lab.on(LG, 'sim')) Lab.line(ctx, a0, sx, sy, c.accent, 1.2); a0.unclip();
+      const a1 = Lab.axes(ctx, boxes[1], [-1.6, 1.6], [-1.05, 1.1], { xlabel: 'lag τ (µs)', ylabel: 'ρ(τ) (dimensionless)', title: 'autocorrelation', yticks: [-1, -0.5, 0, 0.5, 1] });
+      a1.clip(); if (Lab.on(LG, 'env')) Lab.line(ctx, a1, lx, lenv, c.sig5, 1.5, [2, 3]); if (Lab.on(LG, 'sim')) Lab.line(ctx, a1, lx, le, c.accent, 1.8); if (Lab.on(LG, 'th')) Lab.line(ctx, a1, lx, lt, c.sig2, 1.6, [5, 4]);
+      if (Lab.on(LG, 'fw')) { ctx.save(); ctx.strokeStyle = c.sig4; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a1.X(-kh / fs * 1e6), a1.Y(0.5)); ctx.lineTo(a1.X(kh / fs * 1e6), a1.Y(0.5)); ctx.stroke(); ctx.restore(); }
       a1.unclip();
       const a2 = Lab.axes(ctx, boxes[2], [0, 15], [-40, 3], { xlabel: 'frequency (MHz)', ylabel: 'PSD (dB re peak)', title: 'power spectrum (Welch, ' + nseg + ' segments)', yticks: [-40, -30, -20, -10, 0] });
-      a2.clip(); Lab.line(ctx, a2, fx_, fy, c.accent, 1.8); Lab.line(ctx, a2, tfx, tfy, c.sig2, 1.6, [5, 4]);
-      Lab.line(ctx, a2, [(f0 - B / 2) / 1e6, (f0 + B / 2) / 1e6], [-12, -12], c.sig4, 2); a2.unclip();
+      a2.clip(); if (Lab.on(LG, 'sim')) Lab.line(ctx, a2, fx_, fy, c.accent, 1.8); if (Lab.on(LG, 'th')) Lab.line(ctx, a2, tfx, tfy, c.sig2, 1.6, [5, 4]);
+      if (Lab.on(LG, 'fw')) Lab.line(ctx, a2, [(f0 - B / 2) / 1e6, (f0 + B / 2) / 1e6], [-12, -12], c.sig4, 2); a2.unclip();
       const T = NS / fs;
       $('m7-d5-read').innerHTML =
         row('−6 dB bandwidth B', '<b>' + fx(B / 1e6, 2) + ' MHz</b>') + row('1/B', fx(1e9 / B, 0) + ' ns') + row('pulse σt', fx(sg * 1e9, 1) + ' ns') +
         hd('correlation length (FWHM)') + row('theory 1.25/B', fx(fwhmT * 1e9, 0) + ' ns') + row('measured', '<b>' + fx(fwhmM * 1e9, 0) + ' ns</b>') +
         row('τFWHM · B', '<b>' + fx(fwhmM * B, 3) + '</b> (1.248)') +
         row('axial cell cτ/2', fx(1540 * fwhmT / 2 * 1e3, 3) + ' mm') +
-        row('N_eff ≈ T/τ', fx(T / fwhmT, 0) + ' (of ' + NS + ' samples)');
+        row('cells N_eff ≈ T/τ', fx(T / fwhmT, 0) + ' (of ' + NS + ' samples)');
     }
-    ['m7-d5-f0', 'm7-d5-bw'].forEach(id => $(id).addEventListener('input', draw));
+    ['m7-d5-f0', 'm7-d5-bw'].forEach(id => $(id).addEventListener('input', draw)); Lab.legendToggle('m7-d5-leg', draw);
     $('m7-d5-seed').addEventListener('click', () => { seed++; gen(); draw(); });
     return { draw };
   })();
@@ -1187,7 +1219,7 @@
     function drawA(c, S, E, sn2) {
       const cv = $('m7-d6-a'); const wcss = cv.clientWidth || cv.parentElement.clientWidth || 300; const ctx0 = null;
       let hb, cb, H;
-      if (wcss >= 680) { H = 330; const side = H - 64; hb = { x: 56, y: 22, w: side, h: side }; cb = { x: hb.x + side + 70, y: 22, w: wcss - (hb.x + side + 70) - 12, h: H - 64 }; }
+      if (wcss >= 680) { H = 330; const side = H - 64; hb = { x: 56, y: 22, w: side, h: side }; cb = { x: hb.x + side + 86, y: 22, w: wcss - (hb.x + side + 86) - 12, h: H - 64 }; }
       else { const side = Math.min(wcss - 90, 320); hb = { x: 56, y: 22, w: side, h: side }; cb = { x: 52, y: side + 22 + 64, w: wcss - 64, h: 200 }; H = cb.y + cb.h + 42; }
       const { ctx } = Lab.canvas(cv, H);
       const ah = Lab.axes(ctx, hb, [0, N], [N, 0], { xlabel: 'element j', ylabel: 'element i', title: '|R̂ij| / √(R̂ii R̂jj)', xticks: [0, 16, 32, 48, 64], yticks: [0, 16, 32, 48, 64], grid: false });
@@ -1198,30 +1230,30 @@
       Lab.image(ctx, cbar, 64, 1, { x: cbx, y: hb.y, w: 10, h: hb.h, smooth: true }, 0, 1, 'heat');
       ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('1', cbx + 14, hb.y + 4); ctx.fillText('0', cbx + 14, hb.y + hb.h - 4);
       void ah; void ctx0;
-      const ac = Lab.axes(ctx, cb, [0, N], [-0.05, 1.05], { xlabel: 'element lag m', ylabel: 'coherence C(m)', title: 'spatial coherence vs lag', xticks: [0, 8, 16, 24, 32, 40, 48, 56, 64], yticks: [0, 0.25, 0.5, 0.75, 1] });
+      const ac = Lab.axes(ctx, cb, [0, N], [-0.05, 1.05], { xlabel: 'element lag m (elements)', ylabel: 'coherence C(m) (dimensionless)', title: 'spatial coherence vs lag', xticks: [0, 8, 16, 24, 32, 40, 48, 56, 64], yticks: [0, 0.25, 0.5, 0.75, 1] });
       ac.clip();
-      ctx.fillStyle = c.grid; ctx.globalAlpha = 0.9; ctx.fillRect(ac.X(0.5), cb.y, ac.X(MLAG + 0.5) - ac.X(0.5), cb.h); ctx.globalAlpha = 1;
+      const L1 = 'm7-d6-leg1'; if (Lab.on(L1, 'win')) { ctx.fillStyle = c.grid; ctx.globalAlpha = 0.9; ctx.fillRect(ac.X(0.5), cb.y, ac.X(MLAG + 0.5) - ac.X(0.5), cb.h); ctx.globalAlpha = 1; }
       Lab.line(ctx, ac, [0, N], [0, 0], c.rule, 1);
-      Lab.line(ctx, ac, [0, N], [1, 0], c.muted, 1.6, [6, 4]);
+      if (Lab.on(L1, 'vcz')) Lab.line(ctx, ac, [0, N], [1, 0], c.muted, 1.6, [6, 4]);
       const ex = [], ey = []; for (let m = 0; m < N; m++) { ex.push(m); ey.push(E.coh[m]); }
-      Lab.line(ctx, ac, ex, ey, c.sig2, 1.8, [4, 3]);
+      if (Lab.on(L1, 'exp')) Lab.line(ctx, ac, ex, ey, c.sig2, 1.8, [2, 3]);
       const sx = [], sy = []; for (let m = 0; m < N; m++) { sx.push(m); sy.push(S.coh[m]); }
-      Lab.line(ctx, ac, sx, sy, c.accent, 1.8); Lab.dots(ctx, ac, sx, sy, c.accent, 2);
+      if (Lab.on(L1, 'smp')) { Lab.line(ctx, ac, sx, sy, c.accent, 1.8); Lab.dots(ctx, ac, sx, sy, c.accent, 2); }
       ac.unclip();
     }
     function drawB(c, E, sweep, ca) {
       const cv = $('m7-d6-b'); const wcss = cv.clientWidth || cv.parentElement.clientWidth || 300;
-      const lay = panels(wcss, 2, 250, [230, 250]);
+      const lay = panels(wcss, 2, 250, [230, 250], { left: 60 });
       const { ctx } = Lab.canvas(cv, lay.h);
       let pm = 0.5; for (let i = 0; i < N; i++) pm = Math.max(pm, Math.abs(phi[i]) * 1.15, Math.abs(scr[i] * +$('m7-d6-ab').value) * 1.15);
-      const a0 = Lab.axes(ctx, lay.boxes[0], [1, N], [-pm, pm], { xlabel: 'element index', ylabel: 'phase (rad)', title: 'residual phase across the aperture', xticks: [1, 16, 32, 48, 64] });
+      const a0 = Lab.axes(ctx, lay.boxes[0], [1, N], [-pm, pm], { xlabel: 'element index (1–64)', ylabel: 'phase (rad)', title: 'residual phase across the aperture', xticks: [1, 16, 32, 48, 64] });
       const ix = Array.from({ length: N }, (_, i) => i + 1), ab = +$('m7-d6-ab').value;
-      a0.clip(); Lab.line(ctx, a0, [1, N], [0, 0], c.rule, 1);
-      Lab.line(ctx, a0, ix, Array.from(scr, v => v * ab), c.sig3, 1.6); Lab.line(ctx, a0, ix, Array.from(phS), c.sig2, 1.6, [5, 4]); Lab.line(ctx, a0, ix, Array.from(phi), c.accent, 2.2); a0.unclip();
-      const a1 = Lab.axes(ctx, lay.boxes[1], [1400, 1700], [0, 1.05], { xlabel: 'assumed sound speed ĉ (m/s)', ylabel: 'expected metric', title: 'SLSC / SLSC_ideal and CF vs ĉ', xticks: [1400, 1450, 1500, 1550, 1600, 1650, 1700], yticks: [0, 0.25, 0.5, 0.75, 1] });
-      a1.clip(); vline(ctx, a1, 1540, c.muted, [3, 3], 1); vline(ctx, a1, ca, c.sig4, null, 2);
-      Lab.line(ctx, a1, sweep.c, sweep.cf, c.sig2, 2); Lab.line(ctx, a1, sweep.c, sweep.sl, c.accent, 2.2);
-      Lab.dots(ctx, a1, [sweep.best], [sweep.bestV], c.accent, 4.5); a1.unclip();
+      a0.clip(); Lab.line(ctx, a0, [1, N], [0, 0], c.rule, 1); const L2 = 'm7-d6-leg2';
+      if (Lab.on(L2, 'scr')) Lab.line(ctx, a0, ix, Array.from(scr, v => v * ab), c.sig3, 1.6, [2, 3]); if (Lab.on(L2, 'b')) Lab.line(ctx, a0, ix, Array.from(phS), c.sig2, 1.6, [5, 4]); if (Lab.on(L2, 'a')) Lab.line(ctx, a0, ix, Array.from(phi), c.accent, 2.2); a0.unclip();
+      const a1 = Lab.axes(ctx, lay.boxes[1], [1400, 1700], [0, 1.05], { xlabel: 'assumed sound speed ĉ (m/s)', ylabel: 'metric (normalized)', title: 'SLSC / SLSC_ideal and CF vs ĉ', xticks: [1400, 1450, 1500, 1550, 1600, 1650, 1700], yticks: [0, 0.25, 0.5, 0.75, 1] });
+      a1.clip(); if (Lab.on(L2, 'true')) vline(ctx, a1, 1540, c.muted, [3, 3], 1); if (Lab.on(L2, 'cur')) vline(ctx, a1, ca, c.sig4, null, 2);
+      if (Lab.on(L2, 'b')) Lab.line(ctx, a1, sweep.c, sweep.cf, c.sig2, 2, [6, 4]); if (Lab.on(L2, 'a')) { Lab.line(ctx, a1, sweep.c, sweep.sl, c.accent, 2.2);
+      Lab.dots(ctx, a1, [sweep.best], [sweep.bestV], c.accent, 4.5); } a1.unclip();
     }
     const SLI = (1 - 0) * 0 + (function () { let s = 0; for (let m = 1; m <= MLAG; m++) s += 1 - m / N; return s; })();
     let lastKey = '';
@@ -1254,13 +1286,13 @@
         hd('SLSC, lags 1–' + MLAG) + row('sample', '<b>' + fx(sS, 3) + '</b> (' + fx(100 * sS / SLI, 1) + '% of ideal)') + row('expected', fx(sE, 3)) + row('ideal VCZ', fx(SLI, 3)) +
         hd('lag-1 coherence') + row('sample', '<b>' + fx(sim.coh[1], 3) + '</b>') + row('expected', fx(E.coh[1], 3)) + row('(1−1/N)/(1+1/SNR)', fx((1 - 1 / N) / (1 + sn2), 3)) +
         hd('coherence factor') + row('mean of per-snapshot CF', '<b>' + fx(sim.cfm, 3) + '</b>') + row('ratio of means', '<b>' + fx(sim.cfr, 3) + '</b>') + row('expected (ratio)', fx(E.cf, 3)) +
-        hd('other') + row('rms residual phase', fx(rms, 2) + ' rad') + row('rank R̂', Math.min(M, N) + ' of ' + N) + row('argmax SLSC(ĉ)', '<b>' + sw.best + ' m/s</b>');
+        hd('other') + row('rms residual phase', fx(rms, 2) + ' rad') + row('rank of R̂', Math.min(M, N) + ' of ' + N) + row('ĉ with highest SLSC', '<b>' + sw.best + ' m/s</b>');
     }
     genScreen();
     ['m7-d6-m', 'm7-d6-snr', 'm7-d6-ab', 'm7-d6-c'].forEach(id => $(id).addEventListener('input', draw));
     $('m7-d6-ell').addEventListener('input', () => { genScreen(); draw(); });
     $('m7-d6-rs').addEventListener('click', () => { seedD++; genData(); draw(); });
-    $('m7-d6-rp').addEventListener('click', () => { seedS++; genScreen(); draw(); });
+    $('m7-d6-rp').addEventListener('click', () => { seedS++; genScreen(); draw(); }); Lab.legendToggle('m7-d6-leg1', draw); Lab.legendToggle('m7-d6-leg2', draw);
     return { draw };
   })();
 
@@ -1303,7 +1335,7 @@
   /* lollipops (no arrowheads) on a Lab.mini.panel */
   function lolli(x, m, P, colr, r) { x.save(); x.strokeStyle = colr; x.fillStyle = colr; x.lineWidth = 1.4;
     P.forEach(([t, h]) => { const px = m.X(t), py = m.Y(h); x.beginPath(); x.moveTo(px, m.y0); x.lineTo(px, py); x.stroke(); x.beginPath(); x.arc(px, py, r || 2.6, 0, 2 * PI); x.fill(); }); x.restore(); }
-  function vline(x, m, v, colr, lab) { const c = M.col(); x.save(); x.strokeStyle = colr || c.mu; x.setLineDash([3, 3]); x.lineWidth = 1; x.beginPath(); x.moveTo(m.X(v), m.b.y); x.lineTo(m.X(v), m.b.y + m.b.h); x.stroke(); x.restore(); if (lab) M.text(x, lab, m.X(v) + 3, m.b.y + 5, colr || c.mu); }
+  function vline(x, m, v, colr, lab, d) { const c = M.col(); x.save(); x.strokeStyle = colr || c.mu; x.setLineDash(d || [3, 3]); x.lineWidth = 1; x.beginPath(); x.moveTo(m.X(v), m.b.y); x.lineTo(m.X(v), m.b.y + m.b.h); x.stroke(); x.restore(); if (lab) M.text(x, lab, m.X(v) + 3, m.b.y + 5, colr || c.mu); }
   const f2 = v => (Math.abs(v) < 0.005 ? 0 : v).toFixed(2).replace('-', '−'), f3 = v => (Math.abs(v) < 0.0005 ? 0 : v).toFixed(3).replace('-', '−');
 
   const $ = id => document.getElementById(id);
@@ -1318,88 +1350,88 @@
 
   /* ---------- inline grid 07.1 ---------- */
   const RV = [
-    { prov: 'exact', q: 'Where is E[x] on a skewed pdf?', a: 'The balance point of p(x). For the Rayleigh envelope (σ = 1): <b>mode 1, median √(2 ln 2) = 1.177, mean √(π/2) = 1.253</b>, std 0.655. Linearity of E never needs the pdf to be symmetric.',
+    { prov: 'exact', leg: [['Rayleigh pdf', 'a', 'fill'], ['mode', 'mu', 'dash'], ['median', 'b', 'dot'], ['mean, ±σ bar', 'd', 'solid']], q: 'Where is E[x] on a skewed pdf?', a: 'The balance point of p(x). For the Rayleigh envelope (σ = 1): <b>mode 1, median √(2 ln 2) = 1.177, mean √(π/2) = 1.253</b>, std 0.655. Linearity of E never needs the pdf to be symmetric.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const pdf = r => r * Math.exp(-r * r / 2), mean = Math.sqrt(PI / 2), med = Math.sqrt(2 * Math.log(2)), sd = Math.sqrt((4 - PI) / 2);
-        const m = M.panel(x, pbox(w, h), [0, 4], [0, 0.75], { lab: 'Rayleigh pdf p(r), σ = 1', yaxis: false, ticks: [[1, '1'], [2, '2'], [3, '3']] });
-        M.curve(x, m, pdf, c.a, { fill: true }); vline(x, m, 1, c.mu); vline(x, m, med, c.b); vline(x, m, mean, c.d);
+        const m = M.panel(x, pbox(w, h), [0, 4], [0, 0.75], { lab: 'Rayleigh pdf p(r) vs envelope r (σ = 1)', yaxis: false, ticks: [[1, '1'], [2, '2'], [3, '3']] });
+        M.curve(x, m, pdf, c.a, { fill: true }); vline(x, m, 1, c.mu); vline(x, m, med, c.b, null, [1.5, 2.5]); vline(x, m, mean, c.d, null, []);
         x.save(); x.strokeStyle = c.d; x.lineWidth = 2; const yb = m.Y(0.08); x.beginPath(); x.moveTo(m.X(mean - sd), yb); x.lineTo(m.X(mean + sd), yb); x.stroke(); x.restore();
         M.text(x, 'mode', m.X(1) - 4, m.b.y + 8, c.mu, 'right'); M.text(x, 'median ' + med.toFixed(3), m.X(2.0), m.b.y + 8, c.b); M.text(x, 'mean ' + mean.toFixed(3), m.X(2.0), m.b.y + 22, c.d); M.text(x, '±σ', m.X(mean + sd) + 4, yb, c.d); } },
-    { prov: 'exact', q: 'How many independent samples do N correlated ones give?', a: '<b>N<sub>eff</sub> = N / Σ<sub>k</sub>(1 − |k|/N)ρ(k)</b>. With ρ(k) = e<sup>−πk²/ℓ²</sup> (correlation length ℓ samples, Σρ ≈ ℓ) N<sub>eff</sub> → N/ℓ: averaging 128 samples with ℓ = 16 buys about 8 looks.',
+    { prov: 'exact', leg: [['ℓ = 1', 'a', 'solid'], ['ℓ = 4', 'b', 'dash'], ['ℓ = 16', 'd', 'dot']], q: 'How many independent samples do N correlated ones give?', a: '<b>N<sub>eff</sub> = N / Σ<sub>k</sub>(1 − |k|/N)ρ(k)</b>. With ρ(k) = e<sup>−πk²/ℓ²</sup> (correlation length ℓ samples, Σρ ≈ ℓ) N<sub>eff</sub> → N/ℓ: averaging 128 samples with ℓ = 16 buys about 8 looks.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const neff = (N, l) => { let s = 0; for (let k = -(N - 1); k <= N - 1; k++) s += (1 - Math.abs(k) / N) * Math.exp(-PI * k * k / (l * l)); return N / s; };
         const m = M.panel(x, pbox(w, h), [1, 128], [0, 140], { lab: 'N_eff vs N', yaxis: false, ticks: [[1, '1'], [32, '32'], [64, '64'], [96, '96'], [128, '128']] });
-        [[1, c.a], [4, c.b], [16, c.d]].forEach(([l, cl]) => { M.curve(x, m, N => neff(Math.max(1, Math.round(N)), l), cl); M.text(x, 'ℓ = ' + l + ': ' + neff(128, l).toFixed(1), m.X(128) - 2, m.Y(neff(128, l)) - 8, cl, 'right'); }); } }
+        [[1, c.a, null], [4, c.b, [6, 4]], [16, c.d, [2, 3]]].forEach(([l, cl, ds]) => { M.curve(x, m, N => neff(Math.max(1, Math.round(N)), l), cl, ds ? { dash: ds } : {}); M.text(x, 'ℓ = ' + l + ': ' + neff(128, l).toFixed(1), m.X(128) - 2, m.Y(neff(128, l)) - 8, cl, 'right'); }); } }
   ];
   Lab.cardGrid('m7', 'm7-rv', RV);
 
   /* ---------- visual summary ---------- */
   const VIS = [
-    { prov: 'sim', q: 'Covariance ellipse versus ρ?', scaled: true, a: 'Unit variances: axes on the diagonals with <b>semi-axes k√(1 ± ρ)</b>. Drawn k = 1 and k = 2; the k = 2 ellipse holds <b>1 − e<sup>−2</sup> = 86.5%</b> of a 2D Gaussian (printed: share of the 260 points inside). Dashed: ρ = 0.',
+    { prov: 'sim', leg: [['k = 1 ellipse', 'a', 'solid'], ['k = 2 ellipse', 'a', 'fill'], ['ρ = 0, k = 2 circle', 'mu', 'dash'], ['260 draws', 'mu', 'mark']], q: 'Covariance ellipse versus ρ?', scaled: true, a: 'Unit variances: axes on the diagonals with <b>semi-axes k√(1 ± ρ)</b>. Drawn k = 1 and k = 2; the k = 2 ellipse holds <b>1 − e<sup>−2</sup> = 86.5%</b> of a 2D Gaussian (printed: share of the 260 points inside). Dashed: ρ = 0.',
       draw: (cv, r) => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const g = geo(x, box(w, h), 3.1); const s = Math.sqrt(1 - r * r), S = [[1, r], [r, 1]];
         let inside = 0; G.forEach(([a, b]) => { const px = a, py = r * a + s * b; dot(x, g, px, py, c.mu, 1.4); if ((px * px - 2 * r * px * py + py * py) / (1 - r * r) < 4) inside++; });
         param(x, g, t => [2 * Math.cos(t), 2 * Math.sin(t)], 0, 2 * PI, c.mu, { w: 1, dash: [3, 3] });
         param(x, g, ell(S, 1), 0, 2 * PI, c.a, { w: 2 }); param(x, g, ell(S, 2), 0, 2 * PI, c.a, { w: 1.4, fill: true, alpha: 0.08 });
         M.text(x, 'ρ = ' + fm(r), g.b.x + 4, g.b.y + 6, c.fg); M.text(x, 'inside k=2: ' + (inside / G.length * 100).toFixed(1) + '%', g.b.x + g.b.w - 4, g.b.y + 6, c.a, 'right'); } },
-    { prov: 'exact', q: 'Regression line or principal axis?', scaled: true, a: 'σ<sub>x</sub> = 1, σ<sub>y</sub> = 0.6. <b>y on x: slope ρσ<sub>y</sub>/σ<sub>x</sub></b> (blue), x on y: slope σ<sub>y</sub>/(ρσ<sub>x</sub>) (pink), principal axis tan 2θ = 2ρσ<sub>x</sub>σ<sub>y</sub>/(σ<sub>x</sub>² − σ<sub>y</sub>²) (green). They coincide only at |ρ| = 1.',
+    { prov: 'exact', leg: [['y on x', 'a', 'solid'], ['x on y', 'b', 'dash'], ['principal axis', 'd', 'dot'], ['k = 2 ellipse', 'mu', 'fill']], q: 'Regression line or principal axis?', scaled: true, a: 'σ<sub>x</sub> = 1, σ<sub>y</sub> = 0.6. <b>y on x: slope ρσ<sub>y</sub>/σ<sub>x</sub></b> (blue), x on y: slope σ<sub>y</sub>/(ρσ<sub>x</sub>) (pink), principal axis tan 2θ = 2ρσ<sub>x</sub>σ<sub>y</sub>/(σ<sub>x</sub>² − σ<sub>y</sub>²) (green). They coincide only at |ρ| = 1.',
       draw: (cv, r) => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const g = geo(x, box(w, h), 2.4); const sx = 1, sy = 0.6, S = [[sx * sx, r * sx * sy], [r * sx * sy, sy * sy]];
         param(x, g, ell(S, 2), 0, 2 * PI, c.mu, { w: 1.2, fill: true, alpha: 0.1 });
-        const L = (sl, cl) => poly(x, g, [[-5, -5 * sl], [5, 5 * sl]], cl, { w: 2 }); const b1 = r * sy / sx; L(b1, c.a);
-        if (Math.abs(r) > 0.02) L(sy / (r * sx), c.b); else poly(x, g, [[0, -5], [0, 5]], c.b, { w: 2 });
-        const th = 0.5 * Math.atan2(2 * r * sx * sy, sx * sx - sy * sy); L(Math.tan(th), c.d);
+        const L = (sl, cl, ds) => poly(x, g, [[-5, -5 * sl], [5, 5 * sl]], cl, { w: 2, dash: ds }); const b1 = r * sy / sx; L(b1, c.a);
+        if (Math.abs(r) > 0.02) L(sy / (r * sx), c.b, [6, 4]); else poly(x, g, [[0, -5], [0, 5]], c.b, { w: 2, dash: [6, 4] });
+        const th = 0.5 * Math.atan2(2 * r * sx * sy, sx * sx - sy * sy); L(Math.tan(th), c.d, [2, 3]);
         M.text(x, 'slopes: ' + fm(b1) + ' · ' + (Math.abs(r) > 0.02 ? fm(sy / (r * sx)) : '∞') + ' · ' + fm(Math.tan(th)), g.b.x + 4, g.b.y + 6, c.fg); } },
-    { prov: 'sim', q: 'Whitening in one picture?', scaled: true, a: '<b>Σ<sup>−1/2</sup> = VΛ<sup>−1/2</sup>Vᵀ</b> maps the ellipse onto the unit circle (left: data with the slider ρ; right: Σ<sup>−1/2</sup>x). Mahalanobis distance is Euclidean distance after this step; MV beamforming and prewhitened detection start here.',
+    { prov: 'sim', leg: [['data x', 'a', 'mark'], ['whitened Σ^(−1/2)x', 'd', 'mark'], ['k = 2 contour', 'fg', 'solid']], q: 'Whitening in one picture?', scaled: true, a: '<b>Σ<sup>−1/2</sup> = VΛ<sup>−1/2</sup>Vᵀ</b> maps the ellipse onto the unit circle (left: data with the slider ρ; right: Σ<sup>−1/2</sup>x). Mahalanobis distance is Euclidean distance after this step; MV beamforming and prewhitened detection start here.',
       draw: (cv, r) => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const bw = (w - 14) / 2, s = Math.sqrt(1 - r * r), S = [[1, r], [r, 1]], E = Lab.eigSym(S), V = E.vectors, l = E.values;
         const W = [[0, 0], [0, 0]]; for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) W[i][j] = V[0][i] * V[0][j] / Math.sqrt(l[0]) + V[1][i] * V[1][j] / Math.sqrt(l[1]);
         const gl = geo(x, { x: 4, y: 16, w: bw, h: h - 22 }, 3, { lab: 'x' }), gr = geo(x, { x: 10 + bw, y: 16, w: bw, h: h - 22 }, 3, { lab: 'Σ^(−1/2) x' });
         let m2 = [0, 0, 0]; G.forEach(([a, b]) => { const px = a, py = r * a + s * b; dot(x, gl, px, py, c.a, 1.3); const wx = W[0][0] * px + W[0][1] * py, wy = W[1][0] * px + W[1][1] * py; dot(x, gr, wx, wy, c.d, 1.3); m2[0] += wx * wx; m2[1] += wy * wy; m2[2] += wx * wy; });
         param(x, gl, ell(S, 2), 0, 2 * PI, c.fg, { w: 1.2 }); param(x, gr, t => [2 * Math.cos(t), 2 * Math.sin(t)], 0, 2 * PI, c.fg, { w: 1.2 });
         const n = G.length; M.text(x, 'ρ̂ = ' + fm(m2[2] / Math.sqrt(m2[0] * m2[1])), gr.b.x + gr.b.w - 2, gr.b.y + gr.b.h - 6, c.fg, 'right'); } },
-    { prov: 'sim', q: 'Uncorrelated means independent?', a: 'No. x ~ N(0, 1), y = x²: <b>cov(x, y) = E[x³] = 0</b>, yet y is a deterministic function of x. ρ sees only linear dependence; only for jointly Gaussian variables does ρ = 0 imply independence. Printed: sample ρ of these points (a symmetric draw, ±x).',
+    { prov: 'sim', leg: [['draws (x, x²)', 'a', 'mark'], ['y = x²', 'mu', 'dash']], q: 'Uncorrelated means independent?', a: 'No. x ~ N(0, 1), y = x²: <b>cov(x, y) = E[x³] = 0</b>, yet y is a deterministic function of x. ρ sees only linear dependence; only for jointly Gaussian variables does ρ = 0 imply independence. Printed: sample ρ of these points (a symmetric draw, ±x).',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const g = geo(x, box(w, h), 2.6, { oy: 1.9 }); let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
         G.forEach(([a]) => [a, -a].forEach(a => { const y = a * a; dot(x, g, a, y, c.a, 1.6); sx += a; sy += y; sxx += a * a; syy += y * y; sxy += a * y; }));
         param(x, g, t => [t, t * t], -3, 3, c.mu, { w: 1, dash: [3, 3] }); const n = 2 * G.length, cxy = sxy / n - sx * sy / n / n, r = cxy / Math.sqrt((sxx / n - (sx / n) ** 2) * (syy / n - (sy / n) ** 2));
         M.text(x, 'sample ρ = ' + fm(r) + ' (N = ' + n + ')', g.b.x + 4, g.b.y + 6, c.fg); } },
-    { prov: 'model', q: 'How noisy is a sample correlation coefficient?', scaled: true, a: 'Fisher: <b>atanh r ≈ N(atanh ρ, 1/(N − 3))</b>, so std(r) ≈ (1 − ρ²)/√N: ±0.064 at ρ = 0.6, N = 100. Densities for N = 10 (pink) and N = 100 (blue) at the slider ρ. A 10-sample kernel cannot tell 0.6 from 0.9.',
+    { prov: 'model', leg: [['N = 10', 'b', 'dash'], ['N = 100', 'a', 'solid'], ['true ρ', 'fg', 'dot']], q: 'How noisy is a sample correlation coefficient?', scaled: true, a: 'Fisher: <b>atanh r ≈ N(atanh ρ, 1/(N − 3))</b>, so std(r) ≈ (1 − ρ²)/√N: ±0.064 at ρ = 0.6, N = 100. Densities for N = 10 (pink) and N = 100 (blue) at the slider ρ. A 10-sample kernel cannot tell 0.6 from 0.9.',
       draw: (cv, r) => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const z0 = Math.atanh(Math.max(-0.999, Math.min(0.999, r)));
         const pdf = (t, N) => { if (Math.abs(t) >= 1) return 0; const s = Math.sqrt(N - 3), u = (Math.atanh(t) - z0) * s; return s * Math.exp(-u * u / 2) / Math.sqrt(2 * PI) / (1 - t * t); };
         const top = Math.max(4, pdf(Math.tanh(z0), 100) * 1.1);
-        const m = M.panel(x, pbox(w, h), [-1, 1], [0, top], { lab: 'p(r)', yaxis: false, ticks: [[-1, '−1'], [-0.5, '−0.5'], [0, '0'], [0.5, '0.5'], [1, '1']] });
-        M.curve(x, m, t => pdf(t, 10), c.b, { fill: true }); M.curve(x, m, t => pdf(t, 100), c.a, { fill: true }); vline(x, m, r, c.fg, 'ρ = ' + fm(r));
+        const m = M.panel(x, pbox(w, h), [-1, 1], [0, top], { lab: 'p(r) vs sample correlation r', yaxis: false, ticks: [[-1, '−1'], [-0.5, '−0.5'], [0, '0'], [0.5, '0.5'], [1, '1']] });
+        M.curve(x, m, t => pdf(t, 10), c.b, { fill: true, dash: [6, 4] }); M.curve(x, m, t => pdf(t, 100), c.a, { fill: true }); vline(x, m, r, c.fg, 'ρ = ' + fm(r), [1.5, 2.5]);
         M.text(x, 'std(r), N = 100: ' + ((1 - r * r) / 10).toFixed(3), m.b.x + 4, m.b.y + 6, c.a); } },
-    { prov: 'exact', q: 'Envelope and intensity statistics of speckle?', a: 'Envelope: Rayleigh, <b>mean/std = 1.91</b>. Intensity: exponential, <b>mean = std</b> (contrast 1). Log-compressed envelope: std <b>5.57 dB</b> whatever the gain. A clean speckle ROI that misses these is not fully developed.',
+    { prov: 'exact', leg: [['envelope, Rayleigh', 'a', 'fill'], ['intensity, exponential', 'b', 'fill']], q: 'Envelope and intensity statistics of speckle?', a: 'Envelope: Rayleigh, <b>mean/std = 1.91</b>. Intensity: exponential, <b>mean = std</b> (contrast 1). Log-compressed envelope: std <b>5.57 dB</b> whatever the gain. A clean speckle ROI that misses these is not fully developed.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const bw = (w - 14) / 2;
-        const ml = M.panel(x, { x: 4, y: 18, w: bw, h: h - 38 }, [0, 4], [0, 0.72], { lab: 'envelope r (σ = 1)', yaxis: false, ticks: [[Math.sqrt(PI / 2), 'mean'], [3, '3']] });
+        const ml = M.panel(x, { x: 4, y: 18, w: bw, h: h - 38 }, [0, 4], [0, 0.72], { lab: 'p(r) vs envelope r (σ = 1)', yaxis: false, ticks: [[Math.sqrt(PI / 2), 'mean'], [3, '3']] });
         M.curve(x, ml, t => t * Math.exp(-t * t / 2), c.a, { fill: true });
-        const mr = M.panel(x, { x: 10 + bw, y: 18, w: bw, h: h - 38 }, [0, 8], [0, 0.55], { lab: 'intensity I = r²', yaxis: false, ticks: [[2, 'mean'], [6, '6']] });
+        const mr = M.panel(x, { x: 10 + bw, y: 18, w: bw, h: h - 38 }, [0, 8], [0, 0.55], { lab: 'p(I) vs intensity I = r²', yaxis: false, ticks: [[2, 'mean'], [6, '6']] });
         M.curve(x, mr, t => 0.5 * Math.exp(-t / 2), c.b, { fill: true });
         M.text(x, (Math.sqrt(PI / 2) / Math.sqrt((4 - PI) / 2)).toFixed(3), ml.b.x + ml.b.w - 2, ml.b.y + 6, c.a, 'right'); M.text(x, 'σ_dB = ' + (20 / Math.LN10 * PI / Math.sqrt(24)).toFixed(2), mr.b.x + mr.b.w - 2, mr.b.y + 6, c.b, 'right'); } },
-    { prov: 'exact', q: 'Autocorrelation ↔ power spectrum?', fixed: true, a: 'Wiener–Khinchin: <b>S(f) = FT{R(τ)}</b>. Speckle RF = white reflectivity ∗ pulse, so R is the pulse autocorrelation. 5 MHz, 60% (−6 dB) bandwidth: <b>τ<sub>FWHM</sub> ≈ 1.25/B = 0.42 µs</b>, axial speckle ≈ 0.32 mm.',
-      tr: [-0.9, 0.9], ty: [-1.15, 1.2], fr: [-10, 10], fy: [0, 1.2], tl: 'R(τ), τ in µs', fl: 'S(f), f in MHz', tt: () => [[-0.208, ''], [0.208, '0.21']], ft: () => [[-5, '−5'], [5, '5']],
+    { prov: 'exact', leg: [['R(τ)', 'a', 'solid'], ['envelope of R', 'mu', 'dash'], ['S(f)', 'b', 'fill']], q: 'Autocorrelation ↔ power spectrum?', fixed: true, a: 'Wiener–Khinchin: <b>S(f) = FT{R(τ)}</b>. Speckle RF = white reflectivity ∗ pulse, so R is the pulse autocorrelation. 5 MHz, 60% (−6 dB) bandwidth: <b>τ<sub>FWHM</sub> ≈ 1.25/B = 0.42 µs</b>, axial speckle ≈ 0.32 mm.',
+      tr: [-0.9, 0.9], ty: [-1.15, 1.2], fr: [-10, 10], fy: [0, 1.2], tl: 'R(τ) vs τ (µs)', fl: 'S(f) vs f (MHz)', tt: () => [[-0.208, ''], [0.208, '0.21']], ft: () => [[-5, '−5'], [5, '5']],
       time: (x, m, c) => { const st = Math.sqrt(2 * Math.log(2)) / (PI * 3); curve2(x, m, t => Math.exp(-t * t / (4 * st * st)), c.mu, { dash: [3, 3], w: 1 }); curve2(x, m, t => Math.exp(-t * t / (4 * st * st)) * Math.cos(2 * PI * 5 * t), c.a); },
       freq: (x, m, c) => { const st = Math.sqrt(2 * Math.log(2)) / (PI * 3); curve2(x, m, f => 0.5 * (Math.exp(-4 * PI * PI * st * st * (f - 5) ** 2) + Math.exp(-4 * PI * PI * st * st * (f + 5) ** 2)) * 2, c.b, { fill: true }); } },
-    { prov: 'exact', q: 'Why is spatial coherence a triangle?', a: 'Van Cittert–Zernike: coherence across the array = FT of the insonified intensity = <b>autocorrelation of the transmit apodization</b>. Uniform: 1 − |m|/N, zero at the full aperture. 64-element Hann (MATLAB <code>hanning</code>): C(16) = 0.67, C(32) = 0.18.',
+    { prov: 'exact', leg: [['uniform 1 − |m|/N', 'a', 'fill'], ['Hann transmit', 'b', 'solid']], q: 'Why is spatial coherence a triangle?', a: 'Van Cittert–Zernike: coherence across the array = FT of the insonified intensity = <b>autocorrelation of the transmit apodization</b>. Uniform: 1 − |m|/N, zero at the full aperture. 64-element Hann (MATLAB <code>hanning</code>): C(16) = 0.67, C(32) = 0.18.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const N = 64, hw = []; for (let n = 1; n <= N; n++) hw.push(0.5 - 0.5 * Math.cos(2 * PI * n / (N + 1)));
         const ac = m => { let s = 0; for (let n = 0; n + m < N; n++) s += hw[n] * hw[n + m]; return s; }, a0 = ac(0), C = m => { const u = Math.abs(m), i = Math.min(N - 2, Math.floor(u)), f = u - i; return (ac(i) * (1 - f) + ac(i + 1) * f) / a0; };
         const m = M.panel(x, pbox(w, h), [0, 64], [0, 1.1], { lab: 'C(m) vs lag m (N = 64)', yaxis: false, ticks: [[0, '0'], [16, '16'], [32, '32'], [48, '48'], [64, '64']] });
         M.curve(x, m, t => 1 - t / N, c.a, { fill: true }); M.curve(x, m, C, c.b); [16, 32].forEach(k => { dot(x, m, k, C(k), c.b, 3.2); M.text(x, C(k).toFixed(2), m.X(k) + 5, m.Y(C(k)) - 7, c.b); }); } },
-    { prov: 'exact', q: 'What does noise do to the coherence curve?', a: 'Noise adds only to the diagonal of R: <b>C(0) = 1, C(m ≥ 1) = C<sub>s</sub>(m)/(1 + 1/SNR)</b>. 10 dB costs 9%, 0 dB halves lag-one coherence. Short-lag SLSC skips lag 0 and so rejects incoherent noise.',
+    { prov: 'exact', leg: [['no noise', 'a', 'solid'], ['10 dB', 'd', 'dash'], ['0 dB', 'b', 'dot']], q: 'What does noise do to the coherence curve?', a: 'Noise adds only to the diagonal of R: <b>C(0) = 1, C(m ≥ 1) = C<sub>s</sub>(m)/(1 + 1/SNR)</b>. 10 dB costs 9%, 0 dB halves lag-one coherence. Short-lag SLSC skips lag 0 and so rejects incoherent noise.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const N = 64;
-        const m = M.panel(x, pbox(w, h), [0, 64], [0, 1.1], { lab: 'C(m), uniform aperture N = 64', yaxis: false, ticks: [[0, '0'], [1, ''], [16, '16'], [32, '32'], [64, '64']] });
+        const m = M.panel(x, pbox(w, h), [0, 64], [0, 1.1], { lab: 'C(m) vs lag m, uniform N = 64', yaxis: false, ticks: [[0, '0'], [1, ''], [16, '16'], [32, '32'], [64, '64']] });
         [[Infinity, c.a, 'no noise'], [10, c.d, '10 dB'], [0, c.b, '0 dB']].forEach(([snr, cl, lab], i) => { const f = isFinite(snr) ? 1 / (1 + Math.pow(10, -snr / 10)) : 1;
-          M.curve(x, m, t => t < 1 ? 1 - t * (1 - f * (1 - 1 / N)) : f * (1 - t / N), cl); dot(x, m, 0, 1, cl, 3); M.text(x, lab + ': C(1) = ' + (f * (1 - 1 / N)).toFixed(3), m.X(30), m.b.y + 6 + 13 * i, cl); }); } },
+          M.curve(x, m, t => t < 1 ? 1 - t * (1 - f * (1 - 1 / N)) : f * (1 - t / N), cl, { dash: [null, [6, 4], [2, 3]][i] || undefined }); dot(x, m, 0, 1, cl, 3); M.text(x, lab + ': C(1) = ' + (f * (1 - 1 / N)).toFixed(3), m.X(30), m.b.y + 6 + 13 * i, cl); }); } },
     { prov: 'exact', q: 'Coherence factor: point, speckle, noise?', a: 'CF = |Σs<sub>i</sub>|²/(NΣ|s<sub>i</sub>|²) = Σ<sub>m</sub>(N − |m|)C(m)/N²: <b>1 for a point at focus, 2/3 + 1/(3N²) for speckle, 1/N for noise</b>. Speckle at 0 dB SNR drops to about 1/3. Bars are computed from the lag sum, N = 64.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const N = 64; const cf = C => { let s = 0; for (let k = -(N - 1); k <= N - 1; k++) s += (N - Math.abs(k)) * C(Math.abs(k)); return s / (N * N); };
         const vals = [['point', cf(() => 1), c.a], ['speckle', cf(k => 1 - k / N), c.d], ['speckle, 0 dB', cf(k => k ? 0.5 * (1 - k / N) : 1), c.b], ['noise', cf(k => k ? 0 : 1), c.mu]];
-        const m = M.panel(x, pbox(w, h), [0, 4], [0, 1.15], { yaxis: false, lab: 'CF (N = 64)' }); const bw = m.X(1) - m.X(0);
+        const m = M.panel(x, pbox(w, h), [0, 4], [0, 1.15], { yaxis: false, lab: 'CF (N = 64) vs target' }); const bw = m.X(1) - m.X(0);
         vals.forEach(([lab, v, cl], i) => { x.save(); x.fillStyle = cl; x.globalAlpha = 0.75; x.fillRect(m.X(i) + bw * 0.18, m.Y(v), bw * 0.64, m.y0 - m.Y(v)); x.restore();
           M.text(x, v.toFixed(v < 0.1 ? 4 : 3), m.X(i + 0.5), m.Y(v) - 8, c.fg, 'center'); M.text(x, lab, m.X(i + 0.5), m.y0 + 10, c.mu, 'center'); }); } },
-    { prov: 'exact', q: 'Correlated looks: how much does averaging buy?', a: 'Equal correlation ρ between N looks: <b>N<sub>eff</sub> = N/(1 + (N − 1)ρ) → 1/ρ</b>. Compounding 32 angles whose speckle correlates at ρ = 0.1 gives N<sub>eff</sub> = 7.8, a speckle-SNR gain of √7.8 = 2.8, not √32 = 5.7.',
+    { prov: 'exact', leg: [['ρ = 0', 'a', 'solid'], ['ρ = 0.1', 'b', 'dash'], ['ρ = 0.3', 'd', 'dot']], q: 'Correlated looks: how much does averaging buy?', a: 'Equal correlation ρ between N looks: <b>N<sub>eff</sub> = N/(1 + (N − 1)ρ) → 1/ρ</b>. Compounding 32 angles whose speckle correlates at ρ = 0.1 gives N<sub>eff</sub> = 7.8, a speckle-SNR gain of √7.8 = 2.8, not √32 = 5.7.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const ne = (N, r) => N / (1 + (N - 1) * r);
         const m = M.panel(x, pbox(w, h), [1, 32], [0, 34], { lab: 'N_eff vs N', yaxis: false, ticks: [[1, '1'], [8, '8'], [16, '16'], [24, '24'], [32, '32']] });
-        [[0, c.a], [0.1, c.b], [0.3, c.d]].forEach(([r, cl]) => { M.curve(x, m, N => ne(N, r), cl); M.text(x, 'ρ = ' + r + ': ' + ne(32, r).toFixed(1), m.X(31.5), m.Y(ne(32, r)) - 8, cl, 'right'); }); } },
-    { prov: 'exact', q: 'How many snapshots for a covariance estimate?', a: 'White data, N channels, K snapshots: the eigenvalues of R̂ spread over <b>(1 ± √(N/K))²</b> (Marchenko–Pastur) instead of all being 1. Reed–Mallett–Brennan: E[SINR loss] = (K − N + 2)/(K + 1), <b>−3 dB at K = 2N − 3</b>. Curves: K = 2N and K = 10N.',
+        [[0, c.a, null], [0.1, c.b, [6, 4]], [0.3, c.d, [2, 3]]].forEach(([r, cl, ds]) => { M.curve(x, m, N => ne(N, r), cl, ds ? { dash: ds } : {}); M.text(x, 'ρ = ' + r + ': ' + ne(32, r).toFixed(1), m.X(31.5), m.Y(ne(32, r)) - 8, cl, 'right'); }); } },
+    { prov: 'exact', leg: [['K = 2N', 'b', 'dash'], ['K = 10N', 'a', 'solid'], ['true eigenvalue 1', 'fg', 'dash']], q: 'How many snapshots for a covariance estimate?', a: 'White data, N channels, K snapshots: the eigenvalues of R̂ spread over <b>(1 ± √(N/K))²</b> (Marchenko–Pastur) instead of all being 1. Reed–Mallett–Brennan: E[SINR loss] = (K − N + 2)/(K + 1), <b>−3 dB at K = 2N − 3</b>. Curves: K = 2N and K = 10N.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const pdf = (t, b) => { const a = (1 - Math.sqrt(b)) ** 2, e = (1 + Math.sqrt(b)) ** 2; return t > a && t < e ? Math.sqrt((e - t) * (t - a)) / (2 * PI * b * t) : 0; };
-        const m = M.panel(x, pbox(w, h), [0, 3.2], [0, 1.4], { lab: 'density of eig(R̂), true R = I', yaxis: false, ticks: [[0, '0'], [1, '1'], [2, '2'], [3, '3']] });
-        M.curve(x, m, t => pdf(t, 0.5), c.b, { fill: true }); M.curve(x, m, t => pdf(t, 0.1), c.a, { fill: true }); vline(x, m, 1, c.fg);
+        const m = M.panel(x, pbox(w, h), [0, 3.2], [0, 1.4], { lab: 'density vs eigenvalue of R̂ (R = I)', yaxis: false, ticks: [[0, '0'], [1, '1'], [2, '2'], [3, '3']] });
+        M.curve(x, m, t => pdf(t, 0.5), c.b, { fill: true, dash: [6, 4] }); M.curve(x, m, t => pdf(t, 0.1), c.a, { fill: true }); vline(x, m, 1, c.fg);
         M.text(x, 'K = 2N: [' + ((1 - Math.sqrt(0.5)) ** 2).toFixed(2) + ', ' + ((1 + Math.sqrt(0.5)) ** 2).toFixed(2) + ']', m.b.x + m.b.w - 4, m.b.y + 6, c.b, 'right');
         M.text(x, 'K = 10N: [' + ((1 - Math.sqrt(0.1)) ** 2).toFixed(2) + ', ' + ((1 + Math.sqrt(0.1)) ** 2).toFixed(2) + ']', m.b.x + m.b.w - 4, m.b.y + 20, c.a, 'right'); } }
   ];
@@ -1506,7 +1538,7 @@
     const I = xi => { const u = k * p * xi / z, s = Math.sin(u / 2); return Math.abs(s) < 1e-9 ? Nt * Nt : (Math.sin(Nt * u / 2) / s) ** 2; };
     if (!C1) { const L = lam * z / p, n = 4000; C1 = []; let c0 = 0; for (let m = 0; m <= 40; m++) { let s = 0; for (let i = 0; i < n; i++) { const xi = -L / 2 + L * (i + 0.5) / n; s += I(xi) * Math.cos(k * m * p * xi / z); } if (!m) c0 = s; C1.push([m, s / c0]); } }
     const [Lb, Rb] = boxes(w, h, 2, { l: 26 }); const xn = lam * z / (Nt * p);
-    const ml = M.panel(x, Lb, [-3, 3], [0, 1.1], { lab: '|P_t(ξ)|² at focus (ξ, mm)', base: 0, ticks: [[-xn, '−' + fx(xn, 2)], [0, '0'], [xn, fx(xn, 2)]] });
+    const ml = M.panel(x, Lb, [-3, 3], [0, 1.1], { lab: '|P_t(ξ)|² at focus vs ξ (mm)', base: 0, ticks: [[-xn, '−' + fx(xn, 2)], [0, '0'], [xn, fx(xn, 2)]] });
     ylab(x, ml, [[0, '0'], [1, '1']]); yaxis(x, ml); M.curve(x, ml, xi => I(xi) / (Nt * Nt), c.b, { fill: true, alpha: 0.15 });
     M.text(x, '32-el. transmit, z = 30 mm', ml.b.x + ml.b.w - 2, ml.b.y + 6, c.mu, 'right');
     const mr = M.panel(x, Rb, [0, 40], [0, 1.1], { lab: 'C(m): FT of |P_t|² (dots) vs m', base: 0, ticks: [[0, '0'], [16, '16'], [32, '32'], [40, '40']] });
@@ -1518,10 +1550,10 @@
     const [B] = boxes(w, h, 1, { l: 26, r: 10 });
     const m = M.panel(x, B, [0, 64], [0, 1.1], { lab: 'C(m) vs lag m, 64-element transmit', base: 0, ticks: [[0, '0'], [16, '16'], [32, '32'], [48, '48'], [64, '64']] });
     ylab(x, m, [[0, '0'], [0.5, '½'], [1, '1']]); yaxis(x, m);
-    path(x, m, cu.map((v, i) => [i, v]), c.a); path(x, m, ch.map((v, i) => [i, v]), c.b); M.curve(x, m, q => tri(q, 32), c.mu, { dash: [4, 3], w: 1.2 });
+    path(x, m, cu.map((v, i) => [i, v]), c.a); path(x, m, ch.map((v, i) => [i, v]), c.b, { dash: [6, 4] }); M.curve(x, m, q => tri(q, 32), c.mu, { dash: [2, 3], w: 1.4 });
     pts(x, m, [[32, cu[32]], [32, ch[32]], [16, ch[16]], [48, ch[48]]], c.fg, 3);
     const lx = nar ? m.X(1) : m.X(33); M.text(x, 'uniform: C(32) = ' + fx(cu[32], 2), lx, nar ? m.Y(0.3) : m.Y(cu[32]) - 2, c.a); M.text(x, 'Hann: ' + fx(ch[16], 2) + ', ' + fx(ch[32], 2) + ', ' + fx(ch[48], 2), lx, nar ? m.Y(0.15) : m.Y(ch[32]) + 9, c.b);
-    M.text(x, nar ? 'dashed: 32-el. Tx' : 'dashed: 32-element transmit, zero at m = 32', m.b.x + m.b.w - 2, m.b.y + 6, c.mu, 'right'); };
+    M.text(x, nar ? 'dotted: 32-el. Tx' : 'dotted: 32-element transmit, zero at m = 32', m.b.x + m.b.w - 2, m.b.y + 6, c.mu, 'right'); };
 
   /* 3. off focus: first-null lag λz/(w p), w ≈ D|1 − z/z_f| */
   RF[3] = () => { const r = cvs('m7-rf-3', 150, 170); if (!r) return; const { x, w, h, c, nar } = r; const N = 64, p = 0.3, lam = 0.308, D = N * p, zf = 30;
@@ -1535,21 +1567,21 @@
 
   /* 4. incoherent noise: lag 0 only; lags ≥ 1 scaled by SNR/(1 + SNR) */
   RF[4] = () => { const r = cvs('m7-rf-4', 150, 170); if (!r) return; const { x, w, h, c } = r; const N = 128, [B] = boxes(w, h, 1, { l: 26, r: 10 });
-    const m = M.panel(x, B, [0, 24], [0, 1.08], { lab: w < 360 ? 'measured C(m), N = 128' : 'measured C(m) vs lag, VCZ triangle N = 128', base: 0, ticks: [[0, '0'], [1, '1'], [8, '8'], [16, '16'], [24, '24']] });
+    const m = M.panel(x, B, [0, 24], [0, 1.08], { lab: w < 360 ? 'measured C(m) vs lag, N = 128' : 'measured C(m) vs lag, VCZ triangle N = 128', base: 0, ticks: [[0, '0'], [1, '1'], [8, '8'], [16, '16'], [24, '24']] });
     ylab(x, m, [[0, '0'], [0.5, '½'], [1, '1']]); yaxis(x, m);
     [[Infinity, c.mu, '∞'], [100, c.a, '20 dB'], [10, c.b, '10 dB'], [1, c.d, '0 dB']].forEach(([s, colr, lab], q) => { const g = s === Infinity ? 1 : s / (1 + s), P = [[0, 1]]; for (let k = 1; k <= 24; k++) P.push([k, tri(k, N) * g]);
-      path(x, m, P, colr, s === Infinity ? { dash: [4, 3], w: 1.2 } : {}); if (s !== Infinity) M.text(x, lab + ': × ' + fx(g, 2), m.X(q === 2 ? 15 : 24) - 2, m.Y(tri(24, N) * g) + (q === 1 ? -9 : 9), colr, 'right'); });
+      path(x, m, P, colr, s === Infinity ? { dash: [4, 3], w: 1.2 } : q === 2 ? { dash: [6, 4] } : q === 3 ? { dash: [2, 3] } : {}); if (s !== Infinity) M.text(x, lab + ': × ' + fx(g, 2), m.X(q === 2 ? 15 : 24) - 2, m.Y(tri(24, N) * g) + (q === 1 ? -9 : 9), colr, 'right'); });
     pts(x, m, [[0, 1]], c.fg, 3.5); M.text(x, 'lag 0 = 1 always (dot)', m.X(1.5), m.Y(0.3), c.fg); };
 
   /* 5. aberration decorrelates long lags; linear phase costs nothing */
   RF[5] = () => { const r = cvs('m7-rf-5', 150, 170); if (!r) return; const { x, w, h, c } = r; const N = 64, sg = 0.5, l = 6; const Dp = q => 2 * sg * sg * (1 - Math.exp(-q * q / (2 * l * l)));
     const [B] = boxes(w, h, 1, { l: 26, r: 10 });
-    const m = M.panel(x, B, [0, 64], [0, 1.08], { lab: 'C(m): σ = 0.5 rad, ℓ = 6 el., N = 64', base: 0, ticks: [[0, '0'], [1, ''], [8, '8'], [32, '32'], [64, '64']] });
+    const m = M.panel(x, B, [0, 64], [0, 1.08], { lab: 'C(m) vs lag m (σ = 0.5 rad, ℓ = 6 el., N = 64)', base: 0, ticks: [[0, '0'], [1, ''], [8, '8'], [32, '32'], [64, '64']] });
     ylab(x, m, [[0, '0'], [0.5, '½'], [1, '1']]); yaxis(x, m);
-    M.curve(x, m, q => tri(q, N), c.a); M.curve(x, m, q => tri(q, N) * Math.exp(-Dp(q)), c.b);
+    M.curve(x, m, q => tri(q, N), c.a); M.curve(x, m, q => tri(q, N) * Math.exp(-Dp(q)), c.b, { dash: [6, 4] });
     pts(x, m, [[8, tri(8, N)], [8, tri(8, N) * Math.exp(-Dp(8))]], c.fg, 3);
     M.text(x, 'C(8): ' + fx(tri(8, N) * Math.exp(-Dp(8)), 2) + ' vs ' + fx(tri(8, N), 3), m.X(9), m.Y(tri(8, N) * Math.exp(-Dp(8))) + 3, c.b);
-    if (w < 360) leg(x, [['VCZ = ramp phase', c.a], ['screen × exp(−D_φ)', c.b]], m.b.x + 4, m.Y(0.28)); else leg(x, [['VCZ triangle = linear ramp phase', c.a], ['screen: × exp(−D_φ(m))', c.b]], m.b.x + m.b.w - 4, m.b.y + 8, 'right'); };
+    if (w < 360) leg(x, [['VCZ = ramp phase', c.a], ['screen × exp(−D_φ)', c.b, [6, 4]]], m.b.x + 4, m.Y(0.28)); else leg(x, [['VCZ triangle = linear ramp phase', c.a], ['screen: × exp(−D_φ(m))', c.b, [6, 4]]], m.b.x + m.b.w - 4, m.b.y + 8, 'right'); };
 
   /* 6. wrong sound speed: quadratic residual phase; focusing quality peaks at the true c */
   RF[6] = () => { const r = cvs('m7-rf-6', 150, 290); if (!r) return; const { x, w, h, c } = r; const N = 64, p = 0.3, lam = 0.308, z = 30, c0 = 1540, D = N * p;
@@ -1558,7 +1590,7 @@
     const [L, R] = boxes(w, h, 2, { l: 28, r: 12 });
     const ml = M.panel(x, L, [-D / 2, D / 2], [-0.1, 1.9], { lab: 'residual phase (rad) vs x (mm)', base: 0, ticks: [[-9.6, '−9.6'], [0, '0'], [9.6, '9.6']] });
     ylab(x, ml, [[0, '0'], [1, '1']]); yaxis(x, ml);
-    [[20, c.b], [40, c.a]].forEach(([dc, colr]) => { M.curve(x, ml, xx => phi(xx, dc), colr); M.text(x, 'Δc = ' + dc + ': edge ' + fx(phi(D / 2, dc), 2), ml.X(0), ml.Y(phi(D / 2, dc)) + (dc === 40 ? -2 : 4), colr, 'center'); });
+    [[20, c.b], [40, c.a]].forEach(([dc, colr]) => { M.curve(x, ml, xx => phi(xx, dc), colr, dc === 20 ? { dash: [6, 4] } : {}); M.text(x, 'Δc = ' + dc + ': edge ' + fx(phi(D / 2, dc), 2), ml.X(0), ml.Y(phi(D / 2, dc)) + (dc === 40 ? -2 : 4), colr, 'center'); });
     const mr = M.panel(x, R, [1440, 1640], [0, 1.1], { lab: '|Σ e^(jφ)|²/N² vs assumed ĉ (m/s)', base: 0, ticks: [[1460, '1460'], [1540, '1540'], [1620, '1620']] });
     ylab(x, mr, [[0, '0'], [1, '1']]); yaxis(x, mr); M.curve(x, mr, cc => Q(cc - c0), c.a); vline(x, mr, c0, c.mu); M.text(x, 'true c', mr.X(c0) + 3, mr.Y(0.3), c.mu);
     pts(x, mr, [[1500, Q(-40)], [1580, Q(40)]], c.b, 3); M.text(x, '±40 m/s', mr.X(1580) + 5, mr.Y(Q(40)), c.b); M.text(x, 'point target, receive only', mr.b.x + 2, mr.b.y + mr.b.h - 8, c.mu); };
@@ -1570,16 +1602,16 @@
     ylab(x, m, [[0, '0'], [1, '1']]); yaxis(x, m);
     for (let q = 1; q <= Mx; q++) { x.save(); x.fillStyle = c.a; x.globalAlpha = 0.25; x.fillRect(m.X(q - 0.4), m.Y(tri(q, N)), m.X(q + 0.4) - m.X(q - 0.4), m.Y(0) - m.Y(tri(q, N))); x.restore(); }
     const P = []; for (let q = 0; q <= 16; q++) P.push([q, tri(q, N)]); path(x, m, P, c.a); pts(x, m, P, c.a, 2.4);
-    path(x, m, [[0, 1], [1, 0], [16, 0]], c.b, { w: 1.6 }); pts(x, m, [[0, 1]], c.b, 3);
+    path(x, m, [[0, 1], [1, 0], [16, 0]], c.b, { w: 1.6, dash: [6, 4] }); pts(x, m, [[0, 1]], c.b, 3);
     M.text(x, (nar ? 'SLSC(6) = ' : 'speckle: SLSC(M = 6) = ') + fx(s, 2), m.X(nar ? 6.6 : 7), m.Y(0.6), c.a); M.text(x, nar ? 'noise: 0 for m ≥ 1' : 'noise / clutter: ≈ 0 beyond lag 0', m.X(nar ? 6.6 : 7), m.Y(0.12), c.b); };
 
   /* 8. circular Gaussian speckle: Rayleigh amplitude, exponential intensity */
   RF[8] = () => { const r = cvs('m7-rf-8', 150, 290); if (!r) return; const { x, w, h, c } = r; const [L, R] = boxes(w, h, 2, { l: 26 });
     const ma = Math.sqrt(PI) / 2, sa = Math.sqrt(1 - PI / 4);
-    const ml = M.panel(x, L, [0, 3], [0, 1.0], { lab: '|z|: Rayleigh 2a·e^(−a²)', base: 0, ticks: [[0, '0'], [ma, fx(ma, 2)], [2, '2'], [3, '3']] });
+    const ml = M.panel(x, L, [0, 3], [0, 1.0], { lab: 'Rayleigh 2a·e^(−a²) vs a = |z|', base: 0, ticks: [[0, '0'], [ma, fx(ma, 2)], [2, '2'], [3, '3']] });
     ylab(x, ml, [[0, '0'], [0.5, '0.5']]); yaxis(x, ml); M.curve(x, ml, a => 2 * a * Math.exp(-a * a), c.a, { fill: true, alpha: 0.15 });
     path(x, ml, [[ma - sa, 0.12], [ma + sa, 0.12]], c.fg, { w: 2 }); M.text(x, 'mean/std = ' + fx(ma / sa, 3), ml.X(1.4), ml.Y(0.8), c.a);
-    const mr = M.panel(x, R, [0, 5], [0, 1.1], { lab: '|z|²: exponential e^(−I)', base: 0, ticks: [[0, '0'], [1, '1'], [3, '3'], [5, '5']] });
+    const mr = M.panel(x, R, [0, 5], [0, 1.1], { lab: 'exponential e^(−I) vs I = |z|²', base: 0, ticks: [[0, '0'], [1, '1'], [3, '3'], [5, '5']] });
     ylab(x, mr, [[0, '0'], [1, '1']]); yaxis(x, mr); M.curve(x, mr, v => Math.exp(-v), c.b, { fill: true, alpha: 0.15 });
     path(x, mr, [[0, 0.12], [2, 0.12]], c.fg, { w: 2 }); M.text(x, 'mean/std = 1', mr.X(2.2), mr.Y(0.6), c.b); M.text(x, 'bars: mean ± std', mr.X(2.2), mr.Y(0.12), c.mu); };
 
@@ -1602,7 +1634,7 @@
     const pd = q => { const zz = Math.atanh(q); return Math.exp(-0.5 * ((zz - z0) / se) ** 2) / (se * Math.sqrt(2 * PI)) / (1 - q * q); };
     const lo = Math.tanh(z0 - 1.96 * se), hi = Math.tanh(z0 + 1.96 * se); let pk = 0; for (let q = -0.99; q < 0.999; q += 0.002) pk = Math.max(pk, pd(q));
     const [B] = boxes(w, h, 1, { l: 10, r: 10 });
-    const m = M.panel(x, B, [-0.5, 1], [0, 1.3], { lab: nar ? 'density of ρ̂, ρ = 0.6, N = 12' : 'density of ρ̂ (Fisher z), true ρ = 0.6, N = 12', base: 0, ticks: [[-0.5, '−0.5'], [lo, fx(lo, 2)], [0.6, '0.6'], [hi, fx(hi, 2)], [1, '1']] });
+    const m = M.panel(x, B, [-0.5, 1], [0, 1.3], { lab: nar ? 'density vs ρ̂ (ρ = 0.6, N = 12)' : 'density (Fisher z) vs ρ̂; true ρ = 0.6, N = 12', base: 0, ticks: [[-0.5, '−0.5'], [lo, fx(lo, 2)], [0.6, '0.6'], [hi, fx(hi, 2)], [1, '1']] });
     M.curve(x, m, q => q >= 0.999 ? 0 : pd(q) / pk, c.a, { fill: true, alpha: 0.15 });
     x.save(); x.strokeStyle = c.b; x.lineWidth = 3; x.beginPath(); x.moveTo(m.X(lo), m.Y(1.12)); x.lineTo(m.X(hi), m.Y(1.12)); x.stroke(); x.restore(); pts(x, m, [[0.6, 1.12]], c.b, 4);
     M.text(x, '95 % CI:', m.X(-0.48), m.Y(1.12) - 6, c.b); M.text(x, 'z = ' + fx(z0, 3) + ' ± 1.96/3', m.X(-0.48), m.Y(1.12) + 7, c.b); vline(x, m, 0.6, c.mu);
@@ -1628,12 +1660,12 @@
     const [Lb, Rb] = boxes(w, h, 2, { l: 26 });
     const ml = M.panel(x, Lb, [-1, 1], [-1.05, 1.6], { lab: 'axial: R(τ) vs τ·B', ticks: [[-1, '−1'], [-0.5, '−0.5'], [0.5, '0.5'], [1, '1']] });
     ylab(x, ml, [[-1, '−1'], [0, '0'], [1, '1']]); yaxis(x, ml);
-    M.curve(x, ml, u => env(u) * Math.cos(2 * PI * f0B * u), c.mu, { w: 1.1 }); M.curve(x, ml, env, c.a); M.curve(x, ml, u => env(u) ** 2, c.b);
+    M.curve(x, ml, u => env(u) * Math.cos(2 * PI * f0B * u), c.mu, { w: 1.1 }); M.curve(x, ml, env, c.a); M.curve(x, ml, u => env(u) ** 2, c.b, { dash: [6, 4] });
     hline(x, ml, 0.5, c.rule); M.text(x, 'FWHM: envelope ' + fx(fw, 2) + '/B', ml.b.x + 2, ml.b.y + 6, c.a); M.text(x, 'intensity |R|² ' + fx(fw / Math.SQRT2, 2) + '/B', ml.b.x + 2, ml.b.y + 19, c.b);
     const mr = M.panel(x, Rb, [-1.5, 1.5], [0, 1.45], { lab: 'lateral vs x/(λF#)', base: 0, ticks: [[-1, '−1'], [0, '0'], [1, '1']] });
     ylab(x, mr, [[0, '0'], [0.5, '½'], [1, '1']]); yaxis(x, mr); hline(x, mr, 0.5, c.rule);
     const sc = u => { const q = PI * u; return Math.abs(q) < 1e-9 ? 1 : Math.sin(q) / q; };
-    M.curve(x, mr, u => sc(u) ** 2, c.a); M.curve(x, mr, u => (L12.Rl(u) / L12.R0) ** 2, c.b);
+    M.curve(x, mr, u => sc(u) ** 2, c.a); M.curve(x, mr, u => (L12.Rl(u) / L12.R0) ** 2, c.b, { dash: [6, 4] });
     M.text(x, 'PSF sinc² −6 dB: 0.886', mr.b.x + 2, mr.b.y + 6, c.a); M.text(x, 'speckle |R|² FWHM: ' + fx(L12.fw, 3), mr.b.x + 2, mr.b.y + 19, c.b); };
 
   /* 13. Wiener–Khinchin: PSD = |H|²; periodogram bins stay exponential */
@@ -1667,10 +1699,10 @@
       const R = []; for (let i = 0; i < N; i++) { R.push([]); for (let j = 0; j < N; j++) { let t = 0; X.forEach(v => t += v[i] * v[j]); R[i].push(t / K); } }
       const ev = eigSym(R), tr = ev.reduce((s, v) => s + v, 0), dl = 0.01 * tr / N; E15 = { ev, dl }; }
     const [B] = boxes(w, h, 1, { l: 30, r: 10 }), ref = E15.ev[0], fl = -60, db = v => Math.max(fl, 10 * lg(Math.max(v, 1e-30) / ref));
-    const m = M.panel(x, B, [0.5, N + 0.5], [fl, 5], { lab: nar ? 'eig (dB) N = 32, K = 16' : 'sorted eigenvalues (dB re λ_max), N = 32, K = 16 snapshots', base: fl, ticks: [[1, '1'], [16, '16'], [17, '17'], [32, '32']] });
+    const m = M.panel(x, B, [0.5, N + 0.5], [fl, 5], { lab: nar ? 'eig (dB) vs index, N = 32, K = 16' : 'eigenvalue (dB re λ_max) vs index; N = 32, K = 16', base: fl, ticks: [[1, '1'], [16, '16'], [17, '17'], [32, '32']] });
     ylab(x, m, [[0, '0'], [-30, '−30'], [fl, '0']]); yaxis(x, m);
     const P0 = E15.ev.map((v, i) => [i + 1, db(v)]), P1 = E15.ev.map((v, i) => [i + 1, db(v + E15.dl)]);
-    path(x, m, P0, c.b, { w: 1.2 }); pts(x, m, P0, c.b, 2.4); path(x, m, P1, c.a); hline(x, m, db(E15.dl), c.mu);
+    path(x, m, P0, c.b, { w: 1.2 }); pts(x, m, P0, c.b, 2.4); path(x, m, P1, c.a, { dash: [6, 4] }); hline(x, m, db(E15.dl), c.mu);
     M.text(x, nar ? 'R̂: 16 zeros, κ = ∞' : 'R̂: 16 exact zeros, κ = ∞', m.X(nar ? 13 : 17.5), m.Y(fl) - 9, c.b); M.text(x, (nar ? 'R̂ + δI: κ = ' : 'R̂ + δI, δ = 0.01·tr/N: κ = ') + fx((E15.ev[0] + E15.dl) / E15.dl, 0), m.X(nar ? 1.5 : 12), m.Y(-21), c.a); };
 
   /* 16. coherence factor: point 1, speckle 2/3, noise 1/N */
@@ -1678,7 +1710,7 @@
     const cs = N => 2 / 3 + 1 / (3 * N * N);
     const m = M.panel(x, B, [lg(2), lg(256)], [-2.6, 0.35], { lab: 'CF vs number of elements N (log-log)', base: -2.6, ticks: [[lg(2), '2'], [lg(8), '8'], [lg(64), '64'], [lg(256), '256']] });
     ylab(x, m, [[0, '1'], [-1, '0.1'], [-2, '0.01']]); yaxis(x, m);
-    M.curve(x, m, () => 0, c.c); M.curve(x, m, u => lg(cs(Math.pow(10, u))), c.a); M.curve(x, m, u => -u, c.b);
+    M.curve(x, m, () => 0, c.c, { dash: [2, 3] }); M.curve(x, m, u => lg(cs(Math.pow(10, u))), c.a); M.curve(x, m, u => -u, c.b, { dash: [6, 4] });
     const N = 64, cn = (N * cs(N) + 1) / (N * 2); pts(x, m, [[lg(N), lg(cs(N))], [lg(N), -lg(N)], [lg(N), lg(cn)]], c.fg, 3);
     M.text(x, 'point: 1', m.X(lg(3)), m.Y(0) - 8, c.c); M.text(x, 'speckle: ' + fx(cs(N), 3), m.X(lg(N)) - 6, m.Y(lg(cs(N))) + 9, c.a, 'right');
     M.text(x, 'speckle at 0 dB SNR: ' + fx(cn, 2), m.X(lg(N)) - 6, m.Y(lg(cn)) + 12, c.d, 'right'); M.text(x, 'noise 1/N: ' + fx(1 / N, 4), m.X(lg(N)) - 6, m.Y(-lg(N)) + 2, c.b, 'right'); };
@@ -1711,25 +1743,25 @@
         for (let l = 0; l < nw; l++) { const y = 30 + l * 10; x.save(); x.strokeStyle = l % 2 ? c.b : c.a; x.lineWidth = 3; x.beginPath(); x.moveTo(ex + l * ew + 2, y); x.lineTo(ex + (l + L) * ew - 2, y); x.stroke(); x.restore(); }
         M.text(x, nw + ' windows of L = ' + L + ' → ' + nw + ' snapshots per axial sample', ex, 30 + nw * 10 + 8, c.fg);
         M.text(x, 'rank R̃ ≤ min(L, (N − L + 1)·samples)', ex, 30 + nw * 10 + 22, c.mu); } },
-    { prov: 'exact', q: 'How far does loading cap the condition number?', a: 'R̃ + δI has κ = <b>(λ<sub>max</sub> + δ)/δ</b> with δ = Δ·tr(R̃)/L. For a rank-1-dominated R̃ (λ<sub>max</sub> ≈ tr R̃) that is 1 + L/Δ: Δ = 10<sup>−2</sup>, L = 32 caps κ at 3201 instead of ∞. δ → ∞ returns DAS.',
+    { prov: 'exact', leg: [['L = 32', 'a', 'solid'], ['L = 16', 'b', 'dash']], q: 'How far does loading cap the condition number?', a: 'R̃ + δI has κ = <b>(λ<sub>max</sub> + δ)/δ</b> with δ = Δ·tr(R̃)/L. For a rank-1-dominated R̃ (λ<sub>max</sub> ≈ tr R̃) that is 1 + L/Δ: Δ = 10<sup>−2</sup>, L = 32 caps κ at 3201 instead of ∞. δ → ∞ returns DAS.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150);
         const m = M.panel(x, { x: 34, y: 18, w: w - 40, h: h - 40 }, [-4, 0], [0, 6], { lab: 'log₁₀ κ vs loading Δ (λ_max = tr R̃)', base: 0, ticks: [[-4, p10(-4)], [-3, p10(-3)], [-2, p10(-2)], [-1, p10(-1)], [0, '1']] });
         ylab(x, m, [[0, '1'], [2, p10(2)], [4, p10(4)], [6, p10(6)]]);
-        [[32, c.a], [16, c.b]].forEach(([L, colr]) => { M.curve(x, m, u => lg(1 + L / Math.pow(10, u)), colr); M.text(x, 'L = ' + L, m.X(-0.3), m.Y(lg(1 + L / 0.5)) + (L === 32 ? -10 : 11), colr, 'right'); });
+        [[32, c.a, null], [16, c.b, [6, 4]]].forEach(([L, colr, ds]) => { M.curve(x, m, u => lg(1 + L / Math.pow(10, u)), colr, ds ? { dash: ds } : {}); M.text(x, 'L = ' + L, m.X(-0.3), m.Y(lg(1 + L / 0.5)) + (L === 32 ? -10 : 11), colr, 'right'); });
         pts(x, m, [[-2, lg(3201)]], c.fg, 3.5); M.text(x, 'Δ = 0.01: κ = 3201', m.X(-2) + 7, m.Y(lg(3201)) - 8, c.fg); } }
   ];
   Lab.cardGrid('m7', 'm7-th', TH);
 
   /* ---------- 07.5 inline figure: biased vs unbiased autocorrelation estimators ---------- */
   const BE = [
-    { prov: 'sim', q: 'Biased or unbiased R̂(k)?', a: 'For one record of N = 64 samples (correlation ρ(k) = 0.85<sup>k</sup>), the <b>biased</b> estimator (blue) follows E = (1 − k/N)ρ(k) (dashed) and stays PSD; the <b>unbiased</b> one (pink) divides by N − k and swings wildly at large k, where only a few products are averaged.',
+    { prov: 'sim', leg: [['biased', 'a', 'solid'], ['unbiased', 'b', 'dash'], ['true ρ(k)', 'mu', 'solid'], ['E[biased] = (1 − k/N)ρ(k)', 'mu', 'dot']], q: 'Biased or unbiased R̂(k)?', a: 'For one record of N = 64 samples (correlation ρ(k) = 0.85<sup>k</sup>), the <b>biased</b> estimator (blue) follows E = (1 − k/N)ρ(k) (dotted) and stays PSD; the <b>unbiased</b> one (pink) divides by N − k and swings wildly at large k, where only a few products are averaged.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const N = 64, a = 0.85, rg = Lab.rng(34), s = [];
         let v = rg.g(); for (let n = 0; n < N; n++) { s.push(v); v = a * v + Math.sqrt(1 - a * a) * rg.g(); }
         const Rb = [], Ru = []; for (let k = 0; k < N; k++) { let t = 0; for (let n = 0; n + k < N; n++) t += s[n] * s[n + k]; Rb.push([k, t / N]); Ru.push([k, t / (N - k)]); }
         const m = M.panel(x, { x: 30, y: 18, w: w - 36, h: h - 40 }, [0, 63], [-1.5, 1.5], { lab: 'R̂(k) vs lag k, N = 64', ticks: [[0, '0'], [16, '16'], [32, '32'], [48, '48'], [63, '63']] });
         ylab(x, m, [[-1, '−1'], [0, '0'], [1, '1']]);
-        M.curve(x, m, k => Math.pow(a, k), c.mu, { w: 1.2 }); M.curve(x, m, k => (1 - k / N) * Math.pow(a, k), c.mu, { dash: [4, 3], w: 1.2 });
-        path(x, m, Ru, c.b, { w: 1.4 }); path(x, m, Rb, c.a, { w: 1.8 }); M.text(x, 'grey: true ρ(k)', m.b.x + m.b.w - 2, m.b.y + 6, c.mu, 'right'); } }
+        M.curve(x, m, k => Math.pow(a, k), c.mu, { w: 1.2 }); M.curve(x, m, k => (1 - k / N) * Math.pow(a, k), c.mu, { dash: [2, 3], w: 1.2 });
+        path(x, m, Ru, c.b, { w: 1.4, dash: [6, 4] }); path(x, m, Rb, c.a, { w: 1.8 }); M.text(x, 'grey: true ρ(k)', m.b.x + m.b.w - 2, m.b.y + 6, c.mu, 'right'); } }
   ];
   Lab.cardGrid('m7', 'm7-be', BE);
 

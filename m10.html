@@ -23,6 +23,9 @@
   </header>
   <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>numerical run in this page (FFT compression of sampled codes, noise Monte Carlo, least-squares filter solve, numerical ambiguity integral) or in the Octave scripts below</span><span><span class="prov model">Approx. model</span>simplified physics (narrowband Doppler, phase-only motion, linear-in-f attenuation without dispersion, linear acoustics); assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not computed</span><span>No transducer, Field II or acoustic-output measurement is shown: the transducer is a Gaussian band-pass, and acoustic-output numbers are linear-acoustics calculations from the stated peak pressure.</span></div>
 
+  <div class="k60"><span class="label">In 60 seconds</span><ol><li><b>Matched filtering depends only on energy:</b> The best filter for a known echo in white noise is that echo, time-reversed and conjugated; its output SNR is at most \(2E/N_0\), with E the echo energy and N₀ the noise density. Match the received echo, not the electrical drive. The optimum is flat: twice too wide costs about 1 dB. <a class="sref" href="#m10-s10-1">§10.1</a></li><li><b>Long codes buy energy at fixed peak pressure:</b> A long code spreads energy over time without raising peak pressure; the receive filter compresses it into a short pulse by aligning all frequencies. The gain grows with the time–bandwidth product TB, duration times bandwidth: 18.8 dB at TB = 50 against a Gaussian pulse of equal band. <a class="sref" href="#m10-s10-2">§10.2</a></li><li><b>Resolution comes from bandwidth, sidelobes from the taper:</b> A linear-FM chirp, a tone sweeping the band, compresses to a peak 1.207/B wide at −6 dB, with B the bandwidth, at any length. Untapered, it leaves −13.3 dB range sidelobes, false echoes spread over the code length. Amplitude tapers lower them at an SNR cost. <a class="sref" href="#m10-s10-3">§10.3</a></li><li><b>Binary codes trade sidelobes against motion:</b> Phase codes flip the carrier sign in a fixed pattern; Barker-13 gives −22.3 dB range sidelobes. A Golay pair, two complementary codes fired in turn, cancels sidelobes exactly, but only if nothing moves between firings: 2 µm of motion already leaves −38 dB for length-16 codes at 5 MHz. <a class="sref" href="#m10-s10-4">§10.4</a></li><li><b>Ambiguity can be moved, never removed:</b> The ambiguity function maps filter output against range offset and Doppler shift; its total volume is fixed by echo energy. A chirp tolerates Doppler by turning it into a small range bias, 9 µm at 1 m/s and 5 MHz, which cancels when up- and down-chirps are averaged. <a class="sref" href="#m10-s10-5">§10.5</a></li><li><b>Attenuation eats bandwidth, not position:</b> Attenuation narrows the echo band and lowers its centre with depth, so a fixed compression filter loses SNR and its sidelobes rise: 2.0 dB and +3.7 dB at 6 cm for 0.5 dB/cm/MHz. Adapting the filter restores SNR but widens the main lobe. Never read depth from the raw chirp envelope, which shifts. <a class="sref" href="#m10-s10-6">§10.6</a></li><li><b>Coding gain buys depth, not resolution:</b> Gain G in dB buys depth \(\Delta z = G/(2\alpha f_0)\), with α the attenuation slope in dB/cm/MHz and f₀ the frequency in MHz: 15 dB is 3.0 cm at 5 MHz and 0.5 dB/cm/MHz. At fixed peak pressure, pulse rate and scan mode, time-averaged intensity and thermal index rise by about the same G (the pulse-energy ratio), so long codes can break output limits. <a class="sref" href="#m10-s10-7">§10.7</a></li></ol></div>
+  <div class="field"><span class="label">From the field</span><ul><li><b>Sell coded excitation as SNR and depth, never resolution, and check range sidelobes at depth.</b> <span class="why">Compressed width is set by bandwidth alone, and attenuation narrows the band with depth, degrading a fixed compression filter. At 6 cm and 0.5 dB/cm/MHz the fixed filter loses 2.0 dB and its sidelobes rise by 3.7 dB. <a class="sref" href="#m10-s10-3">§10.3</a> <a class="sref" href="#m10-s10-6">§10.6</a></span></li><li><b>Run the acoustic-output budget the day the code length is chosen.</b> <span class="why">At fixed peak pressure, pulse rate and scan mode, a code with gain G raises time-averaged intensity and thermal index by about the same G (the pulse-energy ratio). A chirp with time–bandwidth product 50 reaches 2003 mW/cm² against the 720 mW/cm² Track 3 limit; the matching short pulse gives 27. <a class="sref" href="#m10-s10-7">§10.7</a></span></li><li><b>Keep the sweep inside the transducer’s two-way band, and count the transducer as part of the taper.</b> <span class="why">Bandwidth outside the transmit-and-receive response adds energy and heating but no resolution. The transducer already rounds the spectrum, so measured chirp sidelobes sit below the −13 dB untapered-chirp prediction. <a class="sref" href="#m10-s10-6">§10.6</a></span></li><li><b>Shorten the code near the probe and lengthen it with depth.</b> <span class="why">Echoes from closer than cT/2 (T the code duration, c the sound speed) return during transmission and are blocked or partly compressed. A 10 µs chirp overlaps its own transmission over the first 7.7 mm at 1540 m/s. <a class="sref" href="#m10-s10-9">§10.9</a></span></li><li><b>Use chirps rather than binary phase codes for harmonic imaging and moving targets.</b> <span class="why">A chirp survives the second-harmonic nonlinearity and tolerates Doppler; a phase code fails at the harmonic, and a Golay pair (two complementary codes) loses its sidelobe cancellation with tiny motion: −37.9 dB residual at 2 µm for length-16 codes at 5 MHz. <a class="sref" href="#m10-s10-4">§10.4</a> <a class="sref" href="#m10-s10-6">§10.6</a></span></li></ul></div>
+
   <!-- ===================== 10.1 ===================== -->
   <div class="prose">
     <h2><span class="sec">10.1</span>The matched filter: SNR depends only on energy</h2>
@@ -67,21 +70,27 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m10-mf-cv" aria-label="Echo in noise and filter output"></canvas>
-        <div class="legend"><span><i style="background:var(--muted)"></i>record (signal + noise)</span><span><i style="background:var(--accent)"></i>echo / noise-free output</span><span><i style="background:var(--sig2)"></i>filter output with noise</span><span><i style="background:var(--sig3)"></i>√(2E/N₀) · √η</span></div>
+        <div class="legend" id="m10-mf-leg"><span data-s="rec"><i style="background:var(--muted)"></i>record (signal + noise)</span><span data-s="echo"><i style="background:var(--accent)"></i>echo (top)</span><span data-s="nf"><i class="dash" style="color:var(--accent)"></i>noise-free output</span><span data-s="out"><i style="background:var(--sig2)"></i>filter output with noise</span><span data-s="lvl"><i class="dot" style="color:var(--sig3)"></i>expected peak √(2E/N₀) · √η</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m10-mf-snr">Input 2E/N₀ = Σs²/σ² <output id="m10-mf-snr-o">10 dB</output></label><input type="range" id="m10-mf-snr" min="-6" max="20" step="1" value="10"></div>
-        <div class="ctrl"><label for="m10-mf-r">Filter / echo bandwidth r <output id="m10-mf-r-o">1.00</output></label><input type="range" id="m10-mf-r" min="-2" max="2" step="0.1" value="0"></div>
-        <div class="ctrl"><label for="m10-mf-df">Filter centre offset Δf <output id="m10-mf-df-o">0.0 MHz</output></label><input type="range" id="m10-mf-df" min="-2.5" max="2.5" step="0.1" value="0"></div>
+        <div class="ctrl"><label for="m10-mf-snr">Input SNR 2E/N₀ = Σs²/σ² <output id="m10-mf-snr-o">10 dB</output> <span class="hint">echo energy over noise level</span></label><input type="range" id="m10-mf-snr" min="-6" max="20" step="1" value="10"></div>
+        <div class="ctrl"><label for="m10-mf-r">Filter-to-echo bandwidth ratio r <output id="m10-mf-r-o">1.00</output> <span class="hint">r = 1 is matched; 0.5 = filter half as wide</span></label><input type="range" id="m10-mf-r" min="-2" max="2" step="0.1" value="0"></div>
+        <div class="ctrl"><label for="m10-mf-df">Filter centre offset Δf <output id="m10-mf-df-o">0.0 MHz</output> <span class="hint">filter centre minus echo centre frequency</span></label><input type="range" id="m10-mf-df" min="-2.5" max="2.5" step="0.1" value="0"></div>
         <div class="btn-row"><button class="btn" id="m10-mf-new" type="button">New noise</button><button class="btn solid" id="m10-mf-mc" type="button">Run 4000 trials</button></div>
         <div class="readout" id="m10-mf-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> at \(r\) = 1 and \(\Delta f\) = 0 the filter is matched and the output peak reaches \(\sqrt{2E/N_0}\) noise standard deviations. Halve or double the bandwidth (\(r\) = 0.5 or 2): the cost is about 1 dB. Push \(\Delta f\) to 2 MHz (\(1.6\sigma\)) and the loss exceeds 5 dB. At 10 dB the echo barely stands out of the record (its best single sample is only 3.5 dB above the noise, because the energy is spread over many samples), yet the output peak sits at 3.2 noise standard deviations.</div>
+    <div class="demo-foot"><strong>Try:</strong> at \(r\) = 1 and \(\Delta f\) = 0 the filter is matched and the output peak reaches \(\sqrt{2E/N_0}\) noise standard deviations. Halve or double the bandwidth (\(r\) = 0.5 or 2): the cost is about 1 dB. Push \(\Delta f\) to 2 MHz (\(1.6\sigma\)) and the loss exceeds 5 dB. At 10 dB the echo barely stands out of the record (its best single sample is only 3.5 dB above the noise, because the energy is spread over many samples), yet the output peak sits at 3.2 noise standard deviations.<span class="symnote">Symbols used here: E, the echo energy; N₀/2, the noise power spectral density (σ² per sample, σ = 1 here); s, the echo samples, so 2E/N₀ = Σs²/σ²; r, filter bandwidth divided by echo bandwidth (Gaussian spectral widths); Δf, filter centre offset in MHz; η, filter efficiency, output SNR divided by the matched-filter value.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>You already use matched filters. DAS is the spatial matched filter of a point target (Module 05: the adjoint, not the inverse). Correlation-based delay estimation is matched filtering against a reference A-line (Module 11), and its peak is the maximum-likelihood delay in white noise. The receive band-pass filter on any scanner approximates a matched filter to the transducer's two-way response; the result above says that getting it within a factor 2 in bandwidth is good enough for SNR. TGC multiplies signal and noise alike and changes no SNR.</p></div>
   <div class="callout pitfall"><span class="label">Factor-2 traps</span><p>Most "3 dB discrepancies" between a simulation and \(2E/N_0\) are convention, not physics: complex noise counted in both quadratures, one-sided versus two-sided \(N_0\), or energy of the analytic signal (\(2E\)) used with the noise of the real one. State the convention next to every SNR you report, and measure SNR as mean²/variance of the filter output at the peak sample over many noise realizations.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>SNR ≤ 2E/N₀ by Cauchy–Schwarz, with equality for H = κS*e<sup>−j2πft₀</sup>: correlate with the received echo, not the electrical drive.</li>
+    <li>The optimum is flat: a filter 2× too wide or narrow costs 0.97 dB, a 1σ centre offset 2.17 dB.</li>
+    <li>In colored noise whiten, then match (H = S*/N). The complex |y|² convention gives E/N₀, 3.01 dB below the real-RF 2E/N₀.</li>
+  </ul></div>
 
   <!-- ===================== 10.2 ===================== -->
   <div class="prose">
@@ -102,6 +111,12 @@
   <div class="rf-grid" id="m10-g2"></div>
   <div class="callout intuit"><span class="label">Intuition</span><p>Think of the code as a deliberately defocused pulse in time, exactly like a defocused aperture in space. The matched filter applies the conjugate delay law, the way a focusing law cancels the quadratic phase across the aperture (Module 04). An LFM is literally a quadratic phase in time, and compression is focusing in range.</p></div>
 
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Compression ratio TB; SNR gain = energy ratio at equal peak amplitude: TB against a rect of length 1/B, 1.505·TB against a Gaussian of equal −6 dB band.</li>
+    <li>TB = 50 gives 18.77 dB (Monte Carlo 18.70 dB).</li>
+    <li>The filter applies the opposite group delay, so all frequencies arrive together: compression is focusing in range.</li>
+  </ul></div>
+
   <!-- ===================== 10.3 ===================== -->
   <div class="prose">
     <h2><span class="sec">10.3</span>The linear-FM chirp: mainlobe, sidelobes, tapers</h2>
@@ -121,7 +136,7 @@
     <dl class="where"><dt>\(R(\tau)\)</dt><dd>matched-filter output (autocorrelation) at lag \(\tau\); \(R(0)\) is its peak</dd><dt>\(\tau\)</dt><dd>lag, µs</dd><dt>\(T,\ B\)</dt><dd>chirp duration (µs) and bandwidth (MHz)</dd><dt>\(\mathrm{sinc}(x)\)</dt><dd>\(\sin(\pi x)/(\pi x)\)</dd><dt>\(w_{-6\,\mathrm{dB}}\)</dt><dd>full width at half amplitude of the compressed envelope, µs</dd><dt>\(\mathrm{PSL}\)</dt><dd>peak sidelobe level relative to the mainlobe, dB (20 log)</dd></dl>
       <span class="note">Exact for the rect-envelope complex chirp (<code>m10_chirp_compression.m</code> matches it to \(3\times10^{-5}\)). As \(TB \to \infty\) it becomes \(\mathrm{sinc}(B\tau)\): −6 dB width \(1.207/B\), first null \(1/B\), peak sidelobe −13.26 dB. At TB = 10: \(1.234/B\) and −14.9 dB; at TB = 200: \(1.208/B\) and −13.3 dB.</span>
     </div>
-    <p>With \(B\) = 5 MHz the compressed −6 dB width is 241 ns, an axial resolution of \(c \cdot 1.207/(2B)\) = 0.186 mm, independent of \(T\). The −13 dB range sidelobes extend over \(\pm T\), i.e. \(\pm cT/2\) in depth (±7.7 mm for 10 µs), and are unacceptable in a B-mode image displayed over 50–60 dB. They are lowered by amplitude tapering, and each placement has a price, all relative to the rect chirp at the same peak amplitude:</p>
+    <p>With \(B\) = 5 MHz the compressed −6 dB width is 241 ns, an axial resolution of \(c \cdot 1.207/(2B)\) = 0.186 mm, independent of \(T\). The −13 dB range sidelobes extend over \(\pm T\), i.e. \(\pm cT/2\) in depth (±7.7 mm for 10 µs), and are unacceptable in a B-mode image displayed over 50–60 dB. Amplitude tapering lowers them, and each placement has a price (all relative to the rect chirp at the same peak amplitude):</p>
     <div class="eqn" id="m10-eq10">
       <div class="eqn-body"><div class="eqn-math">\[ \text{receive taper (mismatched):}\ \eta = \frac{\left(\sum w\right)^{2}}{N\sum w^{2}}; \qquad \text{transmit taper:}\ \eta = \overline{w^{2}}; \qquad \text{split } \sqrt{w} \text{ on both sides:}\ \eta = \overline{w} \]</div><span class="eqn-no">(10.10)</span></div>
     <dl class="where"><dt>\(\eta\)</dt><dd>SNR efficiency (loss factor) relative to the untapered code at equal peak amplitude</dd><dt>\(w\)</dt><dd>taper samples across the code, peak 1</dd><dt>\(N\)</dt><dd>number of samples in the code</dd><dt>\(\sum\)</dt><dd>sum over the \(N\) samples</dd><dt>\(\overline{\,\cdot\,}\)</dt><dd>mean over the code</dd></dl>
@@ -145,18 +160,24 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m10-ch-cv" aria-label="Chirp waveform and compressed output"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>transmitted RF and compressed envelope</span><span><i style="background:var(--muted)"></i>rect chirp, matched (reference)</span></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>transmitted RF and compressed envelope</span><span><i class="dash" style="color:var(--muted)"></i>taper envelope (top), rect chirp matched (reference)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m10-ch-T">Duration T <output id="m10-ch-T-o">10 µs</output></label><input type="range" id="m10-ch-T" min="1" max="40" step="0.5" value="10"></div>
-        <div class="ctrl"><label for="m10-ch-B">Swept bandwidth B <output id="m10-ch-B-o">5 MHz</output></label><input type="range" id="m10-ch-B" min="1" max="8" step="0.5" value="5"></div>
-        <div class="ctrl"><label for="m10-ch-win">Taper</label><select id="m10-ch-win"><option value="0">rect (none)</option><option value="1">Tukey 25 %</option><option value="2" selected>Hann</option><option value="3">Hamming</option><option value="4">Blackman</option></select></div>
-        <div class="ctrl"><label for="m10-ch-where">Applied on</label><select id="m10-ch-where"><option value="rx" selected>receive only (mismatched)</option><option value="tx">transmit only</option><option value="split">split √w on both</option></select></div>
+        <div class="ctrl"><label for="m10-ch-T">Chirp duration T <output id="m10-ch-T-o">10 µs</output> <span class="hint">length of the transmitted chirp</span></label><input type="range" id="m10-ch-T" min="1" max="40" step="0.5" value="10"></div>
+        <div class="ctrl"><label for="m10-ch-B">Swept bandwidth B <output id="m10-ch-B-o">5 MHz</output> <span class="hint">frequency range swept, centred on 5 MHz</span></label><input type="range" id="m10-ch-B" min="1" max="8" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m10-ch-win">Amplitude taper <span class="hint">amplitude window: lower sidelobes, wider mainlobe</span></label><select id="m10-ch-win"><option value="0">rect (none)</option><option value="1">Tukey 25 %</option><option value="2" selected>Hann</option><option value="3">Hamming</option><option value="4">Blackman</option></select></div>
+        <div class="ctrl"><label for="m10-ch-where">Taper applied on <span class="hint">which end of the link carries the taper</span></label><select id="m10-ch-where"><option value="rx" selected>receive only (mismatched)</option><option value="tx">transmit only</option><option value="split">split √w on both</option></select></div>
         <div class="readout" id="m10-ch-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> set the taper to rect and sweep \(T\) at fixed \(B\): the mainlobe stays at \(1.2/B\) while the sidelobes stay near −13 dB and stretch over \(\pm T\). Then compare Hamming on receive with Hamming on transmit: transmit reaches about −50 dB but costs 4 dB of energy at the same peak pressure. Reduce \(TB\) below 20 and watch the Fresnel ripple raise every tapered sidelobe floor.</div>
+    <div class="demo-foot"><strong>Try:</strong> set the taper to rect and sweep \(T\) at fixed \(B\): the mainlobe stays at \(1.2/B\) while the sidelobes stay near −13 dB and stretch over \(\pm T\). Then compare Hamming on receive with Hamming on transmit: transmit reaches about −50 dB but costs 4 dB of energy at the same peak pressure. Reduce \(TB\) below 20 and watch the Fresnel ripple raise every tapered sidelobe floor.<span class="symnote">Symbols used here: T, chirp duration in µs; B, swept bandwidth in MHz; TB, their product (dimensionless); c = 1540 m/s, the sound speed, so an axial width in mm is c × (time width)/2.</span></div>
   </div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>A rect LFM compresses to ≈ sinc(Bτ): −6 dB width 1.207/B, first null 1/B, PSL −13.26 dB spread over ±T (±7.7 mm for 10 µs).</li>
+    <li>Hann costs −1.76 dB on receive (mismatch), −4.26 dB on transmit (energy at fixed peak) and −3.01 dB split as √w.</li>
+    <li>Fresnel ripple floors receive tapers at TB 50 (Hamming −36.5 dB instead of −42.7 dB); transmit tapers reach far lower.</li>
+  </ul></div>
 
   <!-- ===================== 10.4 ===================== -->
   <div class="prose">
@@ -285,16 +306,22 @@
         <div class="legend" id="m10-pc-leg"></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m10-pc-code">Code and filter</label><select id="m10-pc-code"><option value="b">Barker-13, matched</option><option value="bls">Barker-13, LS mismatched</option><option value="ga">Golay A alone</option><option value="gp" selected>Golay pair A + B</option></select></div>
-        <div class="ctrl"><label for="m10-pc-N">Golay length N</label><select id="m10-pc-N"><option value="8">8</option><option value="16" selected>16</option><option value="32">32</option><option value="64">64</option></select></div>
-        <div class="ctrl"><label for="m10-pc-L">LS filter length L <output id="m10-pc-L-o">39</output></label><input type="range" id="m10-pc-L" min="13" max="79" step="2" value="39"></div>
-        <div class="ctrl"><label for="m10-pc-d">Axial motion between firings d <output id="m10-pc-d-o">2.0 µm</output></label><input type="range" id="m10-pc-d" min="0" max="40" step="0.5" value="2"></div>
+        <div class="ctrl"><label for="m10-pc-code">Code and receive filter <span class="hint">matched = correlate with the code; LS = least-squares mismatched</span></label><select id="m10-pc-code"><option value="b">Barker-13, matched</option><option value="bls">Barker-13, LS mismatched</option><option value="ga">Golay A alone</option><option value="gp" selected>Golay pair A + B</option></select></div>
+        <div class="ctrl"><label for="m10-pc-N">Golay code length N (chips) <span class="hint">used by the two Golay options</span></label><select id="m10-pc-N"><option value="8">8</option><option value="16" selected>16</option><option value="32">32</option><option value="64">64</option></select></div>
+        <div class="ctrl"><label for="m10-pc-L">LS filter length L (taps) <output id="m10-pc-L-o">39</output> <span class="hint">Barker-13 LS option only</span></label><input type="range" id="m10-pc-L" min="13" max="79" step="2" value="39"></div>
+        <div class="ctrl"><label for="m10-pc-d">Axial motion between firings d <output id="m10-pc-d-o">2.0 µm</output> <span class="hint">Golay pair only; the target moves between firing A and B</span></label><input type="range" id="m10-pc-d" min="0" max="40" step="0.5" value="2"></div>
         <div class="readout" id="m10-pc-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> with the Golay pair at \(d\) = 0 every sidelobe vanishes (drawn at the −80 dB floor). Move \(d\) to 5 µm (25 mm/s at 5 kHz PRF): the residual is the single-code sidelobe pattern scaled by \(\tan(\varphi/2)\). For Barker, slide \(L\) from 13 to 79 and watch the PSL fall while the SNR loss stays near 0.2 dB.</div>
+    <div class="demo-foot"><strong>Try:</strong> with the Golay pair at \(d\) = 0 every sidelobe vanishes (drawn at the −80 dB floor). Move \(d\) to 5 µm (25 mm/s at 5 kHz PRF): the residual is the single-code sidelobe pattern scaled by \(\tan(\varphi/2)\). For Barker, slide \(L\) from 13 to 79 and watch the PSL fall while the SNR loss stays near 0.2 dB.<span class="symnote">Symbols used here: k, lag in chips; R(k), the autocorrelation of a code (R<sub>A</sub>, R<sub>B</sub> for Golay codes A and B); N, Golay length in chips; L, LS filter length in taps; PSL, peak sidelobe level in dB; d, axial motion between firings in µm; φ = 4πf₀d/c, the phase shift it causes, in rad (f₀ = 5 MHz, c = 1540 m/s).</span></div>
   </div>
-  <div class="callout us"><span class="label">Ultrasound link</span><p>Golay pairs suit slow targets. Combined with multi-pulse contrast schemes (pulse inversion, amplitude modulation) they multiply the number of firings, and every term that differs between firings, motion or a nonlinear bubble response, appears as residual sidelobes. For plane-wave and ULM acquisitions the second firing halves the effective frame rate. A chirp compresses in one firing.</p></div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>Golay pairs suit slow targets. Combined with multi-pulse contrast schemes (pulse inversion, amplitude modulation) they multiply the number of firings, and every term that differs between firings (motion, or a nonlinear bubble response) appears as residual sidelobes. For plane-wave and ULM acquisitions the second firing halves the effective frame rate. A chirp compresses in one firing.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Barker-13: PSL 20 log<sub>10</sub>(1/13) = −22.28 dB, gain 11.14 dB; a least-squares mismatched filter with L = 39 reaches −38.5 dB for ≈ 0.2 dB of SNR.</li>
+    <li>Golay pairs: R<sub>A</sub> + R<sub>B</sub> = 2Nδ, gain 2N over two firings, exact only for a static target.</li>
+    <li>Motion leaves (max|R<sub>A</sub>|/N) tan(φ/2) with φ = 4πf₀d/c: −37.9 dB at 2 µm and −17.4 dB at 20 µm (N = 16, 5 MHz).</li>
+  </ul></div>
 
   <!-- ===================== 10.5 ===================== -->
   <div class="prose">
@@ -317,16 +344,22 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m10-af-cv" aria-label="Ambiguity function heat map"></canvas>
-        <div class="legend"><span><i style="background:var(--ink)"></i>±ν<sub>D</sub> = ±2vf<sub>0</sub>/c (f<sub>0</sub> = 5 MHz)</span><span>|χ| in dB, −30 to 0</span></div>
+        <div class="legend" id="m10-af-leg"><span data-s="nud"><i class="dash" style="color:var(--ink)"></i>±ν<sub>D</sub> = ±2vf<sub>0</sub>/c (f<sub>0</sub> = 5 MHz)</span><span>|χ| in dB, −30 to 0</span><span data-s="c0"><i style="background:var(--muted)"></i>cut at ν = 0</span><span data-s="cd"><i class="dash" style="color:var(--accent)"></i>cut at ν<sub>D</sub></span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m10-af-w">Waveform (T = 10 µs)</label><select id="m10-af-w"><option value="lfm" selected>LFM, B = 2 MHz (TB 20)</option><option value="bk">Barker-13, T<sub>c</sub> = T/13</option><option value="cw">Unmodulated burst</option></select></div>
-        <div class="ctrl"><label for="m10-af-v">Scatterer velocity v <output id="m10-af-v-o">1.0 m/s</output></label><input type="range" id="m10-af-v" min="0" max="5" step="0.1" value="1"></div>
+        <div class="ctrl"><label for="m10-af-w">Waveform, duration T = 10 µs <span class="hint">B, swept bandwidth; T<sub>c</sub>, chip length</span></label><select id="m10-af-w"><option value="lfm" selected>LFM, B = 2 MHz (TB 20)</option><option value="bk">Barker-13, T<sub>c</sub> = T/13</option><option value="cw">Unmodulated burst</option></select></div>
+        <div class="ctrl"><label for="m10-af-v">Scatterer velocity v <output id="m10-af-v-o">1.0 m/s</output> <span class="hint">axial speed; sets the Doppler shift ν<sub>D</sub></span></label><input type="range" id="m10-af-v" min="0" max="5" step="0.1" value="1"></div>
         <div class="readout" id="m10-af-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> on the LFM map the ultrasound band is a hairline around \(\nu = 0\) even at 5 m/s, because the map has to span \(\pm B\) to show the ridge. Switch to the unmodulated burst: its Doppler resolution is \(1/T\), but its range response is the full 10 µs triangle, which is why nobody images with it. Barker-13 concentrates the volume in a narrow spike plus a sidelobe floor.</div>
+    <div class="demo-foot"><strong>Try:</strong> on the LFM map the ultrasound band is a hairline around \(\nu = 0\) even at 5 m/s, because the map has to span \(\pm B\) to show the ridge. Switch to the unmodulated burst: its Doppler resolution is \(1/T\), but its range response is the full 10 µs triangle, which is why nobody images with it. Barker-13 concentrates the volume in a narrow spike plus a sidelobe floor.<span class="symnote">Symbols used here: χ(τ, ν), the ambiguity function (matched-filter output for an echo delayed by τ and Doppler-shifted by ν); τ, delay; ν, Doppler frequency shift in Hz; T = 10 µs, waveform duration; v, scatterer axial speed in m/s; ν<sub>D</sub> = 2vf₀/c, its Doppler shift (f₀ = 5 MHz, c = 1540 m/s); B, swept bandwidth in MHz.</span></div>
   </div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>The ambiguity volume ∬|χ|² = E² is fixed: ambiguity can be moved around the (τ, ν) plane, never removed.</li>
+    <li>The LFM ridge runs along ν = −Bτ/T: a Doppler shift moves the peak by ≈ νT/B and lowers it by about 20 log<sub>10</sub>(1 − |ν|/B).</li>
+    <li>In tissue 1 m/s at 5 MHz is ν = 6.49 kHz: peak at 11.8 ns (9 µm), loss 0.01 dB, and the bias cancels when up- and down-chirps are averaged.</li>
+  </ul></div>
 
   <!-- ===================== 10.6 ===================== -->
   <div class="prose">
@@ -343,7 +376,7 @@
     <dl class="where"><dt>\(\eta(z)\)</dt><dd>SNR efficiency of the fixed (surface-matched) filter at depth \(z\), \(0 &lt; \eta \le 1\)</dd><dt>\(E_0,\ E_z\)</dt><dd>echo spectra \(E(f;0)\) and \(E(f;z)\) of (10.17)</dd><dt>\(f\)</dt><dd>frequency, MHz</dd></dl>
       <span class="note">\(E_0 = E(f; 0)\), \(E_z = E(f; z)\). 2.5–7.5 MHz chirp, \(T\) = 10 µs, 80 % Gaussian transducer, 0.5 dB/cm/MHz: centroid 5.00 → 3.68 MHz at 6 cm; loss 0.26, 0.97, 2.01, 3.23, 4.55 dB at 2, 4, 6, 8, 10 cm; −6 dB width 338 → 374 ns; PSL −29.8 → −26.1 dB.</span>
     </div>
-    <p>The uncompressed echo behaves differently: an LFM maps frequency to time, so weighting toward low frequencies moves its energy centroid by about \((f_c - f_0)T/B\), −2.6 µs at 6 cm. Do not read depth from the raw chirp envelope. Three receive strategies (filters written as transfer functions applied to the echo):</p>
+    <p>The uncompressed echo behaves differently: an LFM maps frequency to time, so weighting toward low frequencies moves its energy centroid by about \((f_c - f_0)T/B\), −2.6 µs at 6 cm. Do not read depth from the raw chirp envelope. There are three receive strategies, each filter written as a transfer function applied to the echo:</p>
     <ul>
       <li><strong>Fixed</strong> (matched at \(z\) = 0), \(H = E_0^*\): simplest, loses SNR and sidelobe level with depth.</li>
       <li><strong>Depth-adapted matched</strong> \(H = E_z^*\): optimal SNR by definition, but its output spectrum \(\lvert E_z\rvert^2\) is narrower still, so the mainlobe widens (475 ns at 6 cm, −20 dB width 1.5 µs).</li>
@@ -354,25 +387,31 @@
     <dl class="where"><dt>\(H_W(f)\)</dt><dd>Wiener-type filter response</dd><dt>\(S^*(f),\ S(f)\)</dt><dd>conjugate of the echo spectrum and the spectrum itself</dd><dt>\(N(f)\)</dt><dd>noise power spectrum</dd><dt>\(P(f)\)</dt><dd>power spectrum of the reflectivity (signal prior)</dd></dl>
       <span class="note">The Wiener compression filter interpolates between the matched filter (\(N/P\) large: maximum SNR, wide mainlobe) and the inverse filter (\(N/P \to 0\): shortest pulse, noise amplified). Least-squares mismatched filters <span class="eqref">(10.12)</span> are its sidelobe-targeted cousins.</span>
     </div>
-    <p><strong>Transducer bandwidth</strong> acts as a spectral taper and, through the LFM time–frequency map, as a transmit taper: with an 80 % two-way Gaussian response the surface PSL is already −29.8 dB without any explicit window. Part of the swept band is also lost, so the realized gain is below \(10\log_{10}(1.505\,TB)\) computed from the electrical sweep. <strong>Nonlinear propagation</strong> at diagnostic pressures moves energy to harmonics that the fundamental filter treats as loss. For quadratic nonlinearity the second harmonic of \(a(t)\cos(\omega t + \phi(t))\) carries \(2\phi(t)\): a chirp's harmonic is a chirp with twice the centre frequency and twice the sweep, compressible with its own matched filter, while a biphase code's phases 0 and \(\pi\) both become 0 mod \(2\pi\), so its harmonic is an uncoded long pulse. <strong>Near field</strong>: echoes from depths below \(cT/2\) overlap the transmission and are not fully compressed (7.7 mm for 10 µs), so systems shorten the code near the probe.</p>
+    <p><strong>Transducer bandwidth</strong> acts as a spectral taper and, through the LFM time–frequency map, as a transmit taper: with an 80 % two-way Gaussian response the surface PSL is already −29.8 dB without any explicit window. Part of the swept band is also lost, so the realized gain is below \(10\log_{10}(1.505\,TB)\) computed from the electrical sweep. Nonlinear propagation at diagnostic pressures moves energy to harmonics that the fundamental filter treats as loss. For quadratic nonlinearity the second harmonic of \(a(t)\cos(\omega t + \phi(t))\) carries \(2\phi(t)\): a chirp's harmonic is a chirp with twice the centre frequency and twice the sweep, compressible with its own matched filter, while a biphase code's phases 0 and \(\pi\) both become 0 mod \(2\pi\), so its harmonic is an uncoded long pulse. In the near field, echoes from depths below \(cT/2\) overlap the transmission and are not fully compressed (7.7 mm for 10 µs), so systems shorten the code near the probe.</p>
   </div>
   <div class="demo">
     <div class="demo-head"><span class="tag">Demo 10.5</span><h3>Chirp through attenuating tissue: fixed, adapted and equalizing filters</h3><span class="prov sim">Simulation</span><span class="prov model">Approx. model</span><span class="prov-note">FFT compression in JS of a sampled chirp × Gaussian two-way transducer × linear-in-f attenuation without dispersion (same model as m10_attenuation_mismatch.m).</span></div>
     <div class="demo-body">
       <div class="stage">
         <canvas id="m10-at-cv" aria-label="Attenuated chirp spectra and compressed envelopes"></canvas>
-        <div class="legend"><span><i style="background:var(--muted)"></i>|E(f; 0)|</span><span><i style="background:var(--accent)"></i>|E(f; z)| / fixed filter output</span><span><i style="background:var(--sig2)"></i>depth-adapted</span><span><i style="background:var(--sig4)"></i>equalizer</span></div>
+        <div class="legend" id="m10-at-leg"><span data-s="e0"><i style="background:var(--muted)"></i>spectrum at z = 0</span><span data-s="ez"><i style="background:var(--accent)"></i>spectrum at depth z</span><span data-s="fix"><i style="background:var(--accent)"></i>fixed filter output</span><span data-s="adapt"><i class="dash" style="color:var(--sig2)"></i>depth-adapted filter</span><span data-s="eq"><i class="dot" style="color:var(--sig4)"></i>equalizer</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m10-at-a">Attenuation α <output id="m10-at-a-o">0.50 dB/cm/MHz</output></label><input type="range" id="m10-at-a" min="0" max="1" step="0.05" value="0.5"></div>
-        <div class="ctrl"><label for="m10-at-z">Depth z <output id="m10-at-z-o">6.0 cm</output></label><input type="range" id="m10-at-z" min="0" max="15" step="0.5" value="6"></div>
-        <div class="ctrl"><label for="m10-at-bw">Transducer −6 dB band (two-way) <output id="m10-at-bw-o">80 %</output></label><input type="range" id="m10-at-bw" min="0.4" max="1.2" step="0.05" value="0.8"></div>
+        <div class="ctrl"><label for="m10-at-a">Attenuation α <output id="m10-at-a-o">0.50 dB/cm/MHz</output> <span class="hint">one-way loss slope; the echo loses 2αfz dB at frequency f</span></label><input type="range" id="m10-at-a" min="0" max="1" step="0.05" value="0.5"></div>
+        <div class="ctrl"><label for="m10-at-z">Depth z <output id="m10-at-z-o">6.0 cm</output> <span class="hint">reflector depth</span></label><input type="range" id="m10-at-z" min="0" max="15" step="0.5" value="6"></div>
+        <div class="ctrl"><label for="m10-at-bw">Transducer bandwidth, two-way −6 dB <output id="m10-at-bw-o">80 %</output> <span class="hint">fractional bandwidth of the two-way transducer response</span></label><input type="range" id="m10-at-bw" min="0.4" max="1.2" step="0.05" value="0.8"></div>
         <div class="readout" id="m10-at-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> at \(\alpha\) = 0 all three filters coincide. Raise \(z\): the fixed filter's mainlobe widens and its loss grows roughly quadratically at first; the adapted filter's loss stays at 0 by definition while its −20 dB width explodes; the equalizer holds the width and pays in SNR. The compressed peak never moves; the raw echo centroid does.</div>
+    <div class="demo-foot"><strong>Try:</strong> at \(\alpha\) = 0 all three filters coincide. Raise \(z\): the fixed filter's mainlobe widens and its loss grows roughly quadratically at first; the adapted filter's loss stays at 0 by definition while its −20 dB width explodes; the equalizer holds the width and pays in SNR. The compressed peak never moves; the raw echo centroid does.<span class="symnote">Symbols used here: f, frequency in MHz; E(f; z), the echo spectrum from depth z in cm; α, attenuation slope in dB/cm/MHz; f₀ = 5 MHz, the chirp centre; f<sub>c</sub>, the echo's spectral centroid; T and B, chirp duration and swept bandwidth.</span></div>
   </div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>A PSL number alone can flatter a filter. The depth-adapted filter at 6 cm shows −35.8 dB PSL because its broad mainlobe skirt has no null for the sidelobe search to start from. Always report the −20 dB (or −40 dB) width or an integrated sidelobe level next to the PSL.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Without dispersion the compressed peak stays at lag 0 while the band narrows: at 6 cm, 0.5 dB/cm/MHz, the centroid falls 5.0 → 3.7 MHz, the fixed filter loses 2.0 dB and PSL rises from −29.8 to −26.1 dB.</li>
+    <li>The raw chirp envelope moves by ≈ (f<sub>c</sub> − f<sub>0</sub>)T/B (−2.6 µs at 6 cm): never read depth from it.</li>
+    <li>The adapted filter maximizes SNR but widens the mainlobe (475 ns); the equalizer keeps 376 ns and pays 5.8 dB. At the second harmonic a chirp survives, a biphase code does not.</li>
+  </ul></div>
 
   <!-- ===================== 10.7 ===================== -->
   <div class="prose">
@@ -391,29 +430,36 @@
     <dl class="where"><dt>\(\mathrm{MI}\)</dt><dd>mechanical index, dimensionless</dd><dt>\(p_{r.3}\)</dt><dd>peak rarefactional pressure derated by 0.3 dB/cm/MHz, at the point where the derated pulse-intensity integral is largest, MPa</dd><dt>\(f_{\mathrm{awf}}\)</dt><dd>acoustic working frequency, MHz</dd><dt>\(\mathrm{PII}\)</dt><dd>pulse-intensity integral, J/m²</dd><dt>\(p(t)\)</dt><dd>instantaneous pressure waveform, Pa</dd><dt>\(\rho,\ c\)</dt><dd>density (kg/m³) and sound speed (m/s); \(\rho c \approx 1.5\) MRayl</dd><dt>\(I_{\mathrm{SPTA}}\)</dt><dd>spatial-peak temporal-average intensity, mW/cm²</dd><dt>\(\mathrm{TI}\)</dt><dd>thermal index, dimensionless</dd></dl>
       <span class="note">FDA Track 3 global maxima (derated): \(I_{\mathrm{SPTA.3}} \le\) 720 mW/cm², and MI ≤ 1.9 or \(I_{\mathrm{SPPA.3}} \le\) 190 W/cm²; MI and TI are displayed to the user.</span>
     </div>
-    <p>At the same peak pressure and frequency, MI is unchanged while PII, \(I_{\mathrm{SPTA}}\) and power rise by the energy ratio, which is the compression gain. Worked example (<code>m10_snr_budget_output.m</code>): MI = 1.9 at 5 MHz means \(p_{r.3}\) = 4.25 MPa; a 60 % Gaussian pulse at 200 pulses/s at a point gives \(I_{\mathrm{SPTA.3}}\) = 27 mW/cm²; a TB-50 chirp at the same peak gives 2003 mW/cm² (×75.2, 18.8 dB), well above 720. Either the pulse rate drops to 72 Hz or the peak falls by ×0.60 (MI 1.14). The available headroom at that point was 720/27 = 26.7, i.e. 14.3 dB of coding gain before \(I_{\mathrm{SPTA}}\) binds. Beyond that, the energy limit binds, and at a binding energy limit coding gains nothing against white noise. The constant-amplitude chirp's \(I_{\mathrm{SPPA.3}} \approx p^2/(2\rho c)\) is about 600 W/cm², so it complies through the MI branch of the Track 3 rule, not the \(I_{\mathrm{SPPA}}\) branch.</p>
+    <p>At the same peak pressure and frequency, MI is unchanged while PII, \(I_{\mathrm{SPTA}}\) and power rise by the energy ratio, which is the compression gain. Worked example (<code>m10_snr_budget_output.m</code>): MI = 1.9 at 5 MHz means \(p_{r.3}\) = 4.25 MPa; a 60 % Gaussian pulse at 200 pulses/s at a point gives \(I_{\mathrm{SPTA.3}}\) = 27 mW/cm²; a TB-50 chirp at the same peak gives 2003 mW/cm² (×75.2, 18.8 dB), well above 720. Either the pulse rate drops to 72 Hz or the peak falls by ×0.60 (MI 1.14). The available headroom at that point was 720/27 = 26.7, i.e. 14.3 dB of coding gain before \(I_{\mathrm{SPTA}}\) binds. Beyond that the energy limit binds, and then coding gains nothing against white noise. The constant-amplitude chirp's \(I_{\mathrm{SPPA.3}} \approx p^2/(2\rho c)\) is about 600 W/cm², so it complies through the MI branch of the Track 3 rule, not the \(I_{\mathrm{SPPA}}\) branch.</p>
   </div>
   <div class="demo">
     <div class="demo-head"><span class="tag">Demo 10.6</span><h3>SNR budget and acoustic output of a coded mode</h3><span class="prov model">Approx. model</span><span class="prov-note">Narrowband rule and broadband Gaussian-spectrum integral for depth; linear acoustics, plane-wave intensity p²/(ρc), no nonlinear propagation, for the output indices.</span></div>
     <div class="demo-body">
       <div class="stage">
         <canvas id="m10-bu-cv" aria-label="SNR versus depth and ISPTA comparison"></canvas>
-        <div class="legend"><span><i style="background:var(--muted)"></i>narrowband rule</span><span><i style="background:var(--accent)"></i>short pulse (broadband)</span><span><i style="background:var(--sig2)"></i>coded (broadband)</span><span><i style="background:var(--sig3)"></i>Track 3 I<sub>SPTA.3</sub> limit</span></div>
+        <div class="legend" id="m10-bu-leg"><span data-s="nb"><i class="dot" style="color:var(--muted)"></i>narrowband rule</span><span data-s="sp"><i style="background:var(--accent)"></i>short pulse (broadband)</span><span data-s="cd"><i class="dash" style="color:var(--sig2)"></i>coded (broadband)</span><span data-s="thr"><i class="dot" style="color:var(--ink)"></i>0 dB threshold</span></div>
+        <div class="legend"><span><i style="background:var(--sig3)"></i>Track 3 I<sub>SPTA.3</sub> limit</span><span><i class="fill" style="background:var(--accent)"></i>I<sub>SPTA.3</sub> short (bar)</span><span><i class="fill" style="background:var(--sig2)"></i>I<sub>SPTA.3</sub> coded (bar)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m10-bu-f0">Centre frequency f₀ <output id="m10-bu-f0-o">5.0 MHz</output></label><input type="range" id="m10-bu-f0" min="2" max="10" step="0.5" value="5"></div>
-        <div class="ctrl"><label for="m10-bu-a">Attenuation α <output id="m10-bu-a-o">0.50 dB/cm/MHz</output></label><input type="range" id="m10-bu-a" min="0.3" max="1" step="0.05" value="0.5"></div>
-        <div class="ctrl"><label for="m10-bu-tb">Chirp TB (B = 0.6 f₀) <output id="m10-bu-tb-o">50</output></label><input type="range" id="m10-bu-tb" min="5" max="200" step="5" value="50"></div>
-        <div class="ctrl"><label for="m10-bu-tap">Receive taper</label><select id="m10-bu-tap"><option value="0">rect (matched)</option><option value="1">Hann (−1.76 dB)</option></select></div>
-        <div class="ctrl"><label for="m10-bu-s0">Short-pulse SNR at z = 0 <output id="m10-bu-s0-o">40 dB</output></label><input type="range" id="m10-bu-s0" min="20" max="80" step="1" value="40"></div>
-        <div class="ctrl"><label for="m10-bu-mi">MI (both waveforms) <output id="m10-bu-mi-o">1.90</output></label><input type="range" id="m10-bu-mi" min="0.2" max="1.9" step="0.05" value="1.9"></div>
-        <div class="ctrl"><label for="m10-bu-prf">Pulses per second at the point <output id="m10-bu-prf-o">200 Hz</output></label><input type="range" id="m10-bu-prf" min="1.7" max="4" step="0.05" value="2.30103"></div>
+        <div class="ctrl"><label for="m10-bu-f0">Centre frequency f₀ <output id="m10-bu-f0-o">5.0 MHz</output> <span class="hint">same for short pulse and chirp</span></label><input type="range" id="m10-bu-f0" min="2" max="10" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m10-bu-a">Attenuation α <output id="m10-bu-a-o">0.50 dB/cm/MHz</output> <span class="hint">one-way loss slope</span></label><input type="range" id="m10-bu-a" min="0.3" max="1" step="0.05" value="0.5"></div>
+        <div class="ctrl"><label for="m10-bu-tb">Chirp time-bandwidth product TB <output id="m10-bu-tb-o">50</output> <span class="hint">B = 0.6 f₀, so TB sets the chirp duration T</span></label><input type="range" id="m10-bu-tb" min="5" max="200" step="5" value="50"></div>
+        <div class="ctrl"><label for="m10-bu-tap">Receive taper on the chirp</label><select id="m10-bu-tap"><option value="0">rect (matched)</option><option value="1">Hann (−1.76 dB)</option></select></div>
+        <div class="ctrl"><label for="m10-bu-s0">Short-pulse SNR at z = 0 <output id="m10-bu-s0-o">40 dB</output> <span class="hint">echo SNR of the uncoded pulse before any attenuation</span></label><input type="range" id="m10-bu-s0" min="20" max="80" step="1" value="40"></div>
+        <div class="ctrl"><label for="m10-bu-mi">Mechanical index MI (both waveforms) <output id="m10-bu-mi-o">1.90</output> <span class="hint">sets the derated peak pressure p<sub>r.3</sub></span></label><input type="range" id="m10-bu-mi" min="0.2" max="1.9" step="0.05" value="1.9"></div>
+        <div class="ctrl"><label for="m10-bu-prf">Pulses per second at the point <output id="m10-bu-prf-o">200 Hz</output> <span class="hint">how often the same spot is insonified; drives I<sub>SPTA.3</sub></span></label><input type="range" id="m10-bu-prf" min="1.7" max="4" step="0.05" value="2.30103"></div>
         <div class="readout" id="m10-bu-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> at the defaults the coded mode reaches 3.8 cm deeper (narrowband rule) but exceeds the \(I_{\mathrm{SPTA.3}}\) limit by 2.8×. Lower the MI until the coded bar clears 720 and note how much gain is left. Raise the pulse rate toward ultrafast values (several kHz at the same point): even the short pulse approaches the limit, and coding must run at low MI.</div>
+    <div class="demo-foot"><strong>Try:</strong> at the defaults the coded mode reaches 3.8 cm deeper (narrowband rule) but exceeds the \(I_{\mathrm{SPTA.3}}\) limit by 2.8×. Lower the MI until the coded bar clears 720 and note how much gain is left. Raise the pulse rate toward ultrafast values (several kHz at the same point): even the short pulse approaches the limit, and coding must run at low MI.<span class="symnote">Symbols used here: f₀, centre frequency in MHz; α, attenuation slope in dB/cm/MHz; T and B = 0.6 f₀, chirp duration and swept bandwidth; TB, their product; G, compression gain in dB; f<sub>c</sub>, echo centroid frequency; MI, mechanical index; p<sub>r.3</sub>, derated peak rarefactional pressure in MPa; I<sub>SPTA.3</sub>, derated spatial-peak temporal-average intensity in mW/cm² (limit 720).</span></div>
   </div>
   <div class="callout us"><span class="label">510(k) angle</span><p>For a new coded mode, the acoustic-output section is measured in that mode at its worst-case settings (longest code, highest pulse rate, maximum drive, every focal setting), not inferred from the short-pulse mode. MI may be unchanged at the same \(p_r\), but \(I_{\mathrm{SPTA.3}}\) and the thermal indices scale with energy, so expect TI to become the displayed index that moves. Two details need a stated method: the acoustic working frequency of a swept waveform (the zero-crossing and −3 dB spectral definitions can disagree for a chirp, and MI scales as \(1/\sqrt{f_{\mathrm{awf}}}\)), and nonlinear propagation at high drive, which changes both \(p_r\) and the spectrum in water. The applicable standards are IEC 60601-2-37 and IEC 62359 (index determination), with the FDA diagnostic-ultrasound guidance defining the Track 3 limits.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Δz = G/(2αf₀): 15 dB is 3.0 cm at 5 MHz and 0.5 dB/cm/MHz; a broadband spectrum does better (4.9 cm in the truncated-Gaussian example).</li>
+    <li>Equal energy, equal SNR: one TB-50 chirp matches 75 averaged short pulses.</li>
+    <li>At fixed MI, pulse rate and scan mode, PII, I<sub>SPTA</sub> and TI scale with the gain (the pulse-energy ratio): a TB-50 chirp gives 2003 mW/cm² against the 720 mW/cm² Track 3 limit when the short pulse gives 27 (14.3 dB of headroom).</li>
+  </ul></div>
 
   <!-- ===================== 10.8 Visual summary ===================== -->
   <h2><span class="sec">10.8</span>Visual summary</h2>
@@ -425,33 +471,27 @@
   <div class="prose"><p>Experts treat coded excitation as accounting. The matched filter turns SNR into energy, so every design question becomes: where does the energy come from (duration, at a peak pressure capped by MI), what does it cost (\(I_{\mathrm{SPTA}}\), TI, frame rate, blind zone), and how much leaks into range sidelobes (taper, mismatch, Fresnel ripple, attenuation, motion)? They quote gains in dB against a stated reference, losses against the matched filter, and depth gains as \(G/(2\alpha f_0)\), and they remember that coding fights noise, not clutter.</p></div>
   <div class="rules">
     <div class="rule">
-      <div class="say">Peak SNR depends only on the echo energy: 2E/N₀, whatever the waveform.</div>
-      <div class="keynum"><span>\(\mathrm{SNR}_{\max} = 2E/N_0\)</span><span>\(h(t) = s^*(t_0 - t)\)</span></div>
-      <div class="why"><p>Cauchy–Schwarz on \(\lvert\int HS\rvert^2\) against the noise power \((N_0/2)\int\lvert H\rvert^2\) gives the bound \(\int\lvert S\rvert^2/(N_0/2) = 2E/N_0\), reached only by \(H \propto S^*\), <span class="eqref">(10.2)</span>–<span class="eqref">(10.3)</span>. Shape does not appear, so duration (energy) and bandwidth (resolution) can be chosen separately: that freedom is pulse compression. <code>m10_matched_filter_snr.m</code>: a 5 MHz pulse at \(\sum s^2/\sigma^2\) = 10.00 dB measures 9.94 dB over 8000 trials.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Sampled pulse and chirp of equal energy, discrete correlation in JS.</span><canvas id="m10-rf-1" aria-label="Figure: Peak SNR depends only on the echo energy: 2E/N₀, whatever the waveform."></canvas></div></div>
-      <div class="limits">White Gaussian noise, known waveform, output read at the true delay. Colored noise needs prewhitening (\(H = S^*/N(f)\)); clutter and reverberation are not noise.</div>
-    </div>
-    <div class="rule">
-      <div class="say">State your SNR convention: real RF gives 2E/N₀, the complex |y|² definition gives E/N₀.</div>
-      <div class="keynum"><span>factor 2 = 3.01 dB</span><span>\(\sigma^2 = (N_0/2)\,f_s\)</span><span>\(E_b/N_0\): one-sided \(N_0\)</span></div>
-      <div class="why"><p>Sampled real RF with two-sided PSD \(N_0/2\): \(\sigma^2 = N_0 f_s/2\) and \(\sum s^2 = E f_s\), so \(\sum s^2/\sigma^2 = 2E/N_0\). The analytic signal has noise in both quadratures; \(\lvert y\rvert^2/\mathrm{E}\lvert n\rvert^2\) counts both and reads \(E/N_0\), while \(\mathrm{Re}\{y\}\) at the peak reads \(2E/N_0\). The script prints 9.94, 6.95 and 9.94 dB for the three definitions on the same data.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Bars are the 8000-trial Monte Carlo results of m10_matched_filter_snr.m (Octave).</span><canvas id="m10-rf-2" aria-label="Figure: State your SNR convention: real RF gives 2E/N₀, the complex |y|² definition gives E/N₀."></canvas></div></div>
-      <div class="limits">This is bookkeeping, not physics. The real cost of the quadrature noise appears only in envelope detection at low SNR.</div>
+      <div class="say">Matched-filter peak SNR depends only on the echo energy, 2E/N₀ whatever the waveform, which is what frees duration from bandwidth; just state the convention, because the complex |y|² definition reads 3 dB lower.</div>
+      <div class="keynum"><span>\(\mathrm{SNR}_{\max} = 2E/N_0\), \(h(t) = s^*(t_0 - t)\)</span><span>\(\sigma^2 = (N_0/2)\,f_s\)</span><span>|y|² convention: \(E/N_0\) (−3.01 dB)</span><span>\(E_b/N_0\): one-sided \(N_0\)</span></div>
+      <div class="why"><p>Cauchy–Schwarz on \(\lvert\int HS\rvert^2\) against the noise power \((N_0/2)\int\lvert H\rvert^2\) gives the bound \(\int\lvert S\rvert^2/(N_0/2) = 2E/N_0\), reached only by \(H \propto S^*\) <span class="eqref">(10.2)</span>–<span class="eqref">(10.3)</span>. Shape does not appear, so duration (energy) and bandwidth (resolution) can be chosen separately: that freedom is pulse compression. For sampled real RF with two-sided PSD \(N_0/2\), \(\sigma^2 = N_0 f_s/2\) and \(\sum s^2 = E f_s\), so \(\sum s^2/\sigma^2 = 2E/N_0\). The analytic signal has noise in both quadratures; \(\lvert y\rvert^2/\mathrm{E}\lvert n\rvert^2\) counts both and reads \(E/N_0\), while \(\mathrm{Re}\{y\}\) at the peak reads \(2E/N_0\). <code>m10_matched_filter_snr.m</code>: a 5 MHz pulse at \(\sum s^2/\sigma^2\) = 10.00 dB measures 9.94 dB over 8000 trials, and the three definitions print 9.94, 6.95 and 9.94 dB on the same data.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Sampled pulse and chirp of equal energy, discrete correlation in JS.</span><canvas id="m10-rf-1" aria-label="Figure: Peak SNR depends only on the echo energy: 2E/N₀, whatever the waveform."></canvas><div class="legend"><span><i style="background:var(--accent)"></i>short pulse</span><span><i style="background:var(--sig2)"></i>chirp, equal energy</span><span><i class="dash" style="color:var(--accent)"></i>pulse output (right)</span></div></div><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Bars are the 8000-trial Monte Carlo results of m10_matched_filter_snr.m (Octave).</span><canvas id="m10-rf-2" aria-label="Figure: State your SNR convention: real RF gives 2E/N₀, the complex |y|² definition gives E/N₀."></canvas></div></div>
+      <div class="limits">White Gaussian noise, known waveform, output read at the true delay. Coloured noise needs prewhitening (\(H = S^*/N(f)\)); clutter and reverberation are not noise. The factor 2 is bookkeeping, not physics: the real cost of the quadrature noise appears only in envelope detection at low SNR.</div>
     </div>
     <div class="rule">
       <div class="say">Matched filters are flat near the optimum: a factor-2 bandwidth error costs about 1 dB.</div>
       <div class="keynum"><span>\(\eta = 2r/(1 + r^2)\)</span><span>r = 2 or ½: −0.97 dB</span><span>offset 1σ: −2.17 dB</span></div>
-      <div class="why"><p>For Gaussian echo and filter spectra with stds \(\sigma_s\), \(\sigma_h\) and offset \(\Delta f\), the efficiency is \(\frac{2\sigma_s\sigma_h}{\sigma_s^2+\sigma_h^2}\exp\!\left(-\frac{\Delta f^2}{\sigma_s^2+\sigma_h^2}\right)\), <span class="eqref">(10.4)</span>. The first factor is symmetric in \(r\) and \(1/r\) and has zero slope at \(r\) = 1. This is why one receive filter serves many depths for SNR purposes, and why attenuation mismatch shows up first as sidelobes, not as lost SNR.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Narrowband Gaussian spectra, negative-frequency lobe ignored.</span><canvas id="m10-rf-3" aria-label="Figure: Matched filters are flat near the optimum: a factor-2 bandwidth error costs about 1 dB."></canvas></div></div>
+      <div class="why"><p>For Gaussian echo and filter spectra with stds \(\sigma_s\), \(\sigma_h\) and offset \(\Delta f\), the efficiency is \(\frac{2\sigma_s\sigma_h}{\sigma_s^2+\sigma_h^2}\exp\!\left(-\frac{\Delta f^2}{\sigma_s^2+\sigma_h^2}\right)\), <span class="eqref">(10.4)</span>. The first factor is symmetric in \(r\) and \(1/r\) and has zero slope at \(r\) = 1. This is why one receive filter serves many depths for SNR purposes, and why attenuation mismatch shows up first as sidelobes, not as lost SNR.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Narrowband Gaussian spectra, negative-frequency lobe ignored.</span><canvas id="m10-rf-3" aria-label="Figure: Matched filters are flat near the optimum: a factor-2 bandwidth error costs about 1 dB."></canvas><div class="legend"><span><i style="background:var(--accent)"></i>η = 2r/(1 + r²)</span><span><i class="dash" style="color:var(--sig2)"></i>with 1σ offset</span></div></div></div>
       <div class="limits">Narrowband Gaussian spectra. For broadband filters (\(r\) = 3) the exact loss is −2.55 dB against −2.22 dB predicted. For coded waveforms the sidelobe consequences of mismatch matter more than the SNR.</div>
     </div>
     <div class="rule">
       <div class="say">Compression gain is the time–bandwidth product, measured at equal peak amplitude.</div>
       <div class="keynum"><span>\(G \approx TB\)</span><span>vs Gaussian, same −6 dB band: \(1.505\,TB\)</span><span>TB 50: 18.8 dB</span></div>
-      <div class="why"><p>MI caps the peak pressure, and SNR follows energy. A constant-envelope code of amplitude \(A\) has energy \(A^2T\); a Gaussian pulse \(\sqrt\pi\,\sigma_t A^2\) with \(\sigma_t = 2.3548/(2\pi B)\). The ratio is \(2\sqrt\pi\,TB/2.3548 = 1.505\,TB\), <span class="eqref">(10.6)</span>; against a rect pulse of length \(1/B\) it is exactly \(TB\). Monte Carlo at TB = 50: 18.70 dB against 18.77 dB predicted.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">The single point is the Octave Monte Carlo result.</span><canvas id="m10-rf-4" aria-label="Figure: Compression gain is the time–bandwidth product, measured at equal peak amplitude."></canvas></div></div>
+      <div class="why"><p>MI caps the peak pressure, and SNR follows energy. A constant-envelope code of amplitude \(A\) has energy \(A^2T\); a Gaussian pulse \(\sqrt\pi\,\sigma_t A^2\) with \(\sigma_t = 2.3548/(2\pi B)\). The ratio is \(2\sqrt\pi\,TB/2.3548 = 1.505\,TB\), <span class="eqref">(10.6)</span>; against a rect pulse of length \(1/B\) it is exactly \(TB\). Monte Carlo at TB = 50: 18.70 dB against 18.77 dB predicted.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">The single point is the Octave Monte Carlo result.</span><canvas id="m10-rf-4" aria-label="Figure: Compression gain is the time–bandwidth product, measured at equal peak amplitude."></canvas><div class="legend"><span><i style="background:var(--accent)"></i>vs Gaussian 1.505·TB</span><span><i class="dash" style="color:var(--muted)"></i>vs rect 1/B: TB</span><span><i class="mark" style="background:var(--sig2)"></i>Monte Carlo TB 50</span></div></div></div>
       <div class="limits">White noise only. Tapers subtract their loss, the transducer removes part of the swept band, and attenuation mismatch subtracts more at depth. Always say which reference pulse the gain is quoted against.</div>
     </div>
     <div class="rule">
       <div class="say">Compressed resolution is set by B, not by T: the −6 dB width is 1.207/B.</div>
       <div class="keynum"><span>B = 5 MHz: 241 ns = 0.186 mm</span><span>first null \(\approx 1/B\)</span></div>
-      <div class="why"><p>For \(TB \gg 1\) the chirp spectrum is close to a rect of width \(B\), so the autocorrelation tends to \(T\,\mathrm{sinc}(B\tau)\), which falls to 0.5 at \(B\tau\) = 0.6034: full width \(1.207/B\). The exact rect-chirp form <span class="eqref">(10.9)</span> gives \(1.234/B\) at TB = 10 and \(1.208/B\) at TB = 200. Axial −6 dB resolution is \(c \cdot 1.207/(2B)\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m10-rf-5" aria-label="Figure: Compressed resolution is set by B, not by T: the −6 dB width is 1.207/B."></canvas></div></div>
+      <div class="why"><p>For \(TB \gg 1\) the chirp spectrum is close to a rect of width \(B\), so the autocorrelation tends to \(T\,\mathrm{sinc}(B\tau)\), which falls to 0.5 at \(B\tau\) = 0.6034: full width \(1.207/B\). The exact rect-chirp form <span class="eqref">(10.9)</span> gives \(1.234/B\) at TB = 10 and \(1.208/B\) at TB = 200. Axial −6 dB resolution is \(c \cdot 1.207/(2B)\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m10-rf-5" aria-label="Figure: Compressed resolution is set by B, not by T: the −6 dB width is 1.207/B."></canvas><div class="legend"><span><i style="background:var(--accent)"></i>TB = 50</span><span><i class="dash" style="color:var(--muted)"></i>TB → ∞: |sinc|</span></div></div></div>
       <div class="limits">Rect spectrum. Hann on receive widens it to \(2.00/B\); the transducer and attenuation shrink the effective \(B\).</div>
     </div>
     <div class="rule">
@@ -469,7 +509,7 @@
     <div class="rule">
       <div class="say">Fresnel ripple puts a floor under any receive taper: Hamming gives −36.5 dB at TB 50, not −42.7.</div>
       <div class="keynum"><span>Blackman rx: −35.8 dB (ideal −58.1)</span><span>Blackman tx: −81.4 dB</span></div>
-      <div class="why"><p>The chirp spectrum is a rect only in the stationary-phase limit, <span class="eqref">(10.8)</span>. At finite \(TB\) its band edges ripple (Fresnel integrals), and the compressed output is the transform of window × rippled spectrum, so the ripple's own sidelobes leak above the window's ideal level. Tapering on transmit smooths the envelope and with it the band edges where the ripple lives, which is why the transmit rows go far lower. Larger \(TB\) and nonlinear FM reduce the problem.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Chirp spectrum computed by direct numerical Fourier sum in JS (TB = 50).</span><canvas id="m10-rf-8" aria-label="Figure: Fresnel ripple puts a floor under any receive taper: Hamming gives −36.5 dB at TB 50, not −42.7."></canvas></div></div>
+      <div class="why"><p>The chirp spectrum is a rect only in the stationary-phase limit, <span class="eqref">(10.8)</span>. At finite \(TB\) its band edges ripple (Fresnel integrals), and the compressed output is the transform of window × rippled spectrum, so the ripple's own sidelobes leak above the window's ideal level. Tapering on transmit smooths the envelope and with it the band edges where the ripple lives, which is why the transmit rows go far lower. Larger \(TB\) and nonlinear FM reduce the problem.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Chirp spectrum computed by direct numerical Fourier sum in JS (TB = 50).</span><canvas id="m10-rf-8" aria-label="Figure: Fresnel ripple puts a floor under any receive taper: Hamming gives −36.5 dB at TB 50, not −42.7."></canvas><div class="legend"><span><i style="background:var(--accent)"></i>rect chirp</span><span><i class="dash" style="color:var(--sig2)"></i>Hann on transmit</span></div></div></div>
       <div class="limits">Numbers for TB = 50 and the taper applied across the whole code; transducer band-limiting also smooths the edges in practice.</div>
     </div>
     <div class="rule">
@@ -487,26 +527,20 @@
     <div class="rule">
       <div class="say">A chirp turns Doppler into a range shift Δτ ≈ νT/B, and in ultrasound that is microns.</div>
       <div class="keynum"><span>1 m/s at 5 MHz: ν = 6.49 kHz</span><span>T 10 µs, B 5 MHz: 12 ns ≈ 9 µm</span><span>loss 0.01 dB</span></div>
-      <div class="why"><p>The LFM ambiguity ridge runs along \(\nu = -B\tau/T\), so a Doppler-shifted echo compresses near \(\tau = -\nu T/B\) (11.8 ns instead of 13.0 ns here, the finite-\(TB\) pull \(3/(\pi^2B^2T)\)) with a peak lowered by about \(20\log_{10}(1 - \nu/B)\), <span class="eqref">(10.16)</span>. With \(2v/c \approx 10^{-3}\) the loss is negligible, but the shift is about 5 % of the mainlobe: a velocity-dependent position bias for speckle tracking or bubble localization. Up- and down-chirps shift in opposite directions, so averaging them cancels it.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Narrowband ambiguity function of a rect LFM; peak found numerically.</span><canvas id="m10-rf-11" aria-label="Figure: A chirp turns Doppler into a range shift Δτ ≈ νT/B, and in ultrasound that is microns."></canvas></div></div>
+      <div class="why"><p>The LFM ambiguity ridge runs along \(\nu = -B\tau/T\), so a Doppler-shifted echo compresses near \(\tau = -\nu T/B\) (11.8 ns instead of 13.0 ns here, the finite-\(TB\) pull \(3/(\pi^2B^2T)\)) with a peak lowered by about \(20\log_{10}(1 - \nu/B)\), <span class="eqref">(10.16)</span>. With \(2v/c \approx 10^{-3}\) the loss is negligible, but the shift is about 5 % of the mainlobe: a velocity-dependent position bias for speckle tracking or bubble localization. Up- and down-chirps shift in opposite directions, so averaging them cancels it.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Narrowband ambiguity function of a rect LFM; peak found numerically.</span><canvas id="m10-rf-11" aria-label="Figure: A chirp turns Doppler into a range shift Δτ ≈ νT/B, and in ultrasound that is microns."></canvas><div class="legend"><span><i class="dash" style="color:var(--muted)"></i>ν = 0</span><span><i style="background:var(--accent)"></i>1 m/s</span><span><i class="dash" style="color:var(--sig2)"></i>ridge νT/B</span></div></div></div>
       <div class="limits">Narrowband ambiguity, valid while \((2v/c)\,TB \ll 1\) (0.065 here). Only the axial velocity component produces Doppler. The sign depends on sweep direction and convention.</div>
     </div>
     <div class="rule">
       <div class="say">Attenuation does not move the compressed peak; it eats bandwidth: wider mainlobe, higher sidelobes, mismatch loss.</div>
       <div class="keynum"><span>0.5 dB/cm/MHz, 6 cm: 5.00 → 3.68 MHz</span><span>loss 2.0 dB</span><span>\(w_{-6\,\mathrm{dB}}\) 338 → 374 ns</span></div>
-      <div class="why"><p>In a dispersion-free model \(e^{-2\alpha_0 f z}\) is a zero-phase filter, so \(E_zE_0^*\) is real and non-negative and the envelope peaks at lag 0 (simulated shift 0.00 ns at every depth), <span class="eqref">(10.17)</span>–<span class="eqref">(10.18)</span>. The raw echo's centroid moves by \(\approx (f_c - f_0)T/B\), −2.6 µs at 6 cm, because an LFM maps frequency to time. The adapted filter recovers the 2 dB but widens to 475 ns; the equalizer keeps 376 ns and costs 5.8 dB.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Idealized 2.5–7.5 MHz band, 80 % Gaussian transducer, linear-in-f attenuation, no dispersion.</span><canvas id="m10-rf-12" aria-label="Figure: Attenuation does not move the compressed peak; it eats bandwidth: wider mainlobe, higher sidelobes, mismatch loss."></canvas></div></div>
+      <div class="why"><p>In a dispersion-free model \(e^{-2\alpha_0 f z}\) is a zero-phase filter, so \(E_zE_0^*\) is real and non-negative and the envelope peaks at lag 0 (simulated shift 0.00 ns at every depth), <span class="eqref">(10.17)</span>–<span class="eqref">(10.18)</span>. The raw echo's centroid moves by \(\approx (f_c - f_0)T/B\), −2.6 µs at 6 cm, because an LFM maps frequency to time. The adapted filter recovers the 2 dB but widens to 475 ns; the equalizer keeps 376 ns and costs 5.8 dB.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Idealized 2.5–7.5 MHz band, 80 % Gaussian transducer, linear-in-f attenuation, no dispersion.</span><canvas id="m10-rf-12" aria-label="Figure: Attenuation does not move the compressed peak; it eats bandwidth: wider mainlobe, higher sidelobes, mismatch loss."></canvas><div class="legend"><span><i class="fill" style="background:var(--muted)"></i>z = 0</span><span><i style="background:var(--accent)"></i>6 cm (normalized)</span><span><i class="dash" style="color:var(--accent)"></i>centroid</span></div></div></div>
       <div class="limits">Linear-in-f, dispersion-free attenuation. Real tissue adds weak dispersion (Kramers–Kronig) and frequency-dependent scattering; Doppler, not attenuation, is what moves an LFM peak.</div>
     </div>
     <div class="rule">
-      <div class="say">Coding buys G/(2αf₀) of depth: 15 dB at 0.5 dB/cm/MHz and 5 MHz is 3 cm.</div>
-      <div class="keynum"><span>\(\Delta z = G/(2\alpha f_0)\)</span><span>TB 50 at 3 MHz: 6.3 cm</span><span>broadband: 4.9 cm, not 3.0</span></div>
-      <div class="why"><p>The two-way loss is \(2\alpha f_0 z\) dB with \(\alpha\) in dB/cm/MHz, so \(G\) dB of SNR moves the noise-limited depth by \(G/(2\alpha f_0)\), <span class="eqref">(10.20)</span>. For a broadband pulse with an adapted filter the deep echo is dominated by low frequencies whose loss per cm is smaller: for a 60 % Gaussian spectrum at 5 MHz cut at 2 and 8 MHz, 15 dB adds 4.9 cm, and the spectrum there is centred at 2.8 MHz (5.7 cm and 2.1 MHz if the Gaussian tail is not cut).</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Narrowband attenuation rule, noise-limited region.</span><canvas id="m10-rf-13" aria-label="Figure: Coding buys G/(2αf₀) of depth: 15 dB at 0.5 dB/cm/MHz and 5 MHz is 3 cm."></canvas></div></div>
-      <div class="limits">Noise-limited region, white noise, linear-in-f attenuation; the coded spectrum is flatter than a Gaussian, so the broadband correction is approximate. Clutter-limited depths do not move.</div>
-    </div>
-    <div class="rule">
-      <div class="say">Coding helps against noise, never against clutter: reverberation and off-axis echoes scale with the transmit.</div>
-      <div class="keynum"><span>clutter-to-signal: unchanged</span><span>noise-limited depth: \(+G/(2\alpha f_0)\)</span></div>
-      <div class="why"><p>Clutter, reverberation and sidelobe echoes are filtered copies of the same transmitted code, so the matched filter compresses them with the same gain as the target, and range sidelobes add an axial clutter term of their own. Only receiver noise is independent of the transmit, and only it is beaten by more energy. So coding extends the noise-limited depth (transcranial, deep abdomen, deep ULM) and does nothing for a near-field cyst limited by reverberation.</p><div class="rule-fig"><span class="prov schem">Schematic</span><span class="prov-note">Two bookkeeping lines (+G dB and 0 dB), not a simulation.</span><canvas id="m10-rf-14" aria-label="Figure: Coding helps against noise, never against clutter: reverberation and off-axis echoes scale with the transmit."></canvas></div></div>
-      <div class="limits">Where noise and clutter are comparable, lowering the noise floor still improves contrast; the gain is then smaller than \(G\).</div>
+      <div class="say">Coding buys G/(2αf₀) of noise-limited depth (15 dB at 0.5 dB/cm/MHz and 5 MHz is 3 cm), and nothing against clutter, because reverberation and off-axis echoes are compressed with the same gain as the target.</div>
+      <div class="keynum"><span>\(\Delta z = G/(2\alpha f_0)\)</span><span>TB 50 at 3 MHz: 6.3 cm</span><span>broadband: 4.9 cm, not 3.0</span><span>clutter-to-signal: unchanged</span></div>
+      <div class="why"><p>The two-way loss is \(2\alpha f_0 z\) dB with \(\alpha\) in dB/cm/MHz, so \(G\) dB of SNR moves the noise-limited depth by \(G/(2\alpha f_0)\) <span class="eqref">(10.20)</span>. For a broadband pulse with an adapted filter the deep echo is dominated by low frequencies whose loss per cm is smaller: for a 60 % Gaussian spectrum at 5 MHz cut at 2 and 8 MHz, 15 dB adds 4.9 cm, and the spectrum there is centred at 2.8 MHz (5.7 cm and 2.1 MHz if the Gaussian tail is not cut). Clutter, reverberation and sidelobe echoes are filtered copies of the same transmitted code, so the matched filter compresses them with the same gain, and range sidelobes add an axial clutter term of their own. Only receiver noise is independent of the transmit, so coding extends the noise-limited depth (transcranial, deep abdomen, deep ULM) and does nothing for a near-field cyst limited by reverberation.</p><div class="rule-fig"><span class="prov model">Approx. model</span><span class="prov-note">Narrowband attenuation rule, noise-limited region.</span><canvas id="m10-rf-13" aria-label="Figure: Coding buys G/(2αf₀) of depth: 15 dB at 0.5 dB/cm/MHz and 5 MHz is 3 cm."></canvas><div class="legend"><span><i style="background:var(--accent)"></i>3 MHz</span><span><i class="dash" style="color:var(--sig2)"></i>5 MHz</span></div></div><div class="rule-fig"><span class="prov schem">Schematic</span><span class="prov-note">Two bookkeeping lines (+G dB and 0 dB), not a simulation.</span><canvas id="m10-rf-14" aria-label="Figure: Coding helps against noise, never against clutter: reverberation and off-axis echoes scale with the transmit."></canvas><div class="legend"><span><i style="background:var(--accent)"></i>signal-to-noise</span><span><i class="dash" style="color:var(--sig2)"></i>signal-to-clutter</span></div></div></div>
+      <div class="limits">Noise-limited region, white noise, linear-in-f attenuation; the coded spectrum is flatter than a Gaussian, so the broadband correction is approximate. Where noise and clutter are comparable, lowering the noise floor still improves contrast, by less than \(G\).</div>
     </div>
     <div class="rule">
       <div class="say">At fixed MI, coding raises ISPTA and TI by exactly the compression gain.</div>
@@ -517,7 +551,7 @@
     <div class="rule">
       <div class="say">Equal energy, equal SNR: one TB-50 chirp matches 75 averaged short pulses.</div>
       <div class="keynum"><span>Monte Carlo: 14.36 vs 14.12 dB</span><span>1 firing vs 75</span></div>
-      <div class="why"><p>Coherently summing \(K\) matched-filtered pulses multiplies the signal amplitude by \(K\) and the noise variance by \(K\), so the SNR grows by \(K\): exactly what one code with \(K\) times the energy gives. Coding therefore buys time (frame rate, no motion during the average) and lower peak pressure, not energy. That is the right way to explain it to a regulator or a reviewer.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m10-rf-16" aria-label="Figure: Equal energy, equal SNR: one TB-50 chirp matches 75 averaged short pulses."></canvas></div></div>
+      <div class="why"><p>Coherently summing \(K\) matched-filtered pulses multiplies the signal amplitude by \(K\) and the noise variance by \(K\), so the SNR grows by \(K\): exactly what one code with \(K\) times the energy gives. Coding therefore buys time (frame rate, no motion during the average) and lower peak pressure, not energy. That is the right way to explain it to a regulator or a reviewer.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m10-rf-16" aria-label="Figure: Equal energy, equal SNR: one TB-50 chirp matches 75 averaged short pulses."></canvas><div class="legend"><span><i style="background:var(--accent)"></i>signal ∝ K</span><span><i class="dash" style="color:var(--sig2)"></i>noise std ∝ √K</span></div></div></div>
       <div class="limits">White noise independent across firings and a static target during the average; averaging has no range sidelobes, coding does.</div>
     </div>
     <div class="rule">
@@ -529,7 +563,7 @@
     <div class="rule">
       <div class="say">A biphase code vanishes at the second harmonic; a chirp survives with twice the sweep.</div>
       <div class="keynum"><span>\(2\phi \in \{0, 2\pi\}\)</span><span>chirp: \(2f_0\), \(2B\) over \(T\)</span></div>
-      <div class="why"><p>Quadratic nonlinearity produces \(a^2(t)\cos(2\omega t + 2\phi(t))/2\) at the second harmonic. For a biphase code \(\phi \in \{0, \pi\}\), so \(2\phi \equiv 0\): the harmonic is an uncoded pulse of length \(T\) with no compression. For a chirp \(2\phi(t)\) is again quadratic, a chirp centred at \(2f_0\) sweeping \(2B\), compressible with a filter matched to it. That is why harmonic coded imaging uses chirps.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m10-rf-18" aria-label="Figure: A biphase code vanishes at the second harmonic; a chirp survives with twice the sweep."></canvas></div></div>
+      <div class="why"><p>Quadratic nonlinearity produces \(a^2(t)\cos(2\omega t + 2\phi(t))/2\) at the second harmonic. For a biphase code \(\phi \in \{0, \pi\}\), so \(2\phi \equiv 0\): the harmonic is an uncoded pulse of length \(T\) with no compression. For a chirp \(2\phi(t)\) is again quadratic, a chirp centred at \(2f_0\) sweeping \(2B\), compressible with a filter matched to it. That is why harmonic coded imaging uses chirps.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m10-rf-18" aria-label="Figure: A biphase code vanishes at the second harmonic; a chirp survives with twice the sweep."></canvas><div class="legend"><span><i style="background:var(--accent)"></i>chips cos φ / f₀ + Bt/T</span><span><i class="dash" style="color:var(--sig2)"></i>second harmonic</span></div></div></div>
       <div class="limits">Weak quadratic nonlinearity; the squared envelope acts as an extra taper. Microbubbles respond with memory and depend on peak pressure and duration, so contrast imaging needs its own analysis.</div>
     </div>
   </div>
@@ -567,7 +601,7 @@
   <details class="quiz"><summary><span class="q">I5</span><span>Golay pair or chirp for deep plane-wave ULM at 3 MHz? <span class="muted">· research</span></span></summary><div class="a"><p>Golay gives exactly zero static sidelobes but needs two firings per angle, halving the compounded frame rate. With \(N\) = 16 and 5 cm/s axial motion at a 5 kHz PRF, \(d\) = 10 µm, \(\varphi = 4\pi \cdot 3\ \mathrm{MHz} \cdot 10\ \mu\mathrm{m}/1540\ \mathrm{m/s}\) = 0.245 rad and the residual is −28.3 dB; tissue and bubble motion at higher speed degrade it further, and the nonlinear bubble echo differs between firings. A tapered chirp compresses in one firing, survives motion (about 12 ns of Doppler bias per m/s at 5 MHz, \(B\) = 5 MHz, \(T\) = 10 µs), and its harmonic remains compressible. For ULM I would choose a tapered chirp and budget its sidelobes against the bubble-to-tissue ratio after SVD filtering.</p><p><em>Follow-up:</em> how would you rescue Golay? Estimate the inter-firing displacement (e.g. Kasai phase, Module 11) and rotate echo B before summing.</p></div></details>
   <details class="quiz"><summary><span class="q">I6</span><span>What does frequency-dependent attenuation do to a compressed chirp, and how do you fix it? <span class="muted">· research</span></span></summary><div class="a"><p>It tapers the received spectrum toward low frequencies: centre 5.00 → 3.68 MHz at 6 cm for 0.5 dB/cm/MHz with an 80 % transducer. With the surface filter the peak does not move (zero-phase model), but the mainlobe widens (338 → 374 ns), the PSL rises (−29.8 → −26.1 dB) and the mismatch loss is 2.0 dB. A depth-adapted filter recovers the 2 dB but widens to 475 ns; an equalizer keeps 376 ns and costs 5.8 dB. Depth-dependent filter banks interpolate between them.</p><p><em>Follow-up:</em> why does the raw chirp envelope move by −2.6 µs while the compressed peak stays? The LFM maps frequency to time, so a spectral tilt shifts the envelope centroid by \((f_c - f_0)T/B\); the matched filter removes the quadratic phase first.</p></div></details>
   <details class="quiz"><summary><span class="q">I7</span><span>Is range–Doppler coupling of an LFM a concern in ultrasound? <span class="muted">· research</span></span></summary><div class="a"><p>Not for SNR, sometimes for position. \(\Delta\tau \approx \nu T/B\) with \(\nu = 2vf_0/c\): at 1 m/s, 5 MHz, \(T\) = 10 µs, \(B\) = 5 MHz the ridge gives 13.0 ns and the exact peak 11.8 ns (finite-\(TB\) correction \(3/(\pi^2B^2T)\)), i.e. 9 µm of apparent depth for 0.01 dB of loss. That is small against the 0.19 mm resolution but not against ULM localization precision or µm-scale elastography displacements, and it depends on velocity. Alternate up- and down-chirps, or average them, to cancel it.</p><p><em>Follow-up:</em> when does the narrowband ambiguity function fail? When \((2v/c)\,TB\) approaches 1, i.e. when the echo's time compression over the code length is comparable to the resolution: never at tissue speeds with clinical codes.</p></div></details>
-  <details class="quiz"><summary><span class="q">I8</span><span>You add a coded B-mode to a cleared system. What changes in the 510(k) acoustic-output section? <span class="muted">· onsite</span></span></summary><div class="a"><p>It must be measured in the new mode at worst-case settings. At the same peak pressure MI is unchanged, but PII, \(I_{\mathrm{SPTA.3}}\) and power scale by the energy ratio, so a TB-50 chirp at MI 1.9 and 200 pulses/s at a point goes from 27 to 2003 mW/cm², over the 720 mW/cm² Track 3 limit; TIs rise by the same factor. You would cap MI (×0.60 to 1.14 here) or the pulse rate for the coded mode, define \(f_{\mathrm{awf}}\) for a swept waveform, and check derated values with nonlinear propagation in water.</p><p><em>Follow-up:</em> can you claim the SNR gain if \(I_{\mathrm{SPTA}}\) already binds? No: at a binding energy limit the gain against white noise is zero; coding helps where MI, not energy, was the binding constraint.</p></div></details>
+  <details class="quiz"><summary><span class="q">I8</span><span>You add a coded B-mode to a cleared system. What changes in the 510(k) acoustic-output section? <span class="muted">· onsite</span></span></summary><div class="a"><p>It must be measured in the new mode at worst-case settings. At the same peak pressure MI is unchanged, but PII, \(I_{\mathrm{SPTA.3}}\) and power scale by the energy ratio, so a TB-50 chirp at MI 1.9 and 200 pulses/s at a point goes from 27 to 2003 mW/cm², over the 720 mW/cm² Track 3 limit; TIs, which scale with acoustic power, rise by about the same factor at the same pulse rate and scan mode. You would cap MI (×0.60 to 1.14 here) or the pulse rate for the coded mode, define \(f_{\mathrm{awf}}\) for a swept waveform, and check derated values with nonlinear propagation in water.</p><p><em>Follow-up:</em> can you claim the SNR gain if \(I_{\mathrm{SPTA}}\) already binds? No: at a binding energy limit the gain against white noise is zero; coding helps where MI, not energy, was the binding constraint.</p></div></details>
   <details class="quiz"><summary><span class="q">I9</span><span>How much depth does 15 dB of compression gain buy? <span class="muted">· screen</span></span></summary><div class="a"><p>\(\Delta z = G/(2\alpha f_0)\): 3.0 cm at 0.5 dB/cm/MHz and 5 MHz, 5.0 cm at 3 MHz. For a broadband pulse with an adapted filter it is more, 4.9 cm at 5 MHz with a 60 % Gaussian band cut at its −24 dB points, because the deep spectrum downshifts to where attenuation per cm is lower.</p><p><em>Follow-up:</em> and in a clutter-limited region? Nothing: clutter scales with the transmit.</p></div></details>
   <details class="quiz"><summary><span class="q">I10</span><span>Will coded excitation improve the contrast of a liver cyst at 6 cm in an obese patient? <span class="muted">· onsite</span></span></summary><div class="a"><p>Only to the extent the cyst is noise-limited. Reverberation from the abdominal wall and off-axis clutter are copies of the transmitted code and compress with the same gain, and range sidelobes of bright interfaces add axial fill-in. If the noise floor sits above the clutter at that depth, coding lowers it by up to \(G\) and contrast improves; otherwise harmonic imaging or better aberration and clutter suppression matter more.</p><p><em>Follow-up:</em> how would you tell which regime you are in? Turn the transmit off (or receive with transmit muted) and compare the noise floor with the signal level inside the cyst at the same gain.</p></div></details>
   <details class="quiz"><summary><span class="q">I11</span><span>What is the PSL of Barker-13, and how would you improve it without a longer code? <span class="muted">· screen</span></span></summary><div class="a"><p>Sidelobes are 0 or 1 against a peak of 13: −22.28 dB, with an 11.14 dB gain. A least-squares mismatched filter of length 39 gives −38.5 dB for 0.20 dB of SNR loss (65 taps: −58.6 dB). Concatenating or nesting codes, or switching to Golay pairs, are the other options.</p><p><em>Follow-up:</em> why not design the filter on the ±1 chip sequence directly? Because the received chips are band-limited by the transducer; the mismatched filter must be designed on the received waveform.</p></div></details>
@@ -707,16 +741,16 @@
     const c = Lab.colors(); const { ctx, w } = Lab.canvas($('m10-mf-cv'), 360);
     const N = D1.Nrec, tt = Array.from({ length: N }, (_, i) => i / D1.fs * 1e6);
     let mx = 1; P.x.forEach(v => { mx = Math.max(mx, Math.abs(v)); });
-    const ax1 = Lab.axes(ctx, { x: 50, y: 20, w: w - 66, h: 120 }, [0, tt[N - 1]], [-mx * 1.1, mx * 1.1], { ylabel: 'record', title: 'Echo in white noise, σ = 1', noXLabels: false });
-    Lab.line(ctx, ax1, tt, Array.from(P.x), c.muted, 1); Lab.line(ctx, ax1, tt, Array.from(P.x0), c.accent, 1.8);
+    const ax1 = Lab.axes(ctx, { x: 50, y: 20, w: w - 66, h: 120 }, [0, tt[N - 1]], [-mx * 1.1, mx * 1.1], { xlabel: 'time (µs)', ylabel: 'amplitude (×σ)', title: 'Echo in white noise, σ = 1', noXLabels: false });
+    const LG = 'm10-mf-leg'; if (Lab.on(LG, 'rec')) Lab.line(ctx, ax1, tt, Array.from(P.x), c.muted, 1); if (Lab.on(LG, 'echo')) Lab.line(ctx, ax1, tt, Array.from(P.x0), c.accent, 1.8);
     const sn = Math.sqrt(P.eh), yy = Array.from(P.y, v => v / sn), y00 = Array.from(P.y0, v => v / sn);
     let my = 1; yy.forEach(v => { my = Math.max(my, Math.abs(v)); }); my = Math.max(my, Math.sqrt(P.lin * P.eta)) * 1.15;
-    const ax2 = Lab.axes(ctx, { x: 50, y: 186, w: w - 66, h: 134 }, [0, tt[N - 1]], [-my, my], { xlabel: 'time (µs)', ylabel: 'output / noise std', title: 'Filter output' });
-    Lab.line(ctx, ax2, tt, yy, c.sig2, 1.2); Lab.line(ctx, ax2, tt, y00, c.accent, 1.8);
-    const lvl = Math.sqrt(P.lin * P.eta); Lab.line(ctx, ax2, [0, tt[N - 1]], [lvl, lvl], c.sig3, 1.3, [5, 4]);
+    const ax2 = Lab.axes(ctx, { x: 50, y: 198, w: w - 66, h: 122 }, [0, tt[N - 1]], [-my, my], { xlabel: 'time (µs)', ylabel: 'output / noise std', title: 'Filter output' });
+    if (Lab.on(LG, 'out')) Lab.line(ctx, ax2, tt, yy, c.sig2, 1.2); if (Lab.on(LG, 'nf')) Lab.line(ctx, ax2, tt, y00, c.accent, 1.8, [6, 4]);
+    const lvl = Math.sqrt(P.lin * P.eta); if (Lab.on(LG, 'lvl')) Lab.line(ctx, ax2, [0, tt[N - 1]], [lvl, lvl], c.sig3, 1.5, [2, 3]);
     const singleDB = 10 * Math.log10(P.smax * P.smax);
-    let mc = mfMC ? 'Monte Carlo (4000 trials): <b>' + fx(mfMC, 2) + ' dB</b>' : 'Monte Carlo: press <b>Run</b>';
-    $('m10-mf-read').innerHTML = 'input 2E/N₀ = Σs²/σ² = <b>' + fx(P.snr, 2) + ' dB</b><br>best single sample s²<sub>max</sub>/σ² = <b>' + fx(singleDB, 2) + ' dB</b> (MF gain ' + fx(P.snr - singleDB, 2) + ' dB)<br>efficiency η exact <b>' + fx(10 * Math.log10(P.eta), 2) + ' dB</b>, narrowband theory ' + fx(10 * Math.log10(P.etaTh), 2) + ' dB<br>output SNR = 2E/N₀ · η = <b>' + fx(P.snr + 10 * Math.log10(P.eta), 2) + ' dB</b><br>' + mc;
+    let mc = mfMC ? 'output SNR, Monte Carlo (4000 trials): <b>' + fx(mfMC, 2) + ' dB</b>' : 'output SNR, Monte Carlo: press <b>Run</b>';
+    $('m10-mf-read').innerHTML = 'input 2E/N₀ = Σs²/σ² = <b>' + fx(P.snr, 2) + ' dB</b><br>best single sample s²<sub>max</sub>/σ² = <b>' + fx(singleDB, 2) + ' dB</b> (matched-filter gain ' + fx(P.snr - singleDB, 2) + ' dB)<br>filter efficiency η (output SNR re matched) exact <b>' + fx(10 * Math.log10(P.eta), 2) + ' dB</b>, narrowband theory ' + fx(10 * Math.log10(P.etaTh), 2) + ' dB<br>output SNR = 2E/N₀ · η = <b>' + fx(P.snr + 10 * Math.log10(P.eta), 2) + ' dB</b><br>' + mc;
   }
   function runMC() {
     const P = mfSetup(); const rg = Lab.rng(1234 + mfSeed * 7); const n = 4000; const sig = P.y0[P.kp]; let s1 = 0, s2 = 0;
@@ -726,6 +760,7 @@
   ['m10-mf-snr', 'm10-mf-r', 'm10-mf-df'].forEach(id => $(id).addEventListener('input', drawMF));
   $('m10-mf-new').addEventListener('click', () => { mfSeed++; drawMF(); });
   $('m10-mf-mc').addEventListener('click', runMC);
+  Lab.legendToggle('m10-mf-leg', drawMF);
   Lab.onShow('m10', drawMF);
 
   /* =====================================================================
@@ -755,7 +790,7 @@
     const c = Lab.colors(); const wide = (($('m10-ch-cv').clientWidth) || 600) >= 620; const H = wide ? 400 : 560;
     const { ctx, w } = Lab.canvas($('m10-ch-cv'), H);
     /* RF waveform */
-    const f0 = 5e6, T2 = T / 2; const ax1 = Lab.axes(ctx, { x: 50, y: 20, w: w - 66, h: 96 }, [-T2 * 1.08e6, T2 * 1.08e6], [-1.15, 1.15], { title: 'Transmitted RF, ' + fx((f0 - B / 2) / 1e6, 2) + '–' + fx((f0 + B / 2) / 1e6, 2) + ' MHz', xlabel: 'time (µs)', nx: 5 });
+    const f0 = 5e6, T2 = T / 2; const ax1 = Lab.axes(ctx, { x: 50, y: 20, w: w - 66, h: 96 }, [-T2 * 1.08e6, T2 * 1.08e6], [-1.15, 1.15], { ylabel: 'amplitude (norm.)', title: 'Transmitted RF, ' + fx((f0 - B / 2) / 1e6, 2) + '–' + fx((f0 + B / 2) / 1e6, 2) + ' MHz', xlabel: 'time (µs)', nx: 5 });
     const np = Math.min(6000, Math.max(800, Math.round(T * (f0 + B / 2) * 12))); const xs = [], ys = [], ex = [], ey = [];
     for (let i = 0; i <= np; i++) { const t = -T2 * 1.08 + 2.16 * T2 * i / np; let v = 0, e = 0; if (Math.abs(t) <= T2) { e = wts(wi, where, (t + T2) / T)[0]; v = e * Math.cos(TAU * (f0 * t + B / (2 * T) * t * t)); } xs.push(t * 1e6); ys.push(v); ex.push(t * 1e6); ey.push(e); }
     Lab.line(ctx, ax1, xs, ys, c.accent, 0.8); Lab.line(ctx, ax1, ex, ey, c.muted, 1, [4, 3]);
@@ -772,7 +807,7 @@
     else { panel({ x: 50, y: 160, w: w - 66, h: 150 }, Lfull, 'Compressed, full extent ±T'); panel({ x: 50, y: 370, w: w - 66, h: 150 }, Lz, 'Zoom ±6/B'); }
     const w6 = widthAt(o.a, o.k0, 0.5) / o.fs, ps = pslOf(o.a, o.k0), mins = firstMins(o.a, o.k0), nul = (mins[1] - o.k0) / o.fs;
     const TB = T * B, lossDB = 10 * Math.log10(o.loss), G = 10 * Math.log10(1.505 * TB) + lossDB;
-    $('m10-ch-read').innerHTML = 'TB = <b>' + fx(TB, 1) + '</b><br>−6 dB width <b>' + fx(w6 * 1e9, 0) + ' ns</b> = ' + fx(w6 * B, 3) + '/B → axial <b>' + fx(C * w6 / 2 * 1e3, 3) + ' mm</b><br>first minimum at ' + fx(nul * 1e9, 0) + ' ns (' + fx(nul * B, 2) + '/B)<br>peak sidelobe <b>' + fx(ps, 1) + ' dB</b><br>SNR loss vs rect matched <b>' + fx(lossDB, 2) + ' dB</b><br>gain vs Gaussian pulse of equal band: <b>' + fx(G, 1) + ' dB</b><br>blind zone cT/2 = ' + fx(C * T / 2 * 1e3, 1) + ' mm';
+    $('m10-ch-read').innerHTML = 'time-bandwidth product TB = <b>' + fx(TB, 1) + '</b><br>compressed −6 dB width <b>' + fx(w6 * 1e9, 0) + ' ns</b> = ' + fx(w6 * B, 3) + '/B → axial c·width/2 = <b>' + fx(C * w6 / 2 * 1e3, 3) + ' mm</b><br>first null of the envelope at ' + fx(nul * 1e9, 0) + ' ns (' + fx(nul * B, 2) + '/B)<br>peak sidelobe level <b>' + fx(ps, 1) + ' dB</b><br>SNR loss vs rect matched <b>' + fx(lossDB, 2) + ' dB</b><br>gain vs Gaussian pulse of equal band: <b>' + fx(G, 1) + ' dB</b><br>blind zone cT/2 = ' + fx(C * T / 2 * 1e3, 1) + ' mm';
   }
   ['m10-ch-T', 'm10-ch-B'].forEach(id => $(id).addEventListener('input', drawCH));
   ['m10-ch-win', 'm10-ch-where'].forEach(id => $(id).addEventListener('change', drawCH));
@@ -804,24 +839,24 @@
     const c = Lab.colors(); const { ctx, w } = Lab.canvas($('m10-pc-cv'), 300); const FL = -80;
     let main = [], ref = null, txt = '', title = '', leg = '';
     if (code === 'b') { const r = acorr(B13); main = r.map((v, i) => [i - 12, v / 13]);
-      txt = 'peak 13, sidelobes 0 or 1<br>PSL <b>' + fx(dB(1 / 13), 2) + ' dB</b><br>gain 10 log₁₀ 13 = <b>11.14 dB</b>'; title = 'Barker-13, matched filter';
-      leg = '<span><i style="background:var(--accent)"></i>|R(k)|/13</span>'; }
+      txt = 'correlation peak 13, sidelobes 0 or 1<br>peak sidelobe level (PSL) <b>' + fx(dB(1 / 13), 2) + ' dB</b><br>SNR gain 10 log₁₀ 13 = <b>11.14 dB</b>'; title = 'Barker-13, matched filter';
+      leg = '<span><i class="stem" style="background:var(--accent)"></i>|R(k)|/13</span>'; }
     else if (code === 'bls') { const o = lsFilter(L); const m0 = (o.y.length - 1) / 2; main = o.y.map((v, i) => [i - m0, v]); ref = acorr(B13).map((v, i) => [i - 12, v / 13]);
-      txt = 'LS filter length L = <b>' + L + '</b><br>PSL <b>' + fx(o.psl, 1) + ' dB</b> (matched −22.28)<br>SNR loss <b>' + fx(o.loss, 2) + ' dB</b><br>net gain ' + fx(10 * Math.log10(13) + o.loss, 2) + ' dB'; title = 'Barker-13, least-squares mismatched filter';
-      leg = '<span><i style="background:var(--accent)"></i>LS mismatched output</span><span><i style="background:var(--muted)"></i>matched (−22.3 dB)</span>'; }
+      txt = 'LS filter length L = <b>' + L + '</b><br>peak sidelobe level (PSL) <b>' + fx(o.psl, 1) + ' dB</b> (matched −22.28)<br>SNR loss <b>' + fx(o.loss, 2) + ' dB</b><br>net SNR gain ' + fx(10 * Math.log10(13) + o.loss, 2) + ' dB'; title = 'Barker-13, least-squares mismatched filter';
+      leg = '<span><i class="stem" style="background:var(--accent)"></i>LS mismatched output</span><span><i class="stem" style="background:var(--muted)"></i>matched (−22.3 dB)</span>'; }
     else { const [A, Bc] = golay(N), ra = acorr(A), rb = acorr(Bc); let mA = 0; ra.forEach((v, i) => { if (i !== N - 1) mA = Math.max(mA, Math.abs(v)); });
       if (code === 'ga') { main = ra.map((v, i) => [i - N + 1, v / N]);
-        txt = 'Golay A, N = <b>' + N + '</b><br>max |R<sub>A</sub>| off peak = ' + mA + '<br>PSL <b>' + fx(dB(mA / N), 1) + ' dB</b><br>gain 10 log₁₀ N = ' + fx(10 * Math.log10(N), 2) + ' dB'; title = 'Golay A alone (one firing)';
-        leg = '<span><i style="background:var(--accent)"></i>|R<sub>A</sub>(k)|/N</span>'; }
+        txt = 'Golay A, N = <b>' + N + '</b><br>max |R<sub>A</sub>| off peak = ' + mA + '<br>peak sidelobe level (PSL) <b>' + fx(dB(mA / N), 1) + ' dB</b><br>SNR gain 10 log₁₀ N = ' + fx(10 * Math.log10(N), 2) + ' dB'; title = 'Golay A alone (one firing)';
+        leg = '<span><i class="stem" style="background:var(--accent)"></i>|R<sub>A</sub>(k)|/N</span>'; }
       else { const phi = 4 * PI * 5e6 * d * 1e-6 / C; const zr = ra.map((v, i) => v + Math.cos(phi) * rb[i]), zi = rb.map(v => Math.sin(phi) * v);
         const zm = zr.map((v, i) => Math.hypot(v, zi[i])); const pk = zm[N - 1]; let side = 0; zm.forEach((v, i) => { if (i !== N - 1) side = Math.max(side, v); });
         main = zm.map((v, i) => [i - N + 1, v / pk]); ref = ra.map((v, i) => [i - N + 1 - 0.28, v / N]);
         const th = d > 0 ? dB(mA / N * Math.tan(phi / 2)) : -Infinity;
-        txt = 'Golay pair, N = <b>' + N + '</b>, f₀ = 5 MHz<br>φ = 4πf₀d/c = <b>' + fx(phi, 3) + ' rad</b><br>residual PSL <b>' + (side > 1e-12 ? fx(dB(side / pk), 1) + ' dB' : '−∞ (exact)') + '</b><br>theory (max|R<sub>A</sub>|/N)·tan(φ/2) = ' + (isFinite(th) ? fx(th, 1) + ' dB' : '−∞') + '<br>gain 10 log₁₀ 2N = ' + fx(10 * Math.log10(2 * N), 2) + ' dB, peak loss ' + fx(dB(Math.cos(phi / 2)), 2) + ' dB<br>= ' + fx(d * 5, 1) + ' mm/s axial at 5 kHz PRF';
+        txt = 'Golay pair, N = <b>' + N + '</b>, f₀ = 5 MHz<br>φ = 4πf₀d/c = <b>' + fx(phi, 3) + ' rad</b><br>residual PSL <b>' + (side > 1e-12 ? fx(dB(side / pk), 1) + ' dB' : '−∞ (exact)') + '</b><br>theory (max|R<sub>A</sub>|/N)·tan(φ/2) = ' + (isFinite(th) ? fx(th, 1) + ' dB' : '−∞') + '<br>SNR gain 10 log₁₀ 2N = ' + fx(10 * Math.log10(2 * N), 2) + ' dB, peak loss ' + fx(dB(Math.cos(phi / 2)), 2) + ' dB<br>= ' + fx(d * 5, 1) + ' mm/s axial at 5 kHz PRF';
         title = 'Golay pair: compress each firing, then add';
-        leg = '<span><i style="background:var(--accent)"></i>|R<sub>A</sub> + e<sup>jφ</sup>R<sub>B</sub>| / peak</span><span><i style="background:var(--muted)"></i>|R<sub>A</sub>|/N (single code)</span>'; } }
+        leg = '<span><i class="stem" style="background:var(--accent)"></i>|R<sub>A</sub> + e<sup>jφ</sup>R<sub>B</sub>| / peak</span><span><i class="stem" style="background:var(--muted)"></i>|R<sub>A</sub>|/N (single code)</span>'; } }
     const K = Math.max(...main.map(p => Math.abs(p[0]))) + 1;
-    const ax = Lab.axes(ctx, { x: 50, y: 22, w: w - 66, h: 234 }, [-K, K], [FL, 3], { xlabel: 'lag (chips)', ylabel: 'output (dB)', title, yticks: [-80, -60, -40, -20, 0] });
+    const ax = Lab.axes(ctx, { x: 50, y: 22, w: w - 66, h: 234 }, [-K, K], [FL, 3], { xlabel: 'lag k (chips)', ylabel: 'output re peak (dB)', title, yticks: [-80, -60, -40, -20, 0] });
     const stems = (pts, col, r, lw) => { ctx.save(); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = lw; pts.forEach(([k, v]) => { const y = Math.max(FL, dB(v)); const px = ax.X(k); ctx.beginPath(); ctx.moveTo(px, ax.Y(FL)); ctx.lineTo(px, ax.Y(y)); ctx.stroke(); ctx.beginPath(); ctx.arc(px, ax.Y(y), r, 0, TAU); ctx.fill(); }); ctx.restore(); };
     if (ref) stems(ref, c.muted, 2, 1); stems(main, c.accent, 2.6, 1.4);
     $('m10-pc-read').innerHTML = txt; $('m10-pc-leg').innerHTML = leg;
@@ -859,14 +894,14 @@
     const M = afMap(wv), c = Lab.colors(); const { ctx, w } = Lab.canvas($('m10-af-cv'), 470);
     const box = { x: 54, y: 22, w: w - 70, h: 250 };
     Lab.image(ctx, M.data, M.rows, M.cols, box, -30, 0, 'heat');
-    const ax = Lab.axes(ctx, box, [-1, 1], [-M.nm, M.nm], { grid: false, xlabel: 'delay τ / T', ylabel: 'Doppler ν·T', title: '|χ(τ, ν)| (dB)', nx: 5 });
+    const ax = Lab.axes(ctx, box, [-1, 1], [-M.nm, M.nm], { grid: false, xlabel: 'delay τ / T', ylabel: 'Doppler shift ν·T (unitless)', title: '|χ(τ, ν)| (dB)', nx: 5 });
     const nuD = 2 * v * AFf0 / C, nT = nuD * AFT;
-    ctx.save(); ctx.strokeStyle = c.fg; ctx.lineWidth = 1.2; ctx.setLineDash([5, 3]); [nT, -nT].forEach(y => { ctx.beginPath(); ctx.moveTo(box.x, ax.Y(y)); ctx.lineTo(box.x + box.w, ax.Y(y)); ctx.stroke(); }); ctx.restore();
+    ctx.save(); ctx.strokeStyle = c.fg; ctx.lineWidth = 1.2; ctx.setLineDash([5, 3]); (Lab.on('m10-af-leg', 'nud') ? [nT, -nT] : []).forEach(y => { ctx.beginPath(); ctx.moveTo(box.x, ax.Y(y)); ctx.lineTo(box.x + box.w, ax.Y(y)); ctx.stroke(); }); ctx.restore();
     /* cuts at nu = 0 and nu = nuD */
     const nc = 241, xs = [], c0 = [], cD = [];
     for (let i = 0; i < nc; i++) { const tau = (-1 + 2 * i / (nc - 1)) * AFT; xs.push(tau / AFT); c0.push(Math.max(-40, dB(chi(wv, tau, 0)))); cD.push(Math.max(-40, dB(chi(wv, tau, nuD)))); }
-    const ax2 = Lab.axes(ctx, { x: 54, y: 320, w: w - 70, h: 110 }, [-1, 1], [-40, 2], { xlabel: 'delay τ / T', ylabel: 'dB', title: 'Output at ν = 0 (grey) and νD (blue)', yticks: [-40, -20, 0], nx: 5 });
-    Lab.line(ctx, ax2, xs, c0, c.muted, 2.2); Lab.line(ctx, ax2, xs, cD, c.accent, 1.2);
+    const ax2 = Lab.axes(ctx, { x: 54, y: 332, w: w - 70, h: 100 }, [-1, 1], [-40, 2], { xlabel: 'delay τ / T', ylabel: '|χ| (dB)', title: 'Output at ν = 0 (grey) and νD (blue)', yticks: [-40, -20, 0], nx: 5 });
+    if (Lab.on('m10-af-leg', 'c0')) Lab.line(ctx, ax2, xs, c0, c.muted, 2.2); if (Lab.on('m10-af-leg', 'cd')) Lab.line(ctx, ax2, xs, cD, c.accent, 1.4, [6, 4]);
     /* fine peak search at nu = nuD */
     /* peak location: closed form for LFM, |chi| = (1-|tau|/T)|sinc((nu + k tau)(T-|tau|))|, golden-section search; tau = 0 for the burst and Barker (corner of the chip triangle) */
     const corr = 3 / (PI * PI * AFB * AFB * AFT); let bt = 0, best, p0 = 1;
@@ -875,11 +910,11 @@
       for (let it = 0; it < 60; it++) { if (f1 > f2) { hi = x2; x2 = x1; f2 = f1; x1 = hi - gr * (hi - lo); f1 = X(x1); } else { lo = x1; x1 = x2; f1 = f2; x2 = lo + gr * (hi - lo); f2 = X(x2); } }
       bt = (lo + hi) / 2; best = X(bt); }
     else { best = chi(wv, 0, nuD, t2); p0 = chi(wv, 0, 0, t2); }
-    let lines = 'ν<sub>D</sub> = 2vf₀/c = <b>' + fx(nuD / 1e3, 2) + ' kHz</b>, ν<sub>D</sub>·T = <b>' + fx(nT, 3) + '</b><br>peak of |χ(τ, ν<sub>D</sub>)|: <b>' + fx(dB(best / p0), 3) + ' dB</b> at τ = <b>' + fx(bt * 1e9, 1) + ' ns</b> (' + fx(C * bt / 2 * 1e6, 1) + ' µm)';
-    if (wv === 'lfm') lines += '<br>ridge −ν<sub>D</sub>T/B = ' + fx(-nuD * AFT / AFB * 1e9, 1) + ' ns, finite-TB pull +3/(π²B²T) = +' + fx(corr * 1e9, 1) + ' ns<br>(2v/c)·TB = ' + fx(2 * v / C * AFT * AFB, 3) + '<br>course chirp (B = 5 MHz): ' + fx(-(nuD * AFT / 5e6 - (nuD > 0 ? 3 / (PI * PI * 25e12 * AFT) : 0)) * 1e9, 1) + ' ns';
+    let lines = 'Doppler shift ν<sub>D</sub> = 2vf₀/c = <b>' + fx(nuD / 1e3, 2) + ' kHz</b>, ν<sub>D</sub>·T = <b>' + fx(nT, 3) + '</b><br>peak of the shifted output |χ(τ, ν<sub>D</sub>)|: <b>' + fx(dB(best / p0), 3) + ' dB</b> at τ = <b>' + fx(bt * 1e9, 1) + ' ns</b> (' + fx(C * bt / 2 * 1e6, 1) + ' µm)';
+    if (wv === 'lfm') lines += '<br>LFM ridge delay −ν<sub>D</sub>T/B = ' + fx(-nuD * AFT / AFB * 1e9, 1) + ' ns, finite-TB pull +3/(π²B²T) = +' + fx(corr * 1e9, 1) + ' ns<br>(2v/c)·TB = ' + fx(2 * v / C * AFT * AFB, 3) + '<br>same delay for the course chirp (B = 5 MHz): ' + fx(-(nuD * AFT / 5e6 - (nuD > 0 ? 3 / (PI * PI * 25e12 * AFT) : 0)) * 1e9, 1) + ' ns';
     $('m10-af-read').innerHTML = lines;
   }
-  $('m10-af-v').addEventListener('input', drawAF); $('m10-af-w').addEventListener('change', drawAF);
+  Lab.legendToggle('m10-af-leg', drawAF); $('m10-af-v').addEventListener('input', drawAF); $('m10-af-w').addEventListener('change', drawAF);
   Lab.onShow('m10', drawAF);
 
   /* =====================================================================
@@ -914,21 +949,22 @@
     let sP = 0, sfP = 0; for (let i = 1; i < NF / 2; i++) { const p = Er[i] * Er[i] + Ei[i] * Ei[i]; sP += p; sfP += p * AT.fax[i]; } const fc = sfP / sP;
     const dtc = atCentroid(Er, Ei) - atCentroid(E0r, E0i);
     const c = Lab.colors(); const { ctx, w } = Lab.canvas($('m10-at-cv'), 420);
-    const ax1 = Lab.axes(ctx, { x: 50, y: 20, w: w - 66, h: 110 }, [0, 10], [0, 1.08], { xlabel: 'frequency (MHz)', ylabel: '|E(f)| norm.', title: 'Echo spectrum', nx: 5 });
+    const ax1 = Lab.axes(ctx, { x: 50, y: 20, w: w - 66, h: 110 }, [0, 10], [0, 1.08], { xlabel: 'frequency (MHz)', ylabel: '|E(f)| (norm.)', title: 'Echo spectrum', nx: 5 });
     const fx1 = [], y0 = [], yz = []; let m0 = 0, mz = 0; for (let i = 0; i <= NF / 2; i++) { m0 = Math.max(m0, Math.hypot(E0r[i], E0i[i])); mz = Math.max(mz, Math.hypot(Er[i], Ei[i])); }
     for (let i = 0; i <= NF / 2; i++) { const f = AT.fax[i] / 1e6; if (f > 10) break; fx1.push(f); y0.push(Math.hypot(E0r[i], E0i[i]) / m0); yz.push(Math.hypot(Er[i], Ei[i]) / mz); }
-    Lab.line(ctx, ax1, fx1, y0, c.muted, 1.4); Lab.line(ctx, ax1, fx1, yz, c.accent, 1.6);
+    if (Lab.on('m10-at-leg', 'e0')) Lab.line(ctx, ax1, fx1, y0, c.muted, 1.4); if (Lab.on('m10-at-leg', 'ez')) Lab.line(ctx, ax1, fx1, yz, c.accent, 1.6);
     const ax2 = Lab.axes(ctx, { x: 50, y: 180, w: w - 66, h: 196 }, [-12, 12], [-70, 3], { xlabel: 'lag (µs)', ylabel: 'envelope (dB)', title: 'Compressed echo at z = ' + fx(z, 1) + ' cm', yticks: [-60, -40, -20, 0], nx: 5 });
     ax2.clip(); const cols = [c.accent, c.sig2, c.sig4];
-    [1, 2, 0].forEach(j => { const xs = [], ys = []; for (let i = 0; i < NF; i++) { const l = (i - NF / 2) / AT.fs * 1e6; if (l < -12.5 || l > 12.5) continue; xs.push(l); ys.push(Math.max(-80, dB(res[j].a[i]))); } Lab.line(ctx, ax2, xs, ys, cols[j], j === 0 ? 1.6 : 1.3); });
+    [1, 2, 0].forEach(j => { if (!Lab.on('m10-at-leg', ['fix', 'adapt', 'eq'][j])) return; const xs = [], ys = []; for (let i = 0; i < NF; i++) { const l = (i - NF / 2) / AT.fs * 1e6; if (l < -12.5 || l > 12.5) continue; xs.push(l); ys.push(Math.max(-80, dB(res[j].a[i]))); } Lab.line(ctx, ax2, xs, ys, cols[j], j === 0 ? 1.6 : 1.5, [null, [6, 4], [2, 3]][j]); });
     ax2.unclip();
-    const ref = res[1].snr, nm = ['fixed', 'adapt', 'equal'];
-    let tb = '<table class="m10-rt"><tr><th></th><th>w−6</th><th>w−20</th><th>PSL</th><th>SNR</th></tr>';
+    const ref = res[1].snr, nm = ['fixed', 'adapted', 'equalizer'];
+    let tb = '<table class="m10-rt"><tr><th>filter</th><th>w−6</th><th>w−20</th><th>PSL</th><th>SNR</th></tr>';
     res.forEach((r, j) => { tb += '<tr><td>' + nm[j] + '</td><td>' + fx(r.w6 * 1e9, 0) + '</td><td>' + fx(r.w20 * 1e9, 0) + '</td><td>' + fx(r.psl, 1) + '</td><td>' + fx(10 * Math.log10(r.snr / ref), 2) + '</td></tr>'; });
     tb += '</table>';
-    $('m10-at-read').innerHTML = 'centroid f<sub>c</sub> = <b>' + fx(fc / 1e6, 2) + ' MHz</b>; 2αf₀z = ' + fx(2 * al * 5 * z, 1) + ' dB' + tb + '<span class="muted">widths ns, PSL dB, SNR dB re adapted</span><br>compressed peak shift <b>' + fx(res[0].sh * 1e9, 2) + ' ns</b><br>raw echo centroid shift <b>' + fx(dtc * 1e6, 2) + ' µs</b> ((f<sub>c</sub>−f₀)T/B = ' + fx((fc - AT.f0) * AT.T / AT.B * 1e6, 2) + ')';
+    $('m10-at-read').innerHTML = 'echo centroid frequency f<sub>c</sub> = <b>' + fx(fc / 1e6, 2) + ' MHz</b>; two-way loss at f₀, 2αf₀z = ' + fx(2 * al * 5 * z, 1) + ' dB' + tb + '<span class="muted">w−6, w−20: envelope widths at −6 and −20 dB (ns); PSL, peak sidelobe level (dB); SNR in dB re the depth-adapted filter</span><br>compressed peak shift <b>' + fx(res[0].sh * 1e9, 2) + ' ns</b><br>raw echo centroid shift <b>' + fx(dtc * 1e6, 2) + ' µs</b> ((f<sub>c</sub>−f₀)T/B = ' + fx((fc - AT.f0) * AT.T / AT.B * 1e6, 2) + ')';
   }
   ['m10-at-a', 'm10-at-z', 'm10-at-bw'].forEach(id => $(id).addEventListener('input', drawAT));
+  Lab.legendToggle('m10-at-leg', drawAT);
   Lab.onShow('m10', drawAT);
 
   /* =====================================================================
@@ -951,26 +987,25 @@
     const ax = Lab.axes(ctx, { x: 50, y: 20, w: w - 66, h: 220 }, [0, zmax], [ymin, ymax], { xlabel: 'depth (cm)', ylabel: 'echo SNR (dB)', title: 'Noise-limited SNR vs depth (threshold 0 dB)' });
     ax.clip(); const zs = [], sN = [], sB = [], cN = [], cB = [];
     for (let i = 0; i <= 200; i++) { const z = zmax * i / 200, lb = loss(z); zs.push(z); sN.push(S0 - 2 * al * f0 * z); cN.push(S0 + G - 2 * al * f0 * z); sB.push(S0 + lb); cB.push(S0 + G + lb); }
-    Lab.line(ctx, ax, [0, zmax], [0, 0], c.fg, 1, [2, 3]);
-    Lab.line(ctx, ax, zs, sN, c.muted, 1.3, [5, 4]); Lab.line(ctx, ax, zs, cN, c.muted, 1.3, [5, 4]);
-    Lab.line(ctx, ax, zs, sB, c.accent, 2); Lab.line(ctx, ax, zs, cB, c.sig2, 2); ax.unclip();
+    const LG = 'm10-bu-leg'; if (Lab.on(LG, 'thr')) Lab.line(ctx, ax, [0, zmax], [0, 0], c.fg, 1, [2, 3]);
+    if (Lab.on(LG, 'nb')) { Lab.line(ctx, ax, zs, sN, c.muted, 1.5, [2, 3]); Lab.line(ctx, ax, zs, cN, c.muted, 1.5, [2, 3]); }
+    if (Lab.on(LG, 'sp')) Lab.line(ctx, ax, zs, sB, c.accent, 2); if (Lab.on(LG, 'cd')) Lab.line(ctx, ax, zs, cB, c.sig2, 2, [6, 4]); ax.unclip();
     /* acoustic output bars (log10 mW/cm^2) */
     const Bh = 0.6 * f0 * 1e6, st = 1 / (TAU * Bh / 2.3548), p = MI * Math.sqrt(f0) * 1e6, rc = 1.5e6, T = TB / Bh;
     const PIIs = p * p * Math.sqrt(PI) * st / (2 * rc), PIIc = p * p * T / (2 * rc);
     const Is = prf * PIIs / 10, Ic = prf * PIIc / 10;
     const lg = v => Math.log10(Math.max(v, 1e-3));
-    const ax3 = Lab.axes(ctx, { x: 70, y: 290, w: w - 86, h: 96 }, [-1, 5], [0, 2], { xlabel: 'ISPTA.3 (mW/cm²), log scale', title: 'Acoustic output at the point', xticks: [-1, 0, 1, 2, 3, 4, 5], xfmt: v => ['0.1', '1', '10', '100', '1k', '10k', '100k'][v + 1], noYLabels: true, grid: true });
-    const bar = (yc, v, col, lab) => { const x0 = ax3.X(-1), x1 = ax3.X(Math.min(5, Math.max(-1, lg(v)))); ctx.save(); ctx.fillStyle = col; ctx.globalAlpha = 0.85; ctx.fillRect(x0, ax3.Y(yc + 0.32), x1 - x0, ax3.Y(yc - 0.32) - ax3.Y(yc + 0.32)); ctx.restore();
-      ctx.save(); ctx.fillStyle = c.muted; ctx.font = '11px ' + c.mono; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(lab, ax3.box.x - 6, ax3.Y(yc)); ctx.restore(); };
+    const ax3 = Lab.axes(ctx, { x: 70, y: 290, w: w - 86, h: 96 }, [-1, 5], [0, 2], { xlabel: 'ISPTA.3 (mW/cm²), log scale', title: 'Acoustic output at the point', xticks: [-1, 0, 1, 2, 3, 4, 5], xfmt: v => ['0.1', '1', '10', '100', '1k', '10k', '100k'][v + 1], yticks: [0.55, 1.45], yfmt: v => v > 1 ? 'short' : 'coded', ylabel: 'waveform', grid: true });
+    const bar = (yc, v, col, lab) => { const x0 = ax3.X(-1), x1 = ax3.X(Math.min(5, Math.max(-1, lg(v)))); ctx.save(); ctx.fillStyle = col; ctx.globalAlpha = 0.85; ctx.fillRect(x0, ax3.Y(yc + 0.32), x1 - x0, ax3.Y(yc - 0.32) - ax3.Y(yc + 0.32)); ctx.restore(); };
     bar(1.45, Is, c.accent, 'short'); bar(0.55, Ic, c.sig2, 'coded');
     ctx.save(); ctx.strokeStyle = c.sig3; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax3.X(lg(720)), ax3.box.y); ctx.lineTo(ax3.X(lg(720)), ax3.box.y + ax3.box.h); ctx.stroke(); ctx.restore();
     const ok = v => v <= 720 ? '<span class="m10-ok">≤ 720</span>' : '<span class="m10-no">&gt; 720</span>';
     const sc = Math.min(1, Math.sqrt(720 / Ic)), rate = 720 / (PIIc / 10);
     let gEff = G + 20 * Math.log10(sc);
-    $('m10-bu-read').innerHTML = 'compression gain G = <b>' + fx(G, 2) + ' dB</b>; T = ' + fx(T * 1e6, 1) + ' µs, blind zone ' + fx(C * T / 2 * 1e3, 1) + ' mm<br>depth gain: narrowband <b>' + fx(zcN - zsN, 2) + ' cm</b>, broadband <b>' + fx(zcB - zsB, 2) + ' cm</b><br>short-pulse depth ' + fx(zsN, 1) + ' / ' + fx(zsB, 1) + ' cm; f<sub>c</sub> at coded depth ' + fx(fcAt(zcB), 2) + ' MHz<br>p<sub>r.3</sub> = MI√f₀ = <b>' + fx(p / 1e6, 2) + ' MPa</b> (MI same for both)<br>I<sub>SPTA.3</sub>: short <b>' + fx(Is, Is < 10 ? 1 : 0) + '</b> ' + ok(Is) + ', coded <b>' + fx(Ic, Ic < 10 ? 1 : 0) + '</b> ' + ok(Ic) + ' mW/cm² (×' + fx(Ic / Is, 1) + ')<br>TI ratio coded/short at this rate: ×' + fx(Ic / Is, 1) + '<br>' + (Ic > 720 ? 'to comply: rate ≤ <b>' + fx(rate, 0) + ' Hz</b> or MI ≤ <b>' + fx(MI * sc, 2) + '</b>, leaving G = ' + fx(gEff, 1) + ' dB' : 'coded mode within the I<sub>SPTA.3</sub> limit');
+    $('m10-bu-read').innerHTML = 'compression gain G = <b>' + fx(G, 2) + ' dB</b>; chirp duration T = ' + fx(T * 1e6, 1) + ' µs, blind zone ' + fx(C * T / 2 * 1e3, 1) + ' mm<br>extra noise-limited depth: narrowband <b>' + fx(zcN - zsN, 2) + ' cm</b>, broadband <b>' + fx(zcB - zsB, 2) + ' cm</b><br>short-pulse depth, narrowband / broadband ' + fx(zsN, 1) + ' / ' + fx(zsB, 1) + ' cm; echo centroid f<sub>c</sub> at coded depth ' + fx(fcAt(zcB), 2) + ' MHz<br>derated peak pressure p<sub>r.3</sub> = MI√f₀ = <b>' + fx(p / 1e6, 2) + ' MPa</b> (MI same for both)<br>I<sub>SPTA.3</sub>: short <b>' + fx(Is, Is < 10 ? 1 : 0) + '</b> ' + ok(Is) + ', coded <b>' + fx(Ic, Ic < 10 ? 1 : 0) + '</b> ' + ok(Ic) + ' mW/cm² (×' + fx(Ic / Is, 1) + ')<br>TI ratio coded/short at this rate: ×' + fx(Ic / Is, 1) + '<br>' + (Ic > 720 ? 'to comply: rate ≤ <b>' + fx(rate, 0) + ' Hz</b> or MI ≤ <b>' + fx(MI * sc, 2) + '</b>, leaving G = ' + fx(gEff, 1) + ' dB' : 'coded mode within the I<sub>SPTA.3</sub> limit');
   }
   ['m10-bu-f0', 'm10-bu-a', 'm10-bu-tb', 'm10-bu-s0', 'm10-bu-mi', 'm10-bu-prf'].forEach(id => $(id).addEventListener('input', drawBU));
-  $('m10-bu-tap').addEventListener('change', drawBU);
+  $('m10-bu-tap').addEventListener('change', drawBU); Lab.legendToggle('m10-bu-leg', drawBU);
   Lab.onShow('m10', drawBU);
 
   /* =====================================================================
@@ -979,15 +1014,15 @@
   const Mi = Lab.mini;
   const box1 = (w, h) => ({ x: 4, y: 16, w: w - 8, h: h - 36 });
   const G2 = [
-    { prov: 'exact', q: 'Same peak pressure, more energy', a: 'Same peak and same −6 dB band (TB = 12 here): the chirp carries <b>1.505·TB ≈ 18×</b> the energy of the Gaussian pulse.',
+    { prov: 'exact', leg: [['chirp', 'a', 'solid'], ['Gaussian pulse', 'b', 'dash']], q: 'Same peak pressure, more energy', a: 'Same peak and same −6 dB band (TB = 12 here): the chirp carries <b>1.505·TB ≈ 18×</b> the energy of the Gaussian pulse.',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-0.62, 0.62], [-1.2, 1.2], { lab: 'RF vs t/T', ticks: [[-0.5, '−T/2'], [0.5, 'T/2']] });
         const sg = 2.3548 / (TAU * 12); Mi.curve(x, m, t => Math.abs(t) <= 0.5 ? Math.cos(TAU * (16 * t + 6 * t * t)) : 0, c.a, { w: 1 });
-        Mi.curve(x, m, t => Math.exp(-t * t / (2 * sg * sg)) * Math.cos(TAU * 16 * t), c.b, { w: 1.6 }); } },
-    { prov: 'exact', q: 'Same mainlobe after compression', a: 'Scaled to output noise: both mainlobes ≈ 1.2/B wide (chirp 1.207/B, Gaussian 1.248/B); the TB-50 chirp peak sits <b>18.8 dB</b> higher.',
+        Mi.curve(x, m, t => Math.exp(-t * t / (2 * sg * sg)) * Math.cos(TAU * 16 * t), c.b, { w: 1.6, dash: [6, 4] }); } },
+    { prov: 'exact', leg: [['TB-50 chirp', 'a', 'solid'], ['Gaussian pulse', 'b', 'dash']], q: 'Same mainlobe after compression', a: 'Scaled to output noise: both mainlobes ≈ 1.2/B wide (chirp 1.207/B, Gaussian 1.248/B); the TB-50 chirp peak sits <b>18.8 dB</b> higher.',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-4, 4], [-60, 3], { lab: 'output (dB re noise-scaled chirp peak) vs Bτ', base: -60, ticks: [[-1, '−1'], [1, '1']], hlines: [[-18.77, '−18.8']] });
         const TB = 50; Mi.curve(x, m, u => Math.max(-60, dB((1 - Math.abs(u) / TB) * sinc(u * (1 - Math.abs(u) / TB)))), c.a);
-        Mi.curve(x, m, u => Math.max(-60, -18.77 + dB(Math.exp(-Math.pow(PI * u / 2.3548, 2)))), c.b); } },
-    { prov: 'exact', q: 'How big is the gain?', a: '<b>G = TB</b> against a rect pulse of length 1/B (grey), <b>1.505·TB</b> against a Gaussian of equal −6 dB band (blue). Always state the reference.',
+        Mi.curve(x, m, u => Math.max(-60, -18.77 + dB(Math.exp(-Math.pow(PI * u / 2.3548, 2)))), c.b, { dash: [6, 4] }); } },
+    { prov: 'exact', leg: [['vs rect 1/B: TB', 'mu', 'dash'], ['vs Gaussian: 1.505·TB', 'a', 'solid']], q: 'How big is the gain?', a: '<b>G = TB</b> against a rect pulse of length 1/B (grey), <b>1.505·TB</b> against a Gaussian of equal −6 dB band (blue). Always state the reference.',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [0, 2.5], [0, 27], { lab: 'G (dB) vs TB (log)', ticks: [[0, '1'], [1, '10'], [Math.log10(50), '50'], [2, '100']], hlines: [[18.77, '18.8 dB']] });
         Mi.curve(x, m, u => 10 * u, c.mu, { dash: [4, 3] }); Mi.curve(x, m, u => 10 * u + 10 * Math.log10(1.505), c.a); } }
   ];
@@ -1001,32 +1036,32 @@
     chirpSpec = u => { const fT = u * TB; let i = Math.round(fT * NF / n); i = ((i % NF) + NF) % NF; return mag[i]; }; return chirpSpec; };
 
   const VIS = [
-    { prov: 'exact', q: 'What is the matched filter?', a: 'The received echo, time-reversed and conjugated: <b>h(t) = s*(t₀ − t)</b>. Filtering with h is correlating with s.',
-      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-1.15, 1.15], [-1.15, 1.15], { lab: 's(t) blue, h(t) = s(−t) pink', ticks: [[-1, '−T'], [1, 'T']] });
-        const s = t => (t >= 0 && t <= 1) ? Math.exp(-2.2 * t) * Math.sin(TAU * (2 * t + 3 * t * t)) : 0; Mi.curve(x, m, s, c.a); Mi.curve(x, m, t => s(-t), c.b); } },
-    { prov: 'exact', q: 'Best possible output SNR?', a: '<b>2E/N₀</b> for both pulses: equal energy, equal SNR, whatever the shape. The chirp needs a fifth of the peak pressure.',
-      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-1.2, 1.2], [-1.15, 1.15], { lab: 'two waveforms with equal energy', yaxis: false });
+    { prov: 'exact', leg: [['s(t)', 'a', 'solid'], ['h(t) = s(−t)', 'b', 'dash']], q: 'What is the matched filter?', a: 'The received echo, time-reversed and conjugated: <b>h(t) = s*(t₀ − t)</b>. Filtering with h is correlating with s.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-1.15, 1.15], [-1.15, 1.15], { lab: 's(t), h(t) = s(−t) vs t', ticks: [[-1, '−T'], [1, 'T']] });
+        const s = t => (t >= 0 && t <= 1) ? Math.exp(-2.2 * t) * Math.sin(TAU * (2 * t + 3 * t * t)) : 0; Mi.curve(x, m, s, c.a); Mi.curve(x, m, t => s(-t), c.b, { dash: [6, 4] }); } },
+    { prov: 'exact', leg: [['short pulse', 'b', 'solid'], ['chirp, same energy', 'a', 'solid']], q: 'Best possible output SNR?', a: '<b>2E/N₀</b> for both pulses: equal energy, equal SNR, whatever the shape. The chirp needs a fifth of the peak pressure.',
+      draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-1.2, 1.2], [-1.15, 1.15], { lab: 'two equal-energy waveforms vs t', yaxis: false });
         const sg = 0.04, g = t => Math.exp(-(t + 0.9) * (t + 0.9) / (2 * sg * sg)) * Math.cos(TAU * 25 * (t + 0.9)); let eg = 0; for (let i = -4000; i <= 4000; i++) { const t = -0.9 + i * 1e-4; eg += g(t) * g(t) * 1e-4; }
         const T = 1.7, ctr = 0.3, amp = Math.sqrt(eg / (T / 2)); Mi.curve(x, m, g, c.b, { w: 1.4 });
         Mi.curve(x, m, t => Math.abs(t - ctr) <= T / 2 ? amp * Math.cos(TAU * (10 * (t - ctr) + 3 * (t - ctr) * (t - ctr))) : 0, c.a, { w: 1 }); } },
-    { prov: 'model', q: 'Cost of the wrong filter bandwidth?', a: 'Small: <b>η = 2r/(1 + r²)</b>, −0.97 dB at r = 2 or ½. Dashed: the same with a 1σ centre offset.',
+    { prov: 'model', leg: [['centred', 'a', 'solid'], ['1σ offset', 'b', 'dash']], q: 'Cost of the wrong filter bandwidth?', a: 'Small: <b>η = 2r/(1 + r²)</b>, −0.97 dB at r = 2 or ½. Dashed: the same with a 1σ centre offset.',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-2.2, 2.2], [-5.2, 0.4], { lab: 'SNR loss (dB) vs r = σh/σs (log)', base: -5.2, ticks: [[-2, '¼'], [-1, '½'], [0, '1'], [1, '2'], [2, '4']], hlines: [[-0.97, '−0.97']] });
         Mi.curve(x, m, u => { const r = Math.pow(2, u); return 10 * Math.log10(2 * r / (1 + r * r)); }, c.a);
         Mi.curve(x, m, u => { const r = Math.pow(2, u); return 10 * Math.log10(2 * r / (1 + r * r) * Math.exp(-1 / (1 + r * r))); }, c.b, { dash: [4, 3] }); } },
-    { prov: 'sim', q: 'Spectrum of a chirp?', a: 'Stationary phase maps time onto frequency: <b>|S(f)| ≈ √(T/B)·w((f − f₀)T/B)</b>, a rect with Fresnel ripple at the edges (TB = 16 here).',
+    { prov: 'sim', leg: [['RF chirp', 'a', 'solid'], ['|S(f)|', 'b', 'fill']], q: 'Spectrum of a chirp?', a: 'Stationary phase maps time onto frequency: <b>|S(f)| ≈ √(T/B)·w((f − f₀)T/B)</b>, a rect with Fresnel ripple at the edges (TB = 16 here).',
       tr: [-0.62, 0.62], ty: [-1.2, 1.2], fr: [-0.9, 0.9], fy: [0, 1.35], tl: 'RF chirp vs t/T', fl: '|S| vs (f − f₀)/B', tt: () => [[-0.5, '−½'], [0.5, '½']], ft: () => [[-0.5, '−½'], [0.5, '½']], fixed: true,
       time: (x, m, c) => Mi.curve(x, m, t => Math.abs(t) <= 0.5 ? Math.cos(TAU * (12 * t + 8 * t * t)) : 0, c.a, { w: 1 }),
       freq: (x, m, c) => { const S = getChirpSpec(); Mi.curve(x, m, S, c.b, { fill: true }); } },
     { prov: 'exact', q: 'What does compression give?', a: 'A sinc in range: <b>−6 dB width 1.207/B</b>, first null 1/B, <b>PSL −13.3 dB</b>, whatever T is (TB = 50 shown).',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-6, 6], [-50, 2], { lab: 'compressed envelope (dB) vs Bτ', base: -50, ticks: [[-1, '−1'], [1, '1'], [-4, '−4'], [4, '4']], hlines: [[-13.26, '−13.3']] });
         Mi.curve(x, m, u => Math.max(-50, dB((1 - Math.abs(u) / 50) * sinc(u * (1 - Math.abs(u) / 50)))), c.a); } },
-    { prov: 'exact', q: 'What does a Hann taper buy?', a: 'On receive: ideally <b>−31.5 dB</b> (−31.3 at TB 50), a <b>1.65×</b> wider mainlobe, and <b>−1.76 dB</b> = (Σw)²/(NΣw²) of SNR.',
+    { prov: 'exact', leg: [['rect: sinc', 'mu', 'solid'], ['Hann receive', 'a', 'dash']], q: 'What does a Hann taper buy?', a: 'On receive: ideally <b>−31.5 dB</b> (−31.3 at TB 50), a <b>1.65×</b> wider mainlobe, and <b>−1.76 dB</b> = (Σw)²/(NΣw²) of SNR.',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-6, 6], [-60, 2], { lab: 'ideal compressed output (dB) vs Bτ', base: -60, ticks: [[-2, '−2'], [2, '2']], hlines: [[-13.26, '−13.3'], [-31.47, '−31.5']] });
-        Mi.curve(x, m, u => Math.max(-60, dB(sinc(u))), c.mu, { w: 1.2 }); Mi.curve(x, m, u => Math.max(-60, dB((0.5 * sinc(u) + 0.25 * sinc(u - 1) + 0.25 * sinc(u + 1)) / 0.5)), c.a); } },
+        Mi.curve(x, m, u => Math.max(-60, dB(sinc(u))), c.mu, { w: 1.2 }); Mi.curve(x, m, u => Math.max(-60, dB((0.5 * sinc(u) + 0.25 * sinc(u - 1) + 0.25 * sinc(u + 1)) / 0.5)), c.a, { dash: [6, 4] }); } },
     { prov: 'exact', q: 'Barker-13 after compression?', a: '13 on the peak, 0 or 1 everywhere else: <b>PSL 20 log₁₀(1/13) = −22.3 dB</b>, gain 11.1 dB.',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-13, 13], [0, 14.5], { lab: 'R(k) vs lag (chips)', ticks: [[-12, '−12'], [12, '12']], hlines: [[1, '1']] });
         Mi.stems(x, m, acorr(B13).map((v, i) => [i - 12, v]).filter(p => p[1] > 0), c.a); } },
-    { prov: 'exact', q: 'Why does a Golay pair cancel?', a: 'Sidelobes of R<sub>A</sub> (blue) and R<sub>B</sub> (pink) are equal and opposite: <b>R<sub>A</sub> + R<sub>B</sub> = 2Nδ</b>, a single spike of 16 for N = 8 (green).',
+    { prov: 'exact', leg: [['R_A', 'a', 'stem'], ['R_B', 'b', 'stem'], ['R_A + R_B', 'd', 'stem']], q: 'Why does a Golay pair cancel?', a: 'Sidelobes of R<sub>A</sub> (blue) and R<sub>B</sub> (pink) are equal and opposite: <b>R<sub>A</sub> + R<sub>B</sub> = 2Nδ</b>, a single spike of 16 for N = 8 (green).',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-8, 8], [-5, 17.5], { lab: 'RA, RB and their sum vs lag', ticks: [[-7, '−7'], [7, '7']] });
         const [A, Bc] = golay(8), ra = acorr(A), rb = acorr(Bc); x.save(); x.lineWidth = 2;
         const st = (k, v, col) => { x.strokeStyle = col; x.fillStyle = col; x.beginPath(); x.moveTo(m.X(k), m.Y(0)); x.lineTo(m.X(k), m.Y(v)); x.stroke(); x.beginPath(); x.arc(m.X(k), m.Y(v), 2.4, 0, TAU); x.fill(); };
@@ -1034,17 +1069,17 @@
     { prov: 'model', q: 'How fast does motion break Golay?', a: 'Residual <b>(max|R<sub>A</sub>|/N)·tan(2πf₀d/c)</b> for N = 16 at 5 MHz: 2 µm between firings (10 mm/s at 5 kHz PRF) already leaves −38 dB.',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [0, 40], [-60, 0], { lab: 'residual PSL (dB) vs d (µm)', base: -60, ticks: [[2, '2'], [10, '10'], [20, '20'], [38.5, '38.5']], hlines: [[-37.88, '−37.9'], [-10.1, '−10.1 (A alone)']] });
         Mi.curve(x, m, d => Math.max(-60, dB(5 / 16 * Math.tan(TAU * 5e6 * d * 1e-6 / C))), c.a); } },
-    { prov: 'model', q: 'What does Doppler do to a chirp?', a: 'It shifts the peak by <b>Δτ ≈ νT/B</b> (here ν = B/4, TB = 20). In tissue ν/B ≈ 10⁻³: about 12 ns at 1 m/s for T = 10 µs, B = 5 MHz.',
+    { prov: 'model', leg: [['ν = 0', 'mu', 'solid'], ['ν = B/4', 'a', 'dash']], q: 'What does Doppler do to a chirp?', a: 'It shifts the peak by <b>Δτ ≈ νT/B</b> (here ν = B/4, TB = 20). In tissue ν/B ≈ 10⁻³: about 12 ns at 1 m/s for T = 10 µs, B = 5 MHz.',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [-0.5, 0.5], [0, 1.1], { lab: '|χ(τ, ν)|/E vs τ/T', ticks: [[-0.25, '−¼'], [0, '0'], [0.25, '¼']] });
-        const TB = 20, X = (u, n) => Math.abs(u) >= 1 ? 0 : (1 - Math.abs(u)) * Math.abs(sinc((n + TB * u) * (1 - Math.abs(u)))); Mi.curve(x, m, u => X(u, 0), c.mu); Mi.curve(x, m, u => X(u, TB / 4), c.a); } },
-    { prov: 'model', q: 'What does attenuation do to the band?', a: '<b>e<sup>−2α₀fz</sup></b> tilts it: at 0.5 dB/cm/MHz and 6 cm the centroid falls from 5.0 to 3.7 MHz (idealized 2.5–7.5 MHz band, 80 % transducer).',
+        const TB = 20, X = (u, n) => Math.abs(u) >= 1 ? 0 : (1 - Math.abs(u)) * Math.abs(sinc((n + TB * u) * (1 - Math.abs(u)))); Mi.curve(x, m, u => X(u, 0), c.mu); Mi.curve(x, m, u => X(u, TB / 4), c.a, { dash: [6, 4] }); } },
+    { prov: 'model', leg: [['z = 0', 'mu', 'fill'], ['z = 6 cm (normalized)', 'a', 'solid']], q: 'What does attenuation do to the band?', a: '<b>e<sup>−2α₀fz</sup></b> tilts it: at 0.5 dB/cm/MHz and 6 cm the centroid falls from 5.0 to 3.7 MHz (idealized 2.5–7.5 MHz band, 80 % transducer).',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [0, 10], [0, 1.1], { lab: '|E(f)| normalized vs f (MHz)', ticks: [[2.5, '2.5'], [5, '5'], [7.5, '7.5']] });
         const sf = 0.8 * 5 / 2.3548, E = (f, z) => (f >= 2.5 && f <= 7.5 ? 1 : 0) * Math.exp(-(f - 5) * (f - 5) / (2 * sf * sf)) * Math.exp(-2 * 0.5 / 8.686 * f * z);
         let m6 = 0; for (let f = 0; f <= 10; f += 0.01) m6 = Math.max(m6, E(f, 6)); Mi.curve(x, m, f => E(f, 0), c.mu, { fill: true }); Mi.curve(x, m, f => E(f, 6) / m6, c.a); } },
-    { prov: 'model', q: 'How much depth does coding buy?', a: '<b>Δz = G/(2αf₀)</b>. At 0.5 dB/cm/MHz a TB-50 chirp (18.8 dB) buys 6.3 cm at 3 MHz (blue), 3.8 cm at 5 MHz (pink), 2.5 cm at 7.5 MHz (amber).',
+    { prov: 'model', leg: [['3 MHz', 'a', 'solid'], ['5 MHz', 'b', 'dash'], ['7.5 MHz', 'c', 'dot']], q: 'How much depth does coding buy?', a: '<b>Δz = G/(2αf₀)</b>. At 0.5 dB/cm/MHz a TB-50 chirp (18.8 dB) buys 6.3 cm at 3 MHz (blue), 3.8 cm at 5 MHz (pink), 2.5 cm at 7.5 MHz (amber).',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [0, 25], [0, 9], { lab: 'Δz (cm) vs G (dB)', ticks: [[10, '10'], [18.77, '18.8']] });
-        [[3, c.a], [5, c.b], [7.5, c.c]].forEach(([f, col]) => Mi.curve(x, m, g => g / (2 * 0.5 * f), col)); } },
-    { prov: 'model', q: 'What happens to ISPTA at fixed MI?', a: 'It scales with energy, <b>∝ 1.505·TB</b>: at MI 1.9, 5 MHz and 200 pulses/s the 720 mW/cm² limit is crossed at TB ≈ 18.',
+        [[3, c.a, null], [5, c.b, [6, 4]], [7.5, c.c, [2, 3]]].forEach(([f, col, ds]) => Mi.curve(x, m, g => g / (2 * 0.5 * f), col, ds ? { dash: ds } : {})); } },
+    { prov: 'model', leg: [['coded I_SPTA.3', 'a', 'solid'], ['720 limit, short pulse 27', 'mu', 'dash']], q: 'What happens to ISPTA at fixed MI?', a: 'It scales with energy, <b>∝ 1.505·TB</b>: at MI 1.9, 5 MHz and 200 pulses/s the 720 mW/cm² limit is crossed at TB ≈ 18.',
       draw: cv => { const c = Mi.col(); const { x, w, h } = Mi.size(cv, 140); const m = Mi.panel(x, box1(w, h), [0, 200], [1, 4.3], { lab: 'log₁₀ ISPTA.3 (mW/cm²) vs TB', base: 1, ticks: [[18, '18'], [50, '50'], [100, '100'], [180, '180']], hlines: [[Math.log10(720), '720'], [Math.log10(26.65), 'short pulse 27']] });
         Mi.curve(x, m, tb => Math.log10(26.65 * 1.505 * Math.max(tb, 0.5)), c.a); } }
   ];
@@ -1078,13 +1113,13 @@
       const pu = [], ch = []; for (let n = -125; n <= 125; n++) { const t = n / fs; pu.push(Math.exp(-t * t / (2 * st * st)) * Math.cos(2 * PI * 5 * t)); ch.push(Math.abs(t) <= Tc / 2 ? Math.cos(2 * PI * (5 * t + Bc / (2 * Tc) * t * t)) : 0); }
       const nrm = a => { const e = Math.sqrt(a.reduce((s, v) => s + v * v, 0)); return a.map(v => v / e); }, P1 = nrm(pu), C1 = nrm(ch), ts = P1.map((_, i) => (i - 125) / fs);
       const xc = (a, k) => { let s = 0; for (let i = 0; i < a.length; i++) { const j = i + k; if (j >= 0 && j < a.length) s += a[i] * a[j]; } return s; };
-      const P = m.panel(x, L, [-2.5, 2.5], [-0.42, 0.42], { lab: 'equal energy', ticks: [[-2, '−2 µs'], [2, '2']] });
+      const P = m.panel(x, L, [-2.5, 2.5], [-0.42, 0.42], { lab: 'pulse, chirp (equal E) vs t (µs)', ticks: [[-2, '−2 µs'], [2, '2']] });
       line(x, P, ts, C1, c.b, { w: 1 }); line(x, P, ts, P1, c.a, { w: 1.6 });
       const lg = [], pa = [], ca = []; for (let k = -30; k <= 30; k++) { lg.push(k / fs); pa.push(xc(P1, k)); ca.push(xc(C1, k)); }
-      const Q = m.panel(x, R, [-0.6, 0.6], [-1.05, 1.15], { lab: 'matched out', ticks: [[-0.4, '−0.4'], [0.4, '0.4']], hlines: [[1, 'E']] });
+      const Q = m.panel(x, R, [-0.6, 0.6], [-1.05, 1.15], { lab: 'matched output vs lag (µs)', ticks: [[-0.4, '−0.4'], [0.4, '0.4']], hlines: [[1, 'E']] });
       line(x, Q, lg, ca, c.b, { w: 1.4 }); line(x, Q, lg, pa, c.a, { w: 1.4, dash: [4, 3] }); tx(x, 'pulse', P.X(-2.4), P.Y(0.32), c.a); tx(x, 'chirp', P.X(1.3), P.Y(0.32), c.b); tx(x, 'same peak', Q.X(0.12), Q.Y(-0.8), c.fg); },
     2: cv => { const { m, c, x, B } = S(cv);
-      const P = m.panel(x, B, [0, 3], [0, 12.5], { lab: 'measured SNR (dB), Σs²/σ² = 10.00 dB', ticks: [[0.5, 'Σs²/σ²'], [1.5, '|y|²/E|n|²'], [2.5, 'Re y']], hlines: [[10, '2E/N₀'], [10 - 10 * Math.log10(2), 'E/N₀']] });
+      const P = m.panel(x, B, [0, 3], [0, 12.5], { yl: 'measured SNR (dB), Σs²/σ² = 10.00 dB', xl: 'definition', ticks: [[0.5, 'Σs²/σ²'], [1.5, '|y|²/E|n|²'], [2.5, 'Re y']], hlines: [[10, '2E/N₀'], [10 - 10 * Math.log10(2), 'E/N₀']] });
       bars(x, P, [[0.5, 9.94, c.a], [1.5, 6.95, c.b], [2.5, 9.94, c.a]], Math.min(46, B.w / 6)); [[0.5, 9.94], [1.5, 6.95], [2.5, 9.94]].forEach(([u, v]) => tx(x, F(v, 2), P.X(u), P.Y(v) + 9, c.fg, 'center')); },
     3: cv => { const { m, c, x, B } = S(cv); const eta = r => 10 * Math.log10(2 * r / (1 + r * r)), eto = r => eta(r) + 10 * Math.log10(Math.exp(-1 / (1 + r * r)));
       const P = m.panel(x, B, [-2.1, 2.1], [-5.2, 0.4], { lab: 'efficiency η (dB) vs σ_h/σ_s (log₂)', base: 0, ticks: [[-1, '½'], [0, '1'], [1, '2']] });
@@ -1106,24 +1141,24 @@
       tx(x, 'T 10 µs, B 5 MHz', P.X(-zmax), P.Y(-4), c.b); },
     7: cv => { const { m, c, x, B } = S(cv); let s1 = 0, s2 = 0; const n = 4000; for (let i = 0; i < n; i++) { const wv = 0.5 * (1 - Math.cos(2 * PI * (i + 0.5) / n)); s1 += wv; s2 += wv * wv; } const mw = s1 / n, mw2 = s2 / n;
       const it = [[0.5, 10 * Math.log10(mw * mw / mw2), c.a, 'rx'], [1.5, 10 * Math.log10(mw), c.c, 'split √w'], [2.5, 10 * Math.log10(mw2), c.b, 'tx']];
-      const P = m.panel(x, B, [0, 3], [-5, 0.3], { lab: 'SNR cost of a Hann taper (dB)', base: 0, ticks: [] });
+      const P = m.panel(x, B, [0, 3], [-5, 0.3], { yl: 'SNR cost of a Hann taper (dB)', xl: 'where applied', base: 0, ticks: [] });
       bars(x, P, it.map(([u, v, col]) => [u, v, col]), Math.min(46, B.w / 6)); it.forEach(([u, v, col, lb]) => { tx(x, lb + ' ' + F(v, 2) + ' dB', P.X(u), P.Y(v) + 9, col, 'center'); }); },
     8: cv => { const { m, c, x, B } = S(cv); const T = 50, fs = 4, N = T * fs, sp = (taper, f) => { let re = 0, im = 0; for (let n = 0; n < N; n++) { const t = (n - (N - 1) / 2) / fs, ph = PI * t * t / T - 2 * PI * f * t, wv = taper ? 0.5 * (1 + Math.cos(2 * PI * t / T)) : 1; re += wv * Math.cos(ph); im += wv * Math.sin(ph); } return Math.hypot(re, im) / fs / Math.sqrt(T); };
       const fsx = [], a = [], b = []; for (let f = -0.85; f <= 0.85; f += 0.004) { fsx.push(f); a.push(sp(false, f)); b.push(sp(true, f)); }
       const P = m.panel(x, B, [-0.85, 0.85], [0, 1.35], { lab: '|S(f)|/√(T/B) vs (f − f₀)/B, TB = 50', ticks: [[-0.5, '−½'], [0.5, '½']], hlines: [[1, '']] });
-      line(x, P, fsx, b, c.b, { w: 1.6 }); line(x, P, fsx, a, c.a, { w: 1.6 }); tx(x, 'rect chirp: Fresnel ripple', P.X(-0.83), P.Y(1.25), c.a); tx(x, 'Hann on tx', P.X(0.18), P.Y(0.3), c.b); },
+      line(x, P, fsx, b, c.b, { w: 1.6, dash: [6, 4] }); line(x, P, fsx, a, c.a, { w: 1.6 }); tx(x, 'rect chirp: Fresnel ripple', P.X(-0.83), P.Y(1.25), c.a); tx(x, 'Hann on tx', P.X(0.18), P.Y(0.3), c.b); },
     9: cv => { const { m, c, x, B } = S(cv); const r = acorr(BARK);
-      const P = m.panel(x, B, [-13, 13], [0, 1.12], { lab: 'Barker-13 R(k)/13', ticks: [[-12, '−12'], [0, '0'], [12, '12']], hlines: [[1 / 13, 'PSL 1/13 = ' + F(db(1 / 13), 2) + ' dB']] });
+      const P = m.panel(x, B, [-13, 13], [0, 1.12], { lab: 'Barker-13 |R(k)|/13 vs lag k', ticks: [[-12, '−12'], [0, '0'], [12, '12']], hlines: [[1 / 13, 'PSL 1/13 = ' + F(db(1 / 13), 2) + ' dB']] });
       bars(x, P, r.map(([k, v]) => [k, Math.abs(v) / 13, k ? c.b : c.a]), Math.max(3, B.w / 60)); },
     10: cv => { const { m, c, x, w, h } = S(cv); const [L, R] = split(w, h, 0.5); const N = 16, [A, Bc] = golay(N), ra = acorr(A), rb = acorr(Bc); let mA = 0; ra.forEach(([k, v]) => { if (k) mA = Math.max(mA, Math.abs(v)); });
-      const P = m.panel(x, L, [-16, 16], [-8, 34], { lab: 'N=16: R_A, R_B, sum', ticks: [[-15, '−15'], [15, '15']] }), bw = Math.max(1.5, L.w / 90);
+      const P = m.panel(x, L, [-16, 16], [-8, 34], { lab: 'R_A, R_B, sum vs lag k (N = 16)', ticks: [[-15, '−15'], [15, '15']] }), bw = Math.max(1.5, L.w / 90);
       bars(x, P, ra.map(([k, v]) => [k - 0.25, v, c.a]), bw); bars(x, P, rb.map(([k, v]) => [k + 0.25, v, c.b]), bw); bars(x, P, [[0, 2 * N, c.fg]], bw * 1.6); tx(x, '2N δ(k)', P.X(1.5), P.Y(31), c.fg);
       const res = d => db(mA / N * Math.tan(PI * 5e6 * d * 1e-6 * 4 / 1540 / 2));
       const Q = m.panel(x, R, [0, Math.log10(50)], [-55, -5], { lab: 'PSL (dB) vs d (µm)', base: -55, ticks: [[0, '1'], [Math.log10(2), '2'], [1, '10'], [Math.log10(20), '20']] });
       m.curve(x, Q, Lg => res(Math.pow(10, Lg)), c.a, { w: 2 }); [2, 20].forEach(d => pt(x, Q, Math.log10(d), res(d), c.b, F(res(d), 1), -6, -8, 'right')); },
     11: cv => { const { m, c, x, B } = S(cv); const T = 10e-6, Bw = 5e6, nu = 2 * 1 * 5e6 / 1540, chi = (tn, v) => { const t = tn * 1e-9; return (1 - Math.abs(t) / T) * Math.abs(sinc((v + Bw * t / T) * (T - Math.abs(t)))); };
       let bt = 0, bv = 0; for (let t = -40; t <= 40; t += 0.01) { const v = chi(t, nu); if (v > bv) { bv = v; bt = t; } }
-      const P = m.panel(x, B, [-120, 100], [0.86, 1.08], { lab: '1 m/s (ν = ' + F(nu / 1e3, 2) + ' kHz) vs τ (ns)', base: 0.86, ticks: [[-100, '−100'], [bt, ''], [0, '0'], [50, '50']] });
+      const P = m.panel(x, B, [-120, 100], [0.86, 1.08], { lab: '|χ| at 1 m/s (ν = ' + F(nu / 1e3, 2) + ' kHz) vs τ (ns)', base: 0.86, ticks: [[-100, '−100'], [bt, ''], [0, '0'], [50, '50']] });
       m.curve(x, P, t => chi(t, 0), c.mu, { w: 1.4, dash: [4, 3] }); m.curve(x, P, t => chi(t, nu), c.a, { w: 2.2 }); vl(x, P, bt, c.a); vl(x, P, -nu * T / Bw * 1e9, c.b);
       tx(x, 'peak ' + F(bt, 1) + ' ns, ' + F(db(bv), 2) + ' dB', P.X(-118), P.Y(1.066), c.a); tx(x, 'ridge νT/B = ' + F(nu * T / Bw * 1e9, 1) + ' ns', P.X(-118), P.Y(1.036), c.b); },
     12: cv => { const { m, c, x, B } = S(cv); const a0 = 0.5 / 8.686, sg = 4 / KF, E = (f, z) => (f >= 2.5 && f <= 7.5) ? Math.exp(-((f - 5) ** 2) / (2 * sg * sg)) * Math.exp(-2 * a0 * f * z) : 0;
@@ -1134,12 +1169,12 @@
       tx(x, 'z = 0', P.X(5.6), P.Y(1.05), c.mu); tx(x, '6 cm, 0.5 dB/cm/MHz', P.X(5.3), P.Y(0.5), c.a); tx(x, 'mismatch ' + F(loss, 1) + ' dB', P.X(5.3), P.Y(0.34), c.a); },
     13: cv => { const { m, c, x, B } = S(cv); const dz = (G, f) => G / (2 * 0.5 * f), g50 = 10 * Math.log10(2 * Math.sqrt(PI) / KF * 50);
       const P = m.panel(x, B, [0, 25], [0, 8.5], { lab: 'depth gain Δz (cm) vs G (dB), α = 0.5', ticks: [[10, '10'], [15, '15'], [20, '20']] });
-      m.curve(x, P, G => dz(G, 3), c.a, { w: 2 }); m.curve(x, P, G => dz(G, 5), c.b, { w: 2 });
+      m.curve(x, P, G => dz(G, 3), c.a, { w: 2 }); m.curve(x, P, G => dz(G, 5), c.b, { w: 2, dash: [6, 4] });
       pt(x, P, 15, dz(15, 5), c.b, F(dz(15, 5), 1) + ' cm', 6, 10); pt(x, P, g50, dz(g50, 3), c.a, 'TB 50: ' + F(dz(g50, 3), 1) + ' cm', -6, -8, 'right');
       tx(x, '3 MHz', P.X(1), P.Y(2.3), c.a); tx(x, '5 MHz', P.X(9), P.Y(0.6), c.b); tx(x, 'G/(2αf₀)', P.X(1), P.Y(7.6), c.fg); },
     14: cv => { const { m, c, x, B } = S(cv);
       const P = m.panel(x, B, [0, 20], [-3, 22], { lab: 'change (dB) vs coding gain G (dB)', ticks: [[10, '10'], [20, '20']] });
-      m.curve(x, P, G => G, c.a, { w: 2.2 }); m.curve(x, P, () => 0, c.b, { w: 2.2 });
+      m.curve(x, P, G => G, c.a, { w: 2.2 }); m.curve(x, P, () => 0, c.b, { w: 2.2, dash: [6, 4] });
       tx(x, 'signal-to-noise: +G', P.X(1), P.Y(12), c.a); tx(x, 'signal-to-clutter: 0 dB', P.X(8), P.Y(2.4), c.b); },
     15: cv => { const { m, c, x, B } = S(cv); const g50 = 10 * Math.log10(2 * Math.sqrt(PI) / KF * 50), hd = 10 * Math.log10(720 / 27);
       const P = m.panel(x, B, [0, 21], [1, 3.6], { lab: 'log₁₀ I_SPTA.3 (mW/cm²) vs G (dB)', base: 1, ticks: [[10, '10'], [hd, ''], [20, '20']], hlines: [[Math.log10(720), 'limit 720']] });
@@ -1147,17 +1182,17 @@
       tx(x, '27 mW/cm² short pulse', P.X(0.4), P.Y(1.25), c.mu); },
     16: cv => { const { m, c, x, B } = S(cv);
       const P = m.panel(x, B, [0, 2], [-0.1, 2.1], { lab: 'log₁₀ sum of K pulses vs K', base: -0.1, ticks: [[0, '1'], [1, '10'], [Math.log10(75), '75']] });
-      m.curve(x, P, L => L, c.a, { w: 2.2 }); m.curve(x, P, L => L / 2, c.b, { w: 2 }); vl(x, P, Math.log10(75), c.mu);
+      m.curve(x, P, L => L, c.a, { w: 2.2 }); m.curve(x, P, L => L / 2, c.b, { w: 2, dash: [6, 4] }); vl(x, P, Math.log10(75), c.mu);
       tx(x, 'signal ∝ K', P.X(0.1), P.Y(0.55), c.a); tx(x, 'noise std ∝ √K', P.X(1.1), P.Y(0.3), c.b); tx(x, 'SNR ∝ K = one code of K× energy', P.X(0.05), P.Y(1.9), c.fg); },
     17: cv => { const { m, c, x, B } = S(cv); const bz = T => 1540 * T * 1e-6 / 2 * 1e3;
       const P = m.panel(x, B, [0, 44], [0, 36], { lab: 'blind zone cT/2 (mm) vs T (µs)', ticks: [[5, '5'], [10, '10'], [20, '20'], [40, '40']] });
       m.curve(x, P, bz, c.a, { w: 2.2 }); [5, 10, 20, 40].forEach(T => pt(x, P, T, bz(T), c.b, F(bz(T), 2), -6, -8, 'right')); },
     18: cv => { const { m, c, x, w, h } = S(cv); const [L, R] = split(w, h, 0.5);
-      const P = m.panel(x, L, [-0.5, 13], [-1.3, 1.6], { lab: 'cos φ, cos 2φ' }), bw = Math.max(3, L.w / 34);
+      const P = m.panel(x, L, [-0.5, 13], [-1.3, 1.6], { lab: 'cos φ, cos 2φ vs chip' }), bw = Math.max(3, L.w / 34);
       bars(x, P, BARK.map((v, i) => [i + 0.5, v, c.a]), bw); line(x, P, BARK.map((_, i) => i + 0.5), BARK.map(() => 1.35), c.b, { dots: true, nol: true, r: 2.4 });
       tx(x, '2φ ≡ 0: uncoded', P.X(0.2), P.Y(-1.15), c.b);
       const Q = m.panel(x, R, [-0.5, 0.5], [0, 14], { lab: 'f_i (MHz) vs t/T', ticks: [[-0.5, '−½'], [0.5, '½']] });
-      m.curve(x, Q, t => 5 + 3 * t, c.a, { w: 2 }); m.curve(x, Q, t => 10 + 6 * t, c.b, { w: 2 }); tx(x, 'f₀ + Bt/T', Q.X(-0.45), Q.Y(6.6), c.a); tx(x, '2f₀, sweep 2B', Q.X(-0.45), Q.Y(10.4), c.b); }
+      m.curve(x, Q, t => 5 + 3 * t, c.a, { w: 2 }); m.curve(x, Q, t => 10 + 6 * t, c.b, { w: 2, dash: [6, 4] }); tx(x, 'f₀ + Bt/T', Q.X(-0.45), Q.Y(6.6), c.a); tx(x, '2f₀, sweep 2B', Q.X(-0.45), Q.Y(10.4), c.b); }
   };
   Lab.onShow('m10', () => Object.keys(FIG).forEach(k => { const cv = document.getElementById('m10-rf-' + k); if (cv) { try { FIG[k](cv); } catch (e) { console.error(e); } } }));
 })();

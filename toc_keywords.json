@@ -1,0 +1,197 @@
+{
+ "34": {
+  "34.1": "The chain",
+  "34.3": "Gray maps",
+  "34.4": "DICOM GSDF",
+  "34.5": "Monitors",
+  "34.6": "Scan conversion",
+  "34.9": "Spectral Doppler and M-mode displays"
+ },
+ "1": {
+  "01.1": "Numbers as arrows",
+  "01.3": "Euler's formula",
+  "01.4": "rotating phasor",
+  "01.5": "negative frequencies",
+  "01.9": "Derivative"
+ },
+ "2": {},
+ "3": {
+  "03.2": "impulse response",
+  "03.4": "eigenfunctions",
+  "03.5": "imaginary part of H",
+  "03.6": "convolution theorem",
+  "03.7": "poles and zeros",
+  "03.8": "Filtering an RF line"
+ },
+ "4": {
+  "04.2": "Bandpass sampling",
+  "04.4": "Windowing",
+  "04.6": "FFT filtering",
+  "04.7": "Spatial sampling"
+ },
+ "5": {
+  "05.1": "inner products",
+  "05.3": "linear map",
+  "05.4": "four fundamental subspaces",
+  "05.5": "least squares",
+  "05.6": "Conditioning",
+  "05.7": "Unitary matrices",
+  "05.8": "linear operator"
+ },
+ "6": {
+  "06.3": "Low-rank approximation",
+  "06.4": "PCA",
+  "06.5": "SVD clutter filter",
+  "06.6": "Where this goes next"
+ },
+ "7": {
+  "07.1": "Random variables",
+  "07.2": "Covariance",
+  "07.3": "Estimating covariance",
+  "07.4": "covariance matrix",
+  "07.5": "Correlation functions"
+ },
+ "8": {
+  "08.1": "Real signals",
+  "08.2": "analytic signal",
+  "08.4": "Phase carries delay",
+  "08.5": "Beamforming on IQ",
+  "08.6": "attenuation downshift"
+ },
+ "9": {
+  "09.7": "Doppler wall filters"
+ },
+ "10": {
+  "10.2": "Time–bandwidth product"
+ },
+ "11": {
+  "11.1": "Cross-correlation",
+  "11.2": "Subsample estimation",
+  "11.5": "Decorrelation sources",
+  "11.6": "Ultrasound applications"
+ },
+ "12": {
+  "12.1": "Estimators",
+  "12.2": "Likelihood",
+  "12.3": "Cramér–Rao bound",
+  "12.4": "Frequency estimation",
+  "12.7": "Biased estimators"
+ },
+ "13": {
+  "13.1": "Forward models",
+  "13.6": "Sparsity",
+  "13.8": "Echo-mode sound-speed tomography"
+ },
+ "14": {
+  "14.1": "Gradient descent",
+  "14.2": "Gauss–Newton and Levenberg–Marquardt",
+  "14.3": "stochastic gradients",
+  "14.4": "Convexity",
+  "14.6": "Automatic differentiation",
+  "14.7": "Wirtinger calculus"
+ },
+ "15": {
+  "15.1": "linear wave equation",
+  "15.2": "Reflection, transmission and refraction",
+  "15.3": "Scattering regimes",
+  "15.4": "Diffraction and focusing",
+  "15.7": "Pulse inversion"
+ },
+ "16": {
+  "16.1": "piezoelectric effect",
+  "16.2": "Coupling coefficients",
+  "16.4": "Thickness-mode resonance",
+  "16.5": "Mason and KLM equivalent circuits",
+  "16.8": "Electrical tuning"
+ },
+ "17": {
+  "17.3": "quarter-wave layer",
+  "17.4": "Broadband matching",
+  "17.8": "lateral modes",
+  "17.9": "Finite-element design"
+ },
+ "18": {
+  "18.1": "CMUT cell",
+  "18.2": "collapse mode",
+  "18.3": "water load",
+  "18.7": "bulk and film materials"
+ },
+ "19": {},
+ "20": {
+  "20.1": "signal chain",
+  "20.3": "T/R switch",
+  "20.4": "LNA noise",
+  "20.5": "TGC, anti-aliasing and the ADC",
+  "20.6": "beamformer architectures",
+  "20.7": "thermal budgets"
+ },
+ "21": {
+  "21.1": "Two families of simulators",
+  "21.2": "spatial impulse response",
+  "21.5": "What each tool can model",
+  "21.6": "Pulse-echo testing",
+  "21.7": "Hydrophone measurements",
+  "21.8": "Array QA"
+ },
+ "22": {
+  "22.4": "mechanical index"
+ },
+ "23": {},
+ "24": {
+  "24.2": "Stolt's change of variables"
+ },
+ "25": {
+  "25.2": "Minimum variance (Capon)"
+ },
+ "26": {
+  "26.3": "How many scatterers",
+  "26.4": "Speckle size",
+  "26.7": "Detection"
+ },
+ "27": {
+  "27.4": "Parametric (AR) spectra",
+  "27.7": "Backscatter coefficient"
+ },
+ "28": {
+  "28.3": "Rayleigh–Plesset equation",
+  "28.5": "Contrast-specific pulse sequences",
+  "28.7": "Separating bubbles from tissue"
+ },
+ "29": {
+  "29.1": "Doppler equation",
+  "29.5": "Spectrogram estimation",
+  "29.10": "Power Doppler",
+  "29.12": "Aliasing and unwrapping"
+ },
+ "30": {
+  "30.3": "Acoustic radiation force",
+  "30.8": "Guided waves"
+ },
+ "31": {
+  "31.1": "chain of estimators"
+ },
+ "32": {
+  "32.2": "Global sound speed",
+  "32.7": "Error budget"
+ },
+ "33": {
+  "33.4": "isoplanatic patch"
+ },
+ "35": {
+  "35.1": "pipeline",
+  "35.3": "Classical spatial filters",
+  "35.4": "Multiscale structure",
+  "35.6": "Compounding",
+  "35.10": "other fields"
+ },
+ "36": {
+  "36.1": "regulatory map",
+  "36.3": "FDA ultrasound guidance",
+  "36.4": "Changes without a new 510(k)",
+  "36.8": "Predicates and the 510(k) package",
+  "36.11": "EU route",
+  "36.12": "AI-enabled ultrasound features",
+  "36.13": "commercial launch",
+  "36.14": "Best practices"
+ }
+}

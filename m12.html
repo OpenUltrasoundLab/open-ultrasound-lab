@@ -20,6 +20,8 @@
     </div>
   </header>
   <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>Monte Carlo or matrix solve run here (JS in the page, or the named Octave script)</span><span><span class="prov model">Approx. model</span>simplified physics (Gaussian PSF, white circular noise, straight-ray delays); assumptions stated under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not computed</span><span>No curve on this page is hand-drawn: every plotted line comes from the formula or the simulation named next to it.</span></div>
+  <div class="k60"><span class="label">In 60 seconds</span><ol><li><b>Error splits into bias and variance:</b> Total error has a systematic part, bias, and a random part, variance, and only the variance averages down. Mean squared error is \(b^2 + \mathrm{var}\), with b the bias, so 2 µm of bias and 3 µm of jitter give 3.6 µm RMS. Always report the bias beside an RMS error. <a class="sref" href="#m12-s12-1">§12.1</a></li><li><b>Gaussian maximum likelihood is least squares:</b> In Gaussian noise the most likely parameter value is the least-squares fit, weighted for coloured noise. With an unknown complex amplitude removed, the criterion becomes the normalized correlation of the data with a model signal: the periodogram for a tone, a scanned matched filter for a bubble, the correlation peak for a delay. <a class="sref" href="#m12-s12-2">§12.2</a></li><li><b>Fisher information measures sensitivity against noise:</b> Fisher information I measures how strongly the signal changes with the parameter relative to noise, and it adds over independent samples. No unbiased estimator has variance below 1/I, the Cramér–Rao lower bound (CRLB). Demodulating RF to IQ neither creates nor destroys information; apparent factors of 2 are noise-power conventions. <a class="sref" href="#m12-s12-3">§12.3</a></li><li><b>Frequency precision grows fast with record length:</b> A tone’s frequency is pinned ever more tightly as the record lengthens: the bound on its standard deviation falls as \(N^{-3/2}\), with N the samples. The periodogram peak reaches the bound only above a threshold in integrated SNR, N times per-sample SNR: 13 dB for N = 32. Below it, errors explode. <a class="sref" href="#m12-s12-4">§12.4</a></li><li><b>Localization is set by width and energy, not pixels:</b> A microbubble can be located far more finely than the beam is wide: \(\sigma_x \ge \mathrm{FWHM}/(2.355\sqrt{\mathrm{ENR}})\), with FWHM the full width at half maximum of the point-spread function and ENR the energy-to-noise ratio. λ/10 with FWHM = λ needs 12.6 dB. Smaller pixels only fake improvement by inflating ENR. <a class="sref" href="#m12-s12-5">§12.5</a></li><li><b>Every unknown costs:</b> Parameters you must estimate but do not care about (nuisance parameters) inflate the error whenever they mimic the signature of the one you want, so the bound that assumes them known is optimistic. An unknown neighbouring bubble at half the beam width inflates localization error 3.96-fold. More views, calibration or a prior buy precision back. <a class="sref" href="#m12-s12-6">§12.6</a></li><li><b>Beating the bound requires bias:</b> A biased estimator can beat the bound locally: shrinking the mean by a factor 0.8 toward a target reaches 0.64 of the bound there, breaks even three standard deviations away and loses beyond. Regularized and learned estimators behave the same way, so they must report bias over the whole range of interest. <a class="sref" href="#m12-s12-7">§12.7</a></li></ol></div>
+  <div class="field"><span class="label">From the field</span><ul><li><b>Compute the Cramér–Rao lower bound (CRLB) before building the estimator; an unbiased estimator that beats it is a bug.</b> <span class="why">A result below the bound usually means a factor-2 real-versus-complex error, leaked truth or hidden bias. Far above it at low SNR, the estimator has crossed its threshold: 13 dB integrated SNR for a 32-sample periodogram. <a class="sref" href="#m12-s12-3">§12.3</a> <a class="sref" href="#m12-s12-4">§12.4</a></span></li><li><b>Compare regularized or learned estimators with the bound only through their bias across the whole range.</b> <span class="why">The CRLB holds for unbiased estimators, so beating it at one point proves nothing. Shrinkage by 0.8 reaches 0.64 of the bound at its target but breaks even three standard deviations away and loses beyond. <a class="sref" href="#m12-s12-7">§12.7</a></span></li><li><b>Put every parameter you do not actually know into the bound as a nuisance parameter.</b> <span class="why">The bound that assumes everything else known is optimistic when another parameter mimics yours. Single-target sound speed at 30 mm degrades from 0.0034 to 2.8 m/s once depth and time origin are unknown. <a class="sref" href="#m12-s12-6">§12.6</a></span></li><li><b>Use the bound to size SNR, bandwidth and ensemble length before committing hardware.</b> <span class="why">It shows which spec limits precision. Microbubble localization at λ/10 with a beam width (FWHM) of λ needs only 12.6 dB energy-to-noise ratio; Doppler velocity reaches 1.49 mm/s with 16 pulses at 10 dB, a 5 kHz pulse rate and 5 MHz. <a class="sref" href="#m12-s12-4">§12.4</a> <a class="sref" href="#m12-s12-5">§12.5</a></span></li></ul></div>
 
   <!-- ======================= 12.1 ======================= -->
   <div class="prose">
@@ -48,19 +50,26 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m12-c1a" aria-label="Histograms of scaled estimation errors for three estimators with the CRLB density"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>sample mean</span><span><i style="background:var(--sig2)"></i>sample median</span><span><i style="background:var(--sig3)"></i>midrange</span><span><i style="background:var(--ink)"></i>CRLB density N(0, N·CRLB/σ²)</span></div>
+        <div class="legend" id="m12-1leg"><span data-s="0"><i style="background:var(--accent)"></i>sample mean</span><span data-s="1"><i class="dash" style="color:var(--sig2)"></i>sample median</span><span data-s="2"><i class="dot" style="color:var(--sig3)"></i>midrange</span><span data-s="cr"><i class="dash" style="color:var(--ink)"></i>CRLB: density N(0, N·CRLB/σ²) (top), level (bottom)</span></div>
         <canvas id="m12-c1b" aria-label="N times variance versus N for three estimators"></canvas>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m12-1law">Noise law (unit variance)</label><select id="m12-1law"><option value="gauss">Gaussian</option><option value="laplace">Laplace</option><option value="unif">Uniform</option></select></div>
-        <div class="ctrl"><label for="m12-1N"><span>Samples N</span><output id="m12-1N-o">25</output></label><input type="range" id="m12-1N" min="0" max="11" step="1" value="5"></div>
+        <div class="ctrl"><label for="m12-1law">Noise distribution (unit variance) <span class="hint">the law of the noise added to A</span></label><select id="m12-1law"><option value="gauss">Gaussian</option><option value="laplace">Laplace</option><option value="unif">Uniform</option></select></div>
+        <div class="ctrl"><label for="m12-1N"><span>Number of samples N</span><output id="m12-1N-o">25</output> <span class="hint">averaged into one estimate per trial</span></label><input type="range" id="m12-1N" min="0" max="11" step="1" value="5"></div>
         <div class="readout" id="m12-1read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> top panel shows \(\sqrt{N}(\hat A - A)/\sigma\) from 4000 trials (2000 for N &gt; 60), so an efficient estimator always matches the black curve. Gaussian: the mean sits on the bound and the median is wider by \(\sqrt{\pi/2} = 1.25\) in std. Switch to Laplace: the median approaches the bound \(\sigma^2/(2N)\) slowly (\(N\cdot\operatorname{var} \approx 0.68\) at N = 25, 0.6 at N = 129) while the mean stays at 1. Uniform: no bound exists, and the midrange curve collapses as N grows because its variance falls as \(1/N^2\).</div>
+    <div class="demo-foot"><strong>Try:</strong> top panel shows \(\sqrt{N}(\hat A - A)/\sigma\) from 4000 trials (2000 for N &gt; 60), so an efficient estimator always matches the black curve. Gaussian: the mean sits on the bound and the median is wider by \(\sqrt{\pi/2} = 1.25\) in std. Switch to Laplace: the median approaches the bound \(\sigma^2/(2N)\) slowly (\(N\cdot\operatorname{var} \approx 0.68\) at N = 25, 0.6 at N = 129) while the mean stays at 1. Uniform: no bound exists, and the midrange curve collapses as N grows because its variance falls as \(1/N^2\).<span class="symnote">Symbols used here: A, the true constant; Â, its estimate; σ, noise standard deviation (1 here); N, samples per estimate; var, variance of Â over the trials; CRLB, Cramér–Rao lower bound on var.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>Speckle intensity \(I\) is exponential with mean \(\mu\) (Module 07). The sample mean of intensities is the MLE of \(\mu\) and is efficient (\(\operatorname{var} = \mu^2/N\)). Averaging log-compressed values instead estimates \(\ln\mu\) with a bias of \(-\gamma\) (−2.51 dB in \(10\log_{10}\)) and a variance \(\pi^2/6 = 1.64\) times the CRLB: 61 % efficiency. Backscatter and attenuation estimators should average intensity (or power spectra), not decibels.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>MSE = b² + var: an RMSE of 3.6 µm can be 2 µm of bias plus 3 µm of jitter; report both, because only the variance averages down.</li>
+    <li>The bound belongs to the noise model: in Gaussian noise the mean is efficient and the median 64 % efficient; in Laplace noise the median is asymptotically efficient and the mean 50 %.</li>
+    <li>The CRLB needs a support that does not move with θ; uniform noise breaks it and the midrange variance falls as 1/N².</li>
+    <li>Speckle intensity: the sample mean is the efficient MLE (var μ²/N); averaging dB is biased by −2.51 dB and 61 % efficient.</li>
+  </ul></div>
 
   <!-- ======================= 12.2 ======================= -->
   <div class="prose">
@@ -91,6 +100,12 @@
   </div>
   <div class="rf-grid" id="m12-g2"></div>
 
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>The MLE is invariant, consistent, asymptotically normal and efficient, but not unbiased at finite N: E|â|² = |a|² + σ²/‖s‖².</li>
+    <li>Gaussian noise makes ML equal to least squares (weighted with coloured noise); in the linear Gaussian model the LS covariance σ²(HᵀH)⁻¹ equals the CRLB at any N.</li>
+    <li>Concentrating out a complex amplitude leaves |gᴴy|²/‖g‖²: the periodogram for a tone, a matched filter scanned over the image for a bubble, the correlation peak for a delay.</li>
+  </ul></div>
+
   <!-- ======================= 12.3 ======================= -->
   <div class="prose">
     <h2><span class="sec">12.3</span>Fisher information and the Cramér–Rao bound</h2>
@@ -116,7 +131,7 @@
     <dl class="where"><dt>\(I_{ij},\ \mathbf{I}\)</dt><dd>Fisher information entry and matrix, as in (12.5)</dd><dt>\(\sigma^2\)</dt><dd>total noise power per complex sample (\(\sigma^2/2\) per quadrature)</dd><dt>\(w\)</dt><dd>circular complex noise sample</dd><dt>\(s[n]\)</dt><dd>noise-free complex signal sample</dd><dt>\(\theta_i,\ \theta_j\)</dt><dd>parameters</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(\mathbf{J},\ \mathbf{C}\)</dt><dd>Jacobian and noise covariance, as in (12.6)</dd><dt>\(\mathrm{Re}\)</dt><dd>real part</dd><dt>\((\cdot)^{*},\ (\cdot)^{H}\)</dt><dd>conjugate and conjugate transpose</dd><dt>\(\mathrm{E}[\cdot]\)</dt><dd>expectation</dd></dl>
       <span class="note">Information is the energy of the signal's derivative, measured against the noise: a parameter is well determined when changing it changes the signal a lot compared with the noise. The bound depends on the noise only through its covariance, and the parameters only through \(\mathbf{J}\).</span>
     </div>
-    <p><strong>Where the factor 2 comes from.</strong> A complex sample is two real samples. With total noise power \(\sigma^2 = \mathrm{E}\lvert w\rvert^2\), each quadrature has variance \(\sigma^2/2\), so \(I = \sum(\partial\,\mathrm{Re}\,s)^2/(\sigma^2/2)\) \(+ \sum(\partial\,\mathrm{Im}\,s)^2/(\sigma^2/2)\) \(= (2/\sigma^2)\sum\lvert\partial s\rvert^2\). Three consequences, all checked in <span class="m">m12_crlb_amplitude_mle.m</span>:</p>
+    <p><strong>Where the factor 2 comes from.</strong> A complex sample is two real samples. With total noise power \(\sigma^2 = \mathrm{E}\lvert w\rvert^2\), each quadrature has variance \(\sigma^2/2\), so \(I = \sum(\partial\,\mathrm{Re}\,s)^2/(\sigma^2/2)\) \(+ \sum(\partial\,\mathrm{Im}\,s)^2/(\sigma^2/2)\) \(= (2/\sigma^2)\sum\lvert\partial s\rvert^2\). It has three consequences, all checked in <span class="m">m12_crlb_amplitude_mle.m</span>:</p>
     <ul>
       <li>Real amplitude of a known complex pulse (phase known), complex noise: \(\operatorname{var}(\hat a) \ge \sigma^2/(2\lVert\mathbf{s}\rVert^2)\).</li>
       <li>Complex amplitude (phase unknown): \(\mathrm{E}\lvert\hat a - a\rvert^2 \ge \sigma^2/\lVert\mathbf{s}\rVert^2\), i.e. \(\sigma^2/(2\lVert\mathbf{s}\rVert^2)\) per real component.</li>
@@ -127,6 +142,12 @@
   <div class="rf-grid" id="m12-g3"></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>The CRLB bounds unbiased estimators only, and only locally. An estimator that clips its output to a search range, or a localizer that returns the pixel centre when the fit fails, is biased; its variance can sit below \(1/I\) and that proves nothing. Always plot bias and RMSE separately against the true parameter.</p></div>
 
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Fisher information is the variance of the score and the expected curvature of the log-likelihood; for a signal in Gaussian noise it is the energy of ∂s/∂θ against the noise, and it adds over independent samples.</li>
+    <li>With E|w|² = σ², I = (2/σ²)Σ|∂s|²: a phase-known amplitude has var ≥ σ²/(2‖s‖²) in IQ against σ²/‖s‖² for real RF in real noise; demodulation neither creates nor destroys information.</li>
+    <li>The bound covers unbiased estimators only, and only locally: a clipped or fallback estimator can sit below 1/I and prove nothing, so plot bias and RMSE separately.</li>
+  </ul></div>
+
   <!-- ======================= 12.4 ======================= -->
   <div class="prose">
     <h2><span class="sec">12.4</span>Frequency estimation, the threshold and global bounds</h2>
@@ -136,7 +157,7 @@
     <dl class="where"><dt>\(\mathbf{I}\)</dt><dd>Fisher matrix for the unknowns \((\omega, \varphi)\)</dd><dt>\(A,\ \varphi\)</dt><dd>tone amplitude and unknown phase, rad</dd><dt>\(\omega,\ \hat\omega\)</dt><dd>true and estimated frequency, rad/sample (Doppler: \(2\pi f_D/\mathrm{PRF}\))</dd><dt>\(n\)</dt><dd>pulse index, \(0,\dots,N-1\)</dd><dt>\(N\)</dt><dd>ensemble length (pulses)</dd><dt>\(\sigma^2\)</dt><dd>total complex noise power per sample</dd><dt>\(\mathrm{SNR}\)</dt><dd>per-sample \(A^2/\sigma^2\), linear</dd><dt>\(\sum\)</dt><dd>sum over \(n = 0,\dots,N-1\)</dd></dl>
       <span class="note">\(N\sum n^2 - (\sum n)^2 = N^2(N^2 - 1)/12\) for \(n = 0,\dots,N-1\). The variance falls as \(N^{-3}\): N samples of SNR each, times an \(N^2\) lever arm, because a frequency error produces a phase error that grows linearly along the record.</span>
     </div>
-    <p>For a <strong>real</strong> sinusoid \(x[n] = A\cos(2\pi f n + \varphi) + w[n]\) in real noise of variance \(\sigma^2\) (Kay, Vol. I, Example 3.14), with \(\eta = A^2/(2\sigma^2)\):</p>
+    <p>For a real sinusoid \(x[n] = A\cos(2\pi f n + \varphi) + w[n]\) in real noise of variance \(\sigma^2\) (Kay, Vol. I, Example 3.14), with \(\eta = A^2/(2\sigma^2)\):</p>
     <div class="eqn" id="m12-eq9">
       <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \operatorname{var}(\hat f) &amp;\ge \frac{12}{(2\pi)^2\,\eta\,N(N^2 - 1)} \\ &amp;\phantom{\ge}\ \ (\text{cycles/sample})^2 \\ \text{i.e.}\quad \operatorname{var}(\hat\omega) &amp;\ge \frac{12}{\eta\,N(N^2 - 1)} \end{aligned} \]</div><span class="eqn-no">(12.9)</span></div>
     <dl class="where"><dt>\(\hat f,\ \hat\omega\)</dt><dd>estimated frequency (cycles/sample) and angular frequency (rad/sample), \(\omega = 2\pi f\)</dd><dt>\(\eta\)</dt><dd>real-sinusoid SNR \(A^2/(2\sigma^2)\), linear</dd><dt>\(N\)</dt><dd>number of samples</dd><dt>\(\operatorname{var}\)</dt><dd>estimator variance</dd></dl>
@@ -154,18 +175,24 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m12-c2a" aria-label="RMS frequency error versus per-sample SNR with CRLB"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>periodogram peak (MLE)</span><span><i style="background:var(--sig3)"></i>lag-one (Kasai)</span><span><i style="background:var(--ink)"></i>CRLB 6/(SNR·N(N²−1))</span><span><i style="background:var(--sig3);opacity:.5"></i>Kasai high-SNR limit</span><span><i style="background:var(--muted)"></i>uniform guess π/√3</span></div>
+        <div class="legend" id="m12-2leg"><span data-s="mle"><i class="mark" style="background:var(--accent)"></i>periodogram peak (MLE), solid line</span><span data-s="kas"><i class="mark" style="background:var(--sig3)"></i>lag-one (Kasai), dotted line</span><span data-s="crlb"><i style="background:var(--ink)"></i>CRLB 6/(SNR·N(N²−1))</span><span data-s="klim"><i class="dash" style="color:var(--sig3)"></i>Kasai high-SNR limit</span><span data-s="uni"><i class="dot" style="color:var(--muted)"></i>uniform guess π/√3</span></div>
         <canvas id="m12-c2b" aria-label="Outlier fraction versus integrated SNR"></canvas>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m12-2N">Ensemble length N</label><select id="m12-2N"><option>8</option><option>16</option><option selected>32</option><option>64</option><option>128</option></select></div>
-        <div class="ctrl"><label for="m12-2prf"><span>PRF (for velocity)</span><output id="m12-2prf-o">5.0 kHz</output></label><input type="range" id="m12-2prf" min="1" max="10" step="0.5" value="5"></div>
+        <div class="ctrl"><label for="m12-2N">Ensemble length N (samples) <span class="hint">slow-time samples per frequency estimate</span></label><select id="m12-2N"><option>8</option><option>16</option><option selected>32</option><option>64</option><option>128</option></select></div>
+        <div class="ctrl"><label for="m12-2prf"><span>Pulse repetition frequency PRF</span><output id="m12-2prf-o">5.0 kHz</output> <span class="hint">only converts rad/sample to Hz and mm/s</span></label><input type="range" id="m12-2prf" min="1" max="10" step="0.5" value="5"></div>
         <div class="btn-row"><button class="btn solid" id="m12-2run" type="button">Run 160 trials per SNR</button></div>
         <div class="readout" id="m12-2read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> \(f_0\) = 5 MHz, c = 1540 m/s, true \(\omega\) uniform over \((-\pi, \pi]\). MLE = zero-padded periodogram peak refined on a fine grid. At N = 32 the MLE leaves the bound between 0 and −4 dB per sample (13 → 11 dB integrated): the knee is the threshold. Raise N to 128: the threshold moves to lower per-sample SNR but stays near the same integrated \(N\cdot\mathrm{SNR}\) (it creeps up slowly with N because there are more bins that can win). The lag-one estimator approaches its high-SNR limit \(N(N+1)/(6(N-1))\) times the CRLB only above about 20 dB.</div>
+    <div class="demo-foot"><strong>Try:</strong> \(f_0\) = 5 MHz, c = 1540 m/s, true \(\omega\) uniform over \((-\pi, \pi]\). The MLE is the zero-padded periodogram peak, refined on a fine grid. At N = 32 the MLE leaves the bound between 0 and −4 dB per sample (13 → 11 dB integrated): the knee is the threshold. Raise N to 128: the threshold moves to lower per-sample SNR but stays near the same integrated \(N\cdot\mathrm{SNR}\) (it creeps up slowly with N because there are more bins that can win). The lag-one estimator approaches its high-SNR limit \(N(N+1)/(6(N-1))\) times the CRLB only above about 20 dB.<span class="symnote">Symbols used here: ω, the slow-time frequency in rad/sample; A, signal amplitude; σ², noise power, so SNR = A²/σ² per sample; N, ensemble length; MLE, maximum-likelihood estimate; CRLB, Cramér–Rao lower bound; σ<sub>f</sub> and σ<sub>v</sub>, the bound expressed as frequency (Hz) and velocity (mm/s).</span></div>
   </div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Complex tone: var(ω̂) ≥ 6/(SNR·N(N²−1)), so σ ∝ N<sup>−3/2</sup>; a real sinusoid has twice that at equal SNR. M = 16, 10 dB, PRF 5 kHz, 5 MHz: 1.49 mm/s.</li>
+    <li>The periodogram peak is the MLE; the lag-one (Kasai) estimator sits a factor N(N+1)/(6(N−1)) above the bound (5.7 at N = 32) but is cheaper and robust for broad spectra.</li>
+    <li>The threshold follows the integrated SNR N·SNR: for N = 32 the MLE is on the bound at ≥ 13 dB and about 180× above it at 11 dB, with 2 % outliers.</li>
+  </ul></div>
 
   <!-- ======================= 12.5 ======================= -->
   <div class="prose">
@@ -300,8 +327,8 @@
 <text x="462.0" y="248.0" style="font-family:var(--f-display);font-size:13px;fill:var(--ink);font-weight:600;" text-anchor="middle">σₓ ≥ w/√ENR</text>
 </svg>
 <p class="cap">Localization geometry. The beamformed bubble echo covers a PSF footprint (solid: −6 dB, dashed: −20 dB) sampled by λ/4 pixels. The MLE slides the template g(x − θ) over the data; the information sits on the flanks of the PSF, where ∂g/∂x is large, so the precision is set by w and the ENR, not by the pixel.</p></div>
-    <p><strong>Precision is not resolution.</strong> A λ/10 figure in a ULM paper is the standard deviation of one isolated bubble's position. Two bubbles inside one PSF at the same time are a different estimation problem with more unknowns (Section 12.6), and their positions degrade sharply below about one FWHM of separation. Final ULM maps add tracking errors, motion, SVD-filter residue and the finite number of localizations per pixel on top of this bound.</p>
-    <p><strong>The pixel does not set the bound.</strong> \(\sigma_x\) depends on the PSF width and on the noise density. Pixels finer than the Nyquist spacing of the noise band add samples whose noise is correlated, not new information. What the pixel size changes is what a given estimator can extract. A simulation that adds independent noise to every pixel at a fixed per-pixel SNR makes ENR grow as \(1/p^2\), so the "bound" improves with finer pixels: an artefact of the noise model.</p>
+    <p><strong>Precision versus resolution.</strong> Precision is not resolution. A λ/10 figure in a ULM paper is the standard deviation of one isolated bubble's position. Two bubbles inside one PSF at the same time are a different estimation problem with more unknowns (Section 12.6), and their positions degrade sharply below about one FWHM of separation. Final ULM maps add tracking errors, motion, SVD-filter residue and the finite number of localizations per pixel on top of this bound.</p>
+    <p><strong>Pixel size.</strong> The pixel does not set the bound: \(\sigma_x\) depends on the PSF width and on the noise density. Pixels finer than the Nyquist spacing of the noise band add samples whose noise is correlated, not new information. What the pixel size changes is what a given estimator can extract. A simulation that adds independent noise to every pixel at a fixed per-pixel SNR makes ENR grow as \(1/p^2\), so the "bound" improves with finer pixels: an artefact of the noise model.</p>
     <h3>How the common localizers compare</h3>
     <ul>
       <li><strong>Maximum likelihood</strong>: maximize \(\lvert\langle y,\, g(\cdot - x_0, \cdot - z_0)\rangle\rvert^2\) over \((x_0, z_0)\), i.e. a Gaussian fit with complex amplitude <span class="eqref">(12.3)</span>. Efficient above threshold at any pixel size that samples the PSF.</li>
@@ -309,7 +336,7 @@
       <li><strong>Amplitude-weighted centroid</strong> of \(\lvert y\rvert\): weights every pixel in the box with equal noise, so the error variance grows with box area (1.2–3 times the bound in the MATLAB lab).</li>
       <li><strong>3-point parabola or Gaussian</strong> through the peak pixel and its neighbours: cheap, but they use only three samples. As pixels shrink they see less of the PSF and lose information (about 2.2 times the bound at λ/4 and λ/8); the parabola on |y| also has a deterministic bias at coarse pixels (Module 11 showed the same for delays).</li>
     </ul>
-    <p><strong>Axial: the phase is not free information.</strong> After demodulation the axial IQ PSF is the envelope times a phase \(e^{-j2kz_0}\) that also depends on \(z_0\). If that phase were known, \(\lvert\partial s/\partial z_0\rvert^2 = g'^2 + 4k^2 g^2\) (\(k = 2\pi/\lambda\)) and the axial information would be \((1 + 8k^2 w_z^2)\) times larger: 33 times (5.7 times in σ) for an axial FWHM of 0.75λ. Bubble phase depends on bubble size, shell and the exact scatterer position, so localizers treat it as unknown, and with \(a\) unknown the carrier term cancels exactly: only the envelope counts (verified in <span class="m">m12_nuisance_fisher.m</span>, Part 3).</p>
+    <p><strong>Axial phase.</strong> The carrier phase is not free information. After demodulation the axial IQ PSF is the envelope times a phase \(e^{-j2kz_0}\) that also depends on \(z_0\). If that phase were known, \(\lvert\partial s/\partial z_0\rvert^2 = g'^2 + 4k^2 g^2\) (\(k = 2\pi/\lambda\)) and the axial information would be \((1 + 8k^2 w_z^2)\) times larger: 33 times (5.7 times in σ) for an axial FWHM of 0.75λ. Bubble phase depends on bubble size, shell and the exact scatterer position, so localizers treat it as unknown, and with \(a\) unknown the carrier term cancels exactly: only the envelope counts (verified in <span class="m">m12_nuisance_fisher.m</span>, Part 3).</p>
   </div>
 
   <div class="demo">
@@ -318,22 +345,29 @@
       <div class="stage">
         <canvas id="m12-c3a" aria-label="Simulated bubble image in dB with true and estimated positions, and a zoom on the pixel grid"></canvas>
         <canvas id="m12-c3b" aria-label="Lateral RMSE versus ENR for five localizers with the CRLB"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>MLE (Gaussian fit, complex a)</span><span><i style="background:var(--sig4)"></i>intensity centroid</span><span><i style="background:var(--sig3)"></i>amplitude centroid</span><span><i style="background:var(--sig2)"></i>3-point Gaussian</span><span><i style="background:var(--muted)"></i>3-point parabola</span><span><i style="background:var(--ink)"></i>CRLB w<sub>x</sub>/√ENR</span></div>
+        <div class="legend" id="m12-3leg"><span data-s="e0"><i class="mark" style="background:var(--accent)"></i>MLE (Gaussian fit, complex a), solid</span><span data-s="e1"><i class="dash" style="color:var(--sig4)"></i>intensity centroid</span><span data-s="e2"><i class="dot" style="color:var(--sig3)"></i>amplitude centroid</span><span data-s="e3"><i class="dash" style="color:var(--sig2)"></i>3-point Gaussian (dash-dot)</span><span data-s="e4"><i class="dash" style="color:var(--muted)"></i>3-point parabola (long dash)</span><span data-s="cr"><i class="dash" style="color:var(--ink)"></i>CRLB w<sub>x</sub>/√ENR (no markers)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m12-3pix">Pixel size</label><select id="m12-3pix"><option value="0.5">λ/2</option><option value="0.25" selected>λ/4</option><option value="0.125">λ/8</option></select></div>
-        <div class="ctrl"><label for="m12-3fw"><span>Lateral FWHM</span><output id="m12-3fw-o">1.0 λ</output></label><input type="range" id="m12-3fw" min="0.5" max="2" step="0.1" value="1"></div>
-        <div class="ctrl"><label for="m12-3f0"><span>f<sub>0</sub> (for µm)</span></label><select id="m12-3f0"><option value="3">3 MHz</option><option value="5" selected>5 MHz</option><option value="7.5">7.5 MHz</option><option value="15">15 MHz</option></select></div>
-        <div class="ctrl"><label for="m12-3e"><span>Shown ENR</span><output id="m12-3e-o">20 dB</output></label><input type="range" id="m12-3e" min="0" max="11" step="1" value="6"></div>
+        <div class="ctrl"><label for="m12-3pix">Pixel size (λ = wavelength) <span class="hint">image grid spacing</span></label><select id="m12-3pix"><option value="0.5">λ/2</option><option value="0.25" selected>λ/4</option><option value="0.125">λ/8</option></select></div>
+        <div class="ctrl"><label for="m12-3fw"><span>Lateral PSF width, FWHM</span><output id="m12-3fw-o">1.0 λ</output> <span class="hint">full width at half maximum of the bubble image</span></label><input type="range" id="m12-3fw" min="0.5" max="2" step="0.1" value="1"></div>
+        <div class="ctrl"><label for="m12-3f0"><span>Centre frequency f<sub>0</sub></span> <span class="hint">only converts λ to µm</span></label><select id="m12-3f0"><option value="3">3 MHz</option><option value="5" selected>5 MHz</option><option value="7.5">7.5 MHz</option><option value="15">15 MHz</option></select></div>
+        <div class="ctrl"><label for="m12-3e"><span>Energy-to-noise ratio ENR shown</span><output id="m12-3e-o">20 dB</output> <span class="hint">which simulated ENR the image and readout show</span></label><input type="range" id="m12-3e" min="0" max="11" step="1" value="6"></div>
         <div class="btn-row"><button class="btn solid" id="m12-3run" type="button">Run 150 trials</button><button class="btn" id="m12-3seed" type="button">New seed</button></div>
         <div class="readout" id="m12-3read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> axial FWHM fixed at 0.75λ; noise circular complex Gaussian, white over the rectangular band bounded by the −40 dB points of each 1D PSF energy spectrum; the bubble sits anywhere within ±½ pixel of the grid centre with a random phase. At λ/4 the MLE sits on the bound (1.03–1.1×) from about 16 dB up and the intensity centroid joins it above 25 dB; the 3-point fits stay near 2× and the amplitude centroid at 1.6–2.4×. Switch to λ/2: the 3-point Gaussian improves to 1.2–1.4× (each sample now covers more of the PSF) while the parabola develops a bias floor (about 6× at 40 dB). Switch to λ/8: the bound does not move. Below about 16 dB a growing fraction of trials lock onto a noise peak (outlier fraction in the readout); one outlier in 150 trials already doubles the RMSE. Widen the PSF: everything scales with FWHM. Narrow it to 0.5λ with λ/2 pixels (pixel = FWHM): the PSF is undersampled and every localizer, the MLE included, falls off the bound.</div>
+    <div class="demo-foot"><strong>Try:</strong> axial FWHM fixed at 0.75λ; noise circular complex Gaussian, white over the rectangular band bounded by the −40 dB points of each 1D PSF energy spectrum; the bubble sits anywhere within ±½ pixel of the grid centre with a random phase. At λ/4 the MLE sits on the bound (1.03–1.1×) from about 16 dB up and the intensity centroid joins it above 25 dB; the 3-point fits stay near 2× and the amplitude centroid at 1.6–2.4×. Switch to λ/2: the 3-point Gaussian improves to 1.2–1.4× (each sample now covers more of the PSF) while the parabola develops a bias floor (about 6× at 40 dB). Switch to λ/8: the bound does not move. Below about 16 dB a growing fraction of trials lock onto a noise peak (outlier fraction in the readout); one outlier in 150 trials already doubles the RMSE. Widen the PSF: everything scales with FWHM. Narrow it to 0.5λ with λ/2 pixels (pixel = FWHM): the PSF is undersampled and every localizer, the MLE included, falls off the bound.<span class="symnote">Symbols used here: λ, wavelength (λ = c/f<sub>0</sub>, c = 1540 m/s); FWHM, full width at half maximum of the point-spread function (PSF); ENR, energy-to-noise ratio of the bubble echo in dB; a, the complex bubble amplitude; w<sub>x</sub>, the lateral PSF width parameter in the bound; σ<sub>x</sub>, σ<sub>z</sub>, lateral and axial CRLB standard deviations; RMSE, root-mean-square localization error.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>Errico et al. (Nature, 2015) introduced ultrafast ULM and reported localization well below the diffraction limit; λ/10-type numbers in the literature are precision figures of this kind. The PALA benchmark (Heiles et al., Nature Biomedical Engineering, 2022) compared standard localizers, from weighted averages and interpolation to Gaussian fitting and radial symmetry, on simulated and in vivo data with shared metrics; read its RMSE results against the bound above, with ENR, pixel size and PSF width stated. Precision also sets how many localizations per pixel a map needs before its texture reflects vessels rather than jitter.</p></div>
   <div class="callout pitfall"><span class="label">Do not import microscopy formulas</span><p>Single-molecule fluorescence localization (for example Thompson, Larson and Webb, Biophysical Journal, 2002) is a photon-counting problem with shot noise and pixel-integration terms. Ultrasound IQ noise is additive circular complex Gaussian, and the bubble amplitude and phase are unknown. Derive the bound from the IQ model, \(\sigma_x \ge w_x/\sqrt{\mathrm{ENR}}\), and state the noise model with every bound you quote.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>σ<sub>x</sub> ≥ w<sub>x</sub>/√ENR = FWHM/(2.355√ENR): FWHM/23.5 at 20 dB, FWHM/74.5 at 30 dB; λ/10 with FWHM = λ needs 12.6 dB.</li>
+    <li>The pixel does not set the bound; independent noise per pixel at fixed pixel SNR makes ENR grow as 1/p² and fakes an improvement.</li>
+    <li>In Demo 12.3 at λ/4 the MLE sits at 1.03–1.1× the bound from about 16 dB, the intensity centroid joins it above 25 dB, the 3-point fits stay near 2× and the amplitude centroid at 1.6–2.4×.</li>
+    <li>A known carrier phase would multiply the axial information by 1 + 8k²w<sub>z</sub>² = 33 (FWHM 0.75λ), but with the amplitude and phase unknown only the envelope counts.</li>
+  </ul></div>
 
   <!-- ======================= 12.6 ======================= -->
   <div class="prose">
@@ -344,11 +378,11 @@
     <dl class="where"><dt>\([\mathbf{I}^{-1}]_{11}\)</dt><dd>CRLB entry for the wanted parameter \(\theta_1\) with nuisances unknown</dd><dt>\(I_{11}\)</dt><dd>information on the wanted parameter with every nuisance known</dd><dt>\(\mathbf{I}_{12},\ \mathbf{I}_{21},\ \mathbf{I}_{22}\)</dt><dd>cross-information between wanted and nuisance parameters, and information among the nuisances</dd></dl>
       <span class="note">In the Gaussian case the effective information is the energy of the part of \(\partial\mathbf{s}/\partial\theta_1\) that the nuisance derivatives cannot explain: \(\lVert\mathbf{P}^{\perp}\,\partial\mathbf{s}/\partial\theta_1\rVert^2/\sigma^2\) (times 2 for complex noise). Equality holds when \(\partial\mathbf{s}/\partial\theta_1\) is orthogonal to every nuisance derivative, and the std inflation is \(1/\sqrt{1 - R^2}\).</span>
     </div>
-    <p>Three ultrasound cases, all computed in <span class="m">m12_nuisance_fisher.m</span>:</p>
+    <p>Three ultrasound cases show the cost, all computed in <span class="m">m12_nuisance_fisher.m</span>:</p>
     <ul>
       <li><strong>Unknown amplitude, width, background</strong> for a bubble centred in a window of ±3 FWHM: free (inflation 1.000), because \(g'\) is odd and \(g\), \(\partial g/\partial w\) and a constant are even. Off centre the symmetry breaks: with the bubble on the edge of a ±1.5 FWHM window (1.5 FWHM from its centre), inflation is 1.55 with amplitude unknown and 4.1 with width unknown as well (1.004 and 1.07 at 1 FWHM from the centre).</li>
       <li><strong>A neighbour bubble</strong> at separation \(d\) with unknown position and amplitude: inflation 3.96 at d = 0.5 FWHM, 1.38 at 1 FWHM, 1.04 at 1.5 FWHM for in-phase echoes (1.81, 1.11, 1.01 in quadrature). It does not depend on the neighbour's strength at all, only on its phase; for small \(d\) it grows as \(d^{-2}\) in phase and \(d^{-1}\) in quadrature.</li>
-      <li><strong>Sound speed from delays</strong>: receive delays of one point target, \(\tau_e = (z + r_e)/c + t_0\), \(r_e = \sqrt{z^2 + (x_e - x_s)^2}\), 128 elements at 0.3 mm, 1 ns independent jitter (Module 11 sets that number). At z = 30 mm: \(\sigma_c\) = 0.0034 m/s if \(z\) and \(t_0\) were known, 0.065 m/s with \(z\) unknown, 0.12 m/s with \(t_0\) unknown, and 2.8 m/s with both. The intercept \(t_0\) absorbs the mean delay, depth and speed then trade along the moveout curvature, and only the small departure from a parabola separates them.</li>
+      <li><strong>Sound speed from delays</strong>: receive delays of one point target, \(\tau_e = (z + r_e)/c + t_0\), \(r_e = \sqrt{z^2 + (x_e - x_s)^2}\), 128 elements at 0.3 mm, 1 ns independent jitter (Module 11 sets that number). At z = 30 mm: \(\sigma_c\) = 0.0034 m/s if \(z\) and \(t_0\) were known, 0.065 m/s with \(z\) unknown, 0.12 m/s with \(t_0\) unknown, and 2.8 m/s with both. The intercept \(t_0\) absorbs the mean delay; depth and speed then trade along the moveout curvature, and only the small departure from a parabola separates them.</li>
     </ul>
     <p>The same algebra says how to buy the information back: add data whose derivatives point in different directions (targets at several depths, several transmit angles, a calibrated lens delay \(t_0\)), or add prior information (Section 12.7).</p>
   </div>
@@ -358,7 +392,7 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m12-c4a" aria-label="Signal profile and Jacobian columns for the position and nuisance parameters"></canvas>
-        <div class="legend"><span><i style="background:var(--ink)"></i>|s(x)|</span><span><i style="background:var(--accent)"></i>∂s/∂x<sub>1</sub> (wanted)</span><span><i style="background:var(--sig2)"></i>nuisance derivatives</span><span><i style="background:var(--sig4)"></i>part of ∂s/∂x<sub>1</sub> they explain</span></div>
+        <div class="legend" id="m12-4leg"><span data-s="s"><i style="background:var(--ink)"></i>|s(x)|</span><span data-s="d1"><i style="background:var(--accent)"></i>∂s/∂x<sub>1</sub> (wanted)</span><span data-s="nu"><i class="dash" style="color:var(--sig2)"></i>nuisance derivatives (dotted: imaginary part)</span><span data-s="pr"><i class="dash" style="color:var(--sig4)"></i>part of ∂s/∂x<sub>1</sub> they explain (long dash)</span></div>
         <div class="mx-scroll"><div class="mx-row" id="m12-4mx"></div></div>
       </div>
       <div class="controls">
@@ -366,15 +400,15 @@
         <label class="check"><input type="checkbox" id="m12-4wid"> <span>PSF width unknown</span></label>
         <label class="check"><input type="checkbox" id="m12-4bg"> <span>background unknown (complex)</span></label>
         <label class="check"><input type="checkbox" id="m12-4nb" checked> <span>neighbour bubble (x<sub>2</sub>, a<sub>2</sub> unknown)</span></label>
-        <div class="ctrl"><label for="m12-4d"><span>Separation d</span><output id="m12-4d-o">1.00 FWHM</output></label><input type="range" id="m12-4d" min="0.2" max="3" step="0.05" value="1"></div>
-        <div class="ctrl"><label for="m12-4psi"><span>Neighbour phase ψ</span><output id="m12-4psi-o">0°</output></label><input type="range" id="m12-4psi" min="0" max="180" step="5" value="0"></div>
+        <div class="ctrl"><label for="m12-4d"><span>Neighbour separation d</span><output id="m12-4d-o">1.00 FWHM</output> <span class="hint">distance to a second bubble</span></label><input type="range" id="m12-4d" min="0.2" max="3" step="0.05" value="1"></div>
+        <div class="ctrl"><label for="m12-4psi"><span>Neighbour phase ψ</span><output id="m12-4psi-o">0°</output> <span class="hint">phase of the second echo relative to the first</span></label><input type="range" id="m12-4psi" min="0" max="180" step="5" value="0"></div>
         <div class="ctrl"><label for="m12-4rel"><span>Neighbour amplitude |a<sub>2</sub>/a<sub>1</sub>|</span><output id="m12-4rel-o">1.00</output></label><input type="range" id="m12-4rel" min="0.1" max="1" step="0.05" value="1"></div>
-        <div class="ctrl"><label for="m12-4off"><span>Bubble offset from window centre</span><output id="m12-4off-o">0.00 FWHM</output></label><input type="range" id="m12-4off" min="0" max="2" step="0.05" value="0"></div>
-        <div class="ctrl"><label for="m12-4W"><span>Window half-width</span><output id="m12-4W-o">3.0 FWHM</output></label><input type="range" id="m12-4W" min="1" max="4" step="0.25" value="3"></div>
+        <div class="ctrl"><label for="m12-4off"><span>Bubble offset from window centre</span><output id="m12-4off-o">0.00 FWHM</output> <span class="hint">moves the wanted bubble toward the window edge</span></label><input type="range" id="m12-4off" min="0" max="2" step="0.05" value="0"></div>
+        <div class="ctrl"><label for="m12-4W"><span>Window half-width</span><output id="m12-4W-o">3.0 FWHM</output> <span class="hint">half-length of the fitted profile</span></label><input type="range" id="m12-4W" min="1" max="4" step="0.25" value="3"></div>
         <div class="readout" id="m12-4read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> Gaussian PSF, FWHM = 1, sampled at FWHM/16, complex noise. The matrix is the Fisher matrix normalized to a correlation matrix (\(I_{ij}/\sqrt{I_{ii}I_{jj}}\)); row 1 is the wanted position. Turn the neighbour off with the bubble centred: every nuisance is free. Slide the bubble to the window edge: amplitude and width now correlate with position. Turn the neighbour on and drag d below 0.5 FWHM, then set ψ = 90°. Move the amplitude slider: the inflation does not change, because only the direction of the nuisance columns matters.</div>
+    <div class="demo-foot"><strong>Try:</strong> Gaussian PSF, FWHM = 1, sampled at FWHM/16, complex noise. The matrix is the Fisher matrix normalized to a correlation matrix (\(I_{ij}/\sqrt{I_{ii}I_{jj}}\)); row 1 is the wanted position. Turn the neighbour off with the bubble centred: every nuisance is free. Slide the bubble to the window edge: amplitude and width now correlate with position. Turn the neighbour on and drag d below 0.5 FWHM, then set ψ = 90°. Move the amplitude slider: the inflation does not change, because only the direction of the nuisance columns matters.<span class="symnote">Symbols used here: x, position along the profile in FWHM; s(x), the noise-free echo profile; x<sub>1</sub>, the wanted bubble position; ∂s/∂x<sub>1</sub>, its Jacobian column; a<sub>1</sub>, a<sub>2</sub>, complex amplitudes of the wanted and neighbouring bubbles; d, their separation in FWHM; ψ, the neighbour's phase; I<sub>ij</sub>, Fisher matrix entries; R², the fraction of ∂s/∂x<sub>1</sub> explained by the nuisance columns.</span></div>
   </div>
 
   <div class="demo">
@@ -382,22 +416,29 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m12-c5a" aria-label="Sound-speed standard deviation versus depth for several sets of unknowns"></canvas>
-        <div class="legend"><span><i style="background:var(--muted)"></i>c only</span><span><i style="background:var(--sig4)"></i>c, z</span><span><i style="background:var(--sig3)"></i>c, t<sub>0</sub></span><span><i style="background:var(--sig2)"></i>c, z, t<sub>0</sub></span><span><i style="background:var(--accent)"></i>your selection</span></div>
+        <div class="legend" id="m12-5lega"><span data-s="s0"><i style="background:var(--muted)"></i>c only</span><span data-s="s1"><i class="dash" style="color:var(--sig4)"></i>c, z</span><span data-s="s2"><i class="dot" style="color:var(--sig3)"></i>c, t<sub>0</sub></span><span data-s="s3"><i class="dash" style="color:var(--sig2)"></i>c, z, t<sub>0</sub> (dash-dot)</span><span data-s="sel"><i class="dash" style="color:var(--accent)"></i>your selection (thick)</span></div>
         <canvas id="m12-c5b" aria-label="Jacobian columns of the delay model across the aperture"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>∂τ/∂c</span><span><i style="background:var(--sig4)"></i>∂τ/∂z</span><span><i style="background:var(--sig3)"></i>∂τ/∂t<sub>0</sub></span><span><i style="background:var(--sig2)"></i>∂τ/∂x<sub>s</sub></span></div>
+        <div class="legend" id="m12-5legb"><span data-s="jc"><i class="dash" style="color:var(--accent)"></i>−∂τ/∂c</span><span data-s="jz"><i style="background:var(--sig4)"></i>∂τ/∂z</span><span data-s="jt"><i class="dot" style="color:var(--sig3)"></i>∂τ/∂t<sub>0</sub></span><span data-s="jx"><i class="dash" style="color:var(--sig2)"></i>∂τ/∂x<sub>s</sub> (dash-dot)</span></div>
       </div>
       <div class="controls">
         <label class="check"><input type="checkbox" id="m12-5z" checked> <span>depth z unknown</span></label>
         <label class="check"><input type="checkbox" id="m12-5t0"> <span>time offset t<sub>0</sub> unknown</span></label>
         <label class="check"><input type="checkbox" id="m12-5xs"> <span>lateral position x<sub>s</sub> unknown</span></label>
-        <div class="ctrl"><label for="m12-5dep"><span>Depth</span><output id="m12-5dep-o">30 mm</output></label><input type="range" id="m12-5dep" min="5" max="80" step="1" value="30"></div>
-        <div class="ctrl"><label for="m12-5N">Elements (pitch 0.3 mm)</label><select id="m12-5N"><option>64</option><option selected>128</option><option>192</option></select></div>
-        <div class="ctrl"><label for="m12-5sig"><span>Delay jitter σ<sub>τ</sub> per element</span><output id="m12-5sig-o">1.00 ns</output></label><input type="range" id="m12-5sig" min="0.25" max="5" step="0.25" value="1"></div>
+        <div class="ctrl"><label for="m12-5dep"><span>Target depth z</span><output id="m12-5dep-o">30 mm</output></label><input type="range" id="m12-5dep" min="5" max="80" step="1" value="30"></div>
+        <div class="ctrl"><label for="m12-5N">Receive elements N (pitch 0.3 mm) <span class="hint">sets the aperture width</span></label><select id="m12-5N"><option>64</option><option selected>128</option><option>192</option></select></div>
+        <div class="ctrl"><label for="m12-5sig"><span>Delay jitter σ<sub>τ</sub> per element</span><output id="m12-5sig-o">1.00 ns</output> <span class="hint">independent Gaussian timing error on each element</span></label><input type="range" id="m12-5sig" min="0.25" max="5" step="0.25" value="1"></div>
         <div class="readout" id="m12-5read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> 0° plane-wave transmit, full receive aperture, independent Gaussian delay errors (in practice they are correlated, which is worse). The lower panel shows each Jacobian column across the aperture, scaled to unit peak: \(\partial\tau/\partial c\), \(\partial\tau/\partial z\) and \(\partial\tau/\partial t_0\) are all "constant plus a bowl", nearly collinear, which is why each added unknown costs so much. \(\partial\tau/\partial x_s\) is odd, so \(x_s\) costs nothing for a centred target. Tick \(t_0\): \(\sigma_c\) jumps by more than an order of magnitude and grows steeply with depth (F# rises, the bowl flattens).</div>
+    <div class="demo-foot"><strong>Try:</strong> 0° plane-wave transmit, full receive aperture, independent Gaussian delay errors (in practice they are correlated, which is worse). The lower panel shows each Jacobian column across the aperture, scaled to unit peak: \(\partial\tau/\partial c\), \(\partial\tau/\partial z\) and \(\partial\tau/\partial t_0\) are all "constant plus a bowl", nearly collinear, which is why each added unknown costs so much. \(\partial\tau/\partial x_s\) is odd, so \(x_s\) costs nothing for a centred target. Tick \(t_0\): \(\sigma_c\) jumps by more than an order of magnitude and grows steeply with depth (F# rises, the bowl flattens).<span class="symnote">Symbols used here: c, sound speed in m/s (1540 assumed); σ<sub>c</sub>, its CRLB standard deviation; z, target depth in mm; t<sub>0</sub>, an unknown common time offset; x<sub>s</sub>, the target's lateral position; τ, the receive delay on one element; σ<sub>τ</sub>, delay jitter per element in ns; F#, f-number = depth / aperture width; R², fraction of ∂τ/∂c explained by the other unknowns.</span></div>
   </div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Nuisances never lower the bound: the std inflates by 1/√(1 − R²), R the part of ∂s/∂θ<sub>1</sub> they can mimic.</li>
+    <li>Centred bubble: amplitude, width and background are free (1.000); at the edge of a ±1.5 FWHM window, 1.55 with amplitude unknown and 4.1 with width too.</li>
+    <li>An unknown neighbour costs 3.96× at 0.5 FWHM, 1.38× at 1 FWHM and 1.04× at 1.5 FWHM (in phase), whatever its strength.</li>
+    <li>Sound speed from one target at 30 mm: 0.0034 m/s with z and t<sub>0</sub> known, 0.065 with z unknown, 0.12 with t<sub>0</sub> unknown, 2.8 m/s with both; buy it back with more depths, angles, a calibrated t<sub>0</sub> or a prior.</li>
+  </ul></div>
 
   <!-- ======================= 12.7 ======================= -->
   <div class="prose">
@@ -423,20 +464,26 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m12-c6a" aria-label="MSE of the shrinkage estimator versus true value, in units of the CRLB"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>MSE of c·ȳ (theory)</span><span><i style="background:var(--sig4)"></i>Monte Carlo</span><span><i style="background:var(--ink)"></i>CRLB (unbiased)</span></div>
+        <div class="legend" id="m12-6lega"><span data-s="th"><i style="background:var(--accent)"></i>MSE of c·ȳ (theory)</span><span data-s="mc"><i class="mark" style="background:var(--sig4)"></i>Monte Carlo</span><span data-s="cr"><i class="dash" style="color:var(--ink)"></i>CRLB (unbiased)</span></div>
         <canvas id="m12-c6b" aria-label="James-Stein risk divided by p versus normalized norm of theta"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>James–Stein risk/p (exact)</span><span><i style="background:var(--sig2)"></i>positive-part JS (Monte Carlo)</span><span><i style="background:var(--ink)"></i>MLE risk/p = 1</span></div>
+        <div class="legend" id="m12-6legb"><span data-s="js"><i style="background:var(--accent)"></i>James–Stein risk/p (exact)</span><span data-s="pp"><i class="mark" style="background:var(--sig2)"></i>positive-part JS (Monte Carlo)</span><span data-s="ml"><i class="dash" style="color:var(--ink)"></i>MLE risk/p = 1</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m12-6c"><span>Shrinkage factor c</span><output id="m12-6c-o">0.80</output></label><input type="range" id="m12-6c" min="0" max="1" step="0.01" value="0.8"></div>
-        <div class="ctrl"><label for="m12-6p"><span>Number of means p</span><output id="m12-6p-o">10</output></label><input type="range" id="m12-6p" min="3" max="50" step="1" value="10"></div>
+        <div class="ctrl"><label for="m12-6c"><span>Shrinkage factor c</span><output id="m12-6c-o">0.80</output> <span class="hint">estimate = c × sample mean; c = 1 is unbiased</span></label><input type="range" id="m12-6c" min="0" max="1" step="0.01" value="0.8"></div>
+        <div class="ctrl"><label for="m12-6p"><span>Number of means p</span><output id="m12-6p-o">10</output> <span class="hint">means estimated together by James–Stein</span></label><input type="range" id="m12-6p" min="3" max="50" step="1" value="10"></div>
         <div class="readout" id="m12-6read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> c = 1 is the unbiased estimator on the bound. Lower c: the MSE dips below the CRLB near θ = 0 and blows up for large |θ|. The readout gives the prior std τ for which this c is the posterior mean, and the Bayes MSE c·s² it earns when that prior is right. Raise p: the James–Stein curve falls further below 1 near the origin and never crosses it.</div>
+    <div class="demo-foot"><strong>Try:</strong> c = 1 is the unbiased estimator on the bound. Lower c: the MSE dips below the CRLB near θ = 0 and blows up for large |θ|. The readout gives the prior std τ for which this c is the posterior mean, and the Bayes MSE c·s² it earns when that prior is right. Raise p: the James–Stein curve falls further below 1 near the origin and never crosses it.<span class="symnote">Symbols used here: θ, the true mean (‖θ‖, the length of the vector of p means); ȳ, the sample mean; s, the CRLB standard deviation of ȳ; c, shrinkage factor (0–1); MSE, mean-square error; risk, total MSE over the p means; τ, prior standard deviation of θ; MLE, maximum-likelihood estimate (here ȳ itself).</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>Regularized sound-speed maps, smoothed attenuation maps and learned localizers are biased estimators with a built-in prior. They can beat the CRLB in MSE when the tissue looks like the prior, and they pull the answer toward the prior when it does not (a lesion's sound speed shrunk toward the background, a bubble pulled toward the training-set PSF centre). Report bias against the true value over the range of interest, not just RMSE at one operating point.</p></div>
+
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Shrinkage c·ȳ with c = 0.8 has MSE 0.64 of the CRLB at θ = 0, breaks even at |θ| = 3s and is worse beyond.</li>
+    <li>James–Stein (p ≥ 3) has total MSE below p for every θ, with risk exactly 2 at θ = 0.</li>
+    <li>With a Gaussian prior, information adds (1/σ²<sub>post</sub> = 1/s² + 1/τ²), the posterior mean meets the Van Trees bound, and MAP is Tikhonov-regularized least squares; regularized maps pull toward the prior, so report bias over the range of interest.</li>
+  </ul></div>
 
   <!-- ======================= Visual summary ======================= -->
   <h2><span class="sec">12.8</span>Visual summary</h2>
@@ -448,22 +495,16 @@
   <div class="prose"><p>An expert reads every precision claim as three questions. What is the data model (signal shape, noise law and covariance, real or complex, which parameters are unknown)? What does the Fisher information say for that model, roughly "energy of the signal's derivative over noise density"? And is the estimator in the regime where the local bound means anything (above threshold, unbiased, isolated targets)? Then they compare the claimed number with w/√ENR or its analogue and ask which assumption buys the difference.</p></div>
   <div class="rules">
     <div class="rule">
-      <div class="say">MSE is bias squared plus variance, and the CRLB only bounds the variance of unbiased estimators.</div>
+      <div class="say">Quote RMSE, not just a CRLB: the bound covers only the variance of unbiased estimators, and averaging more data never touches the bias.</div>
       <div class="keynum"><span>\(\mathrm{MSE} = b^2 + \operatorname{var}\)</span><span>biased: \(\operatorname{var} \ge (1+b')^2/I\)</span></div>
       <div class="why"><p>Write \(\hat\theta - \theta = (\hat\theta - \mathrm{E}\hat\theta) + b\); the cross term has zero mean <span class="eqref">(12.1)</span>. An estimator with 2 µm bias and 3 µm std has RMSE \(\sqrt{13} = 3.6\) µm. Averaging more data shrinks only the 3 µm. For a biased estimator the bound becomes \((1 + b'(\theta))^2/I\), which can be far below \(1/I\) when the bias slope is negative (shrinkage has \(b' = -(1 - c)\)).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m12-rf-1" aria-label="Figure: MSE is bias squared plus variance, and the CRLB only bounds the variance of unbiased estimators."></canvas></div></div>
       <div class="limits">Says nothing about the bias itself; an estimator can have tiny variance and a large bias (pixel-centre localization, clipped search ranges).</div>
     </div>
     <div class="rule">
-      <div class="say">Fisher information is the curvature of the log-likelihood: a sharp peak means a small error.</div>
-      <div class="keynum"><span>\(I = -\mathrm{E}[\partial^2 \ln p]\)</span><span>\(\sigma \ge 1/\sqrt{I}\)</span><span>independent data add</span></div>
-      <div class="why"><p>Near its maximum the log-likelihood is approximately \(-\tfrac12 I\,(\theta - \hat\theta)^2\), so its width is \(1/\sqrt{I}\). For the mean of N samples of variance \(\sigma^2\), \(I = N/\sigma^2\): four times the data, four times the curvature, half the standard deviation. Information from independent measurements (frames, elements, angles) simply adds.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m12-rf-2" aria-label="Figure: Fisher information is the curvature of the log-likelihood: a sharp peak means a small error."></canvas></div></div>
-      <div class="limits">Expected curvature; one realization can be flatter. Multimodal likelihoods (RF correlation, periodograms at low SNR) have several peaks, and the curvature of one says nothing about jumping to another.</div>
-    </div>
-    <div class="rule">
-      <div class="say">In Gaussian noise, Fisher information is the energy of the signal's derivative divided by the noise level.</div>
-      <div class="keynum"><span>real: \((1/\sigma^2)\sum(\partial s/\partial\theta)^2\)</span><span>complex: \((2/\sigma^2)\,\mathrm{Re}\sum\lvert\partial s/\partial\theta\rvert^2\)</span></div>
-      <div class="why"><p>For \(\mathbf{s}(\theta) + \mathbf{w}\) with \(\mathbf{w} \sim \mathcal{N}(0, \sigma^2\mathbf{I})\), \(\ln p = -\lVert\mathbf{y} - \mathbf{s}\rVert^2/(2\sigma^2) + \text{const}\); differentiating twice and taking the expectation removes the residual term and leaves \(\mathbf{J}^{T}\mathbf{J}/\sigma^2\) <span class="eqref">(12.6)</span>. Everything else in this module is this formula with a different \(\mathbf{J}\): PSF derivative for position, \(n\cdot s\) for frequency, \(\dot s\) for delay, moveout derivatives for sound speed.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m12-rf-3" aria-label="Figure: In Gaussian noise, Fisher information is the energy of the signal's derivative divided by the noise level."></canvas></div></div>
-      <div class="limits">Deterministic signal in additive Gaussian noise. For random signals (speckle, blood), the parameter also changes the signal covariance and a different (Whittle or covariance-based) formula applies.</div>
+      <div class="say">Fisher information is the curvature of the log-likelihood, and in Gaussian noise that curvature is simply the energy of the signal\'s derivative divided by the noise level; every precision bound in this module is that one formula with a different derivative.</div>
+      <div class="keynum"><span>\(I = -\mathrm{E}[\partial^2 \ln p]\), \(\sigma \ge 1/\sqrt{I}\)</span><span>independent data add</span><span>real: \((1/\sigma^2)\sum(\partial s/\partial\theta)^2\)</span><span>complex: \((2/\sigma^2)\,\mathrm{Re}\sum\lvert\partial s/\partial\theta\rvert^2\)</span></div>
+      <div class="why"><p>Near its maximum the log-likelihood is approximately \(-\tfrac12 I\,(\theta - \hat\theta)^2\), so its width is \(1/\sqrt{I}\). For the mean of N samples of variance \(\sigma^2\), \(I = N/\sigma^2\): four times the data, four times the curvature, half the standard deviation, and information from independent measurements (frames, elements, angles) simply adds. For \(\mathbf{s}(\theta) + \mathbf{w}\) with \(\mathbf{w} \sim \mathcal{N}(0, \sigma^2\mathbf{I})\), \(\ln p = -\lVert\mathbf{y} - \mathbf{s}\rVert^2/(2\sigma^2) + \text{const}\); differentiating twice and taking the expectation removes the residual term and leaves \(\mathbf{J}^{T}\mathbf{J}/\sigma^2\) <span class="eqref">(12.6)</span>. Only \(\mathbf{J}\) changes from problem to problem: PSF derivative for position, \(n\cdot s\) for frequency, \(\dot s\) for delay, moveout derivatives for sound speed.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m12-rf-2" aria-label="Figure: Fisher information is the curvature of the log-likelihood: a sharp peak means a small error."></canvas></div><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m12-rf-3" aria-label="Figure: In Gaussian noise, Fisher information is the energy of the signal's derivative divided by the noise level."></canvas></div></div>
+      <div class="limits">Expected curvature; one realization can be flatter, and multimodal likelihoods (RF correlation, periodograms at low SNR) have several peaks, so the curvature of one says nothing about jumping to another. The derivative-energy form needs a deterministic signal in additive Gaussian noise; for random signals (speckle, blood) the parameter also changes the signal covariance and a different (Whittle or covariance-based) formula applies.</div>
     </div>
     <div class="rule">
       <div class="say">Complex IQ noise carries a factor 2: count \(\sigma^2\) per quadrature, not per sample.</div>
@@ -502,16 +543,10 @@
       <div class="limits">The exact threshold depends on the search range (number of competing cells) and on the estimator; measure it by simulation for your geometry.</div>
     </div>
     <div class="rule">
-      <div class="say">Frequency precision improves as \(N^{-3/2}\): the ensemble length is a lever arm.</div>
-      <div class="keynum"><span>\(\operatorname{var}(\hat\omega) \ge 6/(\mathrm{SNR}\cdot N(N^2-1))\)</span><span>\(\sigma_v = c\cdot\mathrm{PRF}\cdot\sigma_\omega/(4\pi f_0)\)</span></div>
-      <div class="why"><p>A frequency error shows up as a phase ramp, so samples far from the record centre carry more information (\(I \propto \sum(n - \bar n)^2\), <span class="eqref">(12.8)</span>). Doubling N from 16 to 32 cuts \(\sigma_\omega\) by 2.83. M = 16, 10 dB, PRF 5 kHz, \(f_0\) 5 MHz: \(\sigma_\omega\) = 0.0121 rad/sample, 9.65 Hz, 1.49 mm/s.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m12-rf-10" aria-label="Figure: Frequency precision improves as N−3/2: the ensemble length is a lever arm."></canvas></div></div>
-      <div class="limits">Deterministic constant tone. Blood is a random process with spectral width and acceleration; longer ensembles also see more tissue motion and decorrelation.</div>
-    </div>
-    <div class="rule">
-      <div class="say">Lag-one autocorrelation wastes information at high SNR: \(N(N+1)/(6(N-1))\) times the bound in variance.</div>
-      <div class="keynum"><span>5.7× at N = 32</span><span>\(\operatorname{var} \to 1/(\mathrm{SNR}\,(N-1)^2)\)</span></div>
-      <div class="why"><p>At high SNR the phase of \(\sum y[n+1]\,y^*[n]\) is the average of \(N - 1\) phase differences, which telescopes to \((\varphi_{N-1} - \varphi_0)/(N - 1)\): only the two end samples count. Variance \(2\cdot(1/(2\,\mathrm{SNR}))/(N - 1)^2\) \(= 1/(\mathrm{SNR}\,(N - 1)^2)\), against \(6/(\mathrm{SNR}\cdot N(N^2 - 1))\). At moderate SNR it is worse (about 15× at 10 dB, N = 32).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m12-rf-11" aria-label="Figure: Lag-one autocorrelation wastes information at high SNR: N(N+1)/(6(N−1)) times the bound in variance."></canvas></div></div>
-      <div class="limits">For broad Doppler spectra (real blood) the tone MLE is not the right reference, and lag-one remains a robust, cheap choice.</div>
+      <div class="say">Frequency precision improves as \(N^{-3/2}\) because the end samples of an ensemble are a lever arm, and lag-one autocorrelation uses only those two ends: at high SNR it sits \(N(N+1)/(6(N-1))\) times above the bound in variance, 5.7× at N = 32.</div>
+      <div class="keynum"><span>\(\operatorname{var}(\hat\omega) \ge 6/(\mathrm{SNR}\cdot N(N^2-1))\)</span><span>\(\sigma_v = c\cdot\mathrm{PRF}\cdot\sigma_\omega/(4\pi f_0)\)</span><span>lag-one: \(\operatorname{var} \to 1/(\mathrm{SNR}\,(N-1)^2)\)</span><span>5.7× at N = 32</span></div>
+      <div class="why"><p>A frequency error shows up as a phase ramp, so samples far from the record centre carry more information (\(I \propto \sum(n - \bar n)^2\), <span class="eqref">(12.8)</span>). Doubling N from 16 to 32 cuts \(\sigma_\omega\) by 2.83. M = 16, 10 dB, PRF 5 kHz, \(f_0\) 5 MHz: \(\sigma_\omega\) = 0.0121 rad/sample, 9.65 Hz, 1.49 mm/s. At high SNR the phase of \(\sum y[n+1]\,y^*[n]\) is the average of \(N - 1\) phase differences, which telescopes to \((\varphi_{N-1} - \varphi_0)/(N - 1)\): only the two end samples count, giving variance \(2\cdot(1/(2\,\mathrm{SNR}))/(N - 1)^2\) \(= 1/(\mathrm{SNR}\,(N - 1)^2)\) against \(6/(\mathrm{SNR}\cdot N(N^2 - 1))\). At moderate SNR it is worse (about 15× at 10 dB, N = 32).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m12-rf-10" aria-label="Figure: Frequency precision improves as N−3/2: the ensemble length is a lever arm."></canvas></div><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m12-rf-11" aria-label="Figure: Lag-one autocorrelation wastes information at high SNR: N(N+1)/(6(N−1)) times the bound in variance."></canvas></div></div>
+      <div class="limits">Deterministic constant tone. Blood is a random process with spectral width and acceleration, so the tone MLE is not the right reference there and lag-one remains a robust, cheap choice; longer ensembles also see more tissue motion and decorrelation.</div>
     </div>
     <div class="rule">
       <div class="say">A nuisance parameter never helps: \([\mathbf{I}^{-1}]_{ii} \ge 1/I_{ii}\), with equality when its derivative is orthogonal.</div>
@@ -726,7 +761,7 @@
     const c = Lab.colors(), law = $('m12-1law').value, N = NS[+$('m12-1N').value];
     $('m12-1N-o').textContent = N;
     const T = N > 60 ? 2000 : 4000, key = law + N; if (!simCache[key]) simCache[key] = sim(law, N, T, 7 + N); const est = simCache[key];
-    const cols = [c.accent, c.sig2, c.sig3], sq = Math.sqrt(N);
+    const cols = [c.accent, c.sig2, c.sig3], dd = [null, [6, 4], [2, 3]], sq = Math.sqrt(N);
     /* top: densities of sqrt(N)*error */
     const nb = 80, lo = -4, hi = 4, bw = (hi - lo) / nb;
     const dens = est.map(a => { const h = new Float64Array(nb); for (let i = 0; i < a.length; i++) { const z = a[i] * sq; const b = Math.floor((z - lo) / bw); if (b >= 0 && b < nb) h[b]++; } for (let b = 0; b < nb; b++) h[b] /= a.length * bw; return h; });
@@ -734,11 +769,11 @@
     if (CR[law]) ymax = Math.max(ymax, 1 / Math.sqrt(2 * Math.PI * CR[law]));
     ymax = Math.min(ymax * 1.1, 4.5);
     let { ctx, w } = Lab.canvas($('m12-c1a'), 230);
-    let ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 64, h: 176 }, [lo, hi], [0, ymax], { xlabel: '√N (Â − A) / σ', ylabel: 'density' });
+    let ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 64, h: 176 }, [lo, hi], [0, ymax], { xlabel: '√N (Â − A) / σ', ylabel: 'probability density' });
     ax.clip();
     const xc = Array.from({ length: nb }, (_, b) => lo + (b + 0.5) * bw);
-    dens.forEach((h, k) => Lab.line(ctx, ax, xc, Array.from(h), cols[k], 1.8));
-    if (CR[law]) { const v = CR[law], xs = [], ys = []; for (let i = 0; i <= 200; i++) { const z = lo + (hi - lo) * i / 200; xs.push(z); ys.push(Math.exp(-z * z / (2 * v)) / Math.sqrt(2 * Math.PI * v)); } Lab.line(ctx, ax, xs, ys, c.fg, 1.4, [5, 4]); }
+    const LG = 'm12-1leg'; dens.forEach((h, k) => { if (Lab.on(LG, String(k))) Lab.line(ctx, ax, xc, Array.from(h), cols[k], 1.8, dd[k]); });
+    if (CR[law] && Lab.on(LG, 'cr')) { const v = CR[law], xs = [], ys = []; for (let i = 0; i <= 200; i++) { const z = lo + (hi - lo) * i / 200; xs.push(z); ys.push(Math.exp(-z * z / (2 * v)) / Math.sqrt(2 * Math.PI * v)); } Lab.line(ctx, ax, xs, ys, c.fg, 1.4, [5, 4]); }
     ax.unclip();
     /* bottom: N var vs N */
     const cu = curves(law);
@@ -746,16 +781,16 @@
     const lx = cu.Ns.map(Math.log2);
     ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 64, h: 146 }, [Math.log2(3) - 0.2, Math.log2(201) + 0.2], [0, 2.2], { xlabel: 'N (log scale)', ylabel: 'N·var / σ²', xticks: [2, 3, 4, 5, 6, 7].map(v => Math.log2(Math.pow(2, v) + 1)), xfmt: v => Lab.fmt(Math.round(Math.pow(2, v))) });
     ax.clip();
-    if (CR[law]) Lab.line(ctx, ax, [0, 9], [CR[law], CR[law]], c.fg, 1.3, [5, 4]);
-    for (let k = 0; k < 3; k++) { const ys = cu.res.map(r => r[k]); Lab.line(ctx, ax, lx, ys, cols[k], 1.8); Lab.dots(ctx, ax, lx, ys, cols[k], 2.6); }
+    if (CR[law] && Lab.on(LG, 'cr')) Lab.line(ctx, ax, [0, 9], [CR[law], CR[law]], c.fg, 1.3, [5, 4]);
+    for (let k = 0; k < 3; k++) { if (!Lab.on(LG, String(k))) continue; const ys = cu.res.map(r => r[k]); Lab.line(ctx, ax, lx, ys, cols[k], 1.8, dd[k]); Lab.dots(ctx, ax, lx, ys, cols[k], 2.6); }
     ctx.save(); ctx.strokeStyle = c.muted; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ax.X(Math.log2(N)), ax.box.y); ctx.lineTo(ax.X(Math.log2(N)), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore();
     ax.unclip();
     const nv = est.map(a => nvar(a, N)), cr = CR[law];
-    const eff = v => cr ? ' (eff ' + Lab.fmt(cr / v * 100, 0) + ' %)' : '';
-    $('m12-1read').innerHTML = 'N·var/σ², ' + T + ' trials, N = ' + N + '<br>mean <b>' + nv[0].toFixed(3) + '</b>' + eff(nv[0]) + '<br>median <b>' + nv[1].toFixed(3) + '</b>' + eff(nv[1]) + '<br>midrange <b>' + nv[2].toFixed(3) + '</b>' + eff(nv[2]) + '<br>CRLB ' + (cr ? '<b>' + cr.toFixed(2) + '</b>' : '<b>none</b> (support depends on A)') + (law === 'unif' ? '<br>theory midrange 6N/((N+1)(N+2)) = <b>' + (6 * N / ((N + 1) * (N + 2))).toFixed(4) + '</b>' : '');
+    const eff = v => cr ? ' (efficiency ' + Lab.fmt(cr / v * 100, 0) + ' %)' : '';
+    $('m12-1read').innerHTML = 'normalized variance N·var/σ², ' + T + ' trials, N = ' + N + '<br>mean <b>' + nv[0].toFixed(3) + '</b>' + eff(nv[0]) + '<br>median <b>' + nv[1].toFixed(3) + '</b>' + eff(nv[1]) + '<br>midrange <b>' + nv[2].toFixed(3) + '</b>' + eff(nv[2]) + '<br>CRLB (Cramér–Rao lower bound) ' + (cr ? '<b>' + cr.toFixed(2) + '</b>' : '<b>none</b> (support depends on A)') + (law === 'unif' ? '<br>theory midrange 6N/((N+1)(N+2)) = <b>' + (6 * N / ((N + 1) * (N + 2))).toFixed(4) + '</b>' : '');
   }
   $('m12-1law').addEventListener('change', draw);
-  $('m12-1N').addEventListener('input', draw);
+  $('m12-1N').addEventListener('input', draw); Lab.legendToggle('m12-1leg', draw);
   Lab.onShow('m12', draw);
 })();
 </script>
@@ -811,11 +846,11 @@
     let { ctx, w } = Lab.canvas($('m12-c2a'), 250);
     let ax = Lab.axes(ctx, { x: 54, y: 14, w: w - 68, h: 196 }, [-12, 30], [ylo, yhi], { xlabel: 'per-sample SNR = A²/σ² (dB)', ylabel: 'RMS error (rad/sample)', yticks: Array.from({ length: yhi - ylo + 1 }, (_, i) => ylo + i), yfmt: p10 });
     ax.clip();
-    Lab.line(ctx, ax, [-12, 30], [lg(Math.PI * Math.PI / 3), lg(Math.PI * Math.PI / 3)], c.muted, 1.2, [2, 3]);
-    Lab.line(ctx, ax, SNR, kas.map(lg), c.sig3, 1.2, [5, 4]);
-    Lab.line(ctx, ax, SNR, crlb.map(lg), c.fg, 1.8);
-    Lab.line(ctx, ax, SNR, Array.from(mK).map(lg), c.sig3, 1.8); Lab.dots(ctx, ax, SNR, Array.from(mK).map(lg), c.sig3, 2.4);
-    Lab.line(ctx, ax, SNR, Array.from(mM).map(lg), c.accent, 1.8); Lab.dots(ctx, ax, SNR, Array.from(mM).map(lg), c.accent, 2.8);
+    const LG = 'm12-2leg'; if (Lab.on(LG, 'uni')) Lab.line(ctx, ax, [-12, 30], [lg(Math.PI * Math.PI / 3), lg(Math.PI * Math.PI / 3)], c.muted, 1.2, [2, 3]);
+    if (Lab.on(LG, 'klim')) Lab.line(ctx, ax, SNR, kas.map(lg), c.sig3, 1.2, [5, 4]);
+    if (Lab.on(LG, 'crlb')) Lab.line(ctx, ax, SNR, crlb.map(lg), c.fg, 1.8);
+    if (Lab.on(LG, 'kas')) Lab.line(ctx, ax, SNR, Array.from(mK).map(lg), c.sig3, 1.8, [2, 3]); if (Lab.on(LG, 'kas')) Lab.dots(ctx, ax, SNR, Array.from(mK).map(lg), c.sig3, 2.4);
+    if (Lab.on(LG, 'mle')) Lab.line(ctx, ax, SNR, Array.from(mM).map(lg), c.accent, 1.8); if (Lab.on(LG, 'mle')) Lab.dots(ctx, ax, SNR, Array.from(mM).map(lg), c.accent, 2.8);
     ax.unclip();
     ({ ctx, w } = Lab.canvas($('m12-c2b'), 170));
     const nsnr = SNR.map(s => s + 10 * Math.log10(N));
@@ -826,14 +861,14 @@
     const k10 = SNR.indexOf(10), k30 = SNR.indexOf(30);
     const sw = Math.sqrt(crlb[k10]);
     $('m12-2read').innerHTML = 'N = ' + N + ', 160 trials per SNR<br>on the bound (MSE &lt; 2·CRLB) from <b>' + SNR[kt] + ' dB</b> per sample = <b>' + nsnr[kt].toFixed(1) + ' dB</b> integrated' +
-      '<br>MLE/CRLB at ' + SNR[Math.max(kt - 1, 0)] + ' dB: <b>' + Lab.fmt(mM[Math.max(kt - 1, 0)] / crlb[Math.max(kt - 1, 0)]) + '</b>' +
-      '<br>Kasai/CRLB at 30 dB: <b>' + (mK[k30] / crlb[k30]).toFixed(2) + '</b> (limit N(N+1)/(6(N−1)) = ' + (N * (N + 1) / (6 * (N - 1))).toFixed(2) + ')' +
+      '<br>MLE MSE / CRLB at ' + SNR[Math.max(kt - 1, 0)] + ' dB: <b>' + Lab.fmt(mM[Math.max(kt - 1, 0)] / crlb[Math.max(kt - 1, 0)]) + '</b>' +
+      '<br>Kasai MSE / CRLB at 30 dB: <b>' + (mK[k30] / crlb[k30]).toFixed(2) + '</b> (limit N(N+1)/(6(N−1)) = ' + (N * (N + 1) / (6 * (N - 1))).toFixed(2) + ')' +
       '<br>at 10 dB per sample: CRLB σ<sub>ω</sub> = <b>' + sw.toFixed(4) + '</b> rad/sample' +
-      '<br>σ<sub>f</sub> = <b>' + Lab.fmt(sw * prf / (2 * Math.PI)) + ' Hz</b>, σ<sub>v</sub> = <b>' + Lab.fmt(1540 * sw * prf / (4 * Math.PI * 5e6) * 1e3) + ' mm/s</b> (5 MHz)';
+      '<br>frequency std σ<sub>f</sub> = <b>' + Lab.fmt(sw * prf / (2 * Math.PI)) + ' Hz</b>, velocity std σ<sub>v</sub> = <b>' + Lab.fmt(1540 * sw * prf / (4 * Math.PI * 5e6) * 1e3) + ' mm/s</b> (5 MHz)';
   }
   $('m12-2N').addEventListener('change', run);
   $('m12-2run').addEventListener('click', () => { seedOff++; run(); });
-  $('m12-2prf').addEventListener('input', draw);
+  $('m12-2prf').addEventListener('input', draw); Lab.legendToggle('m12-2leg', draw);
   Lab.onShow('m12', draw);
 })();
 </script>
@@ -939,9 +974,9 @@
     const cv = $('m12-c3a'), wd = cv.clientWidth || cv.parentElement.clientWidth || 600, X = R.ex[ke];
     const asp = (R.Nz * R.pix) / (R.Nx * R.pix); let H, ib, zb = null;
     if (wd >= 520) { H = 240; const iw = Math.min(0.58 * wd - 46, (H - 46) / asp); ib = { x: 40, y: 18, w: iw, h: iw * asp };
-      const zsz = Math.min(H - 46, wd - ib.x - ib.w - 70); if (zsz > 60) zb = { x: wd - zsz - 10, y: 18, w: zsz, h: zsz }; }
+      const zsz = Math.min(H - 56, wd - ib.x - ib.w - 70); if (zsz > 60) zb = { x: wd - zsz - 10, y: 18, w: zsz, h: zsz }; }
     else { let iw = wd - 50, ih = iw * asp; if (ih > 300) { ih = 300; iw = ih / asp; } ib = { x: 40, y: 18, w: iw, h: ih };
-      const zsz = Math.min(150, wd - 110); zb = { x: 40 + (wd - 50 - zsz) / 2 + 10, y: 18 + ih + 60, w: zsz, h: zsz }; H = zb.y + zsz + 30; }
+      const zsz = Math.min(150, wd - 110); zb = { x: 40 + (wd - 50 - zsz) / 2 + 10, y: 18 + ih + 60, w: zsz, h: zsz }; H = zb.y + zsz + 40; }
     const { ctx, w } = Lab.canvas(cv, H);
     const db = new Float64Array(X.M.length); for (let q = 0; q < db.length; q++) db[q] = 20 * Math.log10(X.M[q] / X.mx + 1e-12);
     Lab.image(ctx, db, R.Nz, R.Nx, ib, -30, 0, 'gray');
@@ -957,18 +992,18 @@
     /* zoom box: +-1 pixel around the grid centre */
     if (zb) {
       const zr2 = 1.0 * R.pix;
-      const ax = Lab.axes(ctx, zb, [-zr2, zr2], [zr2, -zr2], { grid: false, xticks: [-R.pix / 2, 0, R.pix / 2], yticks: [-R.pix / 2, 0, R.pix / 2], xfmt: v => v === 0 ? '0' : (v > 0 ? '+' : '−') + '½px', yfmt: v => v === 0 ? '0' : (v > 0 ? '+' : '−') + '½', title: 'zoom ±1 px (λ/' + Math.round(1 / R.pix) + ')' });
+      const ax = Lab.axes(ctx, zb, [-zr2, zr2], [zr2, -zr2], { grid: false, xticks: [-R.pix / 2, 0, R.pix / 2], yticks: [-R.pix / 2, 0, R.pix / 2], xfmt: v => v === 0 ? '0' : (v > 0 ? '+' : '−') + '½px', yfmt: v => v === 0 ? '0' : (v > 0 ? '+' : '−') + '½', xlabel: 'lateral (pixels)', ylabel: 'axial (pixels)', title: 'zoom ±1 px (λ/' + Math.round(1 / R.pix) + ')' });
       ax.clip(); ctx.save(); ctx.strokeStyle = c.grid; ctx.lineWidth = 1;
       [-1.5, -0.5, 0.5, 1.5].forEach(k => { const v = k * R.pix; ctx.beginPath(); ctx.moveTo(ax.X(v), zb.y); ctx.lineTo(ax.X(v), zb.y + zb.h); ctx.moveTo(zb.x, ax.Y(v)); ctx.lineTo(zb.x + zb.w, ax.Y(v)); ctx.stroke(); });
       ctx.fillStyle = c.muted; [-1, 0, 1].forEach(a => [-1, 0, 1].forEach(b => { ctx.beginPath(); ctx.arc(ax.X(a * R.pix), ax.Y(b * R.pix), 1.8, 0, 7); ctx.fill(); }));
       ctx.restore();
       const cross = (x, y, col, s) => { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - s, y); ctx.lineTo(x + s, y); ctx.moveTo(x, y - s); ctx.lineTo(x, y + s); ctx.stroke(); ctx.restore(); };
-      for (let e = 4; e >= 0; e--) Lab.dots(ctx, ax, [X.est[e][0]], [X.est[e][1]], cols[e], e ? 3.4 : 4.4);
+      for (let e = 4; e >= 0; e--) if (Lab.on('m12-3leg', 'e' + e)) Lab.dots(ctx, ax, [X.est[e][0]], [X.est[e][1]], cols[e], e ? 3.4 : 4.4);
       cross(ax.X(X.x0), ax.Y(X.z0), c.fg, 7);
       ax.unclip();
     }
     /* markers on the image */
-    ctx.save(); ctx.strokeStyle = c.sig4; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(PX(X.est[0][0]), PZ(X.est[0][1]), 7, 0, 7); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.strokeStyle = c.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(PX(X.est[0][0]), PZ(X.est[0][1]), 7, 0, 7); ctx.stroke(); ctx.restore();
     /* --- RMSE plot --- */
     const crl = ENR.map(e => R.wx / Math.sqrt(E(e)));
     const all = []; R.rmse.forEach(a => a.slice(0, 5).forEach(v => all.push(v))); crl.forEach(v => all.push(v));
@@ -979,12 +1014,12 @@
     Lab.line(g2, ax2, [6, 42], [-1, -1], c.muted, 1, [2, 3]);
     g2.save(); g2.fillStyle = c.muted; g2.font = '10.5px ' + c.mono; g2.textAlign = 'right'; g2.textBaseline = 'bottom'; g2.fillText('λ/10', ax2.X(42) - 3, ax2.Y(-1) - 2); g2.restore();
     g2.save(); g2.strokeStyle = c.rule; g2.setLineDash([3, 3]); g2.beginPath(); g2.moveTo(ax2.X(ENR[ke]), ax2.box.y); g2.lineTo(ax2.X(ENR[ke]), ax2.box.y + ax2.box.h); g2.stroke(); g2.restore();
-    Lab.line(g2, ax2, ENR, crl.map(Math.log10), c.fg, 2);
-    for (let e = 4; e >= 0; e--) { const ys = ENR.map((_, k) => Math.log10(R.rmse[k][e])); Lab.line(g2, ax2, ENR, ys, cols[e], e ? 1.5 : 2); Lab.dots(g2, ax2, ENR, ys, cols[e], e ? 2.2 : 3); }
+    if (Lab.on('m12-3leg', 'cr')) Lab.line(g2, ax2, ENR, crl.map(Math.log10), c.fg, 2, [6, 4]);
+    for (let e = 4; e >= 0; e--) { if (!Lab.on('m12-3leg', 'e' + e)) continue; const ys = ENR.map((_, k) => Math.log10(R.rmse[k][e])); Lab.line(g2, ax2, ENR, ys, cols[e], e ? 1.5 : 2, [null, [6, 4], [2, 3], [10, 3, 2, 3], [12, 4]][e]); Lab.dots(g2, ax2, ENR, ys, cols[e], e ? 2.2 : 3); }
     ax2.unclip();
     /* --- readout --- */
     const cr = crl[ke], crz = R.wz / Math.sqrt(E(ENR[ke]));
-    let h = 'CRLB at ' + ENR[ke] + ' dB: σ<sub>x</sub> = <b>' + cr.toFixed(4) + ' λ = λ/' + Lab.fmt(1 / cr, 0) + ' = ' + Lab.fmt(cr * lamUm) + ' µm</b><br>σ<sub>z</sub> = <b>' + Lab.fmt(crz * lamUm) + ' µm</b>; peak-pixel SNR ≈ <b>' + (ENR[ke] - R.snrOff).toFixed(1) + ' dB</b><br>RMSE/CRLB (lateral):';
+    let h = 'CRLB at ' + ENR[ke] + ' dB: σ<sub>x</sub> = <b>' + cr.toFixed(4) + ' λ = λ/' + Lab.fmt(1 / cr, 0) + ' = ' + Lab.fmt(cr * lamUm) + ' µm</b><br>σ<sub>z</sub> = <b>' + Lab.fmt(crz * lamUm) + ' µm</b>; peak-pixel SNR ≈ <b>' + (ENR[ke] - R.snrOff).toFixed(1) + ' dB</b><br>lateral RMSE / CRLB per localizer:';
     for (let e = 0; e < 6; e++) h += '<br>&nbsp;' + NAMES[e] + ' <b>' + Lab.fmt(R.rmse[ke][e] / cr) + '</b>';
     h += '<br>MLE axial RMSE/CRLB <b>' + Lab.fmt(R.rmseZ[ke] / crz) + '</b><br>outliers (MLE off by &gt; FWHM/2): <b>' + (100 * R.out[ke]).toFixed(1) + ' %</b>';
     if (R.pix > R.fx / 2 + 1e-9) h += '<br><b>pixel &gt; FWHM/2:</b> the PSF is undersampled, the continuous bound no longer applies and every localizer degrades';
@@ -993,7 +1028,7 @@
   ['m12-3pix', 'm12-3fw'].forEach(id => $(id).addEventListener(id === 'm12-3fw' ? 'change' : 'change', schedule));
   $('m12-3fw').addEventListener('input', () => { $('m12-3fw-o').textContent = (+$('m12-3fw').value).toFixed(1) + ' λ'; });
   $('m12-3f0').addEventListener('change', draw);
-  $('m12-3e').addEventListener('input', draw);
+  $('m12-3e').addEventListener('input', draw); Lab.legendToggle('m12-3leg', draw);
   $('m12-3run').addEventListener('click', schedule);
   $('m12-3seed').addEventListener('click', () => { seed++; schedule(); });
   Lab.onShow('m12', draw);
@@ -1038,27 +1073,27 @@
         for (let k = 1; k < P; k++) for (let i = 0; i < n; i++) { proj.re[i] += beta[k - 1] * cols[k].re[i]; proj.im[i] += beta[k - 1] * cols[k].im[i]; } } }
     /* draw */
     const c = Lab.colors(); const { ctx, w: cw } = Lab.canvas($('m12-c4a'), 250);
-    const ax = Lab.axes(ctx, { x: 54, y: 14, w: cw - 68, h: 196 }, [-Wh, Wh], [-1.15, 1.15], { xlabel: 'x (FWHM)', ylabel: 'normalized', ny: 4 });
+    const ax = Lab.axes(ctx, { x: 54, y: 14, w: cw - 68, h: 196 }, [-Wh, Wh], [-1.15, 1.15], { xlabel: 'x (FWHM)', ylabel: 'amplitude (norm.)', ny: 4 });
     ax.clip();
     const mag = xs.map((x, i) => Math.hypot(g1[i] + (nb ? a2r * g2[i] : 0), nb ? a2i * g2[i] : 0)); const mm = Math.max(...mag);
-    Lab.line(ctx, ax, xs, mag.map(v => v / mm), c.fg, 1.4);
+    const LG = 'm12-4leg'; if (Lab.on(LG, 's')) Lab.line(ctx, ax, xs, mag.map(v => v / mm), c.fg, 1.4);
     const nrm = col => { let m = 0; for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(col.re[i]), Math.abs(col.im[i])); return m || 1; };
     const s0 = nrm(cols[0]);
-    for (let k = 1; k < P; k++) { const s = nrm(cols[k]); Lab.line(ctx, ax, xs, Array.from(cols[k].re, v => v / s), c.sig2, 1, [4, 3]); if (cols[k].im.some(v => Math.abs(v) > 1e-9)) Lab.line(ctx, ax, xs, Array.from(cols[k].im, v => v / s), c.sig2, 1, [1, 3]); }
-    if (proj) Lab.line(ctx, ax, xs, Array.from(proj.re, v => v / s0), c.sig4, 2.2);
-    Lab.line(ctx, ax, xs, Array.from(cols[0].re, v => v / s0), c.accent, 2);
+    for (let k = 1; k < P && Lab.on(LG, 'nu'); k++) { const s = nrm(cols[k]); Lab.line(ctx, ax, xs, Array.from(cols[k].re, v => v / s), c.sig2, 1, [4, 3]); if (cols[k].im.some(v => Math.abs(v) > 1e-9)) Lab.line(ctx, ax, xs, Array.from(cols[k].im, v => v / s), c.sig2, 1, [1, 3]); }
+    if (proj && Lab.on(LG, 'pr')) Lab.line(ctx, ax, xs, Array.from(proj.re, v => v / s0), c.sig4, 2.2, [9, 4]);
+    if (Lab.on(LG, 'd1')) Lab.line(ctx, ax, xs, Array.from(cols[0].re, v => v / s0), c.accent, 2);
     ax.unclip();
     /* correlation matrix */
     const C = I.map((r, i) => r.map((v, j) => v / Math.sqrt(I[i][i] * I[j][j])));
     const hl = []; for (let j = 1; j < P; j++) if (Math.abs(C[0][j]) > 0.05) hl.push([0, j]);
     $('m12-4mx').innerHTML = Lab.matHTML(C, { d: 2, hl, cap: 'Fisher correlation, order: ' + cols.map(o => o.name).join(', ') });
     const R2 = 1 - 1 / (infl * infl);
-    $('m12-4read').innerHTML = 'unknowns: <b>' + P + '</b><br>std inflation of x₁: <b>' + (isFinite(infl) ? infl.toFixed(3) : '∞') + '</b><br>information kept 1 − R² = <b>' + (isFinite(infl) ? (1 - R2).toFixed(3) : '0') + '</b><br>' + (nb ? 'neighbour at d = ' + d.toFixed(2) + ' FWHM, ψ = ' + Math.round(psi * 180 / Math.PI) + '°' : 'single bubble') + (off + 1.5 > Wh ? '<br>bubble near the window edge' : '');
+    $('m12-4read').innerHTML = 'number of unknowns: <b>' + P + '</b><br>std inflation of position x₁ by the nuisances: <b>' + (isFinite(infl) ? infl.toFixed(3) : '∞') + '</b><br>information kept 1 − R² = <b>' + (isFinite(infl) ? (1 - R2).toFixed(3) : '0') + '</b><br>' + (nb ? 'neighbour at d = ' + d.toFixed(2) + ' FWHM, ψ = ' + Math.round(psi * 180 / Math.PI) + '°' : 'single bubble') + (off + 1.5 > Wh ? '<br>bubble near the window edge' : '');
     $('m12-4d-o').textContent = d.toFixed(2) + ' FWHM'; $('m12-4psi-o').textContent = Math.round(psi * 180 / Math.PI) + '°'; $('m12-4rel-o').textContent = rel.toFixed(2);
     $('m12-4off-o').textContent = off.toFixed(2) + ' FWHM'; $('m12-4W-o').textContent = Wh.toFixed(1) + ' FWHM';
   }
   ['m12-4amp', 'm12-4wid', 'm12-4bg', 'm12-4nb'].forEach(id => $(id).addEventListener('change', nuisance));
-  ['m12-4d', 'm12-4psi', 'm12-4rel', 'm12-4off', 'm12-4W'].forEach(id => $(id).addEventListener('input', nuisance));
+  ['m12-4d', 'm12-4psi', 'm12-4rel', 'm12-4off', 'm12-4W'].forEach(id => $(id).addEventListener('input', nuisance)); Lab.legendToggle('m12-4leg', nuisance);
 
   /* ---------- Demo 12.5 ---------- */
   const C0 = 1540;
@@ -1086,23 +1121,23 @@
     let lo = Infinity, hi = -Infinity; curves.concat([mine]).forEach(a => a.forEach(v => { if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }));
     lo = Math.floor(lo); hi = Math.ceil(hi);
     let { ctx, w } = Lab.canvas($('m12-c5a'), 230);
-    let ax = Lab.axes(ctx, { x: 54, y: 14, w: w - 68, h: 176 }, [5, 80], [lo, hi], { xlabel: 'depth z (mm)', ylabel: 'σ_c (m/s)', yticks: Array.from({ length: hi - lo + 1 }, (_, i) => lo + i), yfmt: p10 });
+    let ax = Lab.axes(ctx, { x: 54, y: 14, w: w - 68, h: 176 }, [5, 80], [lo, hi], { xlabel: 'depth z (mm)', ylabel: 'sound-speed std σ_c (m/s)', yticks: Array.from({ length: hi - lo + 1 }, (_, i) => lo + i), yfmt: p10 });
     ax.clip();
-    sets.forEach(([, col], k) => Lab.line(ctx, ax, zz, curves[k], col, 1.4));
-    Lab.line(ctx, ax, zz, mine, c.accent, 2.6, [6, 3]);
+    sets.forEach(([, col], k) => Lab.on('m12-5lega', 's' + k) && Lab.line(ctx, ax, zz, curves[k], col, 1.4, [null, [6, 4], [2, 3], [10, 3, 2, 3]][k]));
+    if (Lab.on('m12-5lega', 'sel')) Lab.line(ctx, ax, zz, mine, c.accent, 2.6, [6, 3]);
     ctx.save(); ctx.strokeStyle = c.rule; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ax.X(dep), ax.box.y); ctx.lineTo(ax.X(dep), ax.box.y + ax.box.h); ctx.stroke(); ctx.restore();
     ax.unclip();
     /* Jacobian columns at the chosen depth */
     const J = sosJ(dep * 1e-3, N, pitch), xe = J.c.map((_, e) => (e - (N - 1) / 2) * pitch * 1e3);
     ({ ctx, w } = Lab.canvas($('m12-c5b'), 170));
-    ax = Lab.axes(ctx, { x: 54, y: 14, w: w - 68, h: 116 }, [xe[0], xe[N - 1]], [-1.1, 1.1], { xlabel: 'element position (mm)', ylabel: 'column / max', ny: 2 });
+    ax = Lab.axes(ctx, { x: 54, y: 14, w: w - 68, h: 116 }, [xe[0], xe[N - 1]], [-1.1, 1.1], { xlabel: 'element position (mm)', ylabel: 'column / its max', ny: 2 });
     const sc = a => { const m = Math.max(...a.map(Math.abs)); return a.map(v => v / m); };
-    Lab.line(ctx, ax, xe, sc(J.xs), c.sig2, 1.4); Lab.line(ctx, ax, xe, sc(J.t0), c.sig3, 1.6); Lab.line(ctx, ax, xe, sc(J.z), c.sig4, 1.8); Lab.line(ctx, ax, xe, sc(J.c.map(v => -v)), c.accent, 1.8, [6, 3]);
+    const LB = 'm12-5legb'; if (Lab.on(LB, 'jx')) Lab.line(ctx, ax, xe, sc(J.xs), c.sig2, 1.4, [10, 3, 2, 3]); if (Lab.on(LB, 'jt')) Lab.line(ctx, ax, xe, sc(J.t0), c.sig3, 1.6, [2, 3]); if (Lab.on(LB, 'jz')) Lab.line(ctx, ax, xe, sc(J.z), c.sig4, 1.8); if (Lab.on(LB, 'jc')) Lab.line(ctx, ax, xe, sc(J.c.map(v => -v)), c.accent, 1.8, [6, 3]);
     const s1 = sigC(dep * 1e-3, N, pitch, sig, []), sS = sigC(dep * 1e-3, N, pitch, sig, sel);
-    $('m12-5read').innerHTML = 'z = ' + dep + ' mm, F# = ' + (dep / (N * 0.3)).toFixed(2) + '<br>σ<sub>c</sub>, c only: <b>' + s1.toExponential(2) + ' m/s</b><br>σ<sub>c</sub>, unknowns {c' + (sel.length ? ', ' + sel.join(', ') : '') + '}: <b>' + (sS < 0.01 ? sS.toExponential(2) : Lab.fmt(sS)) + ' m/s</b><br>inflation <b>' + Lab.fmt(sS / s1) + '×</b>, i.e. 1 − R² = ' + (s1 * s1 / (sS * sS)).toExponential(2) + '<br>(∂τ/∂c drawn with its sign flipped)';
+    $('m12-5read').innerHTML = 'depth z = ' + dep + ' mm, f-number F# = ' + (dep / (N * 0.3)).toFixed(2) + '<br>sound-speed std σ<sub>c</sub>, c the only unknown: <b>' + s1.toExponential(2) + ' m/s</b><br>σ<sub>c</sub>, unknowns {c' + (sel.length ? ', ' + sel.join(', ') : '') + '}: <b>' + (sS < 0.01 ? sS.toExponential(2) : Lab.fmt(sS)) + ' m/s</b><br>std inflation <b>' + Lab.fmt(sS / s1) + '×</b>, i.e. 1 − R² = ' + (s1 * s1 / (sS * sS)).toExponential(2) + '<br>(∂τ/∂c drawn with its sign flipped)';
   }
   ['m12-5z', 'm12-5t0', 'm12-5xs', 'm12-5N'].forEach(id => $(id).addEventListener('change', sos));
-  ['m12-5dep', 'm12-5sig'].forEach(id => $(id).addEventListener('input', sos));
+  ['m12-5dep', 'm12-5sig'].forEach(id => $(id).addEventListener('input', sos)); Lab.legendToggle('m12-5lega', sos); Lab.legendToggle('m12-5legb', sos);
 
   /* ---------- Demo 12.6 ---------- */
   function jsRisk(p, lam) { const mu = lam / 2; let pk = Math.exp(-mu), s = 0; const kmax = Math.ceil(mu + 12 * Math.sqrt(mu + 1) + 30);
@@ -1114,27 +1149,27 @@
     let { ctx, w } = Lab.canvas($('m12-c6a'), 210);
     let ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 64, h: 156 }, [-5, 5], [0, 3], { xlabel: 'true θ / s   (s = CRLB std)', ylabel: 'MSE / CRLB', ny: 3 });
     ax.clip();
-    Lab.line(ctx, ax, [-5, 5], [1, 1], c.fg, 1.6, [6, 4]);
+    const LA = 'm12-6lega', LB = 'm12-6legb'; if (Lab.on(LA, 'cr')) Lab.line(ctx, ax, [-5, 5], [1, 1], c.fg, 1.6, [6, 4]);
     const th = [], ms = []; for (let i = 0; i <= 200; i++) { const t = -5 + i / 20; th.push(t); ms.push(cc * cc + (1 - cc) ** 2 * t * t); }
-    Lab.line(ctx, ax, th, ms, c.accent, 2);
+    if (Lab.on(LA, 'th')) Lab.line(ctx, ax, th, ms, c.accent, 2);
     const r = Lab.rng(5), tp = [], mp = []; for (let t = -4; t <= 4; t += 1) { let s = 0; for (let k = 0; k < 2000; k++) { const e = cc * (t + r.g()) - t; s += e * e; } tp.push(t); mp.push(s / 2000); }
-    Lab.dots(ctx, ax, tp, mp, c.sig4, 3);
+    if (Lab.on(LA, 'mc')) Lab.dots(ctx, ax, tp, mp, c.sig4, 3);
     ax.unclip();
     ({ ctx, w } = Lab.canvas($('m12-c6b'), 210));
     ax = Lab.axes(ctx, { x: 50, y: 14, w: w - 64, h: 156 }, [0, 3], [0, 1.1], { xlabel: '‖θ‖ / √p', ylabel: 'risk / p', ny: 4 });
     ax.clip();
-    Lab.line(ctx, ax, [0, 3], [1, 1], c.fg, 1.6, [6, 4]);
+    if (Lab.on(LB, 'ml')) Lab.line(ctx, ax, [0, 3], [1, 1], c.fg, 1.6, [6, 4]);
     const nn = [], rr = []; for (let i = 0; i <= 60; i++) { const v = i / 20; nn.push(v); rr.push(jsRisk(p, v * v * p) / p); }
-    Lab.line(ctx, ax, nn, rr, c.accent, 2);
+    if (Lab.on(LB, 'js')) Lab.line(ctx, ax, nn, rr, c.accent, 2);
     if (!jsCache[p]) { const r2 = Lab.rng(9), np = [], rp = [];
     for (let v = 0; v <= 3; v += 0.5) { let s = 0; const T = 1500; for (let t = 0; t < T; t++) { let n2 = 0; const y = new Float64Array(p); for (let i = 0; i < p; i++) { y[i] = (i === 0 ? v * Math.sqrt(p) : 0) + r2.g(); n2 += y[i] * y[i]; } const f = Math.max(0, 1 - (p - 2) / n2); for (let i = 0; i < p; i++) { const e = f * y[i] - (i === 0 ? v * Math.sqrt(p) : 0); s += e * e; } } np.push(v); rp.push(s / T / p); }
     jsCache[p] = [np, rp]; }
-    Lab.dots(ctx, ax, jsCache[p][0], jsCache[p][1], c.sig2, 3);
+    if (Lab.on(LB, 'pp')) Lab.dots(ctx, ax, jsCache[p][0], jsCache[p][1], c.sig2, 3);
     ax.unclip();
     const be = cc < 1 ? Math.sqrt((1 + cc) / (1 - cc)) : Infinity, tau = cc < 1 ? Math.sqrt(cc / (1 - cc)) : Infinity;
-    $('m12-6read').innerHTML = 'c = ' + cc.toFixed(2) + ': MSE(0) = <b>' + (cc * cc).toFixed(3) + '</b> CRLB<br>below the CRLB for |θ| &lt; <b>' + (isFinite(be) ? be.toFixed(2) + ' s' : 'all θ') + '</b><br>posterior mean for prior std τ = <b>' + (isFinite(tau) ? tau.toFixed(2) + ' s' : '∞ (flat prior)') + '</b>, Bayes MSE c·s² = <b>' + cc.toFixed(3) + '</b><br>James–Stein, p = ' + p + ': risk at θ = 0 is <b>2</b> (= ' + (2 / p).toFixed(3) + ' p)';
+    $('m12-6read').innerHTML = 'shrinkage c = ' + cc.toFixed(2) + ': MSE at θ = 0 = <b>' + (cc * cc).toFixed(3) + '</b> CRLB<br>below the CRLB for |θ| &lt; <b>' + (isFinite(be) ? be.toFixed(2) + ' s' : 'all θ') + '</b><br>posterior mean for prior std τ = <b>' + (isFinite(tau) ? tau.toFixed(2) + ' s' : '∞ (flat prior)') + '</b>, Bayes MSE c·s² = <b>' + cc.toFixed(3) + '</b><br>James–Stein, p = ' + p + ': risk at θ = 0 is <b>2</b> (= ' + (2 / p).toFixed(3) + ' p)';
   }
-  ['m12-6c', 'm12-6p'].forEach(id => $(id).addEventListener('input', shrink));
+  ['m12-6c', 'm12-6p'].forEach(id => $(id).addEventListener('input', shrink)); Lab.legendToggle('m12-6lega', shrink); Lab.legendToggle('m12-6legb', shrink);
 
   Lab.onShow('m12', () => { nuisance(); sos(); shrink(); });
 })();
@@ -1169,13 +1204,13 @@
     const C = ['c'].concat(set).map(k => cols[k]); const I = C.map(a => C.map(b => a.reduce((s, v, k) => s + v * b[k], 0) / (sig * sig))); const Ii = inv(I); return Math.sqrt(Ii[0][0]); }
   function jsRisk(p, lam) { const mu = lam / 2; let pk = Math.exp(-mu), s = 0; const kmax = Math.ceil(mu + 12 * Math.sqrt(mu + 1) + 30);
     for (let k = 0; k <= kmax; k++) { s += pk / (p - 2 + 2 * k); pk *= mu / (k + 1); } return p - (p - 2) * (p - 2) * s; }
-  function dataLine(x, m, xs, ys, col, dots) { x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.strokeStyle = col; x.fillStyle = col; x.lineWidth = 1.6; x.beginPath();
+  function dataLine(x, m, xs, ys, col, dots, dash) { x.save(); x.beginPath(); x.rect(m.b.x - 1, m.b.y - 2, m.b.w + 2, m.b.h + 4); x.clip(); x.strokeStyle = col; x.fillStyle = col; x.lineWidth = 1.6; if (dash) x.setLineDash(dash); x.beginPath();
     xs.forEach((v, i) => { const px = m.X(v), py = m.Y(ys[i]); i ? x.lineTo(px, py) : x.moveTo(px, py); }); x.stroke();
     if (dots) xs.forEach((v, i) => { x.beginPath(); x.arc(m.X(v), m.Y(ys[i]), 2.6, 0, 7); x.fill(); }); x.restore(); }
 
   /* ---------- 12.2 inline ---------- */
   const G2 = [
-    { prov: 'sim', q: 'The MLE is a matched filter scanned over θ', a: 'Grey: |y| of a noisy 1D bubble profile (ENR 20 dB, true x₀ = 0.23 FWHM). Blue: <b>|g(θ)ᴴy|²/‖g‖²</b>, the concentrated likelihood; its peak is the ML position.',
+    { prov: 'sim', leg: [['|y|, noisy data', 'mu', 'solid'], ['concentrated likelihood', 'a', 'dash']], q: 'The MLE is a matched filter scanned over θ', a: 'Grey: |y| of a noisy 1D bubble profile (ENR 20 dB, true x₀ = 0.23 FWHM). Blue: <b>|g(θ)ᴴy|²/‖g‖²</b>, the concentrated likelihood; its peak is the ML position.',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-3, 3], [0, 1.1], { lab: 'normalized vs x (FWHM)', ticks: [[0.23, 'x₀'], [-2, '−2'], [2, '2']] });
         const wd = 1 / KF, r = Lab.rng(3), xs = [], yr = [], yi = []; const x0 = 0.23, ph = 0.9;
         let E = 0; for (let k = -48; k <= 48; k++) { const v = k / 16; xs.push(v); E += Math.exp(-((v - x0) ** 2) / (wd * wd)); }
@@ -1183,74 +1218,74 @@
         const mag = xs.map((_, i) => Math.hypot(yr[i], yi[i])), mm = Math.max(...mag);
         dataLine(x, P, xs, mag.map(v => v / mm), c.mu, false);
         const J = th => { let sr = 0, si = 0, gg = 0; xs.forEach((v, i) => { const g = Math.exp(-((v - th) ** 2) / (2 * wd * wd)); sr += g * yr[i]; si += g * yi[i]; gg += g * g; }); return (sr * sr + si * si) / gg; };
-        let jm = 0; for (let t = -3; t <= 3; t += 0.01) jm = Math.max(jm, J(t)); m.curve(x, P, t => J(t) / jm, c.a, { w: 2 }); } },
-    { prov: 'exact', q: 'Invariance is not unbiasedness', a: 'The MLE of the power |a|² is |â|², and <b>E|â|² = |a|²(1 + 1/ENR)</b>: 10 % high at 10 dB, 1 % at 20 dB. Subtract the noise term.',
+        let jm = 0; for (let t = -3; t <= 3; t += 0.01) jm = Math.max(jm, J(t)); m.curve(x, P, t => J(t) / jm, c.a, { w: 2, dash: [6, 4] }); } },
+    { prov: 'exact', leg: [['E|â|²/|a|²', 'b', 'solid'], ['1.10', 'mu', 'dash']], q: 'Invariance is not unbiasedness', a: 'The MLE of the power |a|² is |â|², and <b>E|â|² = |a|²(1 + 1/ENR)</b>: 10 % high at 10 dB, 1 % at 20 dB. Subtract the noise term.',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [0, 30], [0.95, 2.05], { lab: 'E|â|² / |a|² vs ENR (dB)', base: 1, ticks: [[10, '10'], [20, '20'], [30, '30']], hlines: [[1.1, '1.10']] });
         m.curve(x, P, e => 1 + Math.pow(10, -e / 10), c.b, { w: 2 }); } },
-    { prov: 'exact', q: 'Why least squares, and when not?', a: '−ln p is the loss: <b>Gaussian noise → squared residual</b> (mean, least squares); Laplace noise → absolute residual (median). The loss must match the noise.',
+    { prov: 'exact', leg: [['Gaussian: r²/2', 'a', 'solid'], ['Laplace: √2|r|', 'b', 'dash']], q: 'Why least squares, and when not?', a: '−ln p is the loss: <b>Gaussian noise → squared residual</b> (mean, least squares); Laplace noise → absolute residual (median). The loss must match the noise.',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-3, 3], [0, 4.6], { lab: '−ln p(r) (unit variance) vs residual r', ticks: [[-2, '−2'], [2, '2']] });
-        m.curve(x, P, r => r * r / 2, c.a, { w: 2 }); m.curve(x, P, r => Math.SQRT2 * Math.abs(r), c.b, { w: 2 }); m.text(x, 'Gaussian', P.X(-2.9), P.Y(4.2), c.a); m.text(x, 'Laplace', P.X(1.4), P.Y(1.2), c.b); } }
+        m.curve(x, P, r => r * r / 2, c.a, { w: 2 }); m.curve(x, P, r => Math.SQRT2 * Math.abs(r), c.b, { w: 2, dash: [6, 4] }); m.text(x, 'Gaussian', P.X(-2.9), P.Y(4.2), c.a); m.text(x, 'Laplace', P.X(1.4), P.Y(1.2), c.b); } }
   ];
   /* ---------- 12.3 inline ---------- */
   const G3 = [
-    { prov: 'model', q: 'Where does a PSF carry position information?', a: 'Information density ∝ <b>|∂g/∂x|²</b> (pink) peaks on the flanks at x = ±w = ±0.42 FWHM; the peak sample carries none.<span class="prov-note">Gaussian PSF.</span>',
-      draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const wd = 1 / KF; const P = m.panel(x, box(w, h), [-1.6, 1.6], [0, 1.15], { lab: 'vs x (FWHM)', ticks: [[-wd, '−w'], [wd, '+w'], [-1, '−1'], [1, '1']] });
-        m.curve(x, P, u => Math.exp(-u * u / (2 * wd * wd)), c.a, { fill: true }); m.curve(x, P, u => (u * u / (wd * wd)) * Math.exp(-u * u / (wd * wd)) * Math.E, c.b, { fill: true, w: 2 }); } },
-    { prov: 'model', q: 'Why does RF localize delays better than the envelope?', a: 'I<sub>τ</sub> ∝ ∫(2πf)²|S(f)|²df. Weight f² (blue) vs envelope-only (f − f₀)² (pink) for a 60 % band at f₀ (dashed: pink ×10): <b>31.8× more information</b>, 5.6× in σ.<span class="prov-note">Gaussian spectrum, 60 % −6 dB bandwidth.</span>',
+    { prov: 'model', leg: [['PSF g(x)', 'a', 'fill'], ['|∂g/∂x|² (scaled)', 'b', 'dash']], q: 'Where does a PSF carry position information?', a: 'Information density ∝ <b>|∂g/∂x|²</b> (pink) peaks on the flanks at x = ±w = ±0.42 FWHM; the peak sample carries none.<span class="prov-note">Gaussian PSF.</span>',
+      draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const wd = 1 / KF; const P = m.panel(x, box(w, h), [-1.6, 1.6], [0, 1.15], { lab: 'g(x), |∂g/∂x|² vs x (FWHM)', ticks: [[-wd, '−w'], [wd, '+w'], [-1, '−1'], [1, '1']] });
+        m.curve(x, P, u => Math.exp(-u * u / (2 * wd * wd)), c.a, { fill: true }); m.curve(x, P, u => (u * u / (wd * wd)) * Math.exp(-u * u / (wd * wd)) * Math.E, c.b, { fill: true, w: 2, dash: [6, 4] }); } },
+    { prov: 'model', leg: [['f²·|S|²', 'a', 'fill'], ['(f − f₀)²·|S|²', 'b', 'fill'], ['(f − f₀)²·|S|² ×10', 'b', 'dash']], q: 'Why does RF localize delays better than the envelope?', a: 'I<sub>τ</sub> ∝ ∫(2πf)²|S(f)|²df. Weight f² (blue) vs envelope-only (f − f₀)² (pink) for a 60 % band at f₀ (dashed: pink ×10): <b>31.8× more information</b>, 5.6× in σ.<span class="prov-note">Gaussian spectrum, 60 % −6 dB bandwidth.</span>',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const sf = 0.6 / KF / Math.SQRT2; const S = f => Math.exp(-((f - 1) ** 2) / (2 * sf * sf));
         const P = m.panel(x, box(w, h), [0.3, 1.7], [0, 1.25], { lab: 'weighted power spectrum vs f / f₀', ticks: [[1, 'f₀'], [0.5, '0.5'], [1.5, '1.5']] });
         m.curve(x, P, f => f * f * S(f) / 1.06, c.a, { fill: true }); m.curve(x, P, f => (f - 1) ** 2 * S(f) / 1.06, c.b, { fill: true, alpha: 0.5 }); m.curve(x, P, f => 10 * (f - 1) ** 2 * S(f) / 1.06, c.b, { dash: [4, 3], w: 1.2 }); } },
-    { prov: 'exact', q: 'Same σ², real vs complex noise?', a: 'Phase-known amplitude: real RF in real noise has var σ²/‖s‖² (pink); IQ in complex noise with E|w|² = σ² has <b>σ²/(2‖s‖²)</b> (blue), σ²/2 per quadrature.',
-      draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-3.5, 3.5], [0, 0.62], { lab: 'pdf of â − a (units σ/‖s‖)', ticks: [[-1, '−1'], [1, '1'], [-0.707, ''], [0.707, '']] });
-        m.curve(x, P, u => gpdf(u, 0, 1), c.b, { fill: true }); m.curve(x, P, u => gpdf(u, 0, Math.SQRT1_2), c.a, { fill: true }); } }
+    { prov: 'exact', leg: [['real RF, real noise', 'b', 'dash'], ['IQ, complex noise', 'a', 'fill']], q: 'Same σ², real vs complex noise?', a: 'Phase-known amplitude: real RF in real noise has var σ²/‖s‖² (pink); IQ in complex noise with E|w|² = σ² has <b>σ²/(2‖s‖²)</b> (blue), σ²/2 per quadrature.',
+      draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-3.5, 3.5], [0, 0.62], { lab: 'pdf vs â − a (units σ/‖s‖)', ticks: [[-1, '−1'], [1, '1'], [-0.707, ''], [0.707, '']] });
+        m.curve(x, P, u => gpdf(u, 0, 1), c.b, { fill: true, dash: [6, 4] }); m.curve(x, P, u => gpdf(u, 0, Math.SQRT1_2), c.a, { fill: true }); } }
   ];
   /* ---------- visual summary ---------- */
   const MCN = [5.1, 7.1, 9.1, 11.1, 13.1, 15.1, 17.1, 19.1, 21.1, 23.1, 25.1, 27.1, 29.1, 31.1, 33.1, 35.1, 37.1, 39.1];
   const MCR = [1068.27, 1009.21, 506.77, 181.85, 1.09, 1.07, 1.02, 0.96, 1.04, 0.97, 1.07, 0.97, 0.94, 1.00, 1.02, 1.04, 0.99, 1.08];
   const VIS = [
-    { prov: 'exact', q: 'Is the MSE only variance?', a: 'No: <b>MSE = b² + var</b>. Pink: bias 0.6, std 0.6, MSE 0.72. Blue: unbiased on the bound, MSE 1. The biased one wins here, and only near this θ.',
-      draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-3.2, 3.2], [0, 0.72], { lab: 'pdf of θ̂ (units of CRLB std)', ticks: [[0, 'θ'], [0.6, 'θ+b']] });
-        m.curve(x, P, u => gpdf(u, 0, 1), c.a, { fill: true }); m.curve(x, P, u => gpdf(u, 0.6, 0.6), c.b, { fill: true }); } },
-    { prov: 'exact', q: 'What is Fisher information, geometrically?', a: '<b>The curvature of the log-likelihood</b>: I = N/σ² for a mean. 4× the data (pink, N = 16 vs 4) gives 4× the curvature and half the std.',
+    { prov: 'exact', leg: [['unbiased, on the bound', 'a', 'fill'], ['bias 0.6, std 0.6', 'b', 'dash']], q: 'Is the MSE only variance?', a: 'No: <b>MSE = b² + var</b>. Pink: bias 0.6, std 0.6, MSE 0.72. Blue: unbiased on the bound, MSE 1. The biased one wins here, and only near this θ.',
+      draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-3.2, 3.2], [0, 0.72], { lab: 'pdf vs θ̂ (units of CRLB std)', ticks: [[0, 'θ'], [0.6, 'θ+b']] });
+        m.curve(x, P, u => gpdf(u, 0, 1), c.a, { fill: true }); m.curve(x, P, u => gpdf(u, 0.6, 0.6), c.b, { fill: true, dash: [6, 4] }); } },
+    { prov: 'exact', leg: [['N = 4', 'a', 'solid'], ['N = 16', 'b', 'dash'], ['−½ level', 'mu', 'dash']], q: 'What is Fisher information, geometrically?', a: '<b>The curvature of the log-likelihood</b>: I = N/σ² for a mean. 4× the data (pink, N = 16 vs 4) gives 4× the curvature and half the std.',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-1.5, 1.5], [-4.2, 0.3], { lab: 'ln L(θ) − max vs θ − θ̂ (σ = 1)', base: -4.2, ticks: [[-0.5, '−½'], [0.5, '½'], [-1, '−1'], [1, '1']], hlines: [[-0.5, '−½ ↔ ±1 std']] });
-        m.curve(x, P, t => -4 * t * t / 2, c.a, { w: 2 }); m.curve(x, P, t => -16 * t * t / 2, c.b, { w: 2 }); } },
-    { prov: 'exact', q: 'Mean or median for a constant in noise?', a: 'Gaussian noise: <b>mean, on the bound</b>; the median is √(π/2) = 1.25× wider in std (64 % efficient). Laplace noise reverses the ranking.',
-      draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-4, 4], [0, 0.45], { lab: 'pdf of √N(Â − A)/σ, Gaussian noise, large N', ticks: [[-1, '−1'], [1, '1'], [1.2533, '']] });
-        m.curve(x, P, u => gpdf(u, 0, 1), c.a, { fill: true }); m.curve(x, P, u => gpdf(u, 0, Math.sqrt(PI / 2)), c.b); } },
-    { prov: 'model', q: 'How precise can a ULM localization be?', a: '<b>σ = FWHM/(2.355√ENR)</b>: FWHM/23.5 at 20 dB, /74.5 at 30 dB. With FWHM = λ, λ/10 needs only 12.6 dB, but below ≈16 dB outliers take over.<span class="prov-note">Gaussian PSF, noise white over the PSF band, above threshold.</span>',
+        m.curve(x, P, t => -4 * t * t / 2, c.a, { w: 2 }); m.curve(x, P, t => -16 * t * t / 2, c.b, { w: 2, dash: [6, 4] }); } },
+    { prov: 'exact', leg: [['mean', 'a', 'fill'], ['median', 'b', 'dash']], q: 'Mean or median for a constant in noise?', a: 'Gaussian noise: <b>mean, on the bound</b>; the median is √(π/2) = 1.25× wider in std (64 % efficient). Laplace noise reverses the ranking.',
+      draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-4, 4], [0, 0.45], { lab: 'pdf vs √N(Â − A)/σ (Gaussian noise, large N)', ticks: [[-1, '−1'], [1, '1'], [1.2533, '']] });
+        m.curve(x, P, u => gpdf(u, 0, 1), c.a, { fill: true }); m.curve(x, P, u => gpdf(u, 0, Math.sqrt(PI / 2)), c.b, { dash: [6, 4] }); } },
+    { prov: 'model', leg: [['FWHM/(2.355√ENR)', 'a', 'solid'], ['FWHM/10, FWHM/100', 'mu', 'dash']], q: 'How precise can a ULM localization be?', a: '<b>σ = FWHM/(2.355√ENR)</b>: FWHM/23.5 at 20 dB, /74.5 at 30 dB. With FWHM = λ, λ/10 needs only 12.6 dB, but below ≈16 dB outliers take over.<span class="prov-note">Gaussian PSF, noise white over the PSF band, above threshold.</span>',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [5, 40], [-2.6, -0.4], { lab: 'log₁₀(σ/FWHM) vs ENR (dB)', base: -2.6, ticks: [[10, '10'], [20, '20'], [30, '30']], hlines: [[-1, 'FWHM/10'], [-2, 'FWHM/100']] });
         m.curve(x, P, e => Math.log10(1 / (KF * Math.sqrt(Math.pow(10, e / 10)))), c.a, { w: 2 }); } },
-    { prov: 'model', q: 'Do finer pixels improve the bound?', a: '<b>No.</b> With band-limited beamformed noise the bound is flat in pixel size (blue). Independent noise per pixel at fixed pixel SNR (pink) fakes σ ∝ p.<span class="prov-note">Scaling laws: band-limited noise (bound independent of pixel) vs iid noise per pixel at fixed pixel SNR (ENR ∝ 1/p²).</span>',
+    { prov: 'model', leg: [['band-limited noise', 'a', 'solid'], ['iid noise per pixel', 'b', 'dash']], q: 'Do finer pixels improve the bound?', a: '<b>No.</b> With band-limited beamformed noise the bound is flat in pixel size (blue). Independent noise per pixel at fixed pixel SNR (pink) fakes σ ∝ p.<span class="prov-note">Scaling laws: band-limited noise (bound independent of pixel) vs iid noise per pixel at fixed pixel SNR (ENR ∝ 1/p²).</span>',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [1 / 16, 0.56], [0, 1.15], { lab: 'CRLB / CRLB(λ/2) vs pixel (λ)', ticks: [[0.5, 'λ/2'], [0.25, 'λ/4'], [0.125, 'λ/8']] });
-        m.curve(x, P, () => 1, c.a, { w: 2.2 }); m.curve(x, P, p => p / 0.5, c.b, { w: 2 }); } },
-    { prov: 'sim', q: 'When does the CRLB stop describing the error?', a: '<b>Below the threshold.</b> Periodogram MLE of a tone, N = 32 (Monte Carlo, m12_frequency_crlb.m): on the bound for N·SNR ≥ 13 dB, 180× above at 11 dB.',
+        m.curve(x, P, () => 1, c.a, { w: 2.2 }); m.curve(x, P, p => p / 0.5, c.b, { w: 2, dash: [6, 4] }); } },
+    { prov: 'sim', leg: [['periodogram MLE (MC)', 'a', 'mark'], ['1× and 100×', 'mu', 'dash']], q: 'When does the CRLB stop describing the error?', a: '<b>Below the threshold.</b> Periodogram MLE of a tone, N = 32 (Monte Carlo, m12_frequency_crlb.m): on the bound for N·SNR ≥ 13 dB, 180× above at 11 dB.',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [4, 40], [-0.4, 3.3], { lab: 'log₁₀(MSE / CRLB) vs N·SNR (dB)', base: -0.4, ticks: [[13, '13'], [20, '20'], [30, '30']], hlines: [[0, 'on the bound'], [2, '100×']] });
         dataLine(x, P, MCN, MCR.map(Math.log10), c.a, true); } },
-    { prov: 'exact', q: 'Why does a longer Doppler ensemble help so much?', a: '<b>var(ω̂) ≥ 6/(SNR·N(N²−1))</b>: σ ∝ N<sup>−3/2</sup> (blue). Lag-one (pink) scales as 1/(N−1): 5.7× the bound in variance at N = 32.',
+    { prov: 'exact', leg: [['CRLB', 'a', 'solid'], ['lag-one, 1/(N − 1)', 'b', 'dash']], q: 'Why does a longer Doppler ensemble help so much?', a: '<b>var(ω̂) ≥ 6/(SNR·N(N²−1))</b>: σ ∝ N<sup>−3/2</sup> (blue). Lag-one (pink) scales as 1/(N−1): 5.7× the bound in variance at N = 32.',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [Math.log10(4), Math.log10(170)], [-3.3, 0], { lab: 'log₁₀ σ_ω at SNR = 1 vs N (log)', base: -3.3, ticks: [[Math.log10(4), '4'], [Math.log10(16), '16'], [Math.log10(32), '32'], [Math.log10(128), '128']] });
-        m.curve(x, P, L => { const N = Math.pow(10, L); return Math.log10(Math.sqrt(6 / (N * (N * N - 1)))); }, c.a, { w: 2 }); m.curve(x, P, L => { const N = Math.pow(10, L); return Math.log10(1 / (N - 1)); }, c.b, { w: 2 }); } },
-    { prov: 'model', q: 'What does an unknown neighbour bubble cost?', a: 'Std inflation of bubble 1: <b>3.96× at 0.5 FWHM, 1.38× at 1 FWHM</b>, ≈1 beyond 1.5 FWHM (in phase, blue; quadrature, pink: 1.81×, 1.11×).<span class="prov-note">Gaussian PSF; Fisher matrix computed numerically.</span>',
+        m.curve(x, P, L => { const N = Math.pow(10, L); return Math.log10(Math.sqrt(6 / (N * (N * N - 1)))); }, c.a, { w: 2 }); m.curve(x, P, L => { const N = Math.pow(10, L); return Math.log10(1 / (N - 1)); }, c.b, { w: 2, dash: [6, 4] }); } },
+    { prov: 'model', leg: [['in phase', 'a', 'solid'], ['quadrature', 'b', 'dash'], ['×2, ×4', 'mu', 'dash']], q: 'What does an unknown neighbour bubble cost?', a: 'Std inflation of bubble 1: <b>3.96× at 0.5 FWHM, 1.38× at 1 FWHM</b>, ≈1 beyond 1.5 FWHM (in phase, blue; quadrature, pink: 1.81×, 1.11×).<span class="prov-note">Gaussian PSF; Fisher matrix computed numerically.</span>',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [0.25, 2.5], [0, 1.25], { lab: 'log₁₀ inflation vs separation (FWHM)', ticks: [[0.5, '0.5'], [1, '1'], [1.5, '1.5'], [2, '2']], hlines: [[Math.log10(4), '×4'], [Math.log10(2), '×2']] });
         const ds = [], a0 = [], a9 = []; for (let d = 0.25; d <= 2.5001; d += 0.05) { ds.push(d); a0.push(Math.log10(inflNb(d, 0))); a9.push(Math.log10(inflNb(d, PI / 2))); }
-        dataLine(x, P, ds, a0, c.a, false); dataLine(x, P, ds, a9, c.b, false); } },
-    { prov: 'model', q: 'What would a known carrier phase buy axially?', a: 'Information density g′² + 4k²g² (blue) vs envelope only g′² (pink; dashed ×10): <b>1 + 8k²w² = 33×</b> for an axial FWHM of 0.75λ. With the phase unknown, only the pink part counts.<span class="prov-note">Gaussian axial envelope, FWHM 0.75λ.</span>',
+        dataLine(x, P, ds, a0, c.a, false); dataLine(x, P, ds, a9, c.b, false, [6, 4]); } },
+    { prov: 'model', leg: [['g′² + 4k²g²', 'a', 'fill'], ['g′² (envelope only)', 'b', 'fill'], ['g′² ×10', 'b', 'dash']], q: 'What would a known carrier phase buy axially?', a: 'Information density g′² + 4k²g² (blue) vs envelope only g′² (pink; dashed ×10): <b>1 + 8k²w² = 33×</b> for an axial FWHM of 0.75λ. With the phase unknown, only the pink part counts.<span class="prov-note">Gaussian axial envelope, FWHM 0.75λ.</span>',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const wz = 0.75 / KF, k = 2 * PI; const g = z => Math.exp(-z * z / (2 * wz * wz)), gp = z => -z / (wz * wz) * g(z);
         const pk = 4 * k * k; const P = m.panel(x, box(w, h), [-1, 1], [0, 1.15], { lab: '|∂s/∂z₀|² vs z (λ), normalized', ticks: [[-0.5, '−½'], [0.5, '½']] });
         m.curve(x, P, z => (gp(z) ** 2 + pk * g(z) ** 2) / pk, c.a, { fill: true }); m.curve(x, P, z => gp(z) ** 2 / pk, c.b, { fill: true, alpha: 0.6, w: 2 }); m.curve(x, P, z => 10 * gp(z) ** 2 / pk, c.b, { dash: [4, 3], w: 1.2 }); } },
-    { prov: 'exact', q: 'Can a biased estimator beat the CRLB?', a: '<b>Yes, locally.</b> c·ȳ has MSE c² + (1−c)²θ²/s² (blue c = 0.8, pink c = 0.5): below 1 only for |θ| &lt; s√((1+c)/(1−c)), 3s at c = 0.8.',
+    { prov: 'exact', leg: [['c = 0.8', 'a', 'solid'], ['c = 0.5', 'b', 'dash'], ['CRLB', 'mu', 'dash']], q: 'Can a biased estimator beat the CRLB?', a: '<b>Yes, locally.</b> c·ȳ has MSE c² + (1−c)²θ²/s² (blue c = 0.8, pink c = 0.5): below 1 only for |θ| &lt; s√((1+c)/(1−c)), 3s at c = 0.8.',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [-4.5, 4.5], [0, 2.4], { lab: 'MSE / CRLB vs θ / s', ticks: [[-3, '−3'], [3, '3'], [1.732, ''], [-1.732, '']], hlines: [[1, 'CRLB']] });
-        m.curve(x, P, t => 0.64 + 0.04 * t * t, c.a, { w: 2 }); m.curve(x, P, t => 0.25 + 0.25 * t * t, c.b, { w: 2 }); } },
-    { prov: 'exact', q: 'What does James–Stein say?', a: 'For p ≥ 3 means, shrinking toward a point <b>lowers the total MSE for every θ</b>: risk 2 instead of p at the shrink point. p = 3 (blue), 10 (pink), 50 (amber).',
+        m.curve(x, P, t => 0.64 + 0.04 * t * t, c.a, { w: 2 }); m.curve(x, P, t => 0.25 + 0.25 * t * t, c.b, { w: 2, dash: [6, 4] }); } },
+    { prov: 'exact', leg: [['p = 3', 'a', 'solid'], ['p = 10', 'b', 'dash'], ['p = 50', 'c', 'dot'], ['MLE', 'mu', 'dash']], q: 'What does James–Stein say?', a: 'For p ≥ 3 means, shrinking toward a point <b>lowers the total MSE for every θ</b>: risk 2 instead of p at the shrink point. p = 3 (blue), 10 (pink), 50 (amber).',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [0, 3], [0, 1.1], { lab: 'risk / p vs ‖θ‖/√p', ticks: [[1, '1'], [2, '2'], [3, '3']], hlines: [[1, 'MLE']] });
-        [[3, c.a], [10, c.b], [50, c.c]].forEach(([p, col]) => m.curve(x, P, v => jsRisk(p, v * v * p) / p, col, { w: 2 })); } },
-    { prov: 'exact', q: 'What does a prior add?', a: '<b>Information adds:</b> 1/σ²<sub>post</sub> = 1/s² + 1/τ². Prior N(0, 1.5²) (amber), likelihood at ȳ = 2 (pink), posterior N(0.69·2, 0.69) (blue). Gaussian prior = Tikhonov.',
+        [[3, c.a, null], [10, c.b, [6, 4]], [50, c.c, [2, 3]]].forEach(([p, col, dd]) => m.curve(x, P, v => jsRisk(p, v * v * p) / p, col, { w: 2, dash: dd })); } },
+    { prov: 'exact', leg: [['prior', 'c', 'dot'], ['likelihood', 'b', 'dash'], ['posterior', 'a', 'fill']], q: 'What does a prior add?', a: '<b>Information adds:</b> 1/σ²<sub>post</sub> = 1/s² + 1/τ². Prior N(0, 1.5²) (amber), likelihood at ȳ = 2 (pink), posterior N(0.69·2, 0.69) (blue). Gaussian prior = Tikhonov.',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const cB = 2.25 / 3.25; const P = m.panel(x, box(w, h), [-4, 5], [0, 0.55], { lab: 'densities vs θ (s = 1, τ = 1.5)', ticks: [[0, '0'], [2, 'ȳ'], [2 * cB, '']] });
-        m.curve(x, P, t => gpdf(t, 0, 1.5), c.c, { w: 1.6 }); m.curve(x, P, t => gpdf(t, 2, 1), c.b, { w: 1.6 }); m.curve(x, P, t => gpdf(t, 2 * cB, Math.sqrt(cB)), c.a, { fill: true, w: 2 }); } },
-    { prov: 'model', q: 'Why is sound speed from one target so poor?', a: 'Unknown t₀ and depth trade against c. 128 elements, 1 ns jitter: σ<sub>c</sub> = <b>0.065 m/s</b> with z unknown (blue) and <b>2.8 m/s</b> with z and t₀ unknown (pink) at 30 mm.<span class="prov-note">Straight-ray delays, independent 1 ns jitter.</span>',
+        m.curve(x, P, t => gpdf(t, 0, 1.5), c.c, { w: 1.6, dash: [2, 3] }); m.curve(x, P, t => gpdf(t, 2, 1), c.b, { w: 1.6, dash: [6, 4] }); m.curve(x, P, t => gpdf(t, 2 * cB, Math.sqrt(cB)), c.a, { fill: true, w: 2 }); } },
+    { prov: 'model', leg: [['z unknown', 'a', 'solid'], ['z and t₀ unknown', 'b', 'dash'], ['1 m/s', 'mu', 'dash']], q: 'Why is sound speed from one target so poor?', a: 'Unknown t₀ and depth trade against c. 128 elements, 1 ns jitter: σ<sub>c</sub> = <b>0.065 m/s</b> with z unknown (blue) and <b>2.8 m/s</b> with z and t₀ unknown (pink) at 30 mm.<span class="prov-note">Straight-ray delays, independent 1 ns jitter.</span>',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const P = m.panel(x, box(w, h), [5, 80], [-2, 2], { lab: 'log₁₀ σ_c (m/s) vs depth (mm)', base: -2, ticks: [[30, '30'], [60, '60']], hlines: [[0, '1 m/s']] });
-        m.curve(x, P, z => Math.log10(sigC(z * 1e-3, ['z'])), c.a, { w: 2 }); m.curve(x, P, z => Math.log10(sigC(z * 1e-3, ['z', 't0'])), c.b, { w: 2 }); } },
-    { prov: 'exact', q: 'Average speckle intensity or dB?', a: '<b>Intensity.</b> The dB of an exponential intensity has mean <b>−2.51 dB</b> (marker) and variance π²/6 per sample in natural-log units (5.6 dB std): averaging dB is biased and 61 % efficient.',
-      draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const s = Math.log(10) / 10; const P = m.panel(x, box(w, h), [-25, 10], [0, 0.095], { lab: 'pdf of 10 log₁₀(I/μ) (dB)', ticks: [[-2.507, '−2.5'], [0, '0'], [-20, '−20']] });
+        m.curve(x, P, z => Math.log10(sigC(z * 1e-3, ['z'])), c.a, { w: 2 }); m.curve(x, P, z => Math.log10(sigC(z * 1e-3, ['z', 't0'])), c.b, { w: 2, dash: [6, 4] }); } },
+    { prov: 'exact', q: 'Average speckle intensity or dB?', a: '<b>Intensity.</b> The dB of an exponential intensity has mean <b>−2.51 dB</b> (tick) and variance π²/6 per sample in natural-log units (5.6 dB std): averaging dB is biased and 61 % efficient.',
+      draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const s = Math.log(10) / 10; const P = m.panel(x, box(w, h), [-25, 10], [0, 0.095], { lab: 'pdf vs 10 log₁₀(I/μ) (dB)', ticks: [[-2.507, '−2.5'], [0, '0'], [-20, '−20']] });
         m.curve(x, P, L => s * Math.exp(L * s) * Math.exp(-Math.exp(L * s)), c.a, { fill: true }); } }
   ];
   Lab.cardGrid('m12', 'm12-g2', G2);
@@ -1299,14 +1334,14 @@
       m.curve(x, P, t => ds(t) ** 2 / mx, c.b, { fill: true, alpha: 0.3, w: 1.2 }); m.curve(x, P, s, c.a, { w: 1.8 });
       tx(x, 's(t)', P.X(-1.95), P.Y(0.75), c.a); tx(x, 'I = Σ(∂s/∂τ)²/σ²', P.X(0.62), P.Y(1.0), c.b); },
     4: cv => { const { m, c, x, w, h } = S(cv); const sq = h - 38, L = { x: 6, y: 18, w: Math.min(sq * 1.25, (w - 36) * 0.42), h: sq }, R = { x: L.x + L.w + 26, y: 18, w: w - L.w - 38, h: sq };
-      const ax = 2.3 * L.w / L.h, P = m.panel(x, L, [-ax, ax], [-2.3, 2.3], { lab: 'IQ noise' }); const r = Lab.rng(7); x.save(); x.fillStyle = c.a; x.globalAlpha = 0.5;
+      const ax = 2.3 * L.w / L.h, P = m.panel(x, L, [-ax, ax], [-2.3, 2.3], { lab: 'IQ noise: Q vs I' }); const r = Lab.rng(7); x.save(); x.fillStyle = c.a; x.globalAlpha = 0.5;
       for (let i = 0; i < 300; i++) { const z = r.cg(); x.fillRect(P.X(z.re) - 1, P.Y(z.im) - 1, 2, 2); } x.restore();
-      const Q = m.panel(x, R, [-3.2, 3.2], [0, 0.62], { lab: 'pdf, one axis', ticks: [[-1, '−σ'], [1, 'σ'], [Math.SQRT1_2, ''], [-Math.SQRT1_2, '']] });
+      const Q = m.panel(x, R, [-3.2, 3.2], [0, 0.62], { lab: 'pdf vs I or Q', ticks: [[-1, '−σ'], [1, 'σ'], [Math.SQRT1_2, ''], [-Math.SQRT1_2, '']] });
       const gp = (u, sd) => Math.exp(-u * u / (2 * sd * sd)) / (sd * Math.sqrt(2 * PI));
       m.curve(x, Q, u => gp(u, 1), c.b, { w: 1.8 }); m.curve(x, Q, u => gp(u, Math.SQRT1_2), c.a, { fill: true, w: 2 });
       tx(x, 'σ²/2 per axis', Q.X(0.85), Q.Y(0.45), c.a); tx(x, 'real σ²', Q.X(1.25), Q.Y(0.2), c.b); },
     5: cv => { const { m, c, x, B } = S(cv); const wd = 1 / KF, s20 = wd / 10, s30 = wd / Math.sqrt(1000);
-      const P = m.panel(x, B, [-1.1, 1.1], [0, 1.12], { lab: 'vs x (FWHM): PSF and pdf of x̂', ticks: [[-0.5, '−½'], [0.5, '½']] });
+      const P = m.panel(x, B, [-1.1, 1.1], [0, 1.12], { lab: 'PSF, pdf of x̂ vs x (FWHM)', ticks: [[-0.5, '−½'], [0.5, '½']] });
       m.curve(x, P, u => Math.exp(-u * u / (2 * wd * wd)), c.mu, { fill: true, w: 1.2 }); m.curve(x, P, u => Math.exp(-u * u / (2 * s20 * s20)), c.a, { fill: true, w: 2 }); m.curve(x, P, u => Math.exp(-u * u / (2 * s30 * s30)), c.b, { w: 1.6 });
       tx(x, 'PSF |g|', P.X(-1.05), P.Y(0.3), c.mu); tx(x, '20 dB: σ = FWHM/' + F(KF * 10, 1), P.X(0.12), P.Y(0.62), c.a); tx(x, '30 dB: FWHM/' + F(KF * Math.sqrt(1000), 1), P.X(0.12), P.Y(0.92), c.b); },
     6: cv => { const { m, c, x, B } = S(cv); const wd = 1 / KF, g = u => Math.exp(-u * u / (2 * wd * wd));
@@ -1327,7 +1362,7 @@
       m.curve(x, P, d => Math.log10(cr(d)), c.b, { w: 1.6 }); line(x, P, MCN, MCN.map((d, i) => Math.log10(MCR[i] * cr(d))), c.a, { dots: true });
       vl(x, P, 13, c.mu); tx(x, 'CRLB', P.X(33), P.Y(-4.8), c.b); tx(x, 'threshold', P.X(5), P.Y(-4.5), c.mu); tx(x, 'asymptotic', P.X(22), P.Y(-2.2), c.a); },
     10: cv => { const { m, c, x, B } = S(cv); const N = 16, nb = (N - 1) / 2;
-      const P = m.panel(x, B, [-1, 16], [-1.15, 1.15], { lab: 'per sample n, N = 16', ticks: [[0, '0'], [7.5, 'n̄'], [15, 'N−1']] });
+      const P = m.panel(x, B, [-1, 16], [-1.15, 1.15], { lab: 'error, info vs sample n (N = 16)', ticks: [[0, '0'], [7.5, 'n̄'], [15, 'N−1']] });
       x.save(); x.fillStyle = c.a; x.globalAlpha = 0.75; for (let n = 0; n < N; n++) { const v = ((n - nb) / nb) ** 2; x.fillRect(P.X(n) - 3, P.Y(v), 6, P.Y(0) - P.Y(v)); } x.restore(); m.curve(x, P, n => (n - nb) / nb, c.b, { w: 1.8 });
       tx(x, 'phase error ∝ n − n̄', P.X(-0.8), P.Y(-0.85), c.b); tx(x, 'info ∝ (n − n̄)²', P.X(4.2), P.Y(0.9), c.a); },
     11: cv => { const { m, c, x, B } = S(cv); const r = N => N * (N + 1) / (6 * (N - 1));
@@ -1351,11 +1386,11 @@
     15: cv => { const { m, c, x, w, h } = S(cv); const [L, R] = split(w, h); const rho = 0.9, r = Lab.rng(11), pts = [];
       for (let i = 0; i < 260; i++) { const a = r.g(), b = r.g(); pts.push([a, rho * a + Math.sqrt(1 - rho * rho) * b]); }
       const l1 = Math.sqrt(1 + rho), l2 = Math.sqrt(1 - rho), W = ([u, v]) => { const s = (u + v) / Math.SQRT2, d = (u - v) / Math.SQRT2; const s2 = s / l1, d2 = d / l2; return [(s2 + d2) / Math.SQRT2, (s2 - d2) / Math.SQRT2]; };
-      const ax = 3.4 * L.w / L.h, P = m.panel(x, L, [-ax, ax], [-3.4, 3.4], { lab: 'ρ = 0.9' }), Q = m.panel(x, R, [-ax, ax], [-3.4, 3.4], { lab: 'C^−1/2 w' });
+      const ax = 3.4 * L.w / L.h, P = m.panel(x, L, [-ax, ax], [-3.4, 3.4], { lab: 'w₂ vs w₁ (ρ = 0.9)' }), Q = m.panel(x, R, [-ax, ax], [-3.4, 3.4], { lab: 'u₂ vs u₁, u = C^−1/2 w' });
       x.save(); x.globalAlpha = 0.55; x.fillStyle = c.b; pts.forEach(p => x.fillRect(P.X(p[0]) - 1, P.Y(p[1]) - 1, 2, 2)); x.fillStyle = c.a; pts.forEach(p => { const q = W(p); x.fillRect(Q.X(q[0]) - 1, Q.Y(q[1]) - 1, 2, 2); }); x.restore(); },
     16: cv => { const { m, c, x, B } = S(cv); const v = 0.1, pdf = u => u <= 0 ? 0 : Math.exp(-(u + 1) / v) * I0(2 * Math.sqrt(u) / v) / v;
       let s0 = 0, s1 = 0; for (let u = 0.0005; u < 4; u += 0.001) { const p = pdf(u); s0 += p; s1 += u * p; } const mean = s1 / s0;
-      const P = m.panel(x, B, [0.2, 2.1], [0, 1.45], { lab: 'pdf of |â|²/|a|² at ENR 10 dB', ticks: [[1, '1'], [0.5, '0.5'], [1.5, '1.5']] });
+      const P = m.panel(x, B, [0.2, 2.1], [0, 1.45], { lab: 'pdf vs |â|²/|a|² (ENR 10 dB)', ticks: [[1, '1'], [0.5, '0.5'], [1.5, '1.5']] });
       m.curve(x, P, pdf, c.a, { fill: true, w: 2 }); vl(x, P, 1, c.mu, 'true', 'right'); vl(x, P, mean, c.b, 'mean ' + F(mean, 2));
       tx(x, '1 + 1/ENR', P.X(1.5), P.Y(0.85), c.b); },
     17: cv => { const { m, c, x, B } = S(cv); const gm = Math.exp(-0.5772156649);
@@ -1363,21 +1398,21 @@
       m.curve(x, P, u => Math.exp(-u), c.a, { fill: true, w: 2 }); vl(x, P, 1, c.a, 'mean μ'); vl(x, P, gm, c.b, 'dB mean', 'right');
       tx(x, 'e^−γ μ = ' + F(gm, 3) + ' μ', P.X(1.1), P.Y(0.55), c.b); tx(x, '= ' + F(10 * Math.log10(gm), 2) + ' dB', P.X(1.1), P.Y(0.38), c.b); },
     18: cv => { const { m, c, x, B } = S(cv); const cB = 2.25 / 3.25, mse = t => cB * cB + (1 - cB) ** 2 * (1.5 * t) ** 2;
-      const P = m.panel(x, B, [0, 3.5], [0, 3.1], { lab: 'MSE/CRLB, posterior mean, τ = 1.5s', ticks: [[1, '1'], [2, '2'], [3, '3']], hlines: [[1, 'CRLB'], [cB, '']] });
+      const P = m.panel(x, B, [0, 3.5], [0, 3.1], { lab: 'MSE/CRLB (posterior mean) vs θ/τ, τ = 1.5s', ticks: [[1, '1'], [2, '2'], [3, '3']], hlines: [[1, 'CRLB'], [cB, '']] });
       m.curve(x, P, mse, c.a, { w: 2.2 }); pt(x, P, 3, mse(3), c.a, F(mse(3), 1) + '× at θ = 3τ', -8, -2, 'right'); tx(x, 'Bayes c·s² = ' + F(cB, 2) + ' s²', P.X(0.08), P.Y(cB) + 10, c.b); }
   };
 
   /* ---------- 12.4 inline: Doppler conversion and the real/complex factor ---------- */
   const B4 = (w, h) => ({ x: 4, y: 16, w: w - 8, h: h - 36 });
   const G4 = [
-    { prov: 'exact', q: 'What velocity precision does the frequency bound buy?', a: '<b>σ<sub>v</sub> = c·PRF·σ<sub>ω</sub>/(4πf<sub>0</sub>)</b> with σ<sub>ω</sub> = √(6/(SNR·M(M²−1))). At 10 dB per pulse, PRF 5 kHz, f<sub>0</sub> 5 MHz: 1.49 mm/s at M = 16, falling as M<sup>−3/2</sup>.',
+    { prov: 'exact', leg: [['σ_v bound', 'a', 'solid'], ['1 mm/s', 'mu', 'dash']], q: 'What velocity precision does the frequency bound buy?', a: '<b>σ<sub>v</sub> = c·PRF·σ<sub>ω</sub>/(4πf<sub>0</sub>)</b> with σ<sub>ω</sub> = √(6/(SNR·M(M²−1))). At 10 dB per pulse, PRF 5 kHz, f<sub>0</sub> 5 MHz: 1.49 mm/s at M = 16, falling as M<sup>−3/2</sup>.',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140); const sv = Mn => 1540 * 5000 * Math.sqrt(6 / (10 * Mn * (Mn * Mn - 1))) / (4 * PI * 5e6) * 1e3;
         const P = m.panel(x, B4(w, h), [2, 6.1], [-1.6, 1.6], { lab: 'log₁₀ σ_v (mm/s) vs M (log₂)', base: -1.6, ticks: [[2, '4'], [3, '8'], [4, '16'], [5, '32'], [6, '64']], hlines: [[0, '1 mm/s']] });
         m.curve(x, P, L => Math.log10(sv(Math.pow(2, L))), c.a, { w: 2 }); pt(x, P, 4, Math.log10(sv(16)), c.a, F(sv(16), 2) + ' mm/s', 6, -8); } },
-    { prov: 'exact', q: 'Real sinusoid or complex tone at the same SNR?', a: 'The real-sinusoid bound <b>12/(ηN(N²−1))</b> is twice the complex-tone bound 6/(SNR·N(N²−1)) at equal signal-to-noise power: the IQ factor 2 again (SNR = 0 dB shown).',
+    { prov: 'exact', leg: [['real sinusoid', 'b', 'dash'], ['complex tone', 'a', 'solid']], q: 'Real sinusoid or complex tone at the same SNR?', a: 'The real-sinusoid bound <b>12/(ηN(N²−1))</b> is twice the complex-tone bound 6/(SNR·N(N²−1)) at equal signal-to-noise power: the IQ factor 2 again (SNR = 0 dB shown).',
       draw: cv => { const m = M(), c = m.col(), { x, w, h } = m.size(cv, 140);
         const P = m.panel(x, B4(w, h), [2, 7.1], [-6.5, 0], { lab: 'log₁₀ bound on var(ω̂) vs N (log₂)', base: -6.5, ticks: [[2, '4'], [4, '16'], [5, '32'], [7, '128']] });
-        m.curve(x, P, L => { const N = Math.pow(2, L); return Math.log10(12 / (N * (N * N - 1))); }, c.b, { w: 2 }); m.curve(x, P, L => { const N = Math.pow(2, L); return Math.log10(6 / (N * (N * N - 1))); }, c.a, { w: 2 });
+        m.curve(x, P, L => { const N = Math.pow(2, L); return Math.log10(12 / (N * (N * N - 1))); }, c.b, { w: 2, dash: [6, 4] }); m.curve(x, P, L => { const N = Math.pow(2, L); return Math.log10(6 / (N * (N * N - 1))); }, c.a, { w: 2 });
         tx(x, 'real: 12/(ηN(N²−1))', P.X(4.3), P.Y(-2.4), c.b); tx(x, 'complex: 6/(SNR·N(N²−1))', P.X(2.1), P.Y(-5.6), c.a); tx(x, 'gap = log₁₀ 2', P.X(5.6), P.Y(-1.0), c.mu); } }
   ];
   Lab.cardGrid('m12', 'm12-g4', G4);

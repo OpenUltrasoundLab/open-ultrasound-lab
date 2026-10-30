@@ -20,11 +20,13 @@
     </div>
   </header>
   <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form plotted as is</span><span><span class="prov sim">Simulation</span>numerical solution run in this page (JS) or in the module's Octave scripts</span><span><span class="prov model">Approx. model</span>simplified physics; assumptions under the badge</span><span><span class="prov schem">Schematic</span>drawing for intuition, not computed</span><span>Most figures in this module plot exact linear-algebra identities or solve small systems in the page. Wave-physics figures (Demos 05.7 and 05.8, the beam and tomography cards) use narrowband or Gaussian-pulse, straight-ray, single-scattering models written in this page; no Field II or k-Wave output is shown.</span></div>
+  <div class="k60"><span class="label">In 60 seconds</span><ol><li><b>Complex inner products conjugate:</b> Similarity between complex vectors needs one of them conjugated, \(\langle x, y\rangle = y^Hx\), with H the conjugate transpose; otherwise the nonzero vector (1, i) gets length zero. The normalized product is a cosine of similarity. The coherence factor, a focusing-quality metric, is this cosine squared between the delayed channel data and an all-ones vector. <a class="sref" href="#m5-s5-1">§05.1</a></li><li><b>Structure decides cost:</b> How a matrix is built matters more than its size. A diagonal operator costs n operations, a circulant one n log n via the FFT, a sparse one only its nonzeros. Time-gain compensation and apodization, per-sample and per-channel weights, are diagonal matrices on channel data, so spotting structure first makes imaging operators tractable. <a class="sref" href="#m5-s5-2">§05.2</a></li><li><b>Null spaces hide parts of the unknown:</b> In Ax = b, with A the measurement matrix, x the unknown and b the data, x is unique only if no nonzero x maps to zero. Whatever part of x lies in that null space, such as parts of a limited-angle sound-speed map, comes from the regularizer or prior, not the data. <a class="sref" href="#m5-s5-4">§05.4</a></li><li><b>Least squares is an orthogonal projection:</b> The best fit leaves a residual perpendicular to every column of A, which gives the normal equations \(A^H A\hat x = A^H b\), with \(\hat x\) the estimate and \(A^H\) the conjugate transpose (\(A^T\) for real A). Forming \(A^HA\) squares the condition number, the error amplification, so solve with QR or SVD factorizations instead. A squared-error fit is also pulled hard by one outlier. <a class="sref" href="#m5-s5-5">§05.5</a></li><li><b>Conditioning sets the digits you lose:</b> The condition number κ, the ratio of a matrix’s strongest to weakest gain (largest to smallest singular value), bounds error growth: about \(\log_{10}\kappa\) digits are lost. Near-parallel columns are the usual cause; two unit columns 10° apart give κ = 11.4. Regularization damps the weak directions, trading noise for bias. <a class="sref" href="#m5-s5-6">§05.6</a></li><li><b>Unitary maps change basis without cost:</b> A unitary matrix Q, one with \(Q^HQ = I\), rotates coordinates without changing energy or white-noise statistics, so its condition number is 1. The DFT across an array is one: a plane wave lands in one spatial-frequency bin. A thin aberrating layer is diagonal across elements but circulant across plane-wave angles. <a class="sref" href="#m5-s5-7">§05.7</a></li><li><b>Imaging is a linear operator:</b> Under single scattering, channel data equal a matrix H times the reflectivity map plus noise; column j of H is the data from a unit scatterer at pixel j. Delay-and-sum beamforming applies the adjoint \(H^H\), not the inverse, so its image is reflectivity blurred by the point-spread function. <a class="sref" href="#m5-s5-8">§05.8</a></li></ol></div>
+  <div class="field"><span class="label">From the field</span><ul><li><b>Write the whole chain as y = Ax once, then examine A before choosing an algorithm.</b> <span class="why">Rank and conditioning of A, the matrix mapping unknown x to data y, decide what no reconstruction recovers: anything A maps to zero is lost. Two unit columns 10° apart give a condition number (error amplification) of 11.4. <a class="sref" href="#m5-s5-4">§05.4</a> <a class="sref" href="#m5-s5-6">§05.6</a></span></li><li><b>Never invert and never form AᵀA (AᴴA for complex data): solve with backslash, QR or LSQR (an iterative least-squares solver).</b> <span class="why">Explicit inversion and the normal equations compound rounding error. On the 10 × 10 Hilbert matrix the residual is 1.5 × 10⁻¹⁶ with backslash and 4.4 × 10⁻⁵ with inv(A)*b. <a class="sref" href="#m5-s5-5">§05.5</a></span></li><li><b>Exploit structure in imaging-sized operators: sparsity, FFTs, matrix-free products.</b> <span class="why">Dense matrices are impossible at this size, but iterative solvers need only products with A and its adjoint. Delay-and-sum from 2048 × 128 samples to a 256 × 256 image is a 65 536 × 262 144 matrix with 16.8 M nonzeros, about 0.1 % dense. <a class="sref" href="#m5-s5-2">§05.2</a> <a class="sref" href="#m5-s5-8">§05.8</a></span></li><li><b>For a large ill-posed problem, treat the LSQR iteration count as a regularization parameter.</b> <span class="why">Stopping early acts like discarding the small singular values, the weak directions; running to convergence amplifies noise as one over the singular value. <a class="sref" href="#m5-s5-12">§05.12</a></span></li><li><b>Plot the residuals of every least-squares slope fit before quoting the slope.</b> <span class="why">Squared-error fitting gives one bad point leverage that grows with its distance from the data centre. In the module’s attenuation fit, one +6 dB outlier at 7.75 MHz moves the slope by +0.20 dB/MHz, about three standard errors. <a class="sref" href="#m5-s5-5">§05.5</a></span></li><li><b>Centre the regressors before fitting a line or polynomial in frequency.</b> <span class="why">Raw frequency columns are nearly parallel to the constant column, which ill-conditions the fit. For the module’s fit the condition number of [1 f] drops from 16.2 to 1.66 after centring; a raw order-7 polynomial reaches 2.6 × 10⁹. <a class="sref" href="#m5-s5-6">§05.6</a></span></li></ul></div>
 
   <!-- ===================== 05.1 ===================== -->
   <div class="prose">
     <h2><span class="sec">05.1</span>Vectors, inner products and the conjugate</h2>
-    <p>A vector \(\mathbf{x} \in \mathbb{R}^{n}\) or \(\mathbb{C}^{n}\) is an ordered list of numbers and, geometrically, an arrow. The vectors you already handle every day: one RF line (n = number of samples), one snapshot across the array at fixed time (n = 128 element samples), or a whole IQ frame stacked into one long column (\(n = N_{z}N_{x}\)). Everything below treats these lists as points in a space where length and angle are defined, so that "similar", "orthogonal" and "closest" become computable.</p>
+    <p>A vector \(\mathbf{x} \in \mathbb{R}^{n}\) or \(\mathbb{C}^{n}\) is an ordered list of numbers and, geometrically, an arrow. You already handle such vectors every day: one RF line (n = number of samples), one snapshot across the array at fixed time (n = 128 element samples), or a whole IQ frame stacked into one long column (\(n = N_{z}N_{x}\)). Everything below treats these lists as points in a space where length and angle are defined, so that "similar", "orthogonal" and "closest" become computable.</p>
     <div class="eqn" id="m5-eq1">
       <div class="eqn-body"><div class="eqn-math">\[ \langle \mathbf{x},\mathbf{y}\rangle = \mathbf{y}^{H}\mathbf{x} = \sum_i x_i\, y_i^{*}, \qquad \lVert\mathbf{x}\rVert = \sqrt{\langle\mathbf{x},\mathbf{x}\rangle} = \Big(\sum_i \lvert x_i\rvert^{2}\Big)^{1/2} \]</div><span class="eqn-no">(05.1)</span></div>
       <dl class="where"><dt>\(\mathbf{x},\mathbf{y}\)</dt><dd>vectors in ℂⁿ (an RF line, one aperture snapshot, a stacked IQ frame)</dd><dt>\(x_i,\ y_i\)</dt><dd>their entries</dd><dt>\((\cdot)^{H}\)</dt><dd>conjugate (Hermitian) transpose</dd><dt>\((\cdot)^{*}\)</dt><dd>complex conjugate</dd><dt>\(\lVert\mathbf{x}\rVert\)</dt><dd>2-norm (length); its square is the energy</dd><dt>\(\langle\cdot,\cdot\rangle\)</dt><dd>inner (dot) product, a scalar</dd><dt>\(\sqrt{\cdot}\)</dt><dd>positive square root</dd><dt>\(\lvert\cdot\rvert\)</dt><dd>magnitude of a complex number</dd><dt>\(\sum_i\)</dt><dd>sum over the entries \(i\) of the vector</dd></dl>
@@ -51,18 +53,24 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m5-pj-cv" aria-label="Projection of vector x onto vector a"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>a (drag tip)</span><span><i style="background:var(--sig2)"></i>x (drag tip)</span><span><i style="background:var(--sig4)"></i>p = projection</span><span><i style="background:var(--sig3)"></i>residual r = x − p</span></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>a (drag tip)</span><span><i style="background:var(--sig2)"></i>x (drag tip)</span><span><i style="background:var(--sig4)"></i>p = projection</span><span><i class="dash" style="color:var(--sig3)"></i>residual r = x − p</span><span><i class="dash" style="color:var(--muted)"></i>span(a)</span></div>
       </div>
       <div class="controls">
         <div class="btn-row"><button class="btn" id="m5-pj-orth" type="button">Make x ⟂ a</button><button class="btn" id="m5-pj-par" type="button">Make x ∥ a</button></div>
         <div class="readout" id="m5-pj-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> drag <b>x</b> around a full circle and watch cos θ pass through 0 (orthogonal) and −1 (anti-parallel). Note that \(a^{T}r\) stays at zero to machine precision wherever you put the vectors: that orthogonality is the whole content of least squares (§05.5).</div>
+    <div class="demo-foot"><strong>Try:</strong> drag x around a full circle and watch cos θ pass through 0 (orthogonal) and −1 (anti-parallel). Wherever you put the vectors, \(a^{T}r\) stays at zero to machine precision, and that orthogonality is the whole content of least squares (§05.5).<span class="symnote">Symbols used here: a and x, the two vectors you drag (no unit); aᵀx, their dot product; ‖a‖, length; θ, the angle between them in degrees; c = aᵀx/aᵀa, the projection coefficient; p = c·a, the projection; r = x − p, the residual.</span></div>
   </div>
 
-  <div class="callout us"><span class="label">Ultrasound link</span><p>The coherence factor is a squared cosine. With \(\mathbf{s}\) the delayed aperture vector for one pixel, \(\mathrm{CF}\) \(= \lvert \mathbf{1}^{H}\mathbf{s}\rvert^{2} / (N\lVert \mathbf{s}\rVert^{2})\) \(= \cos^{2}\angle (\mathbf{s}, \mathbf{1})\), since \(\lVert \mathbf{1}\rVert^{2} = N\). Perfect focusing makes \(\mathbf{s}\) parallel to the all-ones vector; aberration rotates it away, which is why CF and its relatives are used as focus-quality metrics in sound-speed estimation.</p></div>
+  <div class="callout us"><span class="label">Ultrasound link</span><p>The coherence factor is a squared cosine. With \(\mathbf{s}\) the delayed aperture vector for one pixel, \(\mathrm{CF}\) \(= \lvert \mathbf{1}^{H}\mathbf{s}\rvert^{2} / (N\lVert \mathbf{s}\rVert^{2})\) \(= \cos^{2}\angle (\mathbf{s}, \mathbf{1})\), since \(\lVert \mathbf{1}\rVert^{2} = N\). Perfect focusing makes \(\mathbf{s}\) parallel to the all-ones vector; aberration rotates it away, which is why sound-speed estimation uses CF and its relatives as focus-quality metrics.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p><code>numpy.dot(x, y)</code> on complex arrays does not conjugate; <code>numpy.vdot(y, x)</code> conjugates its first argument and returns \(\mathbf{y}^{H}\mathbf{x}\). In MATLAB <code>x'</code> is \((\cdot)^{H}\) and <code>x.'</code> is \((\cdot)^{T}\). Using the wrong one on IQ data gives energies that can be negative or complex, and correlations whose magnitude depends on the carrier phase.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Complex inner products conjugate one argument, ⟨x, y⟩ = yᴴx; without it x = (1, i) has xᵀx = 0. The conjugate also cancels a carrier phase common to both vectors.</li>
+    <li>|yᴴx|/(‖x‖‖y‖) ∈ [0, 1] measures similarity; the Pearson coefficient is the cosine between the mean-removed vectors.</li>
+    <li>Projection onto a line: c = aᴴx/(aᴴa), residual ⟂ a, and ‖x‖² = ‖p‖² + ‖x − p‖².</li>
+    <li>CF = |1ᴴs|²/(N‖s‖²) = cos²∠(s, 1): aberration rotates s away from the all-ones vector.</li>
+  </ul></div>
 
   <!-- ===================== 05.2 ===================== -->
   <div class="prose">
@@ -103,7 +111,7 @@
             <option value="kron">kron: per-element operator on stacked data</option>
             <option value="das">Tiny DAS as a sparse matrix</option>
           </select></div>
-        <div class="ctrl" id="m5-wb-stepc"><label for="m5-wb-step">Step <output id="m5-wb-step-o"></output></label><input type="range" id="m5-wb-step" min="0" max="2" step="1" value="0">
+        <div class="ctrl" id="m5-wb-stepc"><label for="m5-wb-step">Step <output id="m5-wb-step-o"></output> <span class="hint">walks through the operation one step at a time</span></label><input type="range" id="m5-wb-step" min="0" max="2" step="1" value="0">
           <div class="btn-row"><button class="btn" id="m5-wb-prev" type="button">Previous</button><button class="btn solid" id="m5-wb-next" type="button">Next step</button></div></div>
       </div>
     </div>
@@ -126,11 +134,11 @@
     </tbody></table></div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>Hold channel data as \(X \in \mathbb{C}^{N_{t}\times N_{e}}\) (time samples down, elements across). TGC is a diagonal matrix on the left (one gain per depth sample), apodization is a diagonal matrix on the right (one weight per element), and after the delays the DAS value of one pixel is the row-times-column product \(\mathbf{w}^{T}\mathbf{d}\) of the weights with the delayed snapshot. A frame sequence stacked as pixels × frames is the Casorati matrix whose low-rank part is tissue clutter (Module 06).</p></div>
-  <div class="callout pitfall"><span class="label">Pitfall</span><p>Three one-character bugs. MATLAB <code>'</code> conjugates and <code>.'</code> does not; on IQ data the wrong one flips every phase. <code>A*B</code> is a matrix product and <code>A.*B</code> is elementwise; for square matrices both run without error and give different answers. <code>inv(A)*b</code> works but is slower and less accurate than <code>A\b</code> (rule 01 in 05.10).</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>Three common bugs differ by a single character. MATLAB <code>'</code> conjugates and <code>.'</code> does not; on IQ data the wrong one flips every phase. <code>A*B</code> is a matrix product and <code>A.*B</code> is elementwise; for square matrices both run without error and give different answers. <code>inv(A)*b</code> works but is slower and less accurate than <code>A\b</code> (rule 01 in 05.10).</p></div>
 
   <div class="prose">
     <h3>A matrix zoo for ultrasound</h3>
-    <p>Structure decides cost, conditioning and which fast algorithm applies. Recognizing the type of a matrix is the first step of every efficient implementation.</p>
+    <p>Structure decides cost, conditioning and which fast algorithm applies. Every efficient implementation starts by recognizing the type of matrix.</p>
   </div>
   <div class="tbl-wrap"><table>
     <thead><tr><th>Type</th><th>Structure</th><th>Where it appears</th><th>Cost of \(A\mathbf{x}\)</th></tr></thead>
@@ -147,11 +155,17 @@
       <tr><td>Permutation</td><td>one 1 per row and column</td><td>channel-to-element mapping, multiplexing, circular shift S (circulant \(C = \sum c_{k}S^{k}\))</td><td>O(n), no arithmetic</td></tr>
       <tr><td>Orthogonal projector</td><td>\(P^{2} = P = P^{H}\)</td><td>slow-time mean removal \(I - \mathbf{1}\mathbf{1}^{T}/N\), SVD clutter filter \(I - U_{k}U_{k}^{H}\), least-squares fitted values</td><td>O(nk) in factored form</td></tr>
     </tbody></table></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>(m×k)(k×n) = m×n; Ax costs mn multiply-adds and reads as row dot products or as a weighted sum of columns.</li>
+    <li>MATLAB ' conjugates and .' does not; A*B is not A.*B; prefer A\b to inv(A)*b.</li>
+    <li>Channel data X (time × elements): TGC is a diagonal matrix on the left, apodization a diagonal matrix on the right.</li>
+    <li>Recognize the structure first: diagonal O(n), circulant O(n log n) by FFT, sparse O(nnz), Kronecker as vec(AXBᵀ) for 2n³ instead of n⁴.</li>
+  </ul></div>
 
   <!-- ===================== 05.3 ===================== -->
   <div class="prose">
     <h2><span class="sec">05.3</span>A matrix is a linear map</h2>
-    <p>A map is linear if \(A(\alpha \mathbf{x} + \beta \mathbf{y})\) \(= \alpha A\mathbf{x} + \beta A\mathbf{y}\). Every linear map from \(\mathbb{R}^{n}\) to \(\mathbb{R}^{m}\) is a matrix, and the matrix is fully determined by where it sends the basis vectors: <strong>column j of A is \(A\mathbf{e}_{j}\)</strong>. Writing any input as \(\mathbf{x} = \sum x_{j}\mathbf{e}_{j}\) and applying linearity gives the two readings of a matrix–vector product:</p>
+    <p>A map is linear if \(A(\alpha \mathbf{x} + \beta \mathbf{y})\) \(= \alpha A\mathbf{x} + \beta A\mathbf{y}\). Every linear map from \(\mathbb{R}^{n}\) to \(\mathbb{R}^{m}\) is a matrix, and the matrix is fully determined by where it sends the basis vectors: column j of A is \(A\mathbf{e}_{j}\). Writing any input as \(\mathbf{x} = \sum x_{j}\mathbf{e}_{j}\) and applying linearity gives the two readings of a matrix–vector product:</p>
     <div class="eqn" id="m5-eq5">
       <div class="eqn-body"><div class="eqn-math">\[ \text{column picture: } A\mathbf{x} = x_1\mathbf{a}_1 + x_2\mathbf{a}_2 + \dots + x_n\mathbf{a}_n, \qquad \text{row picture: } (A\mathbf{x})_i = \mathbf{r}_i^{T}\mathbf{x} \]</div><span class="eqn-no">(05.5)</span></div>
       <dl class="where"><dt>\(A\)</dt><dd>\(m \times n\) matrix</dd><dt>\(\mathbf{a}_1,\dots,\mathbf{a}_n\)</dt><dd>columns of \(A\)</dd><dt>\(\mathbf{x}\)</dt><dd>input vector with entries \(x_1,\dots,x_n\)</dd><dt>\(\mathbf{r}_i^{T}\)</dt><dd>row \(i\) of \(A\), written as a row vector</dd><dt>\((\cdot)^{T}\)</dt><dd>transpose</dd></dl>
@@ -177,10 +191,10 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m5-tf-cv" aria-label="Transformed grid, unit square and unit circle"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>a₁ = Ae₁ (drag)</span><span><i style="background:var(--sig3)"></i>a₂ = Ae₂ (drag)</span><span><i style="background:var(--sig2)"></i>image of unit circle</span><span><i style="background:var(--sig4)"></i>ellipse axes σ₁u₁, σ₂u₂ / Ax</span></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>a₁ = Ae₁ (drag)</span><span><i style="background:var(--sig3)"></i>a₂ = Ae₂ (drag)</span><span><i style="background:var(--sig2)"></i>image of unit circle</span><span><i class="dash" style="color:var(--muted)"></i>unit circle</span><span><i class="dash" style="color:var(--sig4)"></i>ellipse axes σ₁u₁, σ₂u₂</span><span><i style="background:var(--sig4)"></i>Ax (column sum)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m5-tf-pre">Preset</label>
+        <div class="ctrl"><label for="m5-tf-pre">Preset <span class="hint">sets a, b, c, d to a named matrix</span></label>
           <select id="m5-tf-pre">
             <option value="id">Identity</option>
             <option value="rot" selected>Rotation 30°</option>
@@ -190,23 +204,29 @@
             <option value="refl">Reflection across 30° line</option>
             <option value="sing">Near-singular</option>
           </select></div>
-        <div class="ctrl"><label for="m5-tf-a">a (row 1, col 1) <output id="m5-tf-a-o"></output></label><input type="range" id="m5-tf-a" min="-2" max="2" step="0.01" value="1"></div>
+        <div class="ctrl"><label for="m5-tf-a">a (row 1, col 1) <output id="m5-tf-a-o"></output> <span class="hint">entries of A = [a b; c d] (no unit)</span></label><input type="range" id="m5-tf-a" min="-2" max="2" step="0.01" value="1"></div>
         <div class="ctrl"><label for="m5-tf-b">b (row 1, col 2) <output id="m5-tf-b-o"></output></label><input type="range" id="m5-tf-b" min="-2" max="2" step="0.01" value="0"></div>
         <div class="ctrl"><label for="m5-tf-c">c (row 2, col 1) <output id="m5-tf-c-o"></output></label><input type="range" id="m5-tf-c" min="-2" max="2" step="0.01" value="0"></div>
         <div class="ctrl"><label for="m5-tf-d">d (row 2, col 2) <output id="m5-tf-d-o"></output></label><input type="range" id="m5-tf-d" min="-2" max="2" step="0.01" value="1"></div>
         <div class="btn-row"><button class="btn" id="m5-tf-ra" type="button">A ← R₉₀·A</button><button class="btn" id="m5-tf-ar" type="button">A ← A·R₉₀</button></div>
         <label class="check"><input type="checkbox" id="m5-tf-sx"> show x → Ax as column sum</label>
-        <div class="ctrl"><label for="m5-tf-x1">x₁ <output id="m5-tf-x1-o"></output></label><input type="range" id="m5-tf-x1" min="-2" max="2" step="0.05" value="1.2"></div>
-        <div class="ctrl"><label for="m5-tf-x2">x₂ <output id="m5-tf-x2-o"></output></label><input type="range" id="m5-tf-x2" min="-2" max="2" step="0.05" value="0.8"></div>
+        <div class="ctrl"><label for="m5-tf-x1">x₁ (first component of x) <output id="m5-tf-x1-o"></output></label><input type="range" id="m5-tf-x1" min="-2" max="2" step="0.05" value="1.2"></div>
+        <div class="ctrl"><label for="m5-tf-x2">x₂ (second component of x) <output id="m5-tf-x2-o"></output></label><input type="range" id="m5-tf-x2" min="-2" max="2" step="0.05" value="0.8"></div>
         <div class="readout" id="m5-tf-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> pick "Near-singular" and drag \(a_{2}\) onto the line of \(a_{1}\): the ellipse flattens to a segment, \(\det \to 0, \sigma_{2} \to 0\), rank drops to 1. Apply \(R_{90}\cdot A\) then undo with three more presses, versus \(A\cdot R_{90}\): the parallelogram is the same set but the columns are permuted, so the two products differ. Reflection gives det = −1 (orientation flip), projection gives det = 0 with eigenvalues exactly 1 and 0.</div>
+    <div class="demo-foot"><strong>Try:</strong> pick "Near-singular" and drag \(a_{2}\) onto the line of \(a_{1}\): the ellipse flattens to a segment, \(\det \to 0, \sigma_{2} \to 0\), rank drops to 1. Apply \(R_{90}\cdot A\) then undo with three more presses, versus \(A\cdot R_{90}\): the parallelogram is the same set but the columns are permuted, so the two products differ. Reflection gives det = −1 (orientation flip), projection gives det = 0 with eigenvalues exactly 1 and 0.<span class="symnote">Symbols used here: A = [a b; c d], the 2×2 matrix; a₁ = Ae₁ and a₂ = Ae₂, its columns; x = (x₁, x₂), an input vector; λ, the eigenvalues; σ₁ ≥ σ₂, the singular values with directions u₁, u₂; κ = σ₁/σ₂, the condition number.</span></div>
   </div>
 
-  <div class="callout intuit"><span class="label">Intuition</span><p>Read a matrix by its columns first. If you know where \(e_{1}\) and \(e_{2}\) land, you know where everything lands, because every other point is a weighted sum of those two. Turn on "show x → Ax" to see \(A\mathbf{x}\) built tip-to-tail as \(x_{1}\mathbf{a}_{1} + x_{2}\mathbf{a}_{2}\).</p></div>
+  <div class="callout intuit"><span class="label">Intuition</span><p>Read a matrix by its columns first: if you know where \(e_{1}\) and \(e_{2}\) land, you know where everything lands, because every other point is a weighted sum of those two. Turn on "show x → Ax" to see \(A\mathbf{x}\) built tip-to-tail as \(x_{1}\mathbf{a}_{1} + x_{2}\mathbf{a}_{2}\).</p></div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>The receive chain up to the envelope is a product of matrices: IQ demodulation D, decimation S, beamforming B, angle compounding C, so \(\mathbf{i} = C B S D \mathbf{r}\) for raw RF \(\mathbf{r}\). Envelope detection |·| and log compression are the first nonlinear steps. Everything before them obeys superposition, which is why SVD clutter filtering (Module 06) can act on channel data or on beamformed IQ, and why a PSF fully characterizes the linear part of the system.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>In code, <code>A @ B @ x</code> applies B first. A chain written as "first weight channels by W, then beamform with B" is \(B W \mathbf{d}\), not \(W B \mathbf{d}\); the second is not even dimensionally valid when B changes the vector length.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Column j of A is Ae<sub>j</sub>; in (AB)x = A(Bx) the matrix written last acts first, and AB ≠ BA in general.</li>
+    <li>det is the signed area scale (det &lt; 0 flips orientation, det = 0 means dependent columns); tr A = λ₁ + λ₂, det A = λ₁λ₂.</li>
+    <li>The unit circle maps to an ellipse with semi-axes σ₁ ≥ σ₂, so |det A| = σ₁σ₂.</li>
+    <li>The receive chain i = CBSDr is linear up to envelope detection and log compression, so a PSF characterizes it.</li>
+  </ul></div>
 
   <!-- ===================== 05.4 ===================== -->
   <div class="prose">
@@ -243,22 +263,28 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m5-fs-cv" aria-label="Input and output spaces with the four subspaces"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>row space / column space</span><span><i style="background:var(--sig2)"></i>null spaces</span><span><i style="background:var(--sig3)"></i>b (drag in output panel)</span><span><i style="background:var(--sig4)"></i>x⁺ and the solution line</span></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>row space / column space</span><span><i class="dash" style="color:var(--sig2)"></i>null spaces; residual b − Ax⁺</span><span><i class="mark" style="background:var(--sig3)"></i>b (drag in output panel)</span><span><i style="background:var(--sig4)"></i>x⁺</span><span><i class="dot" style="color:var(--sig4)"></i>solution line x⁺ + N(A)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m5-fs-tv">Row-space angle (v₁) <output id="m5-fs-tv-o"></output></label><input type="range" id="m5-fs-tv" min="0" max="180" step="1" value="20"></div>
-        <div class="ctrl"><label for="m5-fs-tu">Column-space angle (u₁) <output id="m5-fs-tu-o"></output></label><input type="range" id="m5-fs-tu" min="0" max="180" step="1" value="60"></div>
-        <div class="ctrl"><label for="m5-fs-s1">σ₁ <output id="m5-fs-s1-o"></output></label><input type="range" id="m5-fs-s1" min="0.5" max="2.5" step="0.05" value="1.5"></div>
-        <div class="ctrl"><label for="m5-fs-s2">σ₂ (0 = rank 1) <output id="m5-fs-s2-o"></output></label><input type="range" id="m5-fs-s2" min="0" max="1.5" step="0.01" value="0"></div>
+        <div class="ctrl"><label for="m5-fs-tv">Row-space angle of v₁ (deg) <output id="m5-fs-tv-o"></output> <span class="hint">direction of the first right singular vector</span></label><input type="range" id="m5-fs-tv" min="0" max="180" step="1" value="20"></div>
+        <div class="ctrl"><label for="m5-fs-tu">Column-space angle of u₁ (deg) <output id="m5-fs-tu-o"></output> <span class="hint">direction of the first left singular vector</span></label><input type="range" id="m5-fs-tu" min="0" max="180" step="1" value="60"></div>
+        <div class="ctrl"><label for="m5-fs-s1">Singular value σ₁ <output id="m5-fs-s1-o"></output> <span class="hint">gain of A from v₁ to u₁</span></label><input type="range" id="m5-fs-s1" min="0.5" max="2.5" step="0.05" value="1.5"></div>
+        <div class="ctrl"><label for="m5-fs-s2">Singular value σ₂ (0 = rank 1) <output id="m5-fs-s2-o"></output> <span class="hint">gain of A along the second direction</span></label><input type="range" id="m5-fs-s2" min="0" max="1.5" step="0.01" value="0"></div>
         <label class="check"><input type="checkbox" id="m5-fs-tr"> truncate σ₂ &lt; 0.1 (pseudo-inverse tolerance)</label>
         <div class="readout" id="m5-fs-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> with \(\sigma_{2} = 0\), drag b onto the column-space line (it snaps): a whole line of exact solutions appears, parallel to N(A), and \(x^{+}\) is the point on it nearest the origin. Pull b off the line: no exact solution, the residual is along \(N(A^{T})\). Now set \(\sigma_{2} = 0.03\): the solution becomes unique but \(\lVert x\rVert\) explodes (off the panel); tick "truncate" to get the well-behaved rank-1 answer back. That last step is regularization in miniature (§05.6).</div>
+    <div class="demo-foot"><strong>Try:</strong> with \(\sigma_{2} = 0\), drag b onto the column-space line (it snaps): a whole line of exact solutions appears, parallel to N(A), and \(x^{+}\) is the point on it nearest the origin. Pull b off the line: no exact solution, the residual is along \(N(A^{T})\). Now set \(\sigma_{2} = 0.03\): the solution becomes unique but \(\lVert x\rVert\) explodes (off the panel). Tick "truncate" to get the well-behaved rank-1 answer back. That last step is regularization in miniature (§05.6).<span class="symnote">Symbols used here: v₁ and u₁, the first right and left singular vectors; σ₁ and σ₂, the singular values; r, the rank; C(A) and N(A), column space and null space (Aᵀ for the row side); b, the data vector; x⁺, the minimum-norm (pseudo-inverse) solution.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>Pulse-echo sound-speed tomography (\(A\mathbf{s} = \Delta \mathbf{t}\), 05.8) has an effectively nonempty null space. With a linear array the usable ray paths are all within a few tens of degrees of vertical, so slowness patterns that vary along depth and integrate to nearly zero along every steep path are (almost) invisible: their component lies in N(A). No amount of data from the same geometry recovers them; a regularizer or prior (batch 2, Inverse problems) chooses that component for you. Knowing N(A) tells you which artifacts in a SoS map are geometry, not tissue.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Do not test rank or invertibility with det ≈ 0. A perfectly conditioned 128×128 matrix with all σ = 0.5 has \(\det = 0.5^{128} \approx 3\times 10^{-39}\). Numerical rank is decided by a threshold on the singular values (Module 06), and closeness to singularity by κ (§05.6).</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>dim C(Aᵀ) + dim N(A) = n and dim C(A) + dim N(Aᵀ) = m, with N(A) ⟂ C(Aᵀ) and N(Aᵀ) ⟂ C(A).</li>
+    <li>A solution exists iff b ∈ C(A) (b ⟂ N(Aᵀ)) and is unique iff r = n; the minimum-norm solution is x⁺ = A⁺b.</li>
+    <li>Never test rank with det: a perfectly conditioned 128 × 128 matrix with all σ = 0.5 has det ≈ 3 × 10⁻³⁹. Threshold the singular values instead.</li>
+    <li>The part of a sound-speed map in N(A) is set by the regularizer or prior, not by the data.</li>
+  </ul></div>
 
   <!-- ===================== 05.5 ===================== -->
   <div class="prose">
@@ -267,7 +293,7 @@
     <div class="eqn key" id="m5-eq9">
       <div class="eqn-body"><div class="eqn-math">\[ A^{T}(\mathbf{b} - A\hat{\mathbf{x}}) = 0 \;\Rightarrow\; A^{T}A\,\hat{\mathbf{x}} = A^{T}\mathbf{b} \qquad (\text{normal equations}) \]</div><span class="eqn-no">(05.9)</span></div>
       <dl class="where"><dt>\(A\)</dt><dd>m × n model matrix, m &gt; n, independent columns (e.g. 25 frequencies × 2 columns)</dd><dt>\(\mathbf{b}\)</dt><dd>data, m × 1 (e.g. log spectral ratio, dB)</dd><dt>\(\hat{\mathbf{x}}\)</dt><dd>least-squares parameters, n × 1 (e.g. intercept dB, slope dB/MHz)</dd><dt>\(\mathbf{b} - A\hat{\mathbf{x}}\)</dt><dd>residual, orthogonal to every column of A</dd><dt>\((\cdot)^{T}\)</dt><dd>transpose</dd><dt>\(A^{T}A\)</dt><dd>\(n \times n\) Gram matrix of the columns of \(A\)</dd></dl>
-      <span class="note">The calculus route agrees: \(\nabla_{x}\lVert \mathbf{b} - A\mathbf{x}\rVert^{2}\) \(= -2A^{T}(\mathbf{b} - A\mathbf{x})\) \(= 0\). Complex data: \(A^{H}A\hat{\mathbf{x}} = A^{H}\mathbf{b}\).</span>
+      <span class="note">The calculus route agrees: \(\nabla_{x}\lVert \mathbf{b} - A\mathbf{x}\rVert^{2}\) \(= -2A^{T}(\mathbf{b} - A\mathbf{x})\) \(= 0\). Equations (05.9)–(05.15) are written for real A. For complex data (IQ) replace every \((\cdot)^{T}\) by \((\cdot)^{H}\): \(A^{H}A\hat{\mathbf{x}} = A^{H}\mathbf{b}\), \(P = A(A^{H}A)^{-1}A^{H}\), \(A^{+} = (A^{H}A)^{-1}A^{H}\), and \(\operatorname{Cov}(\hat{\mathbf{x}}) = \sigma^{2}(A^{H}A)^{-1}\) for circular complex white noise; with \(A^{T}\) the complex \(A^{T}A\) is not even Hermitian.</span>
     </div>
     <div class="eqn" id="m5-eq10">
       <div class="eqn-body"><div class="eqn-math">\[ \hat{\mathbf{x}} = (A^{T}A)^{-1}A^{T}\mathbf{b} = A^{+}\mathbf{b}, \qquad P = A(A^{T}A)^{-1}A^{T}, \qquad P^{2} = P,\;\; P^{T} = P \]</div><span class="eqn-no">(05.10)</span></div>
@@ -287,22 +313,28 @@
     <div class="demo-body">
       <div class="stage">
         <canvas id="m5-ls-cv" aria-label="Least squares polynomial fit with residual segments"></canvas>
-        <div class="legend"><span><i style="background:var(--ink)"></i>data</span><span><i style="background:var(--accent)"></i>fit A x̂ (+ nudge)</span><span><i style="background:var(--muted)"></i>truth (−1 dB/MHz)</span><span><i style="background:var(--sig2)"></i>residuals</span></div>
+        <div class="legend" id="m5-ls-leg"><span data-s="data"><i class="mark" style="background:var(--ink)"></i>data</span><span data-s="fit"><i style="background:var(--accent)"></i>fit A x̂ (+ nudge)</span><span data-s="truth"><i class="dash" style="color:var(--muted)"></i>truth (−1 dB/MHz)</span><span data-s="res"><i class="stem" style="background:var(--sig2)"></i>residuals</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m5-ls-ord">Polynomial order <output id="m5-ls-ord-o"></output></label><input type="range" id="m5-ls-ord" min="0" max="8" step="1" value="1"></div>
-        <div class="ctrl"><label for="m5-ls-sig">Noise σ <output id="m5-ls-sig-o"></output></label><input type="range" id="m5-ls-sig" min="0" max="2" step="0.05" value="0.6"></div>
-        <div class="ctrl"><label for="m5-ls-ng">Nudge linear coefficient off optimum <output id="m5-ls-ng-o"></output></label><input type="range" id="m5-ls-ng" min="-1" max="1" step="0.02" value="0"></div>
+        <div class="ctrl"><label for="m5-ls-ord">Polynomial order <output id="m5-ls-ord-o"></output> <span class="hint">0 = constant, 1 = straight line (attenuation slope)</span></label><input type="range" id="m5-ls-ord" min="0" max="8" step="1" value="1"></div>
+        <div class="ctrl"><label for="m5-ls-sig">Noise σ (dB) <output id="m5-ls-sig-o"></output> <span class="hint">standard deviation of the Gaussian noise on each sample</span></label><input type="range" id="m5-ls-sig" min="0" max="2" step="0.05" value="0.6"></div>
+        <div class="ctrl"><label for="m5-ls-ng">Nudge of the linear coefficient (dB) <output id="m5-ls-ng-o"></output> <span class="hint">moves the fit off the least-squares optimum</span></label><input type="range" id="m5-ls-ng" min="-1" max="1" step="0.02" value="0"></div>
         <label class="check"><input type="checkbox" id="m5-ls-out"> add +6 dB outlier at 7.75 MHz</label>
         <div class="btn-row"><button class="btn" id="m5-ls-rs" type="button">Reseed noise</button></div>
         <div class="readout" id="m5-ls-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Model:</strong> 25 frequencies from 2 to 8 MHz, y = 2 − 1.0·f dB (\(\alpha_{0} = 0.5\) dB/cm/MHz over Δz = 1 cm, round trip), columns \(t^{k}\) with t = (f − 5)/3, solved by QR (modified Gram–Schmidt). <strong>Try:</strong> nudge the coefficient and watch \(\lVert r\rVert^{2}\) grow by exactly \(\delta^{2}\lVert a_{1}\rVert^{2}\) while \(A^{T}r\) leaves zero. Raise the order to 8: the residual shrinks (more columns, bigger C(A)) but the curve chases noise and κ(A) climbs. Add the outlier: the slope moves by about +0.20 dB/MHz, three times its noise standard error.</div>
+    <div class="demo-foot"><strong>Model:</strong> 25 frequencies from 2 to 8 MHz, y = 2 − 1.0·f dB (\(\alpha_{0} = 0.5\) dB/cm/MHz over Δz = 1 cm, round trip), columns \(t^{k}\) with t = (f − 5)/3, solved by QR (modified Gram–Schmidt). <strong>Try:</strong> nudge the coefficient and watch \(\lVert r\rVert^{2}\) grow by exactly \(\delta^{2}\lVert a_{1}\rVert^{2}\) while \(A^{T}r\) leaves zero. Raise the order to 8: the residual shrinks (more columns, bigger C(A)) but the curve chases noise and κ(A) climbs. Add the outlier: the slope moves by about +0.20 dB/MHz, three times its noise standard error.<span class="symnote">Symbols used here: f, frequency in MHz; y, the log-spectral ratio in dB; A, the polynomial design matrix; x̂, the least-squares coefficients; r = y − A x̂, the residual; σ, the noise standard deviation in dB; κ(A), the condition number; α₀, the attenuation coefficient in dB/cm/MHz.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>QUS spectral fits are least squares on log spectra. The spectral-difference attenuation estimate fits the log-ratio of power spectra from two depths against frequency; for \(\alpha (f) = \alpha_{0}f\) the slope is \(-2\alpha_{0}\Delta z\) (dB/MHz), here −1 dB/MHz. Backscatter coefficient and effective scatterer size fits have the same structure with different columns. In ULM, a Gaussian PSF becomes a quadratic in the log domain, so a fast sub-pixel localizer is a 6-column least-squares fit of log-intensity around the peak.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Two numerical traps. (1) Forming \(A^{T}A\) squares the condition number, \(\kappa (A^{T}A) = \kappa (A)^{2}\); with \(\kappa (A) = 10^{4}\) you lose 8 of 16 digits. Solve with QR (\(A = QR, \hat{\mathbf{x}} = R^{-1}Q^{T}\mathbf{b}\)) or SVD, as numpy's <code>lstsq</code> and MATLAB's backslash do. (2) L2 weights errors quadratically, so one specular reflection or a noisy spectral edge can dominate a fit. Robust (L1, Huber) and weighted fits come in batch 2.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Normal equations AᵀA x̂ = Aᵀb for real A (AᴴA x̂ = Aᴴb for complex A); P = A(AᵀA)⁻¹Aᵀ is idempotent and symmetric (Hermitian with ᴴ), and the residual (I − P)b lies in N(Aᵀ).</li>
+    <li>With white noise of variance σ², Cov(x̂) = σ²(AᵀA)⁻¹ (σ²(AᴴA)⁻¹ for complex A and circular noise); for a straight line SE(c₁) = σ/√Σ(f<sub>i</sub> − f̄)².</li>
+    <li>Forming AᵀA squares κ (κ(A) = 10⁴ loses 8 of 16 digits): solve with QR or SVD, as backslash and lstsq do.</li>
+    <li>L2 fits are fragile: one +6 dB outlier at 7.75 MHz moves the attenuation slope by ≈ +0.20 dB/MHz, three noise standard errors.</li>
+  </ul></div>
 
   <!-- ===================== 05.6 ===================== -->
   <div class="prose">
@@ -323,7 +355,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     <div class="eqn" id="m5-eq14">
       <div class="eqn-body"><div class="eqn-math">\[ \sigma_{1,2} = \sqrt{1 \pm \cos\varphi}, \qquad \kappa = \sqrt{\frac{1+\cos\varphi}{1-\cos\varphi}} = \cot\frac{\varphi}{2} \]</div><span class="eqn-no">(05.14)</span></div>
       <dl class="where"><dt>\(\varphi\)</dt><dd>angle between the two unit-norm columns of A</dd><dt>\(\sigma_{1,2}\)</dt><dd>singular values of A</dd><dt>\(\sqrt{\cdot}\)</dt><dd>positive square root</dd><dt>\(\cot\)</dt><dd>cotangent</dd><dt>\(\cos\varphi\)</dt><dd>inner product of the two unit-norm columns of A</dd></dl>
-      <span class="note">φ = 90°: κ = 1. φ = 30°: κ = 3.73. φ = 10°: κ = 11.4. φ = 2°: κ = 57.3. Two measurements that "look almost the same" cannot separate their two causes.</span>
+      <span class="note">φ = 90°: κ = 1. φ = 30°: κ = 3.73. φ = 10°: κ = 11.4. φ = 2°: κ = 57.3. <b>Two measurements that "look almost the same" cannot separate their two causes.</b></span>
     </div>
     <h3>Tikhonov regularization (teaser for batch 2, Inverse problems)</h3>
     <p>Add a penalty on \(\lVert \mathbf{x}\rVert^{2}\) and the normal equations get a diagonal load:</p>
@@ -343,21 +375,27 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     <div class="demo-body">
       <div class="stage">
         <canvas id="m5-cn-cv" aria-label="Noise in data space and resulting solution cloud"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>noisy samples</span><span><i style="background:var(--sig2)"></i>2σ ellipse (theory)</span><span><i style="background:var(--sig3)"></i>columns a₁, a₂</span><span><i style="background:var(--sig4)"></i>truth x = (1, 1)</span></div>
+        <div class="legend"><span><i class="mark" style="background:var(--accent)"></i>noisy samples</span><span><i style="background:var(--sig2)"></i>2σ ellipse (theory)</span><span><i class="dash" style="color:var(--sig3)"></i>columns a₁, a₂</span><span><i class="mark" style="background:var(--sig4)"></i>b (data) and truth x = (1, 1) (cross)</span><span><i class="dot" style="color:var(--sig5)"></i>Tikhonov mean and its bias</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m5-cn-phi">Column angle φ <output id="m5-cn-phi-o"></output></label><input type="range" id="m5-cn-phi" min="2" max="90" step="1" value="20"></div>
-        <div class="ctrl"><label for="m5-cn-sig">Noise σ on b <output id="m5-cn-sig-o"></output></label><input type="range" id="m5-cn-sig" min="0.01" max="0.2" step="0.005" value="0.05"></div>
-        <div class="ctrl"><label for="m5-cn-lam">Tikhonov λ <output id="m5-cn-lam-o"></output></label><input type="range" id="m5-cn-lam" min="0" max="100" step="1" value="0"></div>
+        <div class="ctrl"><label for="m5-cn-phi">Column angle φ (deg) <output id="m5-cn-phi-o"></output> <span class="hint">angle between the columns a₁ and a₂ of A</span></label><input type="range" id="m5-cn-phi" min="2" max="90" step="1" value="20"></div>
+        <div class="ctrl"><label for="m5-cn-sig">Noise σ on b <output id="m5-cn-sig-o"></output> <span class="hint">standard deviation of each component of δb</span></label><input type="range" id="m5-cn-sig" min="0.01" max="0.2" step="0.005" value="0.05"></div>
+        <div class="ctrl"><label for="m5-cn-lam">Tikhonov λ <output id="m5-cn-lam-o"></output> <span class="hint">regularization weight; 0 = plain inverse A⁻¹</span></label><input type="range" id="m5-cn-lam" min="0" max="100" step="1" value="0"></div>
         <div class="btn-row"><button class="btn" id="m5-cn-rs" type="button">Reseed (600 draws)</button></div>
         <div class="readout" id="m5-cn-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Same scale in both panels.</strong> Left: data space, b + δb is an isotropic disk. Right: solution space, the same disk mapped by \(A^{-1}\). <strong>Try:</strong> close φ toward 2°: the cloud stretches along \(v_{2}\) by \(1/\sigma_{2}\) while the data disk is unchanged. Then raise λ: the cloud collapses, but its center slides away from the truth (bias); RMSE first drops, then rises again when \(\lambda \gg \sigma_{2}^{2}\).</div>
+    <div class="demo-foot"><strong>Same scale in both panels.</strong> Left: data space, b + δb is an isotropic disk. Right: solution space, the same disk mapped by \(A^{-1}\). <strong>Try:</strong> close φ toward 2°: the cloud stretches along \(v_{2}\) by \(1/\sigma_{2}\) while the data disk is unchanged. Raising λ collapses the cloud, but its center slides away from the truth (bias); RMSE first drops, then rises again when \(\lambda \gg \sigma_{2}^{2}\).<span class="symnote">Symbols used here: A = [a₁ a₂], the 2×2 matrix; φ, the angle between its columns in degrees; b, the data; δb, the noise with standard deviation σ; x̂, the solution; κ, the condition number; σ₁, σ₂ and v₁, v₂, the singular values and right singular vectors; λ, the Tikhonov weight.</span></div>
   </div>
 
   <div class="callout us"><span class="label">Ultrasound link</span><p>Nearly parallel columns are the normal state of pulse-echo sound-speed tomography: neighboring pixels are crossed by almost the same set of steep ray paths, so their columns of A are almost parallel and κ is very large. The same filter-factor algebra appears in minimum-variance beamforming: the weights use \(R^{-1}\) of the sample covariance (Module 07), and diagonal loading R + εI is Tikhonov with λ = ε. It trades resolution (bias) for robustness (variance) exactly as the cloud does here.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>det is not a conditioning measure. \(10^{-6}\cdot I\) has \(\det = 10^{-12}\) and κ = 1: perfectly conditioned, just scaled. \(\begin{bmatrix}1 &amp; 1 \\ 1 &amp; 1.01\end{bmatrix}\) has det = 0.01 and κ ≈ 402. Use κ (or the singular values) and compare it with your data SNR.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Relative error is amplified by up to κ = σ<sub>max</sub>/σ<sub>min</sub>; expect to lose about log₁₀ κ significant digits of data precision.</li>
+    <li>Random noise is amplified only along the weak directions v<sub>i</sub>, with standard deviation σ/σ<sub>i</sub>.</li>
+    <li>Two unit columns at angle φ give κ = cot(φ/2): 3.73 at 30°, 11.4 at 10°, 57.3 at 2°.</li>
+    <li>Tikhonov multiplies component i by f<sub>i</sub> = σ<sub>i</sub>²/(σ<sub>i</sub>² + λ), trading variance for bias; diagonal loading R + εI is the same with λ = ε.</li>
+  </ul></div>
 
   <!-- ===================== 05.7 ===================== -->
   <div class="prose">
@@ -429,7 +467,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
 <text x="630" y="214" class="s">grey lines: wavefronts, λ apart</text>
 </svg></div>
   </figure>
-    <p>A plane-wave transmit set works the same way on the transmit side: steering vectors for angles \(\theta_{m}\) are the columns of a matrix Φ (N elements × M angles), close to DFT columns when the angles sit on the sin θ grid λ/(Np). Firing them records \(Y = R\Phi\), where R is the element-space reflection matrix (one column per single-element transmit, as in full matrix capture). If the columns of Φ are orthonormal, \(Y\Phi^{H} = R\Phi \Phi^{H}\) is R projected onto the angular band you actually probed; with M = N it is R itself. The reflection-matrix literature does exactly this kind of bookkeeping: record in one basis, then multiply by propagation matrices on each side to express the same operator in the focused basis, where aberrations and multiple scattering become separable.</p>
+    <p>Plane-wave transmission works the same way: steering vectors for angles \(\theta_{m}\) are the columns of a matrix Φ (N elements × M angles), close to DFT columns when the angles sit on the sin θ grid λ/(Np). Firing them records \(Y = R\Phi\), where R is the element-space reflection matrix (one column per single-element transmit, as in full matrix capture). If the columns of Φ are orthonormal, \(Y\Phi^{H} = R\Phi \Phi^{H}\) is R projected onto the angular band you actually probed; with M = N it is R itself. The reflection-matrix literature does exactly this kind of bookkeeping: record in one basis, then multiply by propagation matrices on each side to express the same operator in the focused basis, where aberrations and multiple scattering become separable.</p>
   </div>
 
   <div class="demo">
@@ -437,25 +475,31 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     <div class="demo-body">
       <div class="stage">
         <canvas id="m5-ft-cv" aria-label="Aperture signal and its plane-wave coefficients"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>Re xₙ</span><span><i style="background:var(--sig2)"></i>Im xₙ</span><span><i style="background:var(--sig3)"></i>phase screen φₙ/π</span><span><i style="background:var(--sig4)"></i>predicted bin k_θ</span></div>
+        <div class="legend" id="m5-ft-leg"><span data-s="re"><i style="background:var(--accent)"></i>top: Re xₙ</span><span data-s="im"><i class="dot" style="color:var(--sig2)"></i>Im xₙ</span><span data-s="ph"><i class="dash" style="color:var(--sig3)"></i>phase screen φₙ/π</span></div><div class="legend"><span><i class="stem" style="background:var(--accent)"></i>bottom: |Fx|² per bin</span><span><i class="dash" style="color:var(--sig4)"></i>predicted bin k_θ</span></div>
       </div>
       <div class="controls">
         <div class="ctrl"><label for="m5-ft-wv">Wavefront</label>
           <select id="m5-ft-wv"><option value="pw" selected>Plane wave from θ</option><option value="pt">Point source at 20 mm, lateral 20·tan θ mm</option></select></div>
-        <div class="ctrl"><label for="m5-ft-f0">Frequency f <output id="m5-ft-f0-o"></output></label><input type="range" id="m5-ft-f0" min="2" max="8" step="0.1" value="5"></div>
-        <div class="ctrl"><label for="m5-ft-th">Angle θ <output id="m5-ft-th-o"></output></label><input type="range" id="m5-ft-th" min="-45" max="45" step="0.5" value="10"></div>
-        <div class="ctrl"><label for="m5-ft-ab">Phase-screen rms <output id="m5-ft-ab-o"></output></label><input type="range" id="m5-ft-ab" min="0" max="2" step="0.05" value="0"></div>
+        <div class="ctrl"><label for="m5-ft-f0">Frequency f (MHz) <output id="m5-ft-f0-o"></output> <span class="hint">sets the wavelength λ = c/f</span></label><input type="range" id="m5-ft-f0" min="2" max="8" step="0.1" value="5"></div>
+        <div class="ctrl"><label for="m5-ft-th">Angle θ (deg) <output id="m5-ft-th-o"></output> <span class="hint">arrival angle of the plane wave, or direction of the point source</span></label><input type="range" id="m5-ft-th" min="-45" max="45" step="0.5" value="10"></div>
+        <div class="ctrl"><label for="m5-ft-ab">Phase-screen rms (rad) <output id="m5-ft-ab-o"></output> <span class="hint">rms of the phase error φₙ added across the elements</span></label><input type="range" id="m5-ft-ab" min="0" max="2" step="0.05" value="0"></div>
         <label class="check"><input type="checkbox" id="m5-ft-co"> apply correction Dᴴ</label>
         <div class="btn-row"><button class="btn" id="m5-ft-rs" type="button">Reseed screen</button></div>
         <div class="readout" id="m5-ft-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> at 5 MHz sweep θ: the energy sits in one or two bins (leakage when k_θ is not an integer), and past ±30.9° it wraps to the other side of the spectrum. Drop to 3 MHz and the wrap moves out. Add a phase screen: \(\lVert x\rVert^{2} = \lVert Fx\rVert^{2}\) never changes (unitary), but the energy spreads across many plane-wave bins; \(D^{H}\) undoes it exactly because the screen is a diagonal unitary matrix. A point source is not sparse in this basis at all.</div>
+    <div class="demo-foot"><strong>Try:</strong> at 5 MHz sweep θ: the energy sits in one or two bins (leakage when k_θ is not an integer), and past ±30.9° it wraps to the other side of the spectrum. Drop to 3 MHz and the wrap moves out. Add a phase screen: \(\lVert x\rVert^{2} = \lVert Fx\rVert^{2}\) never changes (unitary), but the energy spreads across many plane-wave bins; \(D^{H}\) undoes it exactly because the screen is a diagonal unitary matrix. A point source is not sparse in this basis at all.<span class="symnote">Symbols used here: N = 128, the element count; n, the element index; p = 0.3 mm, the pitch; f, the frequency in MHz; λ, the wavelength in mm; θ, the arrival angle in degrees; xₙ, the complex element signal; φₙ, the phase screen in rad; F, the unitary DFT; k, the bin; D, the phase-correction matrix.</span></div>
   </div>
 
   <div class="callout intuit"><span class="label">Intuition</span><p>A change of basis does not change the signal, only which coordinates are large. A basis is useful when the thing you care about is sparse in it: a plane wave is one DFT coefficient, a near-field point echo is spread over many, tissue clutter is a few vectors of the SVD basis (Module 06). Choosing the basis is half of every algorithm in the target literature.</p></div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>A near-field phase screen at the array is \(D = \operatorname{diag} (e^{i\varphi_{n}})\), unitary and diagonal in the element basis. In the plane-wave basis it becomes \(FDF^{H}\), a circulant matrix: multiplication becomes circular convolution with the screen's angular spectrum, which is why one transmitted angle leaks into many. Correction is \(D^{H}\), provided the screen is the same for all imaging points (isoplanatic). The distortion-matrix approach exists precisely because real aberrations vary across the field.</p></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>MATLAB's <code>fft</code> and numpy's default <code>fft</code> are \(\sqrt{N}\) times the unitary DFT: \(\lVert \operatorname{fft} (\mathbf{x})\rVert^{2}\) \(= N\lVert \mathbf{x}\rVert^{2}\). Use <code>fft(x)/sqrt(N)</code> (or <code>norm="ortho"</code>) when energy or inner products must be preserved across bases.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Unitary Q (QᴴQ = I) preserves inner products, energy and white-noise statistics; κ(Q) = 1.</li>
+    <li>Across 128 elements at 0.3 mm pitch and 5 MHz a plane wave sits in bin k<sub>θ</sub> = Np sin θ/λ, with Δsin θ = 0.0080 per bin and no wrap within ±30.9° (±58.8° at 3 MHz).</li>
+    <li>A thin phase screen D is diagonal in the element basis and circulant (FDFᴴ) in the plane-wave basis; Dᴴ corrects it only if it is the same for all imaging points.</li>
+    <li>fft is √N times the unitary DFT: use fft(x)/sqrt(N) when energy must be preserved across bases.</li>
+  </ul></div>
 
   <!-- ===================== 05.8 ===================== -->
   <div class="prose">
@@ -557,14 +601,14 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
         <div class="legend"><span>channel panel: H e_j (RF, 0° plane wave, diverging map)</span><span>image panel: |Hᴴ W H e_j|, 0 to −40 dB (click or drag to move the scatterer)</span></div>
       </div>
       <div class="controls">
-        <div class="ctrl"><label for="m5-im-ne">Receive elements <output id="m5-im-ne-o"></output></label><input type="range" id="m5-im-ne" min="16" max="128" step="16" value="64"></div>
-        <div class="ctrl"><label for="m5-im-ap">Apodization W</label><select id="m5-im-ap"><option value="rect" selected>Rectangular</option><option value="hann">Hann</option></select></div>
+        <div class="ctrl"><label for="m5-im-ne">Receive elements (count) <output id="m5-im-ne-o"></output> <span class="hint">more elements = wider aperture D</span></label><input type="range" id="m5-im-ne" min="16" max="128" step="16" value="64"></div>
+        <div class="ctrl"><label for="m5-im-ap">Apodization W <span class="hint">receive weights across the aperture</span></label><select id="m5-im-ap"><option value="rect" selected>Rectangular</option><option value="hann">Hann</option></select></div>
         <label class="check"><input type="checkbox" id="m5-im-two"> second scatterer (superposition)</label>
-        <div class="ctrl"><label for="m5-im-dx">Lateral spacing <output id="m5-im-dx-o"></output></label><input type="range" id="m5-im-dx" min="0.1" max="2" step="0.05" value="0.6"></div>
+        <div class="ctrl"><label for="m5-im-dx">Lateral spacing (mm) <output id="m5-im-dx-o"></output> <span class="hint">distance from the first to the second scatterer</span></label><input type="range" id="m5-im-dx" min="0.1" max="2" step="0.05" value="0.6"></div>
         <div class="readout" id="m5-im-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Model:</strong> \(f_{0} = 5\) MHz, Gaussian pulse with −6 dB bandwidth 3 MHz (60%), pitch 0.3 mm, c = 1540 m/s, 0° plane-wave transmit; image = \(H^{H} W H \gamma\) evaluated analytically through the pulse autocorrelation. <strong>Try:</strong> double the elements and the lateral width halves (λz/D). Switch to Hann: sidelobes drop, width grows about 1.65×. Add a second scatterer: the image is the complex sum of two columns; below about one PSF width the dip between them disappears.</div>
+    <div class="demo-foot"><strong>Model:</strong> \(f_{0} = 5\) MHz, Gaussian pulse with −6 dB bandwidth 3 MHz (60%), pitch 0.3 mm, c = 1540 m/s, 0° plane-wave transmit; image = \(H^{H} W H \gamma\) evaluated analytically through the pulse autocorrelation. <strong>Try:</strong> double the elements and the lateral width halves (λz/D). Switch to Hann: sidelobes drop, width grows about 1.65×. Add a second scatterer: the image is the complex sum of two columns; below about one PSF width the dip between them disappears.<span class="symnote">Symbols used here: H, the forward model matrix (pixels to channel data); e_j, the unit vector selecting pixel j; W, the receive apodization; Hᴴ, the conjugate transpose (delay-and-sum); D, the aperture width; λ, the wavelength; z, depth and x, lateral position in mm.</span></div>
   </div>
 
   <div class="prose">
@@ -585,7 +629,13 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
 
   <div class="rf-grid" id="m5-op"></div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>ULM localization precision is set by the PSF column of BH: its width and the local SNR. More elements or more compounded angles sharpen the column and tighten the localization error (CRLB, batch 2). Aberration widens and distorts the column, which biases localization; correcting with \(D^{H}\) before DAS restores it.</p></div>
-  <div class="callout pitfall"><span class="label">Pitfall</span><p>B is not \(H^{-1}\) and is usually not even square. "Inverting the beamformer" means solving a regularized least-squares problem with H; DAS gives you \(H^{H}H\)-blurred reflectivity. Also note the linear model stops at the envelope: anything after |·| or log compression (B-mode, ULM detection thresholds) is nonlinear.</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall</span><p>B is not \(H^{-1}\) and is usually not even square. "Inverting the beamformer" means solving a regularized least-squares problem with H; DAS gives you \(H^{H}H\)-blurred reflectivity. The linear model also stops at the envelope: anything after |·| or log compression (B-mode, ULM detection thresholds) is nonlinear.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul>
+    <li>Under single scattering d = Hγ + n, and column j of H is the channel data of a unit scatterer at pixel j.</li>
+    <li>DAS is a sparse B: 2048 × 128 samples to 256 × 256 pixels with linear interpolation is 16.8 M nonzeros, ≈ 0.1 % dense.</li>
+    <li>B ≈ Hᴴ, so the image is HᴴH-blurred reflectivity: column j of HᴴH is the PSF at pixel j, off-diagonals are sidelobes; model-based beamforming uses (HᴴH + λI)⁻¹Hᴴ.</li>
+    <li>Sound-speed tomography AΔs = Δt and phase-screen correction (Dᴴ ⊗ I<sub>t</sub>) are linear operators of the same kind, ill-conditioned and diagonal respectively.</li>
+  </ul></div>
 
   <!-- ===================== 05.9 ===================== -->
   <h2><span class="sec">05.9</span>Visual summary</h2>
@@ -609,7 +659,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     <div class="rule">
       <div class="say">A linear imaging system is completely described by its PSF matrix: column j is the response to pixel j.</div>
       <div class="keynum"><span>256×256 image → 65 536 columns</span><span>shift-invariant → one column</span></div>
-      <div class="why"><p>Linearity plus the pixel basis: any object is \(\gamma = \sum \gamma_{j}\mathbf{e}_{j}\), so the image is \(\sum \gamma_{j}(BH\mathbf{e}_{j})\), and \(BH\mathbf{e}_{j}\) is the PSF for a point at pixel j (Demo 05.8). If the PSF only translates with position, every column is a shifted copy of one, the matrix is Toeplitz (block-Toeplitz in 2D) and imaging is a convolution. Ultrasound PSFs are not shift-invariant over the full field (depth-dependent focusing, F-number, attenuation), so the honest object is the whole matrix, or a PSF per isoplanatic region.</p><div class="rule-fig"><span class="prov schem">Schematic</span><span class="prov-note">Illustrative Gaussian columns with a hand-set width law (narrowest at the focal pixel); shows shift variance, not a computed PSF.</span><canvas id="m5-rf-2" aria-label="Figure for rule 2"></canvas></div></div>
+      <div class="why"><p>Linearity plus the pixel basis: any object is \(\gamma = \sum \gamma_{j}\mathbf{e}_{j}\), so the image is \(\sum \gamma_{j}(BH\mathbf{e}_{j})\), and \(BH\mathbf{e}_{j}\) is the PSF for a point at pixel j (Demo 05.8). If the PSF only translates with position, every column is a shifted copy of one, the matrix is Toeplitz (block-Toeplitz in 2D) and imaging is a convolution. Ultrasound PSFs are not shift-invariant over the full field (depth-dependent focusing, F-number, attenuation), so the honest object is the whole matrix, or a PSF per isoplanatic region.</p><div class="rule-fig"><span class="prov schem">Schematic</span><span class="prov-note">Illustrative Gaussian columns with a hand-set width law (narrowest at the focal pixel); shows shift variance, not a computed PSF.</span><canvas id="m5-rf-2" aria-label="Figure for rule 2"></canvas><div class="legend"><span><i class="dash" style="color:var(--sig2)"></i>column j = 3</span><span><i style="background:var(--accent)"></i>j = 8 (focus)</span><span><i class="dot" style="color:var(--sig3)"></i>j = 20</span></div></div></div>
       <div class="limits">Holds only up to the envelope; |·| and log compression are nonlinear. Assumes single scattering (Born) and a fine enough pixel grid; multiple scattering and reverberation are not columns of H.</div>
     </div>
     <div class="rule">
@@ -685,16 +735,10 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
       <div class="limits">Real-time scanners recompute delays on the fly instead of storing B. Storing B (often on a GPU) pays off when it is reused: many frames with the same geometry, or iterative solvers that need B and \(B^{H}\) repeatedly. More taps (sinc or spline interpolation) scale nnz linearly.</div>
     </div>
     <div class="rule">
-      <div class="say">A sample covariance from K snapshots has rank at most K; you need K ≥ N before \(R^{-1}\) exists.</div>
-      <div class="keynum"><span>rank R ≤ min(K,N)</span><span>K = 2N → ≈ 3 dB SINR loss (RMB)</span></div>
-      <div class="why"><p>\(\hat{R} = (1/K) \sum_{k} \mathbf{x}_{k}\mathbf{x}_{k}^{H}\) is a sum of K rank-one terms. In Demo 05.2, 2 snapshots across 3 elements give eigenvalues 10.98, 2.52, 0. Minimum-variance beamforming needs \(\hat{R}^{-1}\), so ultrasound implementations average over subarrays (and a few depth samples) and add diagonal loading. Reed, Mallett and Brennan showed that with K = 2N independent, signal-free snapshots the expected SINR loss of the sample-matrix inverse is about 3 dB.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Left: eigenvalues of sample covariances of K seeded white snapshots (Jacobi, JS). Right: Reed–Mallett–Brennan expected loss (K + 2 − N)/(K + 1), exact.</span><canvas id="m5-rf-15" aria-label="Figure for rule 15"></canvas></div></div>
-      <div class="limits">Assumes independent, identically distributed Gaussian snapshots that do not contain the desired signal. In ultrasound the signal is in every snapshot, which slows convergence (signal cancellation) and is one more reason for diagonal loading; adjacent depth samples and coherent echoes are correlated, so the effective K is smaller. Coherent sources also need spatial smoothing to decorrelate.</div>
-    </div>
-    <div class="rule">
-      <div class="say">Diagonal loading is Tikhonov regularization in disguise.</div>
-      <div class="keynum"><span>R + εI</span><span>\(f_{i} = \lambda_{i}/(\lambda_{i} + \varepsilon)\)</span></div>
-      <div class="why"><p>Adding εI raises every eigenvalue of R by ε, so \(R^{-1}\) acts on eigenvector i as \(1/(\lambda_{i} + \varepsilon)\) instead of \(1/\lambda_{i}\): the weak directions estimated from few snapshots are no longer blown up. It is the same filter-factor algebra as 05.6, with ε playing λ. Small ε gives MV resolution and fragility; \(\varepsilon \gg \lambda_{\max}\) pushes the weights toward the DAS weights. Practitioners set ε as a small fraction of the average eigenvalue tr(R)/N.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Gain 1/(λ + ε) and filter λ/(λ + ε) versus normalized eigenvalue.</span><canvas id="m5-rf-16" aria-label="Figure for rule 16"></canvas></div></div>
-      <div class="limits">Fixed loading ignores how many snapshots you have and how mismatched the steering vector is; adaptive and robust (uncertainty-set) MV variants choose ε from the data.</div>
+      <div class="say">A sample covariance from K snapshots has rank at most K, so minimum-variance beamforming lives on subarray averaging and diagonal loading, and loading is just Tikhonov regularization with ε in place of λ.</div>
+      <div class="keynum"><span>rank \(\hat R\) ≤ min(K, N)</span><span>K = 2N → ≈ 3 dB SINR loss (RMB)</span><span>\(R + \varepsilon I\): \(f_{i} = \lambda_{i}/(\lambda_{i} + \varepsilon)\)</span></div>
+      <div class="why"><p>\(\hat{R} = (1/K) \sum_{k} \mathbf{x}_{k}\mathbf{x}_{k}^{H}\) is a sum of K rank-one terms: in Demo 05.2, 2 snapshots across 3 elements give eigenvalues 10.98, 2.52, 0. Minimum-variance beamforming needs \(\hat{R}^{-1}\), so ultrasound implementations average over subarrays (and a few depth samples). Reed, Mallett and Brennan showed that with K = 2N independent, signal-free snapshots the expected SINR loss of the sample-matrix inverse is about 3 dB. Adding εI raises every eigenvalue by ε, so \(R^{-1}\) acts on eigenvector i as \(1/(\lambda_{i} + \varepsilon)\) instead of \(1/\lambda_{i}\): the weak directions estimated from few snapshots are no longer blown up, the same filter-factor algebra as §05.6. Small ε gives MV resolution and fragility; \(\varepsilon \gg \lambda_{\max}\) pushes the weights toward the DAS weights. Practitioners set ε as a small fraction of the average eigenvalue tr(R)/N.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Left: eigenvalues of sample covariances of K seeded white snapshots (Jacobi, JS). Right: Reed–Mallett–Brennan expected loss (K + 2 − N)/(K + 1), exact.</span><canvas id="m5-rf-15" aria-label="Figure for rule 15"></canvas><div class="legend"><span><i class="dot" style="color:var(--sig2)"></i>K = 2</span><span><i class="dash" style="color:var(--sig3)"></i>K = 4</span><span><i class="dash" style="color:var(--sig4)"></i>K = 8 (dash-dot)</span><span><i style="background:var(--accent)"></i>K = 16</span></div></div><div class="rule-fig"><span class="prov exact">Exact formula</span><span class="prov-note">Gain 1/(λ + ε) and filter λ/(λ + ε) versus normalized eigenvalue.</span><canvas id="m5-rf-16" aria-label="Figure for rule 16"></canvas></div></div>
+      <div class="limits">RMB assumes independent, identically distributed Gaussian snapshots that do not contain the desired signal. In ultrasound the signal is in every snapshot, which slows convergence (signal cancellation) and is one more reason for loading; adjacent depth samples and coherent echoes are correlated, so the effective K is smaller, and coherent sources also need spatial smoothing. Fixed loading ignores how many snapshots you have and how mismatched the steering vector is; adaptive and robust (uncertainty-set) MV variants choose ε from the data.</div>
     </div>
   </div>
 
@@ -847,6 +891,8 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
 </section>
 
 <style>
+#m5 .ctrl .hint { flex-basis: 100%; font: 400 0.72rem/1.35 var(--f-display); color: var(--muted); margin-top: 1px; }
+#m5 .demo-foot .symnote { display: block; margin-top: 6px; font-size: 0.92em; color: var(--muted); }
 #m5 .m5-wb-us { margin: 0; font-size: 0.92rem; line-height: 1.5; }
 #m5 #m5-wb-ml code { white-space: nowrap; }
 #m5 .svgfig { border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); padding: 10px 12px; margin: 18px 0; }
@@ -927,8 +973,8 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
   function drawPJ() {
     const c = Lab.colors(); const cv = $('m5-pj-cv');
     const { ctx, w, h } = Lab.canvas(cv, 300);
-    const box = { x: 40, y: 12, w: w - 52, h: h - 42 };
-    const ax = geo(ctx, box, 1.0, 1.0, 2.4, 1.85, {}); PJ.ax = ax;
+    const box = { x: 54, y: 12, w: w - 66, h: h - 42 };
+    const ax = geo(ctx, box, 1.0, 1.0, 2.4, 1.85, { xlabel: 'component 1', ylabel: 'component 2' }); PJ.ax = ax;
     const a = PJ.a, x = PJ.x;
     const aa = a[0] * a[0] + a[1] * a[1], ax_ = a[0] * x[0] + a[1] * x[1];
     const cc = ax_ / aa, p = [cc * a[0], cc * a[1]], r = [x[0] - p[0], x[1] - p[1]];
@@ -956,7 +1002,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
       'a = (' + f2(a[0]) + ', ' + f2(a[1]) + ')  x = (' + f2(x[0]) + ', ' + f2(x[1]) + ')<br>' +
       'aᵀx = <b>' + f3(ax_) + '</b><br>‖a‖ = ' + f3(na) + '  ‖x‖ = ' + f3(nx) + '<br>' +
       'cos θ = <b>' + f3(cos) + '</b>  (θ = ' + Lab.fmt(Math.acos(Math.max(-1, Math.min(1, cos))) / DEG, 1) + '°)<br>' +
-      'c = aᵀx/aᵀa = <b>' + f3(cc) + '</b><br>' +
+      'projection coefficient c = aᵀx/aᵀa = <b>' + f3(cc) + '</b><br>' +
       '‖p‖² + ‖r‖² = ' + f3(np_ * np_) + ' + ' + f3(nr * nr) + '<br>          = ' + f3(np_ * np_ + nr * nr) + ' = ‖x‖² ' + f3(nx * nx) + '<br>' +
       'aᵀr = <b>' + ex(ar) + '</b> (orthogonal)';
   }
@@ -975,8 +1021,8 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     const c = Lab.colors(); const cv = $('m5-tf-cv');
     const { ctx, w, h } = Lab.canvas(cv, 360);
     ['a', 'b', 'c', 'd'].forEach(k => { $('m5-tf-' + k + '-o').textContent = f2(TF[k]); });
-    const box = { x: 40, y: 12, w: w - 52, h: h - 42 };
-    const ax = geo(ctx, box, 0, 0, 2.6, 2.6, {}); TF.ax = ax;
+    const box = { x: 54, y: 12, w: w - 66, h: h - 42 };
+    const ax = geo(ctx, box, 0, 0, 2.6, 2.6, { xlabel: 'component 1', ylabel: 'component 2' }); TF.ax = ax;
     const { a, b, c: cc, d } = TF; const a1 = [a, cc], a2 = [b, d];
     ax.clip();
     // transformed grid
@@ -1015,10 +1061,10 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     const eig = disc >= 0 ? f3(tr / 2 + Math.sqrt(disc)) + ', ' + f3(tr / 2 - Math.sqrt(disc)) : f3(tr / 2) + ' ± ' + f3(Math.sqrt(-disc)) + 'i';
     $('m5-tf-read').innerHTML =
       'A = [' + f2(a) + ' ' + f2(b) + '; ' + f2(cc) + ' ' + f2(d) + ']<br>' +
-      'det = <b>' + f3(det) + '</b>' + (det < -1e-9 ? ' (flip)' : '') + '<br>trace = <b>' + f3(tr) + '</b><br>' +
+      'determinant det = <b>' + f3(det) + '</b>' + (det < -1e-9 ? ' (flip)' : '') + '<br>trace = <b>' + f3(tr) + '</b><br>' +
       'λ = ' + eig + '<br>σ₁ = <b>' + f3(S.s1) + '</b>  σ₂ = <b>' + f3(S.s2) + '</b><br>' +
       'σ₁σ₂ = ' + f3(S.s1 * S.s2) + ' = |det|<br>' +
-      'κ = ' + (S.s2 > 1e-12 ? Lab.fmt(S.s1 / S.s2, 1) : '∞') + '  rank = <b>' + rank + '</b><br>' +
+      'condition number κ = ' + (S.s2 > 1e-12 ? Lab.fmt(S.s1 / S.s2, 1) : '∞') + '  rank = <b>' + rank + '</b><br>' +
       (showx ? 'Ax = ' + f2(x1) + '·a₁ + ' + f2(x2) + '·a₂<br>   = (' + f2(Ax[0]) + ', ' + f2(Ax[1]) + ')' : '<span class="muted">numerical rank tol: σ₂ &lt; 0.5% σ₁</span>');
   }
   ['a', 'b', 'c', 'd'].forEach(k => $('m5-tf-' + k).addEventListener('input', e => { TF[k] = +e.target.value; drawTF(); }));
@@ -1049,8 +1095,8 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     let bI, bO;
     if (wide) { const pw = (w - 40 - 12 - 48) / 2; bI = { x: 40, y: 22, w: pw, h: h - 54 }; bO = { x: 40 + pw + 48, y: 22, w: pw, h: h - 54 }; }
     else { const ph = (h - 22 - 30 - 56) / 2; bI = { x: 40, y: 22, w: w - 52, h: ph }; bO = { x: 40, y: 22 + ph + 56, w: w - 52, h: ph }; }
-    const axI = geo(ctx, bI, 0, 0, 2.6, 2.6, { title: 'input space ℝ²: x' });
-    const axO = geo(ctx, bO, 0, 0, 2.6, 2.6, { title: 'output space ℝ²: b = Ax' });
+    const axI = geo(ctx, bI, 0, 0, 2.6, 2.6, { title: 'input space ℝ²: x', xlabel: 'x₁', ylabel: 'x₂' });
+    const axO = geo(ctx, bO, 0, 0, 2.6, 2.6, { title: 'output space ℝ²: b = Ax', xlabel: 'b₁', ylabel: 'b₂' });
     FS.axIn = axI; FS.axOut = axO;
     const rank1 = P.s2e === 0; const b = FS.b;
     const ub1 = P.u1[0] * b[0] + P.u1[1] * b[1], ub2 = P.u2[0] * b[0] + P.u2[1] * b[1];
@@ -1158,15 +1204,15 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     const ax = mkAxes(ctx, box, [1.7, 8.3], [-11, 5], { xlabel: 'frequency (MHz)', ylabel: 'log-spectral ratio (dB)' });
     ax.clip();
     // truth
-    Lab.line(ctx, ax, [1.7, 8.3], [lsTruth(1.7), lsTruth(8.3)], c.muted, 1.4, [6, 5]);
+    const LG = 'm5-ls-leg'; if (Lab.on(LG, 'truth')) Lab.line(ctx, ax, [1.7, 8.3], [lsTruth(1.7), lsTruth(8.3)], c.muted, 1.4, [6, 5]);
     // residual segments
-    for (let i = 0; i < S.N; i++) seg(ctx, ax, S.f[i], S.y[i], S.f[i], yn[i], c.sig2, 1.6);
+    if (Lab.on(LG, 'res')) for (let i = 0; i < S.N; i++) seg(ctx, ax, S.f[i], S.y[i], S.f[i], yn[i], c.sig2, 1.6);
     // fitted curve fine
     const fx = [], fy = [];
     for (let i = 0; i <= 240; i++) { const fv = 1.7 + 6.6 * i / 240, tv = (fv - 5) / 3; let s = 0; for (let k = 0; k < S.n; k++) s += S.x[k] * Math.pow(tv, k); s += nudge * Math.pow(tv, j); fx.push(fv); fy.push(s); }
-    Lab.line(ctx, ax, fx, fy, c.accent, 2.2);
-    Lab.dots(ctx, ax, S.f, S.y, c.fg, 3);
-    if (S.out) dot(ctx, ax, S.f[23], S.y[23], c.sig2, 7, true);
+    if (Lab.on(LG, 'fit')) Lab.line(ctx, ax, fx, fy, c.accent, 2.2);
+    if (Lab.on(LG, 'data')) Lab.dots(ctx, ax, S.f, S.y, c.fg, 3);
+    if (S.out && Lab.on(LG, 'data')) dot(ctx, ax, S.f[23], S.y[23], c.sig2, 7, true);
     ax.unclip();
     // readouts
     const dotv = (u, v) => { let s = 0; for (let i = 0; i < u.length; i++) s += u[i] * v[i]; return s; };
@@ -1181,12 +1227,12 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     if (S.n >= 2) { const sl = S.x[1] / 3; const se = S.sig / Math.sqrt(S.f.reduce((s, v) => s + (v - 5) * (v - 5), 0));
       slope = 'slope at 5 MHz = <b>' + f3(sl) + '</b> dB/MHz' + (S.n === 2 ? ' (SE ' + f3(se) + ')' : '') + '<br>α₀ estimate = ' + f3(-sl / 2) + ' dB/cm/MHz (true 0.5)<br>'; }
     $('m5-ls-read').innerHTML =
-      'A: ' + S.N + ' × ' + S.n + '   κ(A) = <b>' + Lab.fmt(kap, 1) + '</b><br>' + slope +
+      'A: ' + S.N + ' × ' + S.n + '   condition number κ(A) = <b>' + Lab.fmt(kap, 1) + '</b><br>' + slope +
       '‖r‖² = <b>' + f3(r2) + '</b>  rms r = ' + f3(Math.sqrt(r2 / S.N)) + ' dB<br>' +
       'max|Aᵀr| at x̂ = <b>' + ex(maxAbs(Atr)) + '</b><br>' +
       (nudge !== 0 ? 'nudged: ‖r′‖² = ' + f3(rn2) + '<br>  ‖r‖² + δ²‖a' + j + '‖² = ' + f3(r2 + nudge * nudge * aj2) + '<br>  max|Aᵀr′| = ' + f3(maxAbs(Atrn)) : '<span class="muted">nudge = 0: at the LS optimum</span>');
   }
-  ['m5-ls-ord', 'm5-ls-sig', 'm5-ls-ng', 'm5-ls-out'].forEach(id => $(id).addEventListener('input', drawLS));
+  ['m5-ls-ord', 'm5-ls-sig', 'm5-ls-ng', 'm5-ls-out'].forEach(id => $(id).addEventListener('input', drawLS)); Lab.legendToggle('m5-ls-leg', drawLS);
   $('m5-ls-rs').addEventListener('click', () => { LS.seed = (LS.seed * 7919 + 13) % 100003; lsNoise(); drawLS(); });
 
   /* ======================= Demo 05.6 conditioning ======================= */
@@ -1220,8 +1266,8 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     if (wide) { const pw = (w - 40 - 12 - 48) / 2; bB = { x: 40, y: 22, w: pw, h: h - 54 }; bX = { x: 40 + pw + 48, y: 22, w: pw, h: h - 54 }; }
     else { const ph = (h - 22 - 30 - 56) / 2; bB = { x: 40, y: 22, w: w - 52, h: ph }; bX = { x: 40, y: 22 + ph + 56, w: w - 52, h: ph }; }
     const R = 2.4;
-    const axB = geo(ctx, bB, b[0], b[1], R, R, { title: 'data space: b + δb' });
-    const axX = geo(ctx, bX, 1, 1, R, R, { title: 'solution space: x̂' });
+    const axB = geo(ctx, bB, b[0], b[1], R, R, { title: 'data space: b + δb', xlabel: 'b₁', ylabel: 'b₂' });
+    const axX = geo(ctx, bX, 1, 1, R, R, { title: 'solution space: x̂', xlabel: 'x̂₁', ylabel: 'x̂₂' });
     // data panel
     axB.clip();
     seg(ctx, axB, 0, 0, A[0][0], A[1][0], c.sig3, 1.4, [4, 3]); seg(ctx, axB, 0, 0, A[0][1], A[1][1], c.sig3, 1.4, [4, 3]);
@@ -1235,7 +1281,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     ctx.save(); ctx.globalAlpha = 0.35; Lab.dots(ctx, axX, xx, xy, c.accent, 1.6); ctx.restore();
     ellipse(ctx, axX, mu, C, 2, c.sig2, 2);
     const sz = 6 / axX.s; seg(ctx, axX, 1 - sz, 1, 1 + sz, 1, c.sig4, 2.5); seg(ctx, axX, 1, 1 - sz, 1, 1 + sz, c.sig4, 2.5);
-    if (lam > 0) { dot(ctx, axX, mu[0], mu[1], c.sig2, 3.5); seg(ctx, axX, 1, 1, mu[0], mu[1], c.sig2, 1.2, [3, 3]); }
+    if (lam > 0) { dot(ctx, axX, mu[0], mu[1], c.sig5, 3.5); seg(ctx, axX, 1, 1, mu[0], mu[1], c.sig5, 1.2, [3, 3]); }
     axX.unclip();
     // stats
     const S = svd2(A[0][0], A[0][1], A[1][0], A[1][1]);
@@ -1251,7 +1297,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     const bias = Math.hypot(mu[0] - 1, mu[1] - 1);
     $('m5-cn-read').innerHTML =
       'σ₁ = ' + f3(S.s1) + '  σ₂ = ' + f3(S.s2) + '<br>' +
-      'κ = <b>' + Lab.fmt(kap, 2) + '</b>  cot(φ/2) = ' + Lab.fmt(kth, 2) + '<br>' +
+      'condition number κ = <b>' + Lab.fmt(kap, 2) + '</b>  cot(φ/2) = ' + Lab.fmt(kth, 2) + '<br>' +
       'std along v₁: ' + f3(emp[0]) + ' (theory ' + f3(th[0]) + ')<br>' +
       'std along v₂: <b>' + f3(emp[1]) + '</b> (theory ' + f3(th[1]) + ')<br>' +
       (lam === 0 ? 'worst ‖δx‖/‖x‖ ÷ ‖δb‖/‖b‖ = <b>' + Lab.fmt(worst, 2) + '</b> ≤ κ<br>' : 'filter f₂ = σ₂²/(σ₂²+λ) = ' + f3(S.s2 * S.s2 / (S.s2 * S.s2 + lam)) + '<br>') +
@@ -1301,9 +1347,9 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     const ax1 = mkAxes(ctx, b1, [1, N], [-2.2, 2.2], { xlabel: 'element n', ylabel: 'amplitude', title: 'element basis: xₙ', yticks: [-2, -1, 0, 1, 2] });
     const ns = []; for (let n = 0; n < N; n++) ns.push(n + 1);
     ax1.clip();
-    Lab.line(ctx, ax1, ns, Array.from(im), c.sig2, 1.1);
-    Lab.line(ctx, ax1, ns, Array.from(re), c.accent, 1.6);
-    if (ab > 0) Lab.line(ctx, ax1, ns, Array.from(phs).map(v => v / Math.PI), c.sig3, 1.6, [5, 3]);
+    const LG = 'm5-ft-leg'; if (Lab.on(LG, 'im')) Lab.line(ctx, ax1, ns, Array.from(im), c.sig2, 1.1, [2, 3]);
+    if (Lab.on(LG, 're')) Lab.line(ctx, ax1, ns, Array.from(re), c.accent, 1.6);
+    if (ab > 0 && Lab.on(LG, 'ph')) Lab.line(ctx, ax1, ns, Array.from(phs).map(v => v / Math.PI), c.sig3, 1.6, [5, 3]);
     ax1.unclip();
     // bottom: DFT
     const b2 = { x: 50, y: topH + 26, w: w - 62, h: h - topH - 26 - 40 };
@@ -1318,7 +1364,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     const alias = Math.abs(st) > lam / (2 * p);
     const amax = Math.asin(Math.min(1, lam / (2 * p))) / DEG;
     $('m5-ft-read').innerHTML =
-      'λ = ' + f3(lam) + ' mm  p/λ = ' + f2(p / lam) + '<br>' +
+      'wavelength λ = ' + f3(lam) + ' mm  pitch/λ p/λ = ' + f2(p / lam) + '<br>' +
       'Δsin θ per bin = ' + Lab.fmt(lam / (N * p), 4) + '<br>' +
       'unaliased |θ| &lt; <b>' + Lab.fmt(amax, 1) + '°</b><br>' +
       (wave === 'pw' ? 'k_θ = Np sinθ/λ = <b>' + Lab.fmt(kth, 2) + '</b>' + (alias ? ' → wraps to ' + Lab.fmt(kw, 2) + ' (grating lobe)' : '') + '<br>' : 'point source: x₀ = ' + f2(x0) + ' mm, z₀ = 20 mm<br>') +
@@ -1326,7 +1372,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
       '‖x‖² = ' + Lab.fmt(ex2, 2) + '  ‖Fx‖² = ' + Lab.fmt(eF, 2) + '<br>' +
       'energy in peak ±2 bins: <b>' + Lab.fmt(100 * eNear / eF, 1) + '%</b>';
   }
-  ['m5-ft-f0', 'm5-ft-th', 'm5-ft-ab', 'm5-ft-co', 'm5-ft-wv'].forEach(id => $(id).addEventListener('input', drawFT));
+  ['m5-ft-f0', 'm5-ft-th', 'm5-ft-ab', 'm5-ft-co', 'm5-ft-wv'].forEach(id => $(id).addEventListener('input', drawFT)); Lab.legendToggle('m5-ft-leg', drawFT);
   $('m5-ft-rs').addEventListener('click', () => { FT.seed = (FT.seed * 16807 + 11) % 2147483647; ftScreen(); drawFT(); });
 
   /* ======================= Demo 05.8 imaging operator ======================= */
@@ -1401,8 +1447,8 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     const Nt = Math.round(30 * 40);
     $('m5-im-read').innerHTML =
       'scatterer: x = ' + f2(IM.xs) + ' mm, z = ' + f2(IM.zs) + ' mm<br>' +
-      'lateral −6 dB: <b>' + f3(lat) + ' mm</b><br>  theory ≈ ' + (E.hann ? '2.0' : '1.21') + 'λz/D = ' + f3(lth) + ' mm<br>' +
-      'axial −6 dB: <b>' + f3(axl) + ' mm</b> (theory ' + f3(axth) + ')<br>' + dip +
+      'lateral −6 dB width (FWHM): <b>' + f3(lat) + ' mm</b><br>  theory ≈ ' + (E.hann ? '2.0' : '1.21') + 'λz/D = ' + f3(lth) + ' mm<br>' +
+      'axial −6 dB width: <b>' + f3(axl) + ' mm</b> (theory ' + f3(axth) + ')<br>' + dip +
       'full-size H here: ' + (Nt * E.Ne).toLocaleString('en-US') + ' × ' + (nx * nz).toLocaleString('en-US') + '<br><span class="muted">(30 µs at 40 MHz × ' + E.Ne + ' el. by ' + nx + '×' + nz + ' px)</span>';
   }
   ['m5-im-ne', 'm5-im-ap', 'm5-im-two', 'm5-im-dx'].forEach(id => $(id).addEventListener('input', drawIM));
@@ -1649,21 +1695,21 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
   /* ---------- inline grid 05.2: row and column pictures ---------- */
   const A2 = [[2, 1], [-1, 3]], X2 = [1, 2], B2 = [4, 5];
   const RC = [
-    { prov: 'exact', q: 'Column picture: A<span class="v">x</span> = x₁<span class="v">a</span>₁ + x₂<span class="v">a</span>₂', a: 'A = [2 1; −1 3], <span class="v">x</span> = (1, 2): walk 1 × <span class="v">a</span>₁ = (2, −1), then 2 × <span class="v">a</span>₂ = (2, 6), arriving at <b>A<span class="v">x</span> = (4, 5)</b>. The output is a mix of the columns.',
+    { prov: 'exact', leg: [['columns a₁, a₂', 'mu', 'dash'], ['1·a₁', 'a', 'solid'], ['2·a₂', 'b', 'dash'], ['Ax', 'fg', 'solid']], q: 'Column picture: A<span class="v">x</span> = x₁<span class="v">a</span>₁ + x₂<span class="v">a</span>₂', a: 'A = [2 1; −1 3], <span class="v">x</span> = (1, 2): walk 1 × <span class="v">a</span>₁ = (2, −1), then 2 × <span class="v">a</span>₂ = (2, 6), arriving at <b>A<span class="v">x</span> = (4, 5)</b>. The output is a mix of the columns.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 170); const g = geo(x, box(w, h), 4.2, { ox: 1.8, oy: 2.2, lab: 'output space' });
         const a1 = [A2[0][0], A2[1][0]], a2 = [A2[0][1], A2[1][1]];
         arrow(x, g, 0, 0, a1[0], a1[1], c.mu, { w: 1.2, dash: [3, 3] }); arrow(x, g, 0, 0, a2[0], a2[1], c.mu, { w: 1.2, dash: [3, 3] });
         M.text(x, 'a₁', g.X(a1[0]) + 5, g.Y(a1[1]), c.mu); M.text(x, 'a₂', g.X(a2[0]) + 5, g.Y(a2[1]), c.mu);
         const p1 = [X2[0] * a1[0], X2[0] * a1[1]];
-        arrow(x, g, 0, 0, p1[0], p1[1], c.a, { w: 2.2 }); arrow(x, g, p1[0], p1[1], p1[0] + X2[1] * a2[0], p1[1] + X2[1] * a2[1], c.b, { w: 2.2 });
+        arrow(x, g, 0, 0, p1[0], p1[1], c.a, { w: 2.2 }); arrow(x, g, p1[0], p1[1], p1[0] + X2[1] * a2[0], p1[1] + X2[1] * a2[1], c.b, { w: 2.2, dash: [6, 4] });
         const y = [A2[0][0] * X2[0] + A2[0][1] * X2[1], A2[1][0] * X2[0] + A2[1][1] * X2[1]];
         arrow(x, g, 0, 0, y[0], y[1], c.fg, { w: 1.2 }); dot(x, g, y[0], y[1], c.fg, 3);
         M.text(x, 'Ax = (' + y[0] + ', ' + y[1] + ')', g.X(y[0]) - 6, g.Y(y[1]) - 9, c.fg, 'right');
         M.text(x, '1·a₁', g.X(p1[0] / 2) - 4, g.Y(p1[1] / 2) + 12, c.a, 'right'); M.text(x, '2·a₂', g.X(p1[0] + a2[0]) + 6, g.Y(p1[1] + a2[1]), c.b); } },
-    { prov: 'exact', q: 'Row picture: each equation is a line', a: 'The rows give 2x₁ + x₂ = 4 and −x₁ + 3x₂ = 5. Each output is one inner product (row · <span class="v">x</span>); the solution is where the lines cross, <b><span class="v">x</span> = (1, 2)</b>. Normals = rows of A.',
+    { prov: 'exact', leg: [['row 1: 2x₁ + x₂ = 4', 'a', 'solid'], ['row 2: −x₁ + 3x₂ = 5', 'b', 'dash'], ['solution', 'fg', 'mark']], q: 'Row picture: each equation is a line', a: 'The rows give 2x₁ + x₂ = 4 and −x₁ + 3x₂ = 5. Each output is one inner product (row · <span class="v">x</span>); the solution is where the lines cross, <b><span class="v">x</span> = (1, 2)</b>. Normals = rows of A.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 170); const g = geo(x, box(w, h), 2.6, { ox: 1, oy: 1.6, lab: 'input space (x₁, x₂)' });
-        const line = (r, b, colr) => { const [p, q] = r; const P = []; for (let t = -6; t <= 6; t += 0.1) { if (Math.abs(q) > 1e-9) P.push([t, (b - p * t) / q]); } poly(x, g, P, colr, { w: 2 }); };
-        line(A2[0], B2[0], c.a); line(A2[1], B2[1], c.b);
+        const line = (r, b, colr, ds) => { const [p, q] = r; const P = []; for (let t = -6; t <= 6; t += 0.1) { if (Math.abs(q) > 1e-9) P.push([t, (b - p * t) / q]); } poly(x, g, P, colr, { w: 2, dash: ds }); };
+        line(A2[0], B2[0], c.a); line(A2[1], B2[1], c.b, [6, 4]);
         const det = A2[0][0] * A2[1][1] - A2[0][1] * A2[1][0], sx = (B2[0] * A2[1][1] - A2[0][1] * B2[1]) / det, sy = (A2[0][0] * B2[1] - B2[0] * A2[1][0]) / det;
         dot(x, g, sx, sy, c.fg, 4); M.text(x, 'solution x = (' + sx + ', ' + sy + ')', g.b.x + g.b.w - 4, g.b.y + 6, c.fg, 'right');
         arrow(x, g, sx, sy, sx + 0.35 * A2[0][0], sy + 0.35 * A2[0][1], c.a, { w: 1.2, head: 5 }); arrow(x, g, sx, sy, sx + 0.35 * A2[1][0], sy + 0.35 * A2[1][1], c.b, { w: 1.2, head: 5 });
@@ -1680,7 +1726,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     const G = xs.map(xp => xs.map(xq => { let re = 0, im = 0; xe.forEach(e => { const d = k * (Math.hypot(xp - e, z) - Math.hypot(xq - e, z)); re += Math.cos(d); im += Math.sin(d); }); return Math.hypot(re, im) / N; }));
     H_cache = { G, xs, null1: lam * z / (N * p) }; return H_cache; }
   const VIS = [
-    { prov: 'exact', q: 'Projection and residual?', a: '<b>p = a(aᴴx)/(aᴴa)</b>; the residual r = x − p is orthogonal to a, so p is the closest point on the line. Least squares is the same picture with a column space instead of a line.',
+    { prov: 'exact', leg: [['a', 'mu', 'solid'], ['span(a)', 'mu', 'dash'], ['x', 'fg', 'solid'], ['p', 'a', 'solid'], ['r = x − p', 'b', 'dash']], q: 'Projection and residual?', a: '<b>p = a(aᴴx)/(aᴴa)</b>; the residual r = x − p is orthogonal to a, so p is the closest point on the line. Least squares is the same picture with a column space instead of a line.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const g = geo(x, box(w, h), 1.35, { ox: 1.0, oy: 0.95 });
         const a = [1, 0.35], v = [1.1, 1.75], s = (a[0] * v[0] + a[1] * v[1]) / (a[0] * a[0] + a[1] * a[1]), p = [s * a[0], s * a[1]];
         poly(x, g, [[-3 * a[0], -3 * a[1]], [3 * a[0], 3 * a[1]]], c.mu, { w: 1, dash: [4, 3] }); M.text(x, 'span(a)', g.X(2.2), g.Y(0.77) + 10, c.mu);
@@ -1689,46 +1735,46 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
         poly(x, g, [[p[0] - q * u[0], p[1] - q * u[1]], [p[0] - q * u[0] + q * n[0], p[1] - q * u[1] + q * n[1]], [p[0] + q * n[0], p[1] + q * n[1]]], c.mu, { w: 1 });
         M.text(x, 'x', g.X(v[0]) + 6, g.Y(v[1]), c.fg); M.text(x, 'p', g.X(p[0]) + 2, g.Y(p[1]) + 11, c.a); M.text(x, 'r ⟂ a', g.X((p[0] + v[0]) / 2) + 7, g.Y((p[1] + v[1]) / 2), c.b);
         M.text(x, 'aᵀr = ' + f3(a[0] * (v[0] - p[0]) + a[1] * (v[1] - p[1])), g.b.x + 4, g.b.y + 6, c.mu); } },
-    { prov: 'exact', q: 'What does A do to the unit square?', a: 'The columns are where e₁ and e₂ land; the square becomes the parallelogram they span and <b>areas scale by |det A|</b>. Here A = [1.5 0.5; 0.25 1], det = 1.375. det &lt; 0 flips orientation.',
+    { prov: 'exact', leg: [['unit square', 'mu', 'dash'], ['A·(unit square)', 'a', 'fill'], ['Ae₁', 'a', 'solid'], ['Ae₂', 'b', 'dash']], q: 'What does A do to the unit square?', a: 'The columns are where e₁ and e₂ land; the square becomes the parallelogram they span and <b>areas scale by |det A|</b>. Here A = [1.5 0.5; 0.25 1], det = 1.375. det &lt; 0 flips orientation.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const g = geo(x, box(w, h), 1.25, { ox: 0.95, oy: 0.65 });
         const A = [[1.5, 0.5], [0.25, 1]], m = (p, q) => [A[0][0] * p + A[0][1] * q, A[1][0] * p + A[1][1] * q];
         for (let i = 0; i <= 4; i++) { poly(x, g, [m(i / 4, 0), m(i / 4, 1)], c.rule, { w: 1 }); poly(x, g, [m(0, i / 4), m(1, i / 4)], c.rule, { w: 1 }); }
         poly(x, g, [[0, 0], [1, 0], [1, 1], [0, 1]], c.mu, { close: true, dash: [3, 3], w: 1.2 });
         poly(x, g, [m(0, 0), m(1, 0), m(1, 1), m(0, 1)], c.a, { close: true, fill: true, alpha: 0.16, w: 1.6 });
-        arrow(x, g, 0, 0, A[0][0], A[1][0], c.a, { w: 2.2 }); arrow(x, g, 0, 0, A[0][1], A[1][1], c.b, { w: 2.2 });
+        arrow(x, g, 0, 0, A[0][0], A[1][0], c.a, { w: 2.2 }); arrow(x, g, 0, 0, A[0][1], A[1][1], c.b, { w: 2.2, dash: [6, 4] });
         M.text(x, 'Ae₁', g.X(A[0][0]) + 5, g.Y(A[1][0]) + 4, c.a); M.text(x, 'Ae₂', g.X(A[0][1]) - 4, g.Y(A[1][1]) - 8, c.b, 'right');
         M.text(x, 'area = det = ' + (A[0][0] * A[1][1] - A[0][1] * A[1][0]).toFixed(3), g.b.x + g.b.w - 4, g.b.y + 6, c.fg, 'right'); } },
-    { prov: 'exact', q: 'Rank 1: what is lost?', a: 'A = [1 0.5; 0.6 0.3] has det 0. The unit circle collapses onto a segment of col(A); the direction <b>(0.5, −1) ∈ null(A)</b> maps to 0 and cannot be recovered. rank + nullity = n.',
+    { prov: 'exact', leg: [['unit circle', 'mu', 'dash'], ['its image, a segment of col(A)', 'a', 'solid'], ['null(A)', 'b', 'dash']], q: 'Rank 1: what is lost?', a: 'A = [1 0.5; 0.6 0.3] has det 0. The unit circle collapses onto a segment of col(A); the direction <b>(0.5, −1) ∈ null(A)</b> maps to 0 and cannot be recovered. rank + nullity = n.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const g = geo(x, box(w, h), 1.45);
         const A = [[1, 0.5], [0.6, 0.3]]; param(x, g, t => [Math.cos(t), Math.sin(t)], 0, 2 * PI, c.mu, { w: 1.2, dash: [3, 3] });
         const nl = Math.hypot(0.5, 1), nv = [0.5 / nl, -1 / nl]; poly(x, g, [[-2 * nv[0], -2 * nv[1]], [2 * nv[0], 2 * nv[1]]], c.b, { w: 1.6, dash: [5, 3] });
         param(x, g, t => [A[0][0] * Math.cos(t) + A[0][1] * Math.sin(t), A[1][0] * Math.cos(t) + A[1][1] * Math.sin(t)], 0, 2 * PI, c.a, { w: 4 });
         for (let k = 0; k < 12; k++) { const t = 2 * PI * k / 12, u = [Math.cos(t), Math.sin(t)]; dot(x, g, u[0], u[1], c.mu, 2); }
         const s1 = Math.hypot(1, 0.6) * Math.hypot(1, 0.5); M.text(x, 'col(A), half-length σ₁ = ' + s1.toFixed(2), g.b.x + g.b.w - 4, g.b.y + 6, c.a, 'right'); M.text(x, 'null(A)', g.X(1.3 * nv[0]) + 8, g.Y(1.3 * nv[1]), c.b); } },
-    { prov: 'exact', q: 'A<span class="v">x</span> = <span class="v">b</span>: one, none or infinitely many?', a: 'Row picture in 2D. <b>rank A = 2</b>: one crossing. rank A = 1 &lt; rank [A b]: parallel lines, no solution (use least squares). rank A = rank [A b] = 1: the same line, a null-space family.',
+    { prov: 'exact', leg: [['equation 1', 'a', 'solid'], ['equation 2', 'b', 'dash'], ['solution', 'fg', 'mark']], q: 'A<span class="v">x</span> = <span class="v">b</span>: one, none or infinitely many?', a: 'Row picture in 2D. <b>rank A = 2</b>: one crossing. rank A = 1 &lt; rank [A b]: parallel lines, no solution (use least squares). rank A = rank [A b] = 1: the same line, a null-space family.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 140); const bw = (w - 16) / 3;
         const cases = [['one', [0.5, 0.3], [-1, 1.2]], ['none', [0.5, 0.6], [0.5, -0.6]], ['infinite', [0.5, 0.2], [0.5, 0.2]]];
         cases.forEach(([lab, l1, l2], i) => { const g = geo(x, { x: 4 + i * (bw + 4), y: 16, w: bw, h: h - 22 }, 1.6, { lab });
           const L = (l, colr, o) => poly(x, g, [[-3, l[1] - 3 * l[0]], [3, l[1] + 3 * l[0]]], colr, o);
-          L(l1, c.a, { w: 2 }); L(l2, c.b, i === 2 ? { w: 2, dash: [5, 5] } : { w: 2 });
+          L(l1, c.a, { w: 2 }); L(l2, c.b, { w: 2, dash: [5, 5] });
           if (i === 0) { const xs = (l2[1] - l1[1]) / (l1[0] - l2[0]); dot(x, g, xs, l1[1] + l1[0] * xs, c.fg, 3.5); } }); } },
-    { prov: 'exact', q: 'Why are nearly parallel columns bad?', scaled: true, a: 'Unit columns at angle φ: <b>σ₁,₂ = √(1 ± cos φ), κ = cot(φ/2)</b>. Right: the unit noise circle mapped through A⁻¹ (axes 1/σ<sub>i</sub>). φ = 30° gives κ = 3.73, φ = 10° gives 11.4. Drag φ.',
+    { prov: 'exact', leg: [['column a₁', 'a', 'solid'], ['column a₂', 'b', 'dash'], ['noise circle', 'mu', 'dash'], ['A⁻¹·(noise circle)', 'd', 'fill']], q: 'Why are nearly parallel columns bad?', scaled: true, a: 'Unit columns at angle φ: <b>σ₁,₂ = √(1 ± cos φ), κ = cot(φ/2)</b>. Right: the unit noise circle mapped through A⁻¹ (axes 1/σ<sub>i</sub>). φ = 30° gives κ = 3.73, φ = 10° gives 11.4. Drag φ.',
       draw: (cv, T) => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const p = phi(T), cp = Math.cos(p), sp = Math.sin(p), bw = (w - 14) / 2;
         const gl = geo(x, { x: 4, y: 16, w: bw, h: h - 22 }, 0.62, { ox: 0.5, oy: 0.4, lab: 'columns' });
-        arrow(x, gl, 0, 0, 1, 0, c.a, { w: 2.2 }); arrow(x, gl, 0, 0, cp, sp, c.b, { w: 2.2 }); param(x, gl, t => [0.32 * Math.cos(t), 0.32 * Math.sin(t)], 0, p, c.mu, { w: 1 });
+        arrow(x, gl, 0, 0, 1, 0, c.a, { w: 2.2 }); arrow(x, gl, 0, 0, cp, sp, c.b, { w: 2.2, dash: [6, 4] }); param(x, gl, t => [0.32 * Math.cos(t), 0.32 * Math.sin(t)], 0, p, c.mu, { w: 1 });
         M.text(x, 'φ = ' + T.toFixed(0) + '°', gl.X(0.36), gl.Y(0.06) - 6, c.mu);
         const s2 = Math.sqrt(1 - cp), R = 1.12 / s2; const gr = geo(x, { x: 10 + bw, y: 16, w: bw, h: h - 22 }, R, { lab: 'A⁻¹ · (noise circle)' });
         param(x, gr, t => [Math.cos(t), Math.sin(t)], 0, 2 * PI, c.mu, { w: 1, dash: [3, 3] });
         param(x, gr, t => { const u = Math.cos(t), v = Math.sin(t); return [u - cp / sp * v, v / sp]; }, 0, 2 * PI, c.d, { w: 2, fill: true, alpha: 0.14 });
         M.text(x, 'κ = ' + (1 / Math.tan(p / 2)).toFixed(2), gr.b.x + gr.b.w - 2, gr.b.y + gr.b.h - 6, c.fg, 'right'); } },
-    { prov: 'exact', q: 'Nearly parallel lines: where do they cross?', scaled: true, a: 'Each measurement pins a line to ±δ. The crossing region reaches <b>±δ·cot(φ/2)</b> along x₁: the row-picture view of κ. Two looks from almost the same angle localize poorly across the bisector.',
+    { prov: 'exact', leg: [['measurement 1 ± δ', 'a', 'solid'], ['measurement 2 ± δ', 'b', 'dash'], ['crossing region', 'fg', 'fill']], q: 'Nearly parallel lines: where do they cross?', scaled: true, a: 'Each measurement pins a line to ±δ. The crossing region reaches <b>±δ·cot(φ/2)</b> along x₁: the row-picture view of κ. Two looks from almost the same angle localize poorly across the bisector.',
       draw: (cv, T) => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const p = phi(T), cp = Math.cos(p), sp = Math.sin(p), d = 0.08; const g = geo(x, box(w, h), 1.1);
-        const band = (nx, ny, colr) => { const tx = -ny, ty = nx, P = [[nx * d - 5 * tx, ny * d - 5 * ty], [nx * d + 5 * tx, ny * d + 5 * ty], [-nx * d + 5 * tx, -ny * d + 5 * ty], [-nx * d - 5 * tx, -ny * d - 5 * ty]];
-          poly(x, g, P, colr, { close: true, fill: true, alpha: 0.13, w: 0 }); poly(x, g, [[-5 * tx, -5 * ty], [5 * tx, 5 * ty]], colr, { w: 1.6 }); };
-        band(0, 1, c.a); band(-sp, cp, c.b);
+        const band = (nx, ny, colr, ds) => { const tx = -ny, ty = nx, P = [[nx * d - 5 * tx, ny * d - 5 * ty], [nx * d + 5 * tx, ny * d + 5 * ty], [-nx * d + 5 * tx, -ny * d + 5 * ty], [-nx * d - 5 * tx, -ny * d - 5 * ty]];
+          poly(x, g, P, colr, { close: true, fill: true, alpha: 0.13, w: 0 }); poly(x, g, [[-5 * tx, -5 * ty], [5 * tx, 5 * ty]], colr, { w: 1.6, dash: ds }); };
+        band(0, 1, c.a); band(-sp, cp, c.b, [6, 4]);
         const V = [[d, 1], [d, -1], [-d, -1], [-d, 1]].map(([y, s]) => [(cp * y + s * d) / sp, y]); poly(x, g, V, c.fg, { close: true, fill: true, alpha: 0.35, w: 1.4 });
         const ext = d / Math.tan(p / 2); M.text(x, 'extent ±' + ext.toFixed(2) + ' (δ = ' + d + ')', g.b.x + 4, g.b.y + 6, c.fg); } },
-    { prov: 'sim', q: 'Least squares, geometrically?', a: '<b>AᵀA x̂ = Aᵀb</b>: the residual is orthogonal to every column. For a straight-line fit the residuals sum to zero and have zero inner product with x (printed values are from this fit).',
+    { prov: 'sim', leg: [['fit', 'a', 'solid'], ['residuals', 'b', 'stem'], ['data', 'fg', 'mark']], q: 'Least squares, geometrically?', a: '<b>AᵀA x̂ = Aᵀb</b>: the residual is orthogonal to every column. For a straight-line fit the residuals sum to zero and have zero inner product with x (printed values are from this fit).',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const xs = [0, 1, 2, 3, 4, 5, 6, 7], ys = [0.62, 0.71, 1.48, 1.55, 2.31, 2.27, 3.05, 3.4];
         let n = xs.length, sx = 0, sy = 0, sxx = 0, sxy = 0; xs.forEach((v, i) => { sx += v; sy += ys[i]; sxx += v * v; sxy += v * ys[i]; });
         const b1 = (n * sxy - sx * sy) / (n * sxx - sx * sx), b0 = (sy - b1 * sx) / n; let r0 = 0, r1 = 0; xs.forEach((v, i) => { const r = ys[i] - b0 - b1 * v; r0 += r; r1 += v * r; });
@@ -1736,34 +1782,34 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
         M.curve(x, m, t => b0 + b1 * t, c.a); xs.forEach((v, i) => { x.save(); x.strokeStyle = c.b; x.lineWidth = 1.4; x.beginPath(); x.moveTo(m.X(v), m.Y(ys[i])); x.lineTo(m.X(v), m.Y(b0 + b1 * v)); x.stroke(); x.restore(); });
         x.save(); x.fillStyle = c.fg; xs.forEach((v, i) => { x.beginPath(); x.arc(m.X(v), m.Y(ys[i]), 3, 0, 7); x.fill(); }); x.restore();
         M.text(x, 'x̂ = (' + b0.toFixed(3) + ', ' + b1.toFixed(3) + ')', m.b.x + 4, m.b.y + 6, c.a); M.text(x, 'Σr = ' + f3(r0) + ', Σt·r = ' + f3(r1), m.b.x + 4, m.b.y + 20, c.b); } },
-    { prov: 'exact', q: 'What does Tikhonov do to each SVD component?', a: 'Filter factor <b>f = σ²/(σ² + λ)</b>, ½ at σ = √λ (blue; dashed: truncated-SVD step). Noise gain σ/(σ² + λ) peaks at <b>1/(2√λ)</b> instead of growing as 1/σ (pink, normalized).',
-      draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const m = M.panel(x, pbox(w, h, 18), [-2, 2], [0, 1.12], { lab: 'vs log₁₀(σ/√λ)', yaxis: false, hlines: [[0.5, '½']], ticks: [[-2, '−2'], [-1, '−1'], [0, '0'], [1, '1'], [2, '2']] });
+    { prov: 'exact', leg: [['filter factor f', 'a', 'solid'], ['truncated-SVD step', 'mu', 'dash'], ['noise gain, Tikhonov', 'b', 'solid'], ['noise gain 1/σ, no regularization', 'b', 'dot']], q: 'What does Tikhonov do to each SVD component?', a: 'Filter factor <b>f = σ²/(σ² + λ)</b>, ½ at σ = √λ (blue; dashed: truncated-SVD step). Noise gain σ/(σ² + λ) peaks at <b>1/(2√λ)</b> instead of growing as 1/σ (pink, normalized).',
+      draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const m = M.panel(x, pbox(w, h, 18), [-2, 2], [0, 1.12], { lab: 'filter factor f, noise gain vs log₁₀(σ/√λ)', yaxis: false, hlines: [[0.5, '½']], ticks: [[-2, '−2'], [-1, '−1'], [0, '0'], [1, '1'], [2, '2']] });
         const s = u => Math.pow(10, u); M.curve(x, m, u => s(u) ** 2 / (s(u) ** 2 + 1), c.a); M.curve(x, m, u => u > 0 ? 1 : 0, c.mu, { dash: [4, 3], w: 1.2 });
         M.curve(x, m, u => 2 * s(u) / (s(u) ** 2 + 1), c.b); M.curve(x, m, u => 2 / s(u), c.b, { dash: [2, 3], w: 1 }); } },
     { prov: 'exact', q: 'Convolution as a matrix?', a: '<b>y = Tx with T<sub>ij</sub> = h[i − j]</b>: constant diagonals (Toeplitz); each row is h flipped and shifted. Make it circular and it becomes circulant, diagonalized by the DFT with eigenvalues H[k].',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const L = 9, n = 20, hk = k => Math.exp(-(((k - 4) / 1.8) ** 2) / 2) * Math.cos(2 * PI * 0.22 * (k - 4));
         const sz = h - 22; heat(x, { x: 4, y: 16, w: sz, h: sz }, n, n, (i, j) => { const k = i - j; return k >= 0 && k < L ? (hk(k) + 1) / 2 : 0.5; });
-        M.text(x, 'T (20 × 20)', 6, 8, c.mu); const m = M.panel(x, { x: sz + 22, y: 18, w: w - sz - 28, h: h - 40 }, [-0.7, 8.7], [-1, 1.1], { lab: 'h[k]', ticks: [[0, '0'], [8, '8']] });
+        M.text(x, 'T (20 × 20)', 6, 8, c.mu); const m = M.panel(x, { x: sz + 22, y: 18, w: w - sz - 28, h: h - 40 }, [-0.7, 8.7], [-1, 1.1], { yl: 'h[k]', xl: 'k', ticks: [[0, '0'], [8, '8']] });
         const P = []; for (let k = 0; k < L; k++) P.push([k, hk(k)]); lolli(x, m, P, c.a); } },
     { prov: 'exact', q: 'Unitary DFT: what are its rows?', a: 'Sampled complex exponentials, <b>F<sub>kn</sub> = e<sup>−i2πkn/N</sup>/√N, FᴴF = I</b>: energy is kept (Parseval) and κ = 1. Shown: Re of rows k = 0…3 for N = 16. Across an array, bin k ↔ sin θ = kλ/(Np).',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const N = 16, cols = [c.a, c.b, c.c, c.d];
         for (let k = 0; k < 4; k++) { const m = M.panel(x, { x: 30, y: 6 + k * 35, w: w - 36, h: 30 }, [-0.6, 15.6], [-0.3, 0.3], { yaxis: false });
           const P = []; for (let n = 0; n < N; n++) P.push([n, Math.cos(2 * PI * k * n / N) / Math.sqrt(N)]); lolli(x, m, P, cols[k], 2.2); M.text(x, 'k=' + k, 2, 6 + k * 35 + 15, c.mu); } } },
-    { prov: 'exact', q: 'What does an orthogonal matrix do?', a: '<b>QᵀQ = I</b>: a rotation (det +1) or reflection (det −1). The circle maps to itself, lengths and angles are kept, every σ = 1, so a unitary step moves noise without amplifying it.',
+    { prov: 'exact', leg: [['unit circle and square', 'mu', 'dash'], ['rotated square', 'a', 'fill'], ['Qe₁', 'a', 'solid'], ['Qe₂', 'b', 'dash']], q: 'What does an orthogonal matrix do?', a: '<b>QᵀQ = I</b>: a rotation (det +1) or reflection (det −1). The circle maps to itself, lengths and angles are kept, every σ = 1, so a unitary step moves noise without amplifying it.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const g = geo(x, box(w, h), 1.5); const t0 = 35 * PI / 180, ct = Math.cos(t0), st = Math.sin(t0), Q = (p, q) => [ct * p - st * q, st * p + ct * q];
         param(x, g, t => [Math.cos(t), Math.sin(t)], 0, 2 * PI, c.mu, { w: 1.2, dash: [3, 3] });
         poly(x, g, [[0, 0], [1, 0], [1, 1], [0, 1]].map(p => [p[0] * 0.8, p[1] * 0.8]), c.mu, { close: true, w: 1, dash: [3, 3] });
         poly(x, g, [[0, 0], [0.8, 0], [0.8, 0.8], [0, 0.8]].map(p => Q(p[0], p[1])), c.a, { close: true, fill: true, alpha: 0.16 });
-        arrow(x, g, 0, 0, ...Q(1, 0), c.a, { w: 2 }); arrow(x, g, 0, 0, ...Q(0, 1), c.b, { w: 2 }); M.text(x, 'rotation 35°, det = ' + (ct * ct + st * st).toFixed(0), g.b.x + 4, g.b.y + 6, c.fg); } },
+        arrow(x, g, 0, 0, ...Q(1, 0), c.a, { w: 2 }); arrow(x, g, 0, 0, ...Q(0, 1), c.b, { w: 2, dash: [6, 4] }); M.text(x, 'rotation 35°, det = ' + (ct * ct + st * st).toFixed(0), g.b.x + 4, g.b.y + 6, c.fg); } },
     { prov: 'exact', q: 'What does a rank-1 matrix look like?', a: '<b>uvᴴ</b>: every column is a multiple of u, every row a multiple of vᴴ, a separable picture with a single nonzero σ = ‖u‖‖v‖. Rigid tissue clutter in a Casorati matrix is close to this.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const u = i => Math.exp(-(((i - 10) / 4) ** 2) / 2), v = j => Math.cos(2 * PI * j / 9);
         const sz = h - 22; heat(x, { x: 22, y: 16, w: Math.min(w - 120, 1.4 * sz), h: sz }, 20, 28, (i, j) => (u(i) * v(j) + 1) / 2);
-        const m = M.panel(x, { x: 22 + Math.min(w - 120, 1.4 * sz) + 14, y: 18, w: w - Math.min(w - 120, 1.4 * sz) - 44, h: h - 40 }, [0, 19], [0, 1.1], { lab: 'u (rows)', yaxis: false });
+        const m = M.panel(x, { x: 22 + Math.min(w - 120, 1.4 * sz) + 14, y: 18, w: w - Math.min(w - 120, 1.4 * sz) - 44, h: h - 40 }, [0, 19], [0, 1.1], { yl: 'u_i', xl: 'row i', yaxis: false });
         M.curve(x, m, u, c.a); M.text(x, 'uvᵀ', 2, 8, c.mu); } },
     { prov: 'model', q: 'Column j of the imaging operator?', a: 'DAS is the adjoint, so <b>BH ≈ HᴴH</b> and column j is the PSF at pixel j. Diagonal width = resolution, off-diagonals = sidelobes. Here N = 32, p = 0.3 mm, λ = 0.308 mm, z = 20 mm: first null at <b>λz/(Np) = 0.64 mm</b>.',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const { G, xs, null1 } = gramHH(); const n = xs.length, sz = h - 22;
         heat(x, { x: 4, y: 16, w: sz, h: sz }, n, n, (i, j) => G[i][j], 'heat'); M.text(x, '|HᴴH|, ±3 mm', 6, 8, c.mu);
-        const j0 = (n - 1) / 2; const m = M.panel(x, { x: sz + 22, y: 18, w: w - sz - 28, h: h - 40 }, [-3, 3], [-40, 0], { lab: 'column j (dB)', base: -40, ticks: [[-null1, ''], [null1, '0.64'], [-3, '−3'], [3, '3']] });
+        const j0 = (n - 1) / 2; const m = M.panel(x, { x: sz + 22, y: 18, w: w - sz - 28, h: h - 40 }, [-3, 3], [-40, 0], { yl: 'column j of |HᴴH| (dB)', xl: 'x (mm)', base: -40, ticks: [[-null1, ''], [null1, '0.64'], [-3, '−3'], [3, '3']] });
         M.curve(x, m, t => { const f = (t + 3) / 6 * (n - 1), i = Math.max(0, Math.min(n - 2, Math.floor(f))), r = f - i; return M.db(G[i][j0] * (1 - r) + G[i + 1][j0] * r, -40); }, c.a); } }
   ];
   Lab.cardGrid('m5', 'm5-vis', VIS, 'm5-vis-T');
@@ -1860,7 +1906,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     ylab(x, ml, [[0, '1'], [6, p10(6)], [12, p10(12)]]); yaxis(x, ml);
     M.curve(x, ml, u => lg(2 / 3) + 3 * u, c.a); M.curve(x, ml, u => lg(2) + 3 * u, c.b, { dash: [5, 3] });
     leg(x, [['inv(A)*b: 2n³', c.b, [5, 3]], ['A\\b (LU): ⅔n³', c.a]], ml.b.x + 4, ml.b.y + 6);
-    const mr = M.panel(x, R, [0, 4], [-17, 0], { lab: 'log₁₀ error, hilb(10)', base: -17, ticks: [[1, 'forward'], [3, 'residual']] });
+    const mr = M.panel(x, R, [0, 4], [-17, 0], { yl: 'log₁₀ error, hilb(10)', base: -17, ticks: [[1, 'forward'], [3, 'residual']] });
     ylab(x, mr, [[-16, '−16'], [-8, '−8'], [0, '0']]); yaxis(x, mr);
     const bar = (u, v, colr) => { x.save(); x.fillStyle = colr; x.globalAlpha = 0.85; const X0 = mr.X(u - 0.3), X1 = mr.X(u + 0.3); x.fillRect(X0, mr.Y(v), X1 - X0, mr.Y(-17) - mr.Y(v)); x.restore(); };
     bar(0.62, lg(5e-4), c.a); bar(1.38, lg(5e-4), c.b); bar(2.62, lg(1.5e-16), c.a); bar(3.38, lg(4.4e-5), c.b);
@@ -1875,7 +1921,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     M.text(x, 'dashed: j = 3, 8, 20', 4, 18 + sz + 9, c.mu);
     const pb = nar ? { x: 6, y: sz + 50, w: w - 12, h: h - sz - 72 } : { x: sz + 26, y: 18, w: w - sz - 32, h: h - 40 };
     const m = M.panel(x, pb, [0, n - 1], [0, 1.55], { lab: nar ? 'columns He_j vs i: shift-variant' : 'columns He_j vs pixel i', base: 0, ticks: [[3, '3'], [8, '8'], [20, '20']] });
-    [[3, c.b], [8, c.a], [20, c.c]].forEach(([j, colr]) => M.curve(x, m, i => Hm(i, j), colr));
+    [[3, c.b, [6, 4]], [8, c.a, null], [20, c.c, [2, 3]]].forEach(([j, colr, ds]) => M.curve(x, m, i => Hm(i, j), colr, ds ? { dash: ds } : {}));
     M.text(x, 'focus j = 8: narrowest', m.b.x + m.b.w - 2, m.b.y + 6, c.a, 'right');
     if (!nar) M.text(x, 'shift-variant: not Toeplitz', m.b.x + m.b.w - 2, m.b.y + 20, c.mu, 'right'); };
 
@@ -1952,7 +1998,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
 
   /* 8. det is not conditioning */
   RF[8] = () => { const r = cvs('m5-rf-8', 150, 300); if (!r) return; const { x, w, h, c } = r; const [L, R] = boxes(w, h, 2, { l: 30, fr: [1.15, 1] });
-    const ml = M.panel(x, L, [0.25, 2], [-80, 40], { lab: 'log₁₀ for s·I₁₂₈ vs s', base: -80, ticks: [[0.5, '0.5'], [1, '1'], [2, '2']] });
+    const ml = M.panel(x, L, [0.25, 2], [-80, 40], { lab: 'log₁₀ det and log₁₀ κ of s·I₁₂₈ vs s', base: -80, ticks: [[0.5, '0.5'], [1, '1'], [2, '2']] });
     ylab(x, ml, [[-77, '−77'], [-38.5, '−38'], [0, '0'], [38.5, '38']]); yaxis(x, ml);
     M.curve(x, ml, s => 128 * lg(s), c.a); M.curve(x, ml, () => 0, c.b, { dash: [5, 3] });
     pts(x, ml, [[0.5, 128 * lg(0.5)]], c.a, 3.5); M.text(x, 'det = ' + sci(Math.pow(0.5, 128), 1), ml.X(0.5) + 6, ml.Y(128 * lg(0.5)) + 2, c.a);
@@ -1968,9 +2014,9 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
   RF[9] = () => { const r = cvs('m5-rf-9', 140, 260); if (!r) return; const { x, w, h, c } = r; const xv = [1, 2, 0, -1], N = 4;
     const X = [0, 1, 2, 3].map(k => { let re = 0, im = 0; xv.forEach((v, n) => { re += v * Math.cos(2 * PI * k * n / N); im -= v * Math.sin(2 * PI * k * n / N); }); return re * re + im * im; });
     const E1 = xv.reduce((s, v) => s + v * v, 0), E2 = X.reduce((s, v) => s + v, 0); const [L, R] = boxes(w, h, 2, { l: 26 });
-    const ml = M.panel(x, L, [-0.6, 3.6], [0, 11], { lab: '|x[n]|², x = (1, 2, 0, −1), Σ = ' + E1, base: 0, ticks: [[0, '0'], [1, '1'], [2, '2'], [3, 'n=3']] });
+    const ml = M.panel(x, L, [-0.6, 3.6], [0, 11], { yl: '|x[n]|², x = (1, 2, 0, −1), Σ = ' + E1, xl: 'n', base: 0, ticks: [[0, '0'], [1, '1'], [2, '2'], [3, 'n=3']] });
     ylab(x, ml, [[0, '0'], [5, '5'], [10, '10']]); yaxis(x, ml); lolli(x, ml, xv.map((v, n) => [n, v * v]), c.a, 3.2);
-    const mr = M.panel(x, R, [-0.6, 3.6], [0, 11], { lab: '|fft(x)[k]|², Σ = ' + fx(E2, 0) + ' = ' + N + '·' + E1, base: 0, ticks: [[0, '0'], [1, '1'], [2, '2'], [3, 'k=3']] });
+    const mr = M.panel(x, R, [-0.6, 3.6], [0, 11], { yl: '|fft(x)[k]|², Σ = ' + fx(E2, 0) + ' = ' + N + '·' + E1, xl: 'k', base: 0, ticks: [[0, '0'], [1, '1'], [2, '2'], [3, 'k=3']] });
     ylab(x, mr, [[0, '0'], [5, '5'], [10, '10']]); yaxis(x, mr); lolli(x, mr, X.map((v, k) => [k, v]), c.b, 3.2); };
 
   /* 10. element ↔ plane-wave: DFT bin vs angle, aliasing beyond arcsin(λ/2p) */
@@ -2007,7 +2053,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     const cir = new Array(N).fill(0); for (let n = 0; n < N + L - 1; n++) cir[n % N] += lin[n];
     let err = 0; for (let n = 0; n < N; n++) err = Math.max(err, Math.abs(cir[n] - lin[n]));
     const [B] = boxes(w, h, 1, { l: 10, r: 10, b: 32 });
-    const m = M.panel(x, B, [0, N + L - 2], [-1.25, 2.1], { lab: nar ? 'x ∗ h, L = 31 taps, N = 64' : 'x ∗ h with L = 31 taps: padded to N + L − 1 = 94 vs circular N = 64', ticks: [[0, '0'], [L - 1, '30'], [N - 1, '63'], [N + L - 2, '93']] });
+    const m = M.panel(x, B, [0, N + L - 2], [-1.25, 2.1], { yl: nar ? 'x ∗ h, L = 31 taps, N = 64' : 'x ∗ h with L = 31 taps: padded to N + L − 1 = 94 and circular N = 64', xl: 'n', ticks: [[0, '0'], [L - 1, '30'], [N - 1, '63'], [N + L - 2, '93']] });
     x.save(); x.fillStyle = c.d; x.globalAlpha = 0.12; x.fillRect(m.X(0), m.b.y, m.X(L - 2) - m.X(0), m.b.h); x.restore();
     path(x, m, lin.map((v, n) => [n, v]), c.a); path(x, m, cir.map((v, n) => [n, v]), c.b, { dash: [4, 2], w: 1.6 });
     vline(x, m, N - 1, c.mu); M.text(x, 'tail →', m.X(N + 1), m.Y(1.75), c.mu);
@@ -2018,11 +2064,11 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
   RF[13] = () => { const r = cvs('m5-rf-13', 145, 165); if (!r) return; const { x, w, h, c, nar } = r; const [B] = boxes(w, h, 1, { l: 32, r: 10 });
     const m = M.panel(x, B, [lg(8), lg(1024)], [2, 13], { lab: nar ? 'multiply-adds vs n' : 'multiply-adds vs n for (B ⊗ A) vec(X), n×n factors', base: 2, ticks: [[lg(8), '8'], [lg(32), '32'], [lg(128), '128'], [lg(512), '512']] });
     ylab(x, m, [[3, p10(3)], [6, p10(6)], [9, p10(9)], [12, p10(12)]]); yaxis(x, m);
-    M.curve(x, m, u => 4 * u, c.b); M.curve(x, m, u => lg(2) + 3 * u, c.a);
+    M.curve(x, m, u => 4 * u, c.b, { dash: [6, 4] }); M.curve(x, m, u => lg(2) + 3 * u, c.a);
     const n = 128; vline(x, m, lg(n), c.mu); pts(x, m, [[lg(n), 4 * lg(n)], [lg(n), lg(2 * n ** 3)]], c.fg, 3);
     M.text(x, 'n⁴ = ' + sci(n ** 4, 1), m.X(lg(n)) - 6, m.Y(4 * lg(n)) - 9, c.b, 'right'); M.text(x, '2n³ = ' + sci(2 * n ** 3, 1), m.X(lg(n)) + 6, m.Y(lg(2 * n ** 3)) + 9, c.a);
     M.text(x, n / 2 + '× fewer', m.X(lg(n)) + 6, m.Y((4 * lg(n) + lg(2 * n ** 3)) / 2), c.fg);
-    leg(x, [['explicit n²×n²', c.b], ['factored AXBᵀ', c.a]], m.b.x + 6, m.b.y + 8); };
+    leg(x, [['explicit n²×n²', c.b, [6, 4]], ['factored AXBᵀ', c.a]], m.b.x + 6, m.b.y + 8); };
 
   /* 14. DAS matrix sparsity */
   RF[14] = () => { const r = cvs('m5-rf-14', 150, 250); if (!r) return; const { x, w, h, c, nar } = r; const Ne = 8, Nt = 48, Np = 24, p = 1.2, fs = 1.0;
@@ -2044,9 +2090,9 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     if (!E15) { const rg = Lab.rng(15); E15 = Ks.map(K => { const X = []; for (let k = 0; k < K; k++) { const v = []; for (let i = 0; i < N; i++) v.push(rg.g()); X.push(v); }
       const R = []; for (let i = 0; i < N; i++) { R.push([]); for (let j = 0; j < N; j++) { let s = 0; X.forEach(v => s += v[i] * v[j]); R[i].push(s / K); } } return eigSym(R); }); }
     const [L, Rb] = boxes(w, h, 2, { l: 30, fr: [1.1, 1] }); const fl = -50, cols = [c.b, c.c, c.d, c.a];
-    const ml = M.panel(x, L, [0.5, 8.5], [fl, 24], { lab: 'eig(R̂) in dB, N = 8, R = I', base: fl, ticks: [[1, '1'], [4, '4'], [8, 'i=8']] });
+    const ml = M.panel(x, L, [0.5, 8.5], [fl, 24], { yl: 'eig(R̂) in dB, N = 8, R = I', xl: 'index i', base: fl, ticks: [[1, '1'], [4, '4'], [8, 'i=8']] });
     ylab(x, ml, [[0, '0'], [-20, '−20'], [fl, '0']]); yaxis(x, ml);
-    E15.forEach((ev, q) => { const P = ev.map((v, i) => [i + 1, Math.max(fl, 10 * lg(Math.max(v, 1e-30)))]); path(x, ml, P, cols[q], { w: 1.4 }); pts(x, ml, P, cols[q], 2.4);
+    E15.forEach((ev, q) => { const P = ev.map((v, i) => [i + 1, Math.max(fl, 10 * lg(Math.max(v, 1e-30)))]); path(x, ml, P, cols[q], { w: 1.4, dash: [[2, 3], [6, 4], [10, 3, 2, 3], null][q] || undefined }); pts(x, ml, P, cols[q], 2.4);
       const rk = ev.filter(v => v > 1e-10 * ev[0]).length; M.text(x, 'K=' + Ks[q] + ': rank ' + rk, ml.b.x + 4 + (q % 2) * ml.b.w / 2, ml.b.y + 6 + 12 * Math.floor(q / 2), cols[q]); });
     const Nb = 128, mr = M.panel(x, Rb, [1, 6], [-13, 0], { lab: 'RMB E[SINR loss] dB vs K/N', base: -13, ticks: [[1, '1'], [2, '2'], [4, '4'], [6, '6']] });
     ylab(x, mr, [[0, '0'], [-3, '−3'], [-12, '−12']]); yaxis(x, mr);
@@ -2061,7 +2107,7 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
     M.curve(x, ml, u => -u, c.b, { dash: [5, 3] }); M.curve(x, ml, u => -lg(Math.pow(10, u) + eps), c.a);
     hline(x, ml, -lg(eps), c.mu); M.text(x, 'cap 1/ε = ' + fx(1 / eps, 0), ml.X(0.95), ml.Y(-lg(eps)) - 8, c.mu, 'right'); vline(x, ml, lg(eps), c.mu, 'ε', 'left');
     leg(x, [['1/λ (no loading)', c.b, [5, 3]], ['1/(λ + ε)', c.a]], ml.b.x + ml.b.w - 4, ml.b.y + 8, 'right');
-    const mr = M.panel(x, R, [-4, 1], [0, 1.1], { lab: 'filter f = λ/(λ + ε)', base: 0, hlines: [[0.5, '½ at λ = ε']], ticks: tk });
+    const mr = M.panel(x, R, [-4, 1], [0, 1.1], { yl: 'filter f = λ/(λ + ε)', xl: 'λ_i/(tr R/N)', base: 0, hlines: [[0.5, '½ at λ = ε']], ticks: tk });
     ylab(x, mr, [[0, '0'], [1, '1']]); yaxis(x, mr); M.curve(x, mr, u => Math.pow(10, u) / (Math.pow(10, u) + eps), c.a);
     M.text(x, 'ε = 0.01·tr(R)/N', mr.b.x + 4, mr.b.y + 6, c.mu); };
 
@@ -2081,14 +2127,14 @@ Vert = 1/\sigma_{\min}\)</dd><dt>\(\lVert A\rVert\)</dt><dd>spectral (2-)norm of
         const amax = Math.max(...A.map(r => Math.max(...r))), hb = { x: sz + 14, y: 16, w: w - sz - 18, h: sz };
         heat(x, hb, A.length, n * n, (i, j) => A[i][j] / amax, 'heat'); let nz = 0; A.forEach(r => r.forEach(v => { if (v > 0) nz++; }));
         M.text(x, 'A: 18 × 64, nnz ' + nz + ' (' + fx(100 * nz / (18 * 64), 0) + ' %)', hb.x, 8, c.mu); } },
-    { prov: 'model', q: 'What does a phase screen do to the beam, and what does Dᴴ undo?', a: 'Each element gets a phase −ω₀δτ<sub>e</sub>: <b>d<sub>ab</sub> = (D ⊗ I<sub>t</sub>)d</b>. Here δτ is a smooth random screen with 40 ns rms (1.26 rad at 5 MHz) on 64 elements: the narrowband beam (pink) loses its peak and spreads; applying Dᴴ restores the unaberrated pattern (blue).',
+    { prov: 'model', leg: [['no screen, or screen corrected by Dᴴ', 'a', 'solid'], ['with phase screen', 'b', 'dash']], q: 'What does a phase screen do to the beam, and what does Dᴴ undo?', a: 'Each element gets a phase −ω₀δτ<sub>e</sub>: <b>d<sub>ab</sub> = (D ⊗ I<sub>t</sub>)d</b>. Here δτ is a smooth random screen with 40 ns rms (1.26 rad at 5 MHz) on 64 elements: the narrowband beam (pink) loses its peak and spreads; applying Dᴴ restores the unaberrated pattern (blue).',
       draw: cv => { const c = M.col(); const { x, w, h } = M.size(cv, 150); const N = 64, p = 0.3, lam = 0.308, f0 = 5e6, rg = Lab.rng(81); const dt = []; let a = 0;
         for (let e = 0; e < N; e++) { a = 0.9 * a + rg.g(); dt.push(a); } const mu = dt.reduce((s, v) => s + v, 0) / N; let rms = Math.sqrt(dt.reduce((s, v) => s + (v - mu) ** 2, 0) / N);
         const tau = dt.map(v => (v - mu) / rms * 40e-9), ph = tau.map(t => -2 * PI * f0 * t);
         const af = (s, ab) => { let re = 0, im = 0; for (let e = 0; e < N; e++) { const q = 2 * PI / lam * (e - (N - 1) / 2) * p * s + (ab ? ph[e] : 0); re += Math.cos(q); im += Math.sin(q); } return Math.hypot(re, im) / N; };
         const m = M.panel(x, { x: 30, y: 18, w: w - 38, h: h - 40 }, [-0.15, 0.15], [-40, 0], { lab: 'one-way beam (dB) vs sin θ', base: -40, ticks: [[-0.1, '−0.1'], [0, '0'], [0.1, '0.1']] });
         ylab(x, m, [[0, '0'], [-20, '−20'], [-40, '−40']]);
-        M.curve(x, m, s => M.db(af(s, false), -40), c.a, { w: 1.6 }); M.curve(x, m, s => M.db(af(s, true), -40), c.b, { w: 1.6 });
+        M.curve(x, m, s => M.db(af(s, false), -40), c.a, { w: 1.6 }); M.curve(x, m, s => M.db(af(s, true), -40), c.b, { w: 1.6, dash: [6, 4] });
         M.text(x, 'aberrated peak ' + fx(M.db(af(0, true), -60), 1) + ' dB', m.b.x + m.b.w - 2, m.b.y + 6, c.b, 'right'); } }
   ];
   Lab.cardGrid('m5', 'm5-op', OP);

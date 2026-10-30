@@ -19,6 +19,8 @@
     </div>
   </header>
   <div class="prov-legend"><span><span class="prov exact">Exact formula</span>closed form or exact finite sum, plotted as is</span><span><span class="prov sim">Simulation</span>numerical run in this page (JS) or in the Octave scripts, named in a note</span><span><span class="prov model">Approx. model</span>simplified physics; assumptions stated</span><span><span class="prov schem">Schematic</span>drawing for intuition, not to scale</span></div>
+  <div class="k60"><span class="label">In 60 seconds</span><ol><li><b>A DFT bin is an inner product:</b> Each output of the discrete Fourier transform (DFT) measures how much of one rotating arrow the signal contains: multiply sample by sample, then sum. In \(X[k] = \sum_n x[n]e^{-j2\pi kn/N}\), x[n] are the N samples and bin k counts turns per record. Matched filters and delay-and-sum beamformers do the same multiply-and-sum. <a class="sref" href="#m2-s02-2">§02.2</a></li><li><b>Orthogonality makes the bins independent:</b> Over a full record, probe arrows at different bins cancel exactly. A tone completing a whole number of periods in the record lands in one bin, and the inverse needs no matrix inversion. A tone that stops part-way through a period matches no probe and spreads into every bin: leakage. <a class="sref" href="#m2-s02-3">§02.3</a> <a class="sref" href="#m2-s02-6">§02.6</a></li><li><b>The upper half is negative frequency:</b> For a real signal the top half of the DFT mirrors the bottom half, \(X[N-k] = X[k]^*\), with N the record length and * the complex conjugate, so it adds no information. For complex I/Q data, the two-channel demodulated echo, the upper half is genuine negative frequency, and that is where Doppler finds flow direction. <a class="sref" href="#m2-s02-5">§02.5</a> <a class="sref" href="#m2-s02-9">§02.9</a></li><li><b>The FFT is a coherent integrator:</b> A steady tone adds up in step across the record while noise adds randomly, so longer records lift weak tones out of noise. For a bin-centred tone in white noise the signal-to-noise gain is N/2, with N the number of samples: 27.1 dB at N = 1024. The price is time resolution. <a class="sref" href="#m2-s02-5">§02.5</a></li><li><b>Windows trade detection against resolution:</b> A window tapers the record ends before the transform to reduce leakage. It lowers sidelobes, the spurious response away from the peak, but widens the main peak: Hann moves the first sidelobe from −13.3 to −31.5 dB and doubles the main lobe. Low sidelobes reveal weak neighbours; a narrow main lobe separates close ones. <a class="sref" href="#m2-s02-7">§02.7</a></li><li><b>Resolution comes from record length:</b> Appending zeros before the transform (zero padding) draws the same spectrum on a finer grid but adds no information. Two components closer than about 1/T, with T the record duration, still merge: for a 2 µs range gate that is 500 kHz. Padding interpolates; only a longer record resolves. <a class="sref" href="#m2-s02-7">§02.7</a></li><li><b>The FFT reuses half-size DFTs:</b> The fast Fourier transform (FFT) splits the samples into even and odd halves, transforms each, and lets one multiply serve two outputs, repeating down to length 2. The cost drops from N² to \((N/2)\log_2 N\) multiplies for N samples, a factor of 205 at N = 1024. Power-of-two lengths are a speed habit, not a requirement. <a class="sref" href="#m2-s02-8">§02.8</a></li></ol></div>
+  <div class="field"><span class="label">From the field</span><ul><li><b>Do not quote resolution from the padded FFT length.</b> <span class="why">Zero padding (appending zeros) only interpolates the spectrum of the record you have; components closer than about 1/T, with T the record duration, still merge. For a 2 µs range gate padded to any length, components under 500 kHz apart stay unresolved. <a class="sref" href="#m2-s02-7">§02.7</a></span></li><li><b>Name the window in every spectrum you show.</b> <span class="why">The window, the taper applied to the record, sets sidelobe level, peak-amplitude loss and main-lobe width together, so an unlabelled spectrum cannot be compared with anyone else’s. Going from rectangular to Hann moves the first sidelobe from −13.3 to −31.5 dB and doubles the main lobe. <a class="sref" href="#m2-s02-7">§02.7</a></span></li><li><b>Interpolate the peak before quoting a frequency finer than one bin.</b> <span class="why">A raw peak bin, one point of the frequency grid, is good only to ±½ bin, and with no window its amplitude can read up to 3.92 dB low. A parabolic fit through the log magnitudes around the peak estimates both frequency and amplitude, with a residual bias that depends on the window and SNR; calibrate it for your window when amplitude matters. <a class="sref" href="#m2-s02-13">§02.13</a></span></li><li><b>When porting FFT code between languages, check scaling and index order first.</b> <span class="why">Libraries differ in where the 1/N factor sits (N the length) and whether zero frequency is at index 0 or centred (fftshift). A tone of amplitude A should read AN/2 unnormalized; a wrong scale or half-band shift is the usual first bug. <a class="sref" href="#m2-s02-5">§02.5</a> <a class="sref" href="#m2-s02-9">§02.9</a></span></li><li><b>Mask the phase of empty bins before you plot or use it.</b> <span class="why">Where the magnitude is near zero, the phase is the angle of rounding noise and looks like structure. Likewise, an imaginary part after inverting the FFT of a real signal means a bin was edited without its mirror bin. <a class="sref" href="#m2-s02-5">§02.5</a> <a class="sref" href="#m2-s02-6">§02.6</a></span></li></ul></div>
 
   <!-- ===================== 02.1 ===================== -->
   <div class="prose">
@@ -31,17 +33,19 @@
     <span class="note">Large and positive: x looks like p. Large and negative: x looks like −p. Near zero: p is not in x. Dividing by \(\langle p, p\rangle\) gives "how many copies of p", the projection coefficient.</span>
   </div>
   <div class="prose">
-    <p>You already use this every day. DAS beamforming is an inner product of the channel data with a delay-and-apodization pattern; a matched filter is an inner product with the pulse at each lag. A DFT bin is the same operation with a sampled sinusoid as the probe.</p>
+    <p>You already use this operation daily. DAS beamforming is an inner product of the channel data with a delay-and-apodization pattern; a matched filter is an inner product with the pulse at each lag. A DFT bin is the same operation with a sampled sinusoid as the probe.</p>
     <h3>By hand: four samples, one cosine probe</h3>
-    <p>Let \(x = [1, 2, 3, 4]\) and the probe be one cycle of cosine over four samples, \(c[n] = \cos(2\pi n/4) = [1, 0, -1, 0]\). Products: \([1\cdot 1,\ 2\cdot 0,\ 3\cdot(-1),\ 4\cdot 0]\) \(= [1, 0, -3, 0]\). Sum: <strong>\(\langle x, c\rangle = -2\)</strong>. Since \(\langle c, c\rangle = 1 + 0 + 1 + 0 = 2\), x contains \(-2/2 =\) <strong>−1 times</strong> that cosine. With the sine probe \(s[n] = \sin(2\pi n/4) = [0, 1, 0, -1]\): products \([0, 2, 0, -4]\), sum <strong>\(\langle x, s\rangle = -2\)</strong>, so x also contains −1 times the sine. The figure draws both.</p>
+    <p>Let \(x = [1, 2, 3, 4]\) and the probe be one cycle of cosine over four samples, \(c[n] = \cos(2\pi n/4) = [1, 0, -1, 0]\). Products: \([1\cdot 1,\ 2\cdot 0,\ 3\cdot(-1),\ 4\cdot 0]\) \(= [1, 0, -3, 0]\). Sum: \(\langle x, c\rangle = -2\). Since \(\langle c, c\rangle = 1 + 0 + 1 + 0 = 2\), x contains \(-2/2 =\) −1 times that cosine. With the sine probe \(s[n] = \sin(2\pi n/4) = [0, 1, 0, -1]\): products \([0, 2, 0, -4]\), sum \(\langle x, s\rangle = -2\), so x also contains −1 times the sine. The figure draws both.</p>
   </div>
   <div class="demo">
     <div class="demo-head"><span class="tag">Figure 02.1</span><h3>Multiply sample by sample, then add</h3><span class="prov exact">Exact formula</span></div>
     <div class="demo-body stack"><div class="stage"><canvas id="m2-f1" aria-label="Inner product of x with a cosine and a sine probe"></canvas>
-      <div class="legend"><span><i style="background:var(--accent)"></i>x[n] = [1, 2, 3, 4]</span><span><i style="background:var(--sig2)"></i>probe</span><span><i style="background:var(--sig4)"></i>product x[n]·p[n] and its sum</span></div></div></div>
+      <div class="legend"><span><i class="stem" style="color:var(--accent);background:var(--accent)"></i>x[n] = [1, 2, 3, 4]</span><span><i class="stem" style="color:var(--sig2);background:var(--sig2)"></i>probe samples</span><span><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>continuous probe</span><span><i class="stem" style="color:var(--sig4);background:var(--sig4)"></i>product x[n]·p[n] and its sum</span></div></div></div>
     <div class="demo-foot"><strong>Read:</strong> the bars in the right column are the products; their sum is the inner product. Both probes give −2. Section 02.4 shows these two numbers are exactly \(\mathrm{Re}\,X[1] = -2\) and \(-\mathrm{Im}\,X[1] = -2\).</div>
   </div>
   <div class="callout intuit"><span class="label">Key idea</span><p>An inner product answers one question about one shape. The DFT asks that question N times, once per probe frequency, with probes chosen so that the answers do not interfere (02.3).</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>\(\langle x, p\rangle = \sum x[n]\,p^*[n]\) measures how much of shape p is in x; divided by \(\langle p, p\rangle\) it is the number of copies of p.</li><li>DAS beamforming and the matched filter are inner products; a DFT bin is the same operation with a sampled sinusoid as the probe.</li><li>x = [1, 2, 3, 4] against one cycle of cosine or sine gives −2 each, i.e. −1 times each shape.</li></ul></div>
+
 
   <!-- ===================== 02.2 ===================== -->
   <div class="prose">
@@ -54,14 +58,14 @@
     <span class="note">The second term is a sinusoid at frequency \(2k_0\) summed over whole periods, which is zero (02.3). So the cosine-only correlation is \((AN/2)\cos\varphi\): it depends on the unknown phase and is zero when \(\varphi = 90°\).</span>
   </div>
   <div class="prose">
-    <p>A cosine probe alone cannot tell "small amplitude" from "wrong phase". Add a sine probe. With \(\cos a\sin b\) \(= \tfrac12[\sin(a + b) - \sin(a - b)]\):</p>
+    <p>A cosine probe alone cannot tell "small amplitude" from "wrong phase", so add a sine probe. With \(\cos a\sin b\) \(= \tfrac12[\sin(a + b) - \sin(a - b)]\):</p>
   </div>
   <div class="eqn" id="m2-eq3">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \sum_{n} A\cos(\theta + \varphi)\sin\theta &amp;= \frac{A}{2}\sum_{n}\big[\sin(2\theta + \varphi) - \sin\varphi\big] \\ &amp;= -\frac{AN}{2}\sin\varphi \end{aligned} \]</div><span class="eqn-no">(02.3)</span></div>
       <dl class="where"><dt>\(A,\ \varphi,\ \theta\)</dt><dd>as in (02.2)</dd><dt>\(N\)</dt><dd>record length, samples</dd><dt>\(n\)</dt><dd>sample index</dd><dt>\(\sum_n\)</dt><dd>sum over \(n=0\ldots N-1\)</dd></dl>
   </div>
   <div class="prose">
-    <p>Now combine the two numbers as one complex number, cosine correlation minus j times sine correlation. Because \(e^{-j\theta} = \cos\theta - j\sin\theta\), that is one correlation with one complex probe:</p>
+    <p>Now combine the two numbers into one complex number, the cosine correlation minus j times the sine correlation. Because \(e^{-j\theta} = \cos\theta - j\sin\theta\), that is one correlation with one complex probe:</p>
   </div>
   <div class="eqn key" id="m2-eq4">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} X[k] &amp;= \sum_{n=0}^{N-1} x[n]\, e^{-j2\pi kn/N} \\ &amp;= \sum_{n=0}^{N-1} x[n]\cos\frac{2\pi kn}{N} \;-\; j\sum_{n=0}^{N-1} x[n]\sin\frac{2\pi kn}{N} \end{aligned} \]</div><span class="eqn-no">(02.4)</span></div>
@@ -83,19 +87,21 @@
     <div class="demo-head"><span class="tag">Demo 02.1</span><h3>The correlation wheel: signal × rotating probe, running sum</h3><span class="prov exact">Exact formula</span></div>
     <div class="demo-body">
       <div class="stage"><canvas id="m2-d1-cv" aria-label="Correlation of a tone with a rotating probe phasor"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>x[n]</span><span><i style="background:var(--sig2)"></i>probe cos (solid), −sin (dashed)</span><span><i style="background:var(--sig4)"></i>products x[n]e<sup>−j2πkn/N</sup> tip to tail</span><span><i style="background:var(--sig3)"></i>X[k]</span></div></div>
+        <div class="legend" id="m2-d1-legT"><span data-s="samp"><i class="stem" style="color:var(--accent);background:var(--accent)"></i>top: x[n] samples</span><span data-s="tone"><i class="dot" style="color:var(--muted);background:var(--muted)"></i>continuous tone</span><span data-s="pcos"><i class="solid" style="color:var(--sig2);background:var(--sig2)"></i>probe cos</span><span data-s="psin"><i class="dash" style="color:var(--sig5);background:var(--sig5)"></i>probe −sin</span></div><div class="legend"><span><i class="solid" style="color:var(--sig4);background:var(--sig4)"></i>running sum: products x[n]e<sup>−j2πkn/N</sup> tip to tail</span><span><i class="mark" style="color:var(--sig3);background:var(--sig3)"></i>X[k] (dot)</span></div><div class="legend" id="m2-d1-legB"><span data-s="re"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>lower: Re X</span><span data-s="im"><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>Im X</span><span data-s="ab"><i class="dot" style="color:var(--sig3);background:var(--sig3)"></i>|X|</span></div></div>
       <div class="controls">
-        <div class="ctrl"><label for="m2-d1-f">Tone frequency k₀ (bins) <output id="m2-d1-f-o">3.0</output></label><input type="range" id="m2-d1-f" min="0" max="8" step="0.1" value="3"></div>
-        <div class="ctrl"><label for="m2-d1-p">Tone phase φ <output id="m2-d1-p-o">40°</output></label><input type="range" id="m2-d1-p" min="-180" max="180" step="5" value="40"></div>
-        <div class="ctrl"><label for="m2-d1-k">Probe bin k <output id="m2-d1-k-o">3</output></label><input type="range" id="m2-d1-k" min="0" max="8" step="1" value="3"></div>
-        <div class="ctrl"><label for="m2-d1-n">Samples summed <output id="m2-d1-n-o">16</output></label><input type="range" id="m2-d1-n" min="0" max="16" step="1" value="16"></div>
+        <div class="ctrl"><label for="m2-d1-f">Tone frequency k₀ (bins) <output id="m2-d1-f-o">3.0</output> <span class="hint">cycles of the tone in the N = 16 samples</span></label><input type="range" id="m2-d1-f" min="0" max="8" step="0.1" value="3"></div>
+        <div class="ctrl"><label for="m2-d1-p">Tone phase φ (deg) <output id="m2-d1-p-o">40°</output> <span class="hint">phase of the tone at sample n = 0</span></label><input type="range" id="m2-d1-p" min="-180" max="180" step="5" value="40"></div>
+        <div class="ctrl"><label for="m2-d1-k">Probe bin k <output id="m2-d1-k-o">3</output> <span class="hint">the probe arrow turns k times over the record</span></label><input type="range" id="m2-d1-k" min="0" max="8" step="1" value="3"></div>
+        <div class="ctrl"><label for="m2-d1-n">Samples summed (of N = 16) <output id="m2-d1-n-o">16</output> <span class="hint">products added to the running sum so far</span></label><input type="range" id="m2-d1-n" min="0" max="16" step="1" value="16"></div>
         <div class="btn-row"><button class="btn solid" id="m2-d1-play" type="button">Play sum</button></div>
         <div class="readout" id="m2-d1-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> with \(k = k_0 = 3\), sweep \(\varphi\): the cosine-only sum (\(\mathrm{Re}\,X\)) swings between ±8 and crosses 0 at \(\varphi = \pm 90°\), while \(\lvert X\rvert\) stays at \(AN/2 = 8\). Then set k = 4 with \(k_0 = 3\): the arrows curl into a closed polygon and X = 0. Set \(k_0 = 3.5\): the curl is only half closed (leakage, 02.7).</div>
+    <div class="demo-foot"><strong>Try:</strong> with \(k = k_0 = 3\), sweep \(\varphi\): the cosine-only sum (\(\mathrm{Re}\,X\)) swings between ±8 and crosses 0 at \(\varphi = \pm 90°\), while \(\lvert X\rvert\) stays at \(AN/2 = 8\). Then set k = 4 with \(k_0 = 3\): the arrows curl into a closed polygon and X = 0. Set \(k_0 = 3.5\): the curl is only half closed (leakage, 02.7).<span class="symnote">Symbols used here: N = 16, the number of samples; n, the sample index; k₀, the tone frequency in bins (cycles per record); φ, the tone phase in degrees; k, the probe bin; X[k], the sum of the products (no unit).</span></div>
   </div>
   <div class="callout intuit"><span class="label">Spin the signal backwards</span><p>Multiplying by \(e^{-j2\pi kn/N}\) rotates sample n back by k turns per N samples. A component at frequency k stops rotating, so its arrows all point the same way and add up to \((AN/2)e^{j\varphi}\). Every other component keeps spinning and its arrows cancel. This is the I/Q demodulator of Module 08 (mix with \(e^{-j\omega_0 t}\), then low-pass), with the low-pass replaced by a plain sum over N samples.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>A cosine probe alone returns \((AN/2)\cos\varphi\), which cannot separate a small amplitude from a wrong phase; the sine probe supplies the missing half.</li><li>\(X[k] = \sum x[n]e^{-j2\pi kn/N}\): Re = cosine content, Im = minus the sine content, and a bin-centred tone gives \(X[k_0] = (AN/2)e^{j\varphi}\).</li><li>Multiplying by the probe spins the signal backwards: the matching component stops and adds coherently, every other one curls up and cancels.</li></ul></div>
+
 
   <!-- ===================== 02.3 ===================== -->
   <div class="prose">
@@ -110,7 +116,7 @@
   <div class="prose"><p>Geometrically the terms are the N-th roots of unity, visited in steps of d. Placed tip to tail they walk around a closed polygon and return to the start, so the sum is zero. The cards draw it for N = 8.</p></div>
   <div class="rf-grid" id="m2-g3"></div>
   <div class="prose">
-    <p>Two consequences follow immediately. First, a component at bin l contributes nothing to any other bin \(k \ne l\), which is why a bin-centred tone lands in its own bin and nowhere else. Second, the transform can be undone. Multiply \(X[k]\) by \(e^{+j2\pi km/N}\), sum over k, and swap the order of summation:</p>
+    <p>Two consequences follow. First, a component at bin l contributes nothing to any other bin \(k \ne l\), which is why a bin-centred tone lands in its own bin and nowhere else. Second, the transform can be undone. Multiply \(X[k]\) by \(e^{+j2\pi km/N}\), sum over k, and swap the order of summation:</p>
   </div>
   <div class="eqn" id="m2-eq6">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} \sum_{k} X[k]\,e^{j2\pi km/N} &amp;= \sum_{n} x[n] \sum_{k} e^{j2\pi k(m-n)/N} \\ &amp;= \sum_{n} x[n]\cdot N\,\delta[m-n] = N\,x[m] \end{aligned} \]</div><span class="eqn-no">(02.6)</span></div>
@@ -118,11 +124,13 @@
     <span class="note">So \(x[n] = \frac{1}{N}\sum_k X[k]\,e^{+j2\pi kn/N}\): the inverse DFT <span class="eqref">(02.13)</span>. The 1/N comes from the probe energy N.</span>
   </div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Orthogonality needs whole periods inside the N-sample record. A tone at 3.5 bins is not one of the N probes, so it is not orthogonal to its neighbours and spreads into all bins (02.7). Sine and cosine at the same bin are also orthogonal, \(\sum\cos\theta\sin\theta = \tfrac12\sum\sin 2\theta = 0\), except at k = 0 and k = N/2, where the sine probe is identically zero.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>\(\sum_n e^{j2\pi(k-l)n/N} = N\,\delta[k-l]\): the roots of unity walk a closed polygon, so distinct probes are orthogonal, each with energy N.</li><li>Hence a bin-centred tone lands only in its own bin, and \(x[n] = \frac{1}{N}\sum_k X[k]e^{+j2\pi kn/N}\) (the 1/N is the probe energy).</li><li>Orthogonality needs whole periods in the record: a tone at 3.5 bins is not one of the probes and spreads into all bins.</li></ul></div>
+
 
   <!-- ===================== 02.4 ===================== -->
   <div class="prose">
     <h2><span class="sec">02.4</span>The DFT by hand: N = 4, then N = 8</h2>
-    <p>Write \(W = e^{-j2\pi/N}\) (one step clockwise around the unit circle). Then \(X[k] = \sum x[n]\,W^{kn}\). For N = 4, \(W = e^{-j\pi/2} = -j\), so every probe value is one of \(1, -j, -1, j\). A 4-point DFT needs no multiplications at all, only sign changes and swapping real with imaginary.</p>
+    <p>Write \(W = e^{-j2\pi/N}\) (one step clockwise around the unit circle). Then \(X[k] = \sum x[n]\,W^{kn}\). For N = 4, \(W = e^{-j\pi/2} = -j\), so every probe value is one of \(1, -j, -1, j\). A 4-point DFT therefore needs no multiplications, only sign changes and swaps of real and imaginary parts.</p>
   </div>
   <div class="eqn" id="m2-eq7">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} W^{0} = 1,\quad W^{1} = -j,\quad W^{2} = -1,\quad W^{3} = j \\ W^{4} = 1 = W^{0}\ \dots \qquad (\text{exponent } kn \bmod 4) \end{gathered} \]</div><span class="eqn-no">(02.7)</span></div>
@@ -174,7 +182,7 @@
       <div class="stage">
         <div class="tbl-wrap" id="m2-d2-tw"><table id="m2-d2-tbl"></table></div>
         <canvas id="m2-d2-cv" aria-label="Running sum of products and the full 8-bin spectrum"></canvas>
-        <div class="legend"><span><i style="background:var(--sig2)"></i>probe point e<sup>−j2πkn/8</sup></span><span><i style="background:var(--sig4)"></i>running sum</span><span><i style="background:var(--accent)"></i>Re X</span><span><i style="background:var(--sig3)"></i>Im X</span></div>
+        <div class="legend"><span><i class="mark" style="color:var(--sig2);background:var(--sig2)"></i>probe point e<sup>−j2πkn/8</sup></span><span><i class="solid" style="color:var(--sig4);background:var(--sig4)"></i>running sum</span><span><i class="solid" style="color:var(--sig3);background:var(--sig3)"></i>X[k] so far</span><span><i class="stem" style="color:var(--accent);background:var(--accent)"></i>Re X</span><span><i class="dash" style="color:var(--sig5);background:var(--sig5)"></i>Im X (hollow, dashed)</span></div>
       </div>
       <div class="controls">
         <div class="ctrl"><label for="m2-d2-sig">Signal x[n]</label><select id="m2-d2-sig">
@@ -186,14 +194,16 @@
           <option value="ramp">ramp 0 … 7</option>
           <option value="imp1">impulse at n = 1</option>
         </select></div>
-        <div class="ctrl"><label for="m2-d2-k">Bin k <output id="m2-d2-k-o">1</output></label><input type="range" id="m2-d2-k" min="0" max="7" step="1" value="1"></div>
-        <div class="ctrl"><label for="m2-d2-n">Rows filled <output id="m2-d2-n-o">8</output></label><input type="range" id="m2-d2-n" min="0" max="8" step="1" value="8"></div>
+        <div class="ctrl"><label for="m2-d2-k">Bin k <output id="m2-d2-k-o">1</output> <span class="hint">DFT row: the probe turns k times over the 8 samples</span></label><input type="range" id="m2-d2-k" min="0" max="7" step="1" value="1"></div>
+        <div class="ctrl"><label for="m2-d2-n">Rows filled (of 8) <output id="m2-d2-n-o">8</output> <span class="hint">products x[n]·e<sup>−j2πkn/8</sup> added so far</span></label><input type="range" id="m2-d2-n" min="0" max="8" step="1" value="8"></div>
         <div class="btn-row"><button class="btn solid" id="m2-d2-next" type="button">Next row</button><button class="btn" id="m2-d2-reset" type="button">Reset</button></div>
         <div class="readout" id="m2-d2-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> "sin(2πn/8)" at k = 1: the cosine column sums to 0 and the −sin column to −4, so \(X[1] = -4j\) (pure imaginary means pure sine). At k = 7 you get \(+4j\), the conjugate. "impulse at n = 1": every bin has \(\lvert X\rvert = 1\) and the phase falls by 45° per bin, a pure delay.</div>
+    <div class="demo-foot"><strong>Try:</strong> "sin(2πn/8)" at k = 1: the cosine column sums to 0 and the −sin column to −4, so \(X[1] = -4j\) (pure imaginary means pure sine). At k = 7 you get \(+4j\), the conjugate. "impulse at n = 1": every bin has \(\lvert X\rvert = 1\) and the phase falls by 45° per bin, a pure delay.<span class="symnote">Symbols used here: x[n], the 8 input samples; n, the sample index; k, the bin (DFT row); e<sup>−j2πkn/8</sup>, the probe point; X[k], the sum over the filled rows.</span></div>
   </div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>With \(W = e^{-j2\pi/N}\), \(\mathbf{X} = \mathbf{F}\mathbf{x}\) and \(F_{kn} = W^{kn}\); for N = 4 every entry is 1, −j, −1 or j, so no multiplies are needed.</li><li>x = [1, 2, 3, 4] gives X = [10, −2 + 2j, −2, −2 − 2j]: mean X[0]/N = 2.5, and X[3] = X[1]* adds no information.</li><li>The 4-sample pulse in N = 8 gives X[1] = 1 − 2.414j (∠ −67.5°: centred at n = 1.5) and X[2] = 0.</li></ul></div>
+
 
   <!-- ===================== 02.5 ===================== -->
   <div class="prose">
@@ -212,7 +222,7 @@
     <span class="note">The last step needs x real (\(x^{*} = x\)). So Re X is even about N/2, Im X is odd, \(\lvert X\rvert\) is even, \(\angle X\) is odd. Bin N − k is frequency −k: \(e^{-j2\pi(N-k)n/N}\) and \(e^{+j2\pi kn/N}\) are the same samples, the aliasing of Module 04 inside the DFT itself.</span>
   </div>
   <div class="prose">
-    <p>Physically: a real cosine is the sum of two counter-rotating arrows, \(\cos\theta = (e^{j\theta} + e^{-j\theta})/2\) (Module 01). The DFT reports each arrow in its own bin, k for the positive one and N − k for the negative one, each with half the amplitude. Their imaginary parts are opposite and cancel in x[n].</p>
+    <p>Physically, a real cosine is the sum of two counter-rotating arrows, \(\cos\theta = (e^{j\theta} + e^{-j\theta})/2\) (Module 01). The DFT reports each arrow in its own bin, k for the positive one and N − k for the negative one, each with half the amplitude. Their imaginary parts are opposite and cancel in x[n].</p>
     <h3>DC and Nyquist are real</h3>
     <p>The probe for k = 0 is all ones and the probe for k = N/2 is \((-1)^n\); both are real, so \(X[0]\) and \(X[N/2]\) are real for real x. The sine probe at Nyquist is \(\sin(\pi n) = 0\) at every sample, so the sine part of a Nyquist tone is invisible: \(A\cos(\pi n + \varphi) = A\cos\varphi\cdot(-1)^n\). Its phase cannot be recovered, only \(A\cos\varphi\).</p>
     <h3>Scaling conventions</h3>
@@ -235,22 +245,24 @@
     <div class="demo-head"><span class="tag">Demo 02.3</span><h3>Spectrum explorer: Re, Im, |X| and ∠X of a tone you build</h3><span class="prov exact">Exact formula</span></div>
     <div class="demo-body">
       <div class="stage"><canvas id="m2-d3-cv" aria-label="Signal and its DFT bins"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>top: x[n]; Re X or |X|</span><span><i style="background:var(--sig2)"></i>Im X or ∠X</span><span>faded stems: mirror half (negative frequencies)</span></div></div>
+        <div class="legend"><span><i class="stem" style="color:var(--accent);background:var(--accent)"></i>top: x[n]; middle: Re X or |X|</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>continuous tone (top)</span><span><i class="stem" style="color:var(--sig2);background:var(--sig2)"></i>bottom: Im X or ∠X</span><span>faded stems: mirror half (negative frequencies)</span></div></div>
       <div class="controls">
-        <div class="ctrl"><label for="m2-d3-c">DC level c <output id="m2-d3-c-o">0.30</output></label><input type="range" id="m2-d3-c" min="-1" max="1" step="0.05" value="0.3"></div>
-        <div class="ctrl"><label for="m2-d3-a">Tone amplitude A <output id="m2-d3-a-o">1.00</output></label><input type="range" id="m2-d3-a" min="0" max="2" step="0.05" value="1"></div>
-        <div class="ctrl"><label for="m2-d3-k">Tone bin k₀ <output id="m2-d3-k-o">3</output></label><input type="range" id="m2-d3-k" min="1" max="8" step="1" value="3"></div>
-        <div class="ctrl"><label for="m2-d3-p">Tone phase φ <output id="m2-d3-p-o">30°</output></label><input type="range" id="m2-d3-p" min="-180" max="180" step="5" value="30"></div>
-        <div class="ctrl"><label for="m2-d3-view">Show</label><select id="m2-d3-view"><option value="ri" selected>Re X and Im X</option><option value="mp">|X| and ∠X</option></select></div>
-        <div class="ctrl"><label for="m2-d3-ord">Bin order</label><select id="m2-d3-ord"><option value="fft" selected>fft order 0 … N−1</option><option value="shift">fftshift −N/2 … N/2−1</option></select></div>
-        <div class="ctrl"><label for="m2-d3-norm">Scaling</label><select id="m2-d3-norm"><option value="1" selected>none (MATLAB fft)</option><option value="n">1/N (two-sided coefficients)</option><option value="r">1/√N (unitary)</option></select></div>
+        <div class="ctrl"><label for="m2-d3-c">DC level c <output id="m2-d3-c-o">0.30</output> <span class="hint">constant offset added to the tone (no unit)</span></label><input type="range" id="m2-d3-c" min="-1" max="1" step="0.05" value="0.3"></div>
+        <div class="ctrl"><label for="m2-d3-a">Tone amplitude A <output id="m2-d3-a-o">1.00</output> <span class="hint">peak value of the cosine (no unit)</span></label><input type="range" id="m2-d3-a" min="0" max="2" step="0.05" value="1"></div>
+        <div class="ctrl"><label for="m2-d3-k">Tone bin k₀ <output id="m2-d3-k-o">3</output> <span class="hint">whole cycles of the tone in the N = 16 samples</span></label><input type="range" id="m2-d3-k" min="1" max="8" step="1" value="3"></div>
+        <div class="ctrl"><label for="m2-d3-p">Tone phase φ (deg) <output id="m2-d3-p-o">30°</output> <span class="hint">phase of the tone at sample n = 0</span></label><input type="range" id="m2-d3-p" min="-180" max="180" step="5" value="30"></div>
+        <div class="ctrl"><label for="m2-d3-view">Spectrum view</label><select id="m2-d3-view"><option value="ri" selected>Re X and Im X</option><option value="mp">|X| and ∠X</option></select></div>
+        <div class="ctrl"><label for="m2-d3-ord">Bin order <span class="hint">fftshift moves bin 0 (DC) to the centre</span></label><select id="m2-d3-ord"><option value="fft" selected>fft order 0 … N−1</option><option value="shift">fftshift −N/2 … N/2−1</option></select></div>
+        <div class="ctrl"><label for="m2-d3-norm">Scaling of X <span class="hint">factor applied to the raw DFT sum</span></label><select id="m2-d3-norm"><option value="1" selected>none (MATLAB fft)</option><option value="n">1/N (two-sided coefficients)</option><option value="r">1/√N (unitary)</option></select></div>
         <div class="readout" id="m2-d3-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> set \(\varphi = 0\) (pure cosine): only Re is non-zero. Set \(\varphi = -90°\) (pure sine, \(\cos(\theta - 90°) = \sin\theta\)): Re vanishes and \(\mathrm{Im}\,X[k_0] = -AN/2\). Move \(k_0\) to 8 (Nyquist): the bin is real and equals \(NA\cos\varphi\); at \(\varphi = 90°\) the tone disappears entirely.</div>
+    <div class="demo-foot"><strong>Try:</strong> set \(\varphi = 0\) (pure cosine): only Re is non-zero. Set \(\varphi = -90°\) (pure sine, \(\cos(\theta - 90°) = \sin\theta\)): Re vanishes and \(\mathrm{Im}\,X[k_0] = -AN/2\). Move \(k_0\) to 8 (Nyquist): the bin is real and equals \(NA\cos\varphi\); at \(\varphi = 90°\) the tone disappears entirely.<span class="symnote">Symbols used here: N = 16, the number of samples; c, the DC level; A, the tone amplitude; k₀, the tone bin; φ, the tone phase in degrees; X, the DFT; ∠X, its phase in degrees.</span></div>
   </div>
-  <div class="callout pitfall"><span class="label">Pitfall: phase of an empty bin</span><p>\(\angle X\) of a bin that should be zero is atan2 of rounding noise (≈ \(10^{-15}\)) and is a random number between −180° and 180°. MATLAB happily plots it. Mask phase wherever \(\lvert X\rvert\) is below a threshold relative to the peak, as the demo does.</p></div>
+  <div class="callout pitfall"><span class="label">Pitfall: phase of an empty bin</span><p>\(\angle X\) of a bin that should be zero is atan2 of rounding noise (≈ \(10^{-15}\)) and is a random number between −180° and 180°. MATLAB plots it anyway. Mask phase wherever \(\lvert X\rvert\) is below a threshold relative to the peak, as the demo does.</p></div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>An RF line of N = 1024 samples at \(f_s\) = 40 MHz has bins \(\Delta f = f_s/N\) = 39.06 kHz apart. A 5 MHz probe with a 3–7 MHz band occupies bins 77–179 and their mirror 845–947; the rest is noise. Complex I/Q data break the mirror symmetry: after demodulation (Module 08) the bins above N/2 are genuine negative frequencies, which is how Doppler separates flow toward and away from the probe.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>For real x, \(X[N-k] = X[k]^*\): bin N − k is frequency −k; Re X and |X| are even about N/2, Im X and ∠X odd.</li><li>Each component \(1 \le k \le N/2 - 1\) is \(\frac{2}{N}\lvert X[k]\rvert\cos(2\pi kn/N + \angle X[k])\); DC and Nyquist are real, and a Nyquist tone keeps only \(A\cos\varphi\).</li><li>MATLAB fft (unnormalized): A cos on a bin reads AN/2, a constant c reads Nc; white noise grows as \(N\sigma^2\), giving a coherent gain of N/2 (27.1 dB at N = 1024).</li><li>The phase of an empty bin is atan2 of rounding noise: mask ∠X where |X| is small.</li></ul></div>
+
 
   <!-- ===================== 02.6 ===================== -->
   <div class="prose">
@@ -263,7 +275,7 @@
     <span class="note">Add the N arrows tip to tail; at sample n the tip of the chain is x[n].</span>
   </div>
   <div class="prose">
-    <p>In matrix form, \(\mathbf{X} = \mathbf{F}\mathbf{x}\) with \(F_{kn} = W^{kn}\), and orthogonality says \(\mathbf{F}^{H}\mathbf{F} = N\mathbf{I}\). Therefore \(\mathbf{x} = \frac{1}{N}\mathbf{F}^{H}\mathbf{X}\): the inverse is the conjugate transpose divided by N, and nothing has to be inverted. The energy relation follows from the same identity (Parseval):</p>
+    <p>In matrix form, \(\mathbf{X} = \mathbf{F}\mathbf{x}\) with \(F_{kn} = W^{kn}\), and orthogonality says \(\mathbf{F}^{H}\mathbf{F} = N\mathbf{I}\). Therefore \(\mathbf{x} = \frac{1}{N}\mathbf{F}^{H}\mathbf{X}\): the inverse is the conjugate transpose divided by N, and no matrix has to be inverted. The energy relation follows from the same identity (Parseval):</p>
   </div>
   <div class="eqn" id="m2-eq14">
     <div class="eqn-body"><div class="eqn-math">\[ \sum_{n=0}^{N-1} \lvert x[n]\rvert^{2} = \frac{1}{N}\sum_{k=0}^{N-1} \lvert X[k]\rvert^{2} \]</div><span class="eqn-no">(02.14)</span></div>
@@ -274,7 +286,7 @@
     <div class="demo-head"><span class="tag">Demo 02.4</span><h3>Inverse DFT: add the arrows, trace the signal</h3><span class="prov exact">Exact formula</span></div>
     <div class="demo-body">
       <div class="stage"><canvas id="m2-d4-cv" aria-label="Chain of rotating arrows rebuilding the signal"></canvas>
-        <div class="legend"><span><i style="background:var(--sig4)"></i>arrows X[k]e<sup>j2πkt/N</sup>/N</span><span><i style="background:var(--accent)"></i>Re(tip) vs t</span><span><i style="background:var(--sig2)"></i>Im(tip) vs t</span><span><i style="background:var(--sig3)"></i>samples x[n]</span></div></div>
+        <div class="legend" id="m2-d4-leg"><span data-s="arr"><i class="solid" style="color:var(--sig4);background:var(--sig4)"></i>arrows X[k]e<sup>j2πkt/N</sup>/N</span><span data-s="re"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>Re(tip) vs t</span><span data-s="im"><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>Im(tip) vs t</span><span data-s="smp"><i class="mark" style="color:var(--sig3);background:var(--sig3)"></i>samples x[n]</span></div></div>
       <div class="controls">
         <div class="ctrl"><label for="m2-d4-sig">Signal x[n] (N = 8)</label><select id="m2-d4-sig">
           <option value="pulse" selected>pulse [1 1 1 1 0 0 0 0]</option>
@@ -283,16 +295,18 @@
           <option value="imp1">impulse at n = 1</option>
           <option value="x4">[1 2 3 4 0 0 0 0]</option>
         </select></div>
-        <div class="ctrl"><label for="m2-d4-mode">Arrow set</label><select id="m2-d4-mode"><option value="stored">bins 0 … N−1, as stored</option><option value="signed" selected>signed bins −N/2 … N/2 (Nyquist split)</option></select></div>
-        <div class="ctrl"><label for="m2-d4-K">Arrows used <output id="m2-d4-K-o">8</output></label><input type="range" id="m2-d4-K" min="1" max="8" step="1" value="8"></div>
-        <div class="ctrl"><label for="m2-d4-t">Time t (samples) <output id="m2-d4-t-o">0.00</output></label><input type="range" id="m2-d4-t" min="0" max="8" step="0.01" value="0"></div>
+        <div class="ctrl"><label for="m2-d4-mode">Arrow set <span class="hint">which frequencies the arrows turn at</span></label><select id="m2-d4-mode"><option value="stored">bins 0 … N−1, as stored</option><option value="signed" selected>signed bins −N/2 … N/2 (Nyquist split)</option></select></div>
+        <div class="ctrl"><label for="m2-d4-K">Arrows used K (of N = 8) <output id="m2-d4-K-o">8</output> <span class="hint">fewer arrows = partial rebuild of the signal</span></label><input type="range" id="m2-d4-K" min="1" max="8" step="1" value="8"></div>
+        <div class="ctrl"><label for="m2-d4-t">Time t (samples) <output id="m2-d4-t-o">0.00</output> <span class="hint">continuous time between the samples; drag or press Play</span></label><input type="range" id="m2-d4-t" min="0" max="8" step="0.01" value="0"></div>
         <div class="btn-row"><button class="btn solid" id="m2-d4-play" type="button">Play</button></div>
         <div class="readout" id="m2-d4-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> compare the two arrow sets. Both pass through every x[n] at integer t, because \(e^{j2\pi(k-N)n/N} = e^{j2\pi kn/N}\) at integer n. Between samples the "as stored" chain leaves the real axis (all arrows turn the same way), while the signed chain pairs each arrow with its counter-rotating conjugate and stays exactly real: that curve is the trigonometric interpolant of the samples. Reduce "arrows used" to see a partial Fourier sum.</div>
+    <div class="demo-foot"><strong>Try:</strong> compare the two arrow sets. Both pass through every x[n] at integer t, because \(e^{j2\pi(k-N)n/N} = e^{j2\pi kn/N}\) at integer n. Between samples the "as stored" chain leaves the real axis (all arrows turn the same way), while the signed chain pairs each arrow with its counter-rotating conjugate and stays exactly real: that curve is the trigonometric interpolant of the samples. Reduce "arrows used" to see a partial Fourier sum.<span class="symnote">Symbols used here: N = 8, the number of samples; X[k], the DFT bins; t, continuous time in sample units; K, the number of arrows added; x[n], the samples the chain must pass through.</span></div>
   </div>
   <div class="callout intuit"><span class="label">What the imaginary part of the inverse means</span><p>If the rebuilt x[n] has an imaginary part larger than rounding error, the spectrum you fed in was not conjugate-symmetric: you edited a bin k without editing N − k. For a real signal every edit must be mirrored (or use <code>ifft(X,'symmetric')</code> in MATLAB, which assumes the mirror).</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>\(\mathbf{x} = \frac{1}{N}\mathbf{F}^H\mathbf{X}\): because \(\mathbf{F}^H\mathbf{F} = N\mathbf{I}\), nothing has to be inverted.</li><li>Parseval: \(\sum\lvert x[n]\rvert^2 = \frac{1}{N}\sum\lvert X[k]\rvert^2\) (30 = 120/4 for [1, 2, 3, 4]).</li><li>Signed bins (Nyquist split) give the real trigonometric interpolant between samples; a visible imaginary part after ifft means a bin was edited without its mirror.</li></ul></div>
+
 
   <!-- ===================== 02.7 ===================== -->
   <div class="prose">
@@ -305,7 +319,7 @@
     <span class="note">\(D_N = 0\) at every non-zero integer \(\delta\) (the bins of an on-bin tone); \(D_N(\delta) \approx N\,\mathrm{sinc}(\delta)\) for \(\lvert\delta\rvert \ll N\). Every bin now receives some of the tone: that is leakage.</span>
   </div>
   <div class="prose">
-    <p>The drifting arrows give the worst case without any algebra. At \(\delta = \tfrac12\) the product turns half a revolution over the record, so the N unit arrows bend into a half circle of arc length N. The chord of a half circle is its diameter, \((2/\pi)\) × arc, so \(\lvert X\rvert \approx (2/\pi)N\):</p>
+    <p>The drifting arrows give the worst case without algebra. At \(\delta = \tfrac12\) the product turns half a revolution over the record, so the N unit arrows bend into a half circle of arc length N. The chord of a half circle is its diameter, \((2/\pi)\) × arc, so \(\lvert X\rvert \approx (2/\pi)N\):</p>
   </div>
   <div class="eqn" id="m2-eq16">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} \frac{\lvert X[k]\rvert}{N}\bigg|_{\delta = 1/2} = \frac{1}{N\sin\!\big(\pi/(2N)\big)} \;\xrightarrow{\;N \to \infty\;}\; \frac{2}{\pi} \\ 20\log_{10}\frac{2}{\pi} = -3.92\ \mathrm{dB} \end{gathered} \]</div><span class="eqn-no">(02.16)</span></div>
@@ -325,43 +339,45 @@
     <div class="demo-head"><span class="tag">Demo 02.5</span><h3>Leakage explorer: off-bin tones, windows, zero padding</h3><span class="prov exact">Exact formula</span></div>
     <div class="demo-body">
       <div class="stage"><canvas id="m2-d5-cv" aria-label="Windowed tone and its spectrum with DTFT and DFT samples"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>windowed x[n] and its periodic copy</span><span><i style="background:var(--muted)"></i>DTFT (continuous)</span><span><i style="background:var(--sig2)"></i>N-point DFT bins</span><span><i style="background:var(--sig4)"></i>zero-padded DFT</span></div></div>
+        <div class="legend"><span><i class="stem" style="color:var(--accent);background:var(--accent)"></i>top: windowed x[n] and its periodic copy</span><span><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>wrap point</span></div><div class="legend" id="m2-d5-leg"><span data-s="dtft"><i class="solid" style="color:var(--muted);background:var(--muted)"></i>lower: DTFT (continuous)</span><span data-s="bins"><i class="stem" style="color:var(--sig2);background:var(--sig2)"></i>N-point DFT bins</span><span data-s="pad"><i class="mark" style="color:var(--sig4);background:var(--sig4)"></i>zero-padded DFT</span></div></div>
       <div class="controls">
-        <div class="ctrl"><label for="m2-d5-f">Tone frequency k₀ (bins) <output id="m2-d5-f-o">6.50</output></label><input type="range" id="m2-d5-f" min="2" max="13" step="0.05" value="6.5"></div>
-        <div class="ctrl"><label for="m2-d5-win">Window</label><select id="m2-d5-win"><option value="rect" selected>rectangular (none)</option><option value="hann">Hann (periodic)</option></select></div>
-        <div class="ctrl"><label for="m2-d5-pad">Zero padding P</label><select id="m2-d5-pad"><option value="1">1 (none)</option><option value="2">2</option><option value="4" selected>4</option><option value="8">8</option></select></div>
+        <div class="ctrl"><label for="m2-d5-f">Tone frequency k₀ (bins) <output id="m2-d5-f-o">6.50</output> <span class="hint">cycles in the N = 32 record; a non-integer value is off-bin</span></label><input type="range" id="m2-d5-f" min="2" max="13" step="0.05" value="6.5"></div>
+        <div class="ctrl"><label for="m2-d5-win">Window <span class="hint">taper applied to the 32 samples before the DFT</span></label><select id="m2-d5-win"><option value="rect" selected>rectangular (none)</option><option value="hann">Hann (periodic)</option></select></div>
+        <div class="ctrl"><label for="m2-d5-pad">Zero-padding factor P <span class="hint">the record is extended to P·32 samples with zeros</span></label><select id="m2-d5-pad"><option value="1">1 (none)</option><option value="2">2</option><option value="4" selected>4</option><option value="8">8</option></select></div>
         <label class="check"><input type="checkbox" id="m2-d5-db" checked> dB scale</label>
         <div class="readout" id="m2-d5-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> slide \(k_0\) from 6.0 to 7.0. At integer \(k_0\) the N bins sit on the peak and on the zeros of the kernel, so leakage is invisible; at 6.5 the two nearest bins are each about 3.9 dB down (3.92 dB for a complex tone in the large-N limit; the negative-frequency image of this real cosine moves them by a few tenths of a dB) and every other bin is lit. The faint copy in the top panel is the periodic extension the DFT implicitly assumes: an off-bin tone has a jump at the wrap. Switch to Hann and the jump disappears.</div>
+    <div class="demo-foot"><strong>Try:</strong> slide \(k_0\) from 6.0 to 7.0. At integer \(k_0\) the N bins sit on the peak and on the zeros of the kernel, so leakage is invisible; at 6.5 the two nearest bins are each about 3.9 dB down (3.92 dB for a complex tone in the large-N limit; the negative-frequency image of this real cosine moves them by a few tenths of a dB) and every other bin is lit. The faint copy in the top panel is the periodic extension the DFT implicitly assumes: an off-bin tone has a jump at the wrap. Switch to Hann and the jump disappears.<span class="symnote">Symbols used here: N = 32, the record length; k₀, the tone frequency in bins; δ, its offset from the nearest bin; P, the zero-padding factor; A, the tone amplitude (1 here); cg, the coherent gain of the window (1 rectangular, 0.5 Hann).</span></div>
   </div>
   <div class="callout us"><span class="label">Ultrasound link</span><p>Spectral QUS estimates (attenuation by spectral shift, backscatter coefficient) use short gates. A 2 µs gate at \(f_s\) = 40 MHz is N = 80 samples, so \(\Delta f = f_s/N\) = 500 kHz. Zero padding to 256 gives a 156 kHz grid, but the resolution is still ≈ 1/T = 500 kHz, and leakage from the strong in-band energy biases the centroid unless the gate is windowed (Module 27).</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>A tone δ bins from bin k gives \(\lvert X\rvert = \lvert\sin(\pi\delta)/\sin(\pi\delta/N)\rvert \approx N\lvert\mathrm{sinc}\,\delta\rvert\): zero at non-zero integer δ, non-zero everywhere else (leakage).</li><li>Worst case δ = ½: scalloping loss 20 log₁₀(2/π) = −3.92 dB (rectangular); Hann cuts it to 1.42 dB and the first sidelobe from −13.3 to −31.5 dB, at twice the main-lobe width and 1.5 bins of noise bandwidth.</li><li>Zero padding samples the same DTFT on a finer grid; resolution stays ≈ 1/T (500 kHz for a 2 µs gate, whatever the padding).</li></ul></div>
+
 
   <!-- ===================== 02.8 ===================== -->
   <div class="prose">
     <h2><span class="sec">02.8</span>The FFT: split even and odd, reuse, repeat</h2>
-    <p>The direct DFT costs N complex multiplies per bin, \(N^2\) in total. The radix-2 decimation-in-time FFT (Cooley and Tukey, 1965) gets the same numbers with \((N/2)\log_2 N\) multiplies. It takes four steps, each one identity.</p>
-    <p><strong>Step 1. Split the sum into even and odd samples</strong> (n = 2m and n = 2m + 1, m = 0 … N/2 − 1):</p>
+    <p>The direct DFT costs N complex multiplies per bin, \(N^2\) in total. The radix-2 decimation-in-time FFT (Cooley and Tukey, 1965) gets the same numbers with \((N/2)\log_2 N\) multiplies. It takes four steps, each resting on one identity.</p>
+    <p><strong>Step 1.</strong> Split the sum into even and odd samples (n = 2m and n = 2m + 1, m = 0 … N/2 − 1):</p>
   </div>
   <div class="eqn" id="m2-eq18">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} X[k] &amp;= \sum_{m} x[2m]\,W_N^{2mk} + \sum_{m} x[2m+1]\,W_N^{(2m+1)k} \\ &amp;= \sum_{m} x[2m]\,W_N^{2mk} + W_N^{k}\sum_{m} x[2m+1]\,W_N^{2mk} \end{aligned} \]</div><span class="eqn-no">(02.18)</span></div>
     <dl class="where"><dt>\(W_N\)</dt><dd>\(e^{-j2\pi/N}\), twiddle base for length N</dd><dt>\(m\)</dt><dd>index of the half-length sequences, m = 0 … N/2 − 1</dd><dt>\(X[k]\)</dt><dd>N-point DFT</dd><dt>\(x[n]\)</dt><dd>signal samples</dd><dt>\(N\)</dt><dd>record length (even), samples</dd><dt>\(k\)</dt><dd>bin index</dd><dt>\(m\)</dt><dd>pair index, \(0\ldots N/2-1\) (even sample \(2m\), odd \(2m+1\))</dd><dt>\(W_N^{p}\)</dt><dd>twiddle \(e^{-j2\pi p/N}\)</dd></dl>
   </div>
-  <div class="prose"><p><strong>Step 2. Two steps on an N-point circle are one step on an N/2-point circle:</strong></p></div>
+  <div class="prose"><p><strong>Step 2.</strong> Two steps on an N-point circle are one step on an N/2-point circle:</p></div>
   <div class="eqn" id="m2-eq19">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} W_N^{2mk} = e^{-j2\pi\cdot 2mk/N} = e^{-j2\pi mk/(N/2)} = W_{N/2}^{mk} \\ \Longrightarrow\quad X[k] = E[k] + W_N^{k}\,O[k] \end{gathered} \]</div><span class="eqn-no">(02.19)</span></div>
     <dl class="where"><dt>\(E[k]\)</dt><dd>(N/2)-point DFT of the even samples x[0], x[2], …</dd><dt>\(O[k]\)</dt><dd>(N/2)-point DFT of the odd samples x[1], x[3], …</dd><dt>\(W_N^{k}\)</dt><dd>twiddle factor</dd><dt>\(X[k]\)</dt><dd>N-point DFT</dd><dt>\(N\)</dt><dd>record length (even), samples</dd><dt>\(k\)</dt><dd>bin index</dd><dt>\(m\)</dt><dd>pair index</dd><dt>\(W_{N/2}\)</dt><dd>twiddle of the half-length DFT</dd><dt>\(j\)</dt><dd>imaginary unit, \(j^2=-1\)</dd></dl>
     <span class="note">The twiddle \(W_N^{k}\) rotates \(O[k]\) by \(-2\pi k/N\): the phase of the one-sample delay (on the original grid) of the odd samples relative to the even ones.</span>
   </div>
-  <div class="prose"><p><strong>Step 3. Reuse for the upper half.</strong> E and O have period N/2, so \(E[k + N/2] = E[k]\) and \(O[k + N/2] = O[k]\). The twiddle factor goes half a turn further, \(W_N^{k+N/2} = W_N^{k}e^{-j\pi} = -W_N^{k}\). So one product \(W^{k}O[k]\) serves two outputs:</p></div>
+  <div class="prose"><p><strong>Step 3.</strong> Reuse for the upper half. E and O have period N/2, so \(E[k + N/2] = E[k]\) and \(O[k + N/2] = O[k]\). The twiddle factor goes half a turn further, \(W_N^{k+N/2} = W_N^{k}e^{-j\pi} = -W_N^{k}\). So one product \(W^{k}O[k]\) serves two outputs:</p></div>
   <div class="eqn key" id="m2-eq20">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{aligned} X[k] &amp;= E[k] + W_N^{k}\,O[k] \\ X[k + N/2] &amp;= E[k] - W_N^{k}\,O[k], \qquad k = 0 \dots N/2 - 1 \end{aligned} \]</div><span class="eqn-no">(02.20)</span></div>
     <dl class="where"><dt>\(E[k],\ O[k]\)</dt><dd>half-length DFTs of even and odd samples</dd><dt>\(W_N^{k}\)</dt><dd>\(e^{-j2\pi k/N}\), twiddle factor</dd><dt>\(X[k],\ X[k+N/2]\)</dt><dd>the two outputs that share one complex multiply</dd><dt>\(N\)</dt><dd>record length (even), samples</dd><dt>\(X[k]\)</dt><dd>N-point DFT output</dd><dt>\(N\)</dt><dd>record length (even), samples</dd><dt>\(k\)</dt><dd>bin index, 0 … N/2−1</dd></dl>
     <span class="note">This pair is the butterfly: one complex multiply, one add, one subtract.</span>
   </div>
   <div class="prose">
-    <p><strong>Step 4. Recurse.</strong> Each N/2-point DFT splits the same way, down to 1-point DFTs (a single sample is its own DFT). There are \(\log_2 N\) levels with N/2 butterflies each, so the cost obeys</p>
+    <p><strong>Step 4.</strong> Recurse. Each N/2-point DFT splits the same way, down to 1-point DFTs (a single sample is its own DFT). There are \(\log_2 N\) levels with N/2 butterflies each, so the cost obeys</p>
   </div>
   <div class="eqn" id="m2-eq21">
     <div class="eqn-body"><div class="eqn-math">\[ \begin{gathered} C(N) = 2\,C(N/2) + \frac{N}{2}, \qquad C(1) = 0 \\ \Longrightarrow\quad C(N) = \frac{N}{2}\log_2 N \ \text{complex multiplies} \\ N\log_2 N \ \text{complex additions} \end{gathered} \]</div><span class="eqn-no">(02.21)</span></div>
@@ -374,7 +390,8 @@
   </div>
   <div class="demo">
     <div class="demo-head"><span class="tag">Figure 02.8</span><h3>N = 4 FFT of x = [1, 2, 3, 4], every value shown</h3><span class="prov exact">Exact formula</span><span class="prov-note">Dataflow layout is a drawing; every number on it is computed by the page's radix-2 arithmetic (exact finite sums).</span></div>
-    <div class="demo-body stack"><div class="stage"><canvas id="m2-f8" aria-label="Four-point FFT dataflow with values"></canvas></div></div>
+    <div class="demo-body stack"><div class="stage"><canvas id="m2-f8" aria-label="Four-point FFT dataflow with values"></canvas>
+      <div class="legend"><span><i style="background:var(--accent)"></i>a + Wb (top output)</span><span><i class="dash" style="color:var(--sig2)"></i>a − Wb (bottom output)</span></div></div></div>
     <div class="demo-foot"><strong>Read:</strong> left to right. Each X-shaped crossing is a butterfly: the top output is a + Wb, the bottom a − Wb. The input is in bit-reversed order [x0, x2, x1, x3].</div>
   </div>
   <div class="prose">
@@ -390,7 +407,7 @@
     <div class="demo-head"><span class="tag">Demo 02.6</span><h3>The N = 8 butterfly with live values</h3><span class="prov exact">Exact formula</span><span class="prov-note">Signal-flow layout is a drawing; every value on it is computed exactly from <span class="eqref">(02.20)</span>.</span></div>
     <div class="demo-body">
       <div class="stage"><canvas id="m2-d6-cv" aria-label="Eight-point radix-2 FFT butterfly diagram with values"></canvas>
-        <div class="legend"><span><i style="background:var(--accent)"></i>a + Wb (top output)</span><span><i style="background:var(--sig2)"></i>a − Wb (bottom output)</span><span><i style="background:var(--sig3)"></i>selected butterfly</span></div></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>a + Wb (top output)</span><span><i class="dash" style="color:var(--sig2)"></i>a − Wb (bottom output)</span><span><i style="background:var(--sig3)"></i>selected butterfly</span></div></div>
       <div class="controls">
         <div class="ctrl"><label for="m2-d6-sig">Input x[n]</label><select id="m2-d6-sig">
           <option value="pulse" selected>pulse [1 1 1 1 0 0 0 0]</option>
@@ -399,13 +416,13 @@
           <option value="cos">cos(2πn/8)</option>
           <option value="alt">(−1)ⁿ</option>
         </select></div>
-        <div class="ctrl"><label for="m2-d6-st">Stages computed <output id="m2-d6-st-o">3</output></label><input type="range" id="m2-d6-st" min="0" max="3" step="1" value="3"></div>
-        <div class="ctrl"><label for="m2-d6-s">Inspect stage <output id="m2-d6-s-o">3</output></label><input type="range" id="m2-d6-s" min="1" max="3" step="1" value="3"></div>
-        <div class="ctrl"><label for="m2-d6-b">Inspect butterfly <output id="m2-d6-b-o">1</output></label><input type="range" id="m2-d6-b" min="0" max="3" step="1" value="1"></div>
+        <div class="ctrl"><label for="m2-d6-st">Stages computed (of log₂8 = 3) <output id="m2-d6-st-o">3</output> <span class="hint">later stages stay blank until computed</span></label><input type="range" id="m2-d6-st" min="0" max="3" step="1" value="3"></div>
+        <div class="ctrl"><label for="m2-d6-s">Inspect stage <output id="m2-d6-s-o">3</output> <span class="hint">stage the readout explains</span></label><input type="range" id="m2-d6-s" min="1" max="3" step="1" value="3"></div>
+        <div class="ctrl"><label for="m2-d6-b">Inspect butterfly (0–3) <output id="m2-d6-b-o">1</output> <span class="hint">butterfly within that stage</span></label><input type="range" id="m2-d6-b" min="0" max="3" step="1" value="1"></div>
         <div class="readout" id="m2-d6-read"></div>
       </div>
     </div>
-    <div class="demo-foot"><strong>Try:</strong> step "Stages computed" from 0 to 3. Stage 1 is four 2-point DFTs (W = 1), stage 2 two 4-point DFTs (W = 1, −j), stage 3 one 8-point combination (\(W_8^{0\dots 3}\)). Inspect stage 3, butterfly 1: it combines E[1] and O[1] into X[1] and X[5]. Every output matches the direct DFT of Demo 02.2.</div>
+    <div class="demo-foot"><strong>Try:</strong> step "Stages computed" from 0 to 3. Stage 1 is four 2-point DFTs (W = 1), stage 2 two 4-point DFTs (W = 1, −j), stage 3 one 8-point combination (\(W_8^{0\dots 3}\)). Inspect stage 3, butterfly 1: it combines E[1] and O[1] into X[1] and X[5]. Every output matches the direct DFT of Demo 02.2.<span class="symnote">Symbols used here: x[n], the 8 inputs; a and b, the two inputs of a butterfly; W = W₈<sup>m</sup> = e<sup>−j2πm/8</sup>, the twiddle factor; a + Wb and a − Wb, its two outputs.</span></div>
   </div>
   <div class="demo">
     <div class="demo-head"><span class="tag">Figure 02.8c</span><h3>The textbook N = 8 decimation-in-time flow graph</h3><span class="prov schem">Schematic</span></div>
@@ -423,6 +440,8 @@
     </tbody>
   </table></div>
   <div class="callout intuit"><span class="label">Other FFTs, same idea</span><p>Decimation in frequency splits the outputs into even and odd bins instead: input in natural order, output bit-reversed, twiddle applied after the subtraction. Radix-4 and split-radix cut the multiply count further. Lengths that are not powers of two use mixed radices or Bluestein's chirp-z method; MATLAB's <code>fft</code> is built on FFTW, which picks a plan for any N, so padding to a power of two is a speed habit, not a requirement.</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>Even/odd split: \(X[k] = E[k] + W_N^k O[k]\) and \(X[k + N/2] = E[k] - W_N^k O[k]\), so one complex multiply serves two outputs (the butterfly).</li><li>\(\log_2 N\) stages × N/2 butterflies = \((N/2)\log_2 N\) multiplies: 5 120 vs 1 048 576 at N = 1024, a factor 205.</li><li>Decimation in time reads the input in bit-reversed order; FFTW plans any N, so padding to a power of two is a speed habit, not a requirement.</li></ul></div>
+
 
   <!-- ===================== 02.9 ===================== -->
   <div class="prose">
@@ -459,6 +478,8 @@
   </div>
   <div class="rf-grid" id="m2-g9"></div>
   <div class="callout pitfall"><span class="label">Pitfall</span><p>Plotting <code>abs(fft(x))</code> against 0 … \(f_s\) and reporting the mirror peak at \(f_s - f_0\) as a second frequency. For real data the upper half is the negative-frequency copy. For complex I/Q data it is not a copy, and dropping it discards half the information (flow direction in Doppler).</p></div>
+  <div class="takeaways"><span class="label">Key takeaways</span><ul><li>MATLAB X(k+1) is bin k, at \(k f_s/N\) below N/2 and \((k - N)f_s/N\) above; fftshift centres DC and ifftshift undoes it (they differ for odd N).</li><li>One-sided amplitude is 2|X|/N except at DC and Nyquist; for complex I/Q data the upper half holds genuine negative frequencies (flow direction), not a copy.</li><li>Two real FFTs fit in one complex FFT via \(Z[k] \pm Z^*[N-k]\), and a 2D DFT is rows, then columns.</li></ul></div>
+
 
   <!-- ===================== End-of-module block ===================== -->
   <h2><span class="sec">02.10</span>Visual summary</h2>
@@ -473,7 +494,7 @@
   <div class="prose"><p>An expert sees the DFT as N inner products with N orthogonal rotating arrows: each bin asks "how much of this frequency, at what phase", the real part is the cosine answer and the imaginary part the (negated) sine answer. Everything else follows from three facts: the probes are orthogonal only on the N-point grid (hence leakage), real signals produce conjugate pairs (hence the mirror and the \(AN/2\)), and the arrows for N and N/2 points are related by \(W_N^2 = W_{N/2}\) (hence the FFT).</p></div>
   <div class="rules">
     <div class="rule">
-      <div class="say">A DFT bin is a correlation with one rotating arrow.</div>
+      <div class="say">Each DFT bin spins the signal backwards at its own frequency and sums: the component that stops turning survives, everything else cancels.</div>
       <div class="keynum"><span>\(X[k] = \sum x[n]e^{-j2\pi kn/N}\)</span><span>bin k ↔ \(k f_s/N\)</span></div>
       <div class="why"><p>The probe \(e^{-j2\pi kn/N}\) turns k times over the record <span class="eqref">(02.4)</span>. Multiplying by it spins the signal backwards at frequency k; the component at k stops turning and its products add, everything else keeps turning and cancels. For x = [1, 2, 3, 4], \(X[1] = 1 - 2j - 3 + 4j = -2 + 2j\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-1" aria-label="Tip-to-tail products for a matched and an unmatched probe"></canvas></div></div>
       <div class="limits">Only frequencies with a whole number of cycles in the record are probes; any other frequency spreads over all bins (leakage). Assumes uniform sampling.</div>
@@ -485,31 +506,25 @@
       <div class="limits">Holds with the \(e^{-j}\) forward convention and phase measured from sample n = 0. Move the time origin and Re and Im mix (a delay is a phase rotation). At k = 0 and N/2 there is no sine part.</div>
     </div>
     <div class="rule">
-      <div class="say">A bin-centred tone of amplitude A shows up as A·N/2, split between bins k and N − k.</div>
-      <div class="keynum"><span>\(\lvert X[k_0]\rvert = AN/2\)</span><span>DC: \(Nc\)</span><span>Nyquist: \(NA\cos\varphi\)</span></div>
-      <div class="why"><p>\(A\cos\theta = \tfrac{A}{2}(e^{j\theta} + e^{-j\theta})\); each half-amplitude arrow correlates with its own probe for N samples, giving \((A/2)\cdot N\). A unit tone in a 1024-point FFT reads 512, i.e. 54.2 dB re 1. One-sided amplitude is therefore \(2\lvert X\rvert/N\).</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-3" aria-label="Spectrum of a unit cosine at bin 3, N = 16"></canvas></div></div>
-      <div class="limits">Off-bin tones read up to 3.92 dB low (rectangular window). A window multiplies the peak by its coherent gain (Hann 0.5, so \(AN/4\)).</div>
-    </div>
-    <div class="rule">
-      <div class="say">The upper half of the spectrum is the negative frequencies, mirrored and conjugated.</div>
-      <div class="keynum"><span>\(X[N-k] = X[k]^{*}\)</span><span>Re even, Im odd</span></div>
-      <div class="why"><p>\(e^{-j2\pi(N-k)n/N} = e^{+j2\pi kn/N}\) at integer n, so bin N − k is frequency −k, and for real x its sum is the conjugate of bin k <span class="eqref">(02.11)</span>. For the 4-sample pulse at N = 8, \(X[1] = 1 - 2.414j\) and \(X[7] = 1 + 2.414j\). Only N/2 + 1 bins are independent.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-4" aria-label="Real part even and imaginary part odd for a real pulse"></canvas></div></div>
-      <div class="limits">Real input only. Complex I/Q data have independent negative frequencies (flow direction in Doppler); then all N bins carry information.</div>
+      <div class="say">A real tone of amplitude A appears twice, as conjugates at bins k and N − k, each A·N/2 tall; the top half of the spectrum is the negative frequencies.</div>
+      <div class="keynum"><span>\(\lvert X[k_0]\rvert = AN/2\)</span><span>N = 1024, A = 1: 512 (54.2 dB)</span><span>real x: \(X[N-k] = X[k]^{*}\)</span><span>DC: \(Nc\); Nyquist: \(NA\cos\varphi\)</span></div>
+      <div class="why"><p>\(A\cos\theta = \tfrac{A}{2}(e^{j\theta} + e^{-j\theta})\); each half-amplitude arrow correlates with its own probe for N samples, giving \((A/2)\cdot N\). A unit tone in a 1024-point FFT reads 512, i.e. 54.2 dB re 1, so one-sided amplitude is \(2\lvert X\rvert/N\). The second arrow lands in the upper half because \(e^{-j2\pi(N-k)n/N} = e^{+j2\pi kn/N}\) at integer n: bin N − k is frequency −k, and for real x its sum is the conjugate of bin k <span class="eqref">(02.11)</span>, so Re X is even and Im X odd. For the 4-sample pulse at N = 8, \(X[1] = 1 - 2.414j\) and \(X[7] = 1 + 2.414j\). Only N/2 + 1 bins are independent.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-3" aria-label="Spectrum of a unit cosine at bin 3, N = 16"></canvas></div><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-4" aria-label="Real part even and imaginary part odd for a real pulse"></canvas></div></div>
+      <div class="limits">Off-bin tones read up to 3.92 dB low (rectangular window), and a window multiplies the peak by its coherent gain (Hann 0.5, so \(AN/4\)). The mirror is a property of real input only: complex I/Q data have independent negative frequencies (flow direction in Doppler), and then all N bins carry information.</div>
     </div>
     <div class="rule">
       <div class="say">DC and Nyquist bins of a real signal are real, and a Nyquist tone has no recoverable phase.</div>
       <div class="keynum"><span>probes 1 and \((-1)^n\)</span><span>\(A\cos(\pi n + \varphi) = A\cos\varphi\,(-1)^n\)</span></div>
-      <div class="why"><p>The probe at k = N/2 is \(e^{-j\pi n} = (-1)^n\), purely real, and the sine at Nyquist is \(\sin(\pi n) = 0\) at every sample. Any sinusoid at exactly \(f_s/2\) is sampled at its zero crossings or peaks depending on \(\varphi\): at \(\varphi = 90°\) it vanishes completely.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-5" aria-label="A Nyquist sine sampled at its zero crossings"></canvas></div></div>
+      <div class="why"><p>The probe at k = N/2 is \(e^{-j\pi n} = (-1)^n\), purely real, and the sine at Nyquist is \(\sin(\pi n) = 0\) at every sample. Any sinusoid at exactly \(f_s/2\) is sampled at its zero crossings or peaks depending on \(\varphi\): at \(\varphi = 90°\) it vanishes completely.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-5" aria-label="A Nyquist sine sampled at its zero crossings"></canvas><div class="legend"><span><i class="dash" style="color:var(--accent);background:var(--accent)"></i>cos(πt), φ = 0</span><span><i class="dot" style="color:var(--sig2);background:var(--sig2)"></i>cos(πt + 90°)</span><span><i class="stem" style="color:var(--accent);background:var(--accent)"></i>samples, φ = 0</span><span><i class="mark" style="color:var(--sig2);background:var(--sig2)"></i>samples, φ = 90° (all 0)</span></div></div></div>
       <div class="limits">Even N only; odd N has no Nyquist bin. Energy at exactly \(f_s/2\) is ambiguous, one reason RF is sampled well above \(2f_{\max}\).</div>
     </div>
     <div class="rule">
-      <div class="say">The probes are orthogonal because the roots of unity sum to zero.</div>
+      <div class="say">The inverse DFT, Parseval and the single clean bin of an on-grid tone are all one identity: the N roots of unity sum to zero.</div>
       <div class="keynum"><span>\(\sum e^{j2\pi dn/N} = N\delta[d]\)</span><span>polygon closes</span></div>
       <div class="why"><p>Geometric series: \((1 - r^N)/(1 - r)\) with \(r^N = 1\) <span class="eqref">(02.5)</span>. Tip to tail, the arrows walk around a closed polygon. This single identity gives the inverse DFT, Parseval, and the fact that an on-bin tone lights only its own bin.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-6" aria-label="Roots of unity summed tip to tail"></canvas></div></div>
       <div class="limits">Exact only for frequencies on the N-point grid. Two arbitrary frequencies over a finite record are not orthogonal; their overlap is the Dirichlet kernel.</div>
     </div>
     <div class="rule">
-      <div class="say">The DFT is a rotation scaled by √N: energy is conserved up to a factor N.</div>
+      <div class="say">The DFT is a rotation scaled by √N, so before trusting any spectral power check that Σ|X|²/N equals Σ|x|² under your library's scaling.</div>
       <div class="keynum"><span>\(\sum\lvert x\rvert^2 = \tfrac{1}{N}\sum\lvert X\rvert^2\)</span><span>30 = 120/4</span></div>
       <div class="why"><p>\(\mathbf{F}^{H}\mathbf{F} = N\mathbf{I}\), so \(\lVert\mathbf{X}\rVert^2 = \mathbf{x}^{H}\mathbf{F}^{H}\mathbf{F}\mathbf{x} = N\lVert\mathbf{x}\rVert^2\) <span class="eqref">(02.14)</span>. For x = [1, 2, 3, 4]: \(\lvert X\rvert^2\) = 100, 8, 4, 8, total 120 = 4 × 30. With the unitary scaling \(\mathbf{F}/\sqrt N\) the factor disappears.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-7" aria-label="Energy per sample and energy per bin divided by N"></canvas></div></div>
       <div class="limits">Factor depends on the convention. A power spectral density per hertz needs \(\lvert X\rvert^2/(N f_s)\), and a window needs division by \(\sum w^2\) instead of N.</div>
@@ -517,38 +532,32 @@
     <div class="rule">
       <div class="say">Coherent gain: a tone grows as N, noise as √N, so the FFT buys an SNR gain of N/2.</div>
       <div class="keynum"><span>\(\mathrm{SNR}_{\text{bin}} = \tfrac{N}{2}\cdot\tfrac{A^2}{2\sigma^2}\)</span><span>N = 1024: +27.1 dB</span></div>
-      <div class="why"><p>The tone's arrows add in phase: \(\lvert X\rvert^2 = A^2N^2/4\). Noise arrows add in random directions: \(\mathrm{E}\lvert X\rvert^2 = N\sigma^2\). The ratio is \(N/2\) times the per-sample SNR \(A^2/(2\sigma^2)\) <span class="eqref">(02.12)</span>. The figure: A = 0.5, σ = 1 (\(A^2/2\sigma^2\) = −9.0 dB per sample), N = 256, so the bin SNR is 128 × 0.125 = 16, i.e. 12.0 dB.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Monte Carlo, JS: one realization of white Gaussian noise (seeded) plus the tone, FFT in the page.</span><canvas id="m2-rf-8" aria-label="Weak tone standing above white noise in a 256-point FFT"></canvas></div></div>
+      <div class="why"><p>The tone's arrows add in phase: \(\lvert X\rvert^2 = A^2N^2/4\). Noise arrows add in random directions: \(\mathrm{E}\lvert X\rvert^2 = N\sigma^2\). The ratio is \(N/2\) times the per-sample SNR \(A^2/(2\sigma^2)\) <span class="eqref">(02.12)</span>. The figure: A = 0.5, σ = 1 (\(A^2/2\sigma^2\) = −9.0 dB per sample), N = 256, so the bin SNR is 128 × 0.125 = 16, i.e. 12.0 dB.</p><div class="rule-fig"><span class="prov sim">Simulation</span><span class="prov-note">Monte Carlo, JS: one realization of white Gaussian noise (seeded) plus the tone, FFT in the page.</span><canvas id="m2-rf-8" aria-label="Weak tone standing above white noise in a 256-point FFT"></canvas><div class="legend"><span><i class="solid" style="color:var(--muted);background:var(--muted)"></i>bin power re Nσ²</span><span><i class="mark" style="color:var(--sig2);background:var(--sig2)"></i>tone bin</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>expected tone and noise levels</span></div></div></div>
       <div class="limits">Needs a stable (coherent) tone over the whole record. Off-bin position, windowing (ENBW 1.5 bins for Hann) and coloured noise all reduce it.</div>
     </div>
     <div class="rule">
       <div class="say">An off-bin tone leaks: the probe and the tone drift apart and the sum curls up.</div>
       <div class="keynum"><span>\(D_N(\delta) = \sin\pi\delta/\sin(\pi\delta/N)\)</span><span>half bin: −3.92 dB</span></div>
-      <div class="why"><p>With \(\delta = k_0 - k\) the products turn \(\delta\) revolutions over the record <span class="eqref">(02.15)</span>. \(\delta = 0\): a straight line of length N. \(\delta = 1\): a closed circle, zero. \(\delta = \tfrac12\): a half circle, whose chord is \((2/\pi)\) × arc, so the bin reads \(20\log_{10}(2/\pi) = -3.92\) dB.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-9" aria-label="Product chains for offsets of 0, one half and one bin"></canvas></div></div>
+      <div class="why"><p>With \(\delta = k_0 - k\) the products turn \(\delta\) revolutions over the record <span class="eqref">(02.15)</span>. \(\delta = 0\): a straight line of length N. \(\delta = 1\): a closed circle, zero. \(\delta = \tfrac12\): a half circle, whose chord is \((2/\pi)\) × arc, so the bin reads \(20\log_{10}(2/\pi) = -3.92\) dB.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-9" aria-label="Product chains for offsets of 0, one half and one bin"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>δ = 0</span><span><i class="dash" style="color:var(--sig3);background:var(--sig3)"></i>δ = ½</span><span><i class="dot" style="color:var(--sig2);background:var(--sig2)"></i>δ = 1</span></div></div></div>
       <div class="limits">Large-N limit for a complex tone (N = 16 gives −3.91 dB); a real cosine adds its negative-frequency image (a few tenths of a dB at low k). Hann reduces the loss to 1.42 dB.</div>
     </div>
     <div class="rule">
       <div class="say">A window trades leakage for width: Hann buys −31.5 dB sidelobes with a main lobe twice as wide.</div>
       <div class="keynum"><span>rect −13.3 dB</span><span>Hann −31.5 dB</span><span>ENBW 1.0 vs 1.5 bins</span></div>
-      <div class="why"><p>The window multiplies the record, so its transform convolves the spectrum. The rectangle's sharp ends give sidelobes that decay as \(1/\delta\); Hann's smooth ends (zero value and slope) give −31.5 dB first sidelobes decaying as \(1/\delta^3\), but its main lobe spans ±2 bins instead of ±1.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-10" aria-label="Rectangular and Hann window spectra in dB"></canvas></div></div>
+      <div class="why"><p>The window multiplies the record, so its transform convolves the spectrum. The rectangle's sharp ends give sidelobes that decay as \(1/\delta\); Hann's smooth ends (zero value and slope) give −31.5 dB first sidelobes decaying as \(1/\delta^3\), but its main lobe spans ±2 bins instead of ±1.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-10" aria-label="Rectangular and Hann window spectra in dB"></canvas><div class="legend"><span><i class="solid" style="color:var(--accent);background:var(--accent)"></i>rectangular</span><span><i class="dash" style="color:var(--sig2);background:var(--sig2)"></i>Hann</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>first sidelobes</span></div></div></div>
       <div class="limits">A window lowers the coherent gain (Hann 0.5) and raises the noise bandwidth. For a transient shorter than the record, the window just reshapes the pulse.</div>
     </div>
     <div class="rule">
       <div class="say">Zero padding interpolates the spectrum; only a longer record resolves.</div>
       <div class="keynum"><span>resolution ≈ \(1/T = f_s/N\)</span><span>grid \(f_s/(PN)\)</span></div>
-      <div class="why"><p>Padded zeros add nothing to \(\sum x[n]e^{-j\omega n}\); the padded DFT samples the same DTFT on a finer grid <span class="eqref">(02.17)</span>. Two equal, in-phase tones 0.5 bin apart in 16 samples stay one lobe at any padding (left); 2 bins apart they separate (right). Near 1/T the outcome depends on the tones' relative phase (two peaks for 25 % of phases at 0.5 bin, 58 % at 1 bin, all at 1.5 bins), and padding changes neither.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-11" aria-label="Zero-padded spectrum of two close tones with original bins"></canvas></div></div>
+      <div class="why"><p>Padded zeros add nothing to \(\sum x[n]e^{-j\omega n}\); the padded DFT samples the same DTFT on a finer grid <span class="eqref">(02.17)</span>. Two equal, in-phase tones 0.5 bin apart in 16 samples stay one lobe at any padding (left); 2 bins apart they separate (right). Near 1/T the outcome depends on the tones' relative phase (two peaks for 25 % of phases at 0.5 bin, 58 % at 1 bin, all at 1.5 bins), and padding changes neither.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-11" aria-label="Zero-padded spectrum of two close tones with original bins"></canvas><div class="legend"><span><i class="solid" style="color:var(--sig2);background:var(--sig2)"></i>zero-padded DFT (dense)</span><span><i class="mark" style="color:var(--accent);background:var(--accent)"></i>16-point bins</span></div></div></div>
       <div class="limits">Padding does help locate an isolated peak, display a smooth spectrum, and avoid circular wrap in FFT convolution (pad to L + M − 1).</div>
     </div>
     <div class="rule">
-      <div class="say">The FFT is the DFT split into even and odd samples, recursively.</div>
-      <div class="keynum"><span>\(X[k] = E[k] + W^kO[k]\)</span><span>\(X[k+N/2] = E[k] - W^kO[k]\)</span></div>
-      <div class="why"><p>\(W_N^2 = W_{N/2}\) turns each half into an N/2-point DFT, and \(W_N^{k+N/2} = -W_N^k\) lets one product serve two outputs <span class="eqref">(02.20)</span>. For x = [1, 2, 3, 4]: E = [4, −2], O = [6, −2], X = [10, −2 + 2j, −2, −2 − 2j].</p><div class="rule-fig"><span class="prov schem">Schematic</span><canvas id="m2-rf-12" aria-label="One butterfly: E, twiddled O, sum and difference"></canvas></div></div>
-      <div class="limits">Radix-2 needs \(N = 2^p\). Other lengths use mixed radix or Bluestein; libraries such as FFTW handle any N.</div>
-    </div>
-    <div class="rule">
-      <div class="say">N log N, not N²: a 1024-point FFT needs about 200 times fewer multiplies.</div>
-      <div class="keynum"><span>1 048 576 vs 5 120</span><span>ratio \(2N/\log_2 N\)</span></div>
-      <div class="why"><p>\(\log_2 N\) stages × N/2 butterflies × 1 multiply = \((N/2)\log_2 N\) <span class="eqref">(02.21)</span>. At N = 1024 that is 5 120 against 1 048 576, a ratio of 205; at N = 65 536 it is 8 192.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-13" aria-label="Operation count versus N on log axes"></canvas></div></div>
-      <div class="limits">Real run time at large N is set by memory traffic, not multiplies. To get a few bins only, direct correlation (or the Goertzel recursion) costs N per bin and can win.</div>
+      <div class="say">The FFT is the DFT split into even and odd samples, recursively, and that one trick turns N² multiplies into (N/2) log₂N: about 200 times fewer at N = 1024.</div>
+      <div class="keynum"><span>\(X[k] = E[k] + W^kO[k]\)</span><span>\(X[k+N/2] = E[k] - W^kO[k]\)</span><span>N = 1024: 1 048 576 vs 5 120</span><span>ratio \(2N/\log_2 N\)</span></div>
+      <div class="why"><p>\(W_N^2 = W_{N/2}\) turns each half into an N/2-point DFT, and \(W_N^{k+N/2} = -W_N^k\) lets one product serve two outputs <span class="eqref">(02.20)</span>. For x = [1, 2, 3, 4]: E = [4, −2], O = [6, −2], X = [10, −2 + 2j, −2, −2 − 2j]. Repeating the split gives \(\log_2 N\) stages × N/2 butterflies × 1 multiply = \((N/2)\log_2 N\) <span class="eqref">(02.21)</span>. At N = 1024 that is 5 120 against 1 048 576, a ratio of 205; at N = 65 536 it is 8 192.</p><div class="rule-fig"><span class="prov schem">Schematic</span><canvas id="m2-rf-12" aria-label="One butterfly: E, twiddled O, sum and difference"></canvas></div><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-13" aria-label="Operation count versus N on log axes"></canvas><div class="legend"><span><i class="solid" style="color:var(--sig2);background:var(--sig2)"></i>N² (direct)</span><span><i class="dash" style="color:var(--accent);background:var(--accent)"></i>(N/2) log₂N (radix-2)</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>ratio at N = 1024</span></div></div></div>
+      <div class="limits">Radix-2 needs \(N = 2^p\); other lengths use mixed radix or Bluestein, and libraries such as FFTW handle any N. Real run time at large N is set by memory traffic, not multiplies. To get a few bins only, direct correlation (or the Goertzel recursion) costs N per bin and can win.</div>
     </div>
     <div class="rule">
       <div class="say">Decimation in time reads the input in bit-reversed order.</div>
@@ -559,7 +568,7 @@
     <div class="rule">
       <div class="say"><code>fft</code> returns bins 0 … N−1; above N/2 they are negative frequencies, and <code>fftshift</code> puts DC in the middle.</div>
       <div class="keynum"><span>X(1) = DC</span><span>\(f_k = k f_s/N,\ k &lt; N/2\)</span><span>\((k-N) f_s/N,\ k &gt; N/2\)</span></div>
-      <div class="why"><p>For N = 8 at \(f_s\) = 40 MHz the bins are 0, 5, 10, 15, ±20, −15, −10, −5 MHz. After <code>fftshift</code>: −20, −15, …, 15 MHz, with axis <code>(-floor(N/2):ceil(N/2)-1)*fs/N</code>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-15" aria-label="Bin index to frequency mapping before and after fftshift"></canvas></div></div>
+      <div class="why"><p>For N = 8 at \(f_s\) = 40 MHz the bins are 0, 5, 10, 15, ±20, −15, −10, −5 MHz. After <code>fftshift</code>: −20, −15, …, 15 MHz, with axis <code>(-floor(N/2):ceil(N/2)-1)*fs/N</code>.</p><div class="rule-fig"><span class="prov exact">Exact formula</span><canvas id="m2-rf-15" aria-label="Bin index to frequency mapping before and after fftshift"></canvas><div class="legend"><span><i class="stem" style="color:var(--accent);background:var(--accent)"></i>fft order</span><span><i class="stem" style="color:var(--sig2);background:var(--sig2)"></i>after fftshift</span><span><i class="dash" style="color:var(--muted);background:var(--muted)"></i>continuous DTFT</span></div></div></div>
       <div class="limits">For odd N there is no Nyquist bin and <code>ifftshift</code> ≠ <code>fftshift</code>; always undo with <code>ifftshift</code>.</div>
     </div>
     <div class="rule">
@@ -603,7 +612,7 @@
   <details class="quiz"><summary><span class="q">I3</span><span>Why do the upper N/2 bins mirror the lower ones for real data, and when do they not? <span class="muted">· screen</span></span></summary><div class="a"><p>\(e^{-j2\pi(N-k)n/N} = e^{+j2\pi kn/N}\), so bin N − k is frequency −k, and for real x it equals \(X[k]^{*}\). A real cosine is two counter-rotating phasors, so each appears twice with half amplitude. Complex I/Q data have no such symmetry: after demodulation the upper bins are genuine negative frequencies, which encode flow direction in Doppler.</p></div></details>
   <details class="quiz"><summary><span class="q">I4</span><span>Derive the radix-2 FFT butterfly. <span class="muted">· onsite</span></span></summary><div class="a"><p>Split n into even and odd: \(X[k] = \sum x[2m]W_N^{2mk}\) \(+ W_N^k\sum x[2m+1]W_N^{2mk}\). Use \(W_N^2 = W_{N/2}\), so the sums are N/2-point DFTs \(E[k]\), \(O[k]\). They have period N/2 and \(W_N^{k+N/2} = -W_N^k\), so \(X[k] = E + W^kO\) and \(X[k + N/2] = E - W^kO\). Recursion gives \(\log_2 N\) stages of N/2 butterflies: \((N/2)\log_2 N\) multiplies. Follow-up: why is the input bit-reversed? (Each split sorts by the lowest remaining bit.)</p></div></details>
   <details class="quiz"><summary><span class="q">I5</span><span>Does zero padding improve frequency resolution? <span class="muted">· screen</span></span></summary><div class="a"><p>No. It samples the same DTFT more finely; the main-lobe width is set by the record length, ≈ \(1/T = f_s/N\). Padding a 2 µs gate (80 samples at 40 MHz) to 256 gives a 156 kHz grid, but two components closer than about 500 kHz cannot be reliably separated. It does improve peak location by interpolation and prevents wrap-around in FFT convolution. Follow-up: what does improve resolution? (A longer gate, or model-based methods such as AR/Burg with their own bias, Module 27.)</p></div></details>
-  <details class="quiz"><summary><span class="q">I6</span><span>What is the scalloping loss, and how would you remove it for amplitude measurements? <span class="muted">· onsite</span></span></summary><div class="a"><p>The peak-bin amplitude deficit for a tone between bins: \(\lvert D_N(\tfrac12)\rvert/N \approx 2/\pi\), −3.92 dB, rectangular window; −1.42 dB with Hann. Remedies: a flat-top window (wide main lobe, small amplitude error), zero padding and peak interpolation (parabolic on log magnitude), or fitting the known kernel. Follow-up: what does that cost in noise bandwidth? (Wider windows raise ENBW, 1.5 bins for Hann, more for flat-top.)</p></div></details>
+  <details class="quiz"><summary><span class="q">I6</span><span>What is the scalloping loss, and how would you remove it for amplitude measurements? <span class="muted">· onsite</span></span></summary><div class="a"><p>The peak-bin amplitude deficit for a tone between bins: \(\lvert D_N(\tfrac12)\rvert/N \approx 2/\pi\), −3.92 dB, rectangular window; −1.42 dB with Hann. Remedies: a flat-top window (wide main lobe, small amplitude error), zero padding and peak interpolation (parabolic on log magnitude, an estimate whose residual bias depends on window, offset and SNR), or fitting the known kernel. Follow-up: what does that cost in noise bandwidth? (Wider windows raise ENBW, 1.5 bins for Hann, more for flat-top.)</p></div></details>
   <details class="quiz"><summary><span class="q">I7</span><span>A tone is 20 dB below the per-sample noise. How long an FFT do you need to see it at 10 dB SNR in its bin? <span class="muted">· onsite</span></span></summary><div class="a"><p>Bin SNR = \((N/2)\) × per-sample SNR, so \(N/2 = 10^{(10 + 20)/10} = 1000\), N ≈ 2000; take 2048 (gain 30.1 dB). That assumes the tone is coherent over the whole record, sits on a bin, and the noise is white. Follow-up: with Hann? (ENBW 1.5 costs 1.76 dB, so go to 4096 or accept 8.3 dB.)</p></div></details>
   <details class="quiz"><summary><span class="q">I8</span><span>How do you build the frequency axis for <code>fftshift(fft(x))</code> with N odd? <span class="muted">· screen</span></span></summary><div class="a"><p><code>f = (-floor(N/2):ceil(N/2)-1)*fs/N</code>, which for N = 7 is \((-3 \dots 3)\cdot f_s/7\): no Nyquist bin. For N even it is −N/2 … N/2 − 1, with \(-f_s/2\) first. Undo with <code>ifftshift</code>, not <code>fftshift</code>, which differ by one sample for odd N. Follow-up: where is DC after the shift? (Index floor(N/2) + 1 in MATLAB.)</p></div></details>
   <details class="quiz"><summary><span class="q">I9</span><span>Show that the DFT's inverse is \(\frac{1}{N}\mathbf{F}^{H}\) without inverting anything. <span class="muted">· research</span></span></summary><div class="a"><p>\((\mathbf{F}^{H}\mathbf{F})_{lk} = \sum_n e^{j2\pi(l-k)n/N} = N\,\delta[l-k]\) by the geometric series with \(r^N = 1\). So \(\mathbf{F}^{H}\mathbf{F} = N\mathbf{I}\), \(\mathbf{F}\) is \(\sqrt N\) times a unitary matrix, and Parseval follows. Follow-up: what are the eigenvalues of \(\mathbf{F}/\sqrt N\)? (Only ±1 and ±j: \(\mathbf{F}^4 = N^2\mathbf{I}\).)</p></div></details>
@@ -674,6 +683,8 @@
 </section>
 
 <style>
+#m2 .ctrl .hint { flex-basis: 100%; font: 400 0.72rem/1.35 var(--f-display); color: var(--muted); margin-top: 1px; }
+#m2 .demo-foot .symnote { display: block; margin-top: 6px; font-size: 0.92em; color: var(--muted); }
 #m2 #m2-d2-tbl td, #m2 #m2-d2-tbl th { padding: 4px 7px; white-space: nowrap; font-size: 0.84rem; }
 #m2 #m2-d2-tbl tr.cur td { background: var(--accent-wash); }
 #m2 #m2-d2-tbl td.dim { color: var(--muted); text-align: center; }
@@ -708,7 +719,7 @@
   /* ---------- drawing helpers ---------- */
   function lol(x, m, pts, colr, o) { o = o || {}; x.save(); x.strokeStyle = colr; x.fillStyle = colr; x.lineWidth = o.w || 1.5; if (o.alpha) x.globalAlpha = o.alpha;
     pts.forEach(([t, v]) => { if (!isFinite(v) || t < m.xr[0] - 1e-9 || t > m.xr[1] + 1e-9) return; const px = m.X(t), py = m.Y(Math.max(m.yr[0], Math.min(m.yr[1], v)));
-      x.beginPath(); x.moveTo(px, m.y0); x.lineTo(px, py); x.stroke(); x.beginPath(); x.arc(px, py, o.r || 2.6, 0, TAU); if (o.hollow) x.stroke(); else x.fill(); });
+      x.beginPath(); x.moveTo(px, m.y0); x.lineTo(px, py); if (o.dash) x.setLineDash(o.dash); x.stroke(); x.setLineDash([]); x.beginPath(); x.arc(px, py, o.r || 2.6, 0, TAU); if (o.hollow) x.stroke(); else x.fill(); });
     x.restore(); }
   function txt(x, s, px, py, colr, al, bl, size, bold) { x.save(); x.fillStyle = colr; x.font = (bold ? '600 ' : '') + (size || 10.5) + 'px ' + col().mono; x.textAlign = al || 'left'; x.textBaseline = bl || 'middle'; x.fillText(s, px, py); x.restore(); }
   function seg(x, x0, y0, x1, y1, colr, w, dash, alpha) { x.save(); x.strokeStyle = colr; x.lineWidth = w || 1.2; if (dash) x.setLineDash(dash); if (alpha) x.globalAlpha = alpha; x.beginPath(); x.moveTo(x0, y0); x.lineTo(x1, y1); x.stroke(); x.restore(); }
@@ -735,7 +746,7 @@
     specs.forEach((s, i) => { let b;
       if (dir === 'col') { const ph = (h - 16) / n; b = { x: 4, y: 16 + i * ph, w: w - 8, h: ph - 30 }; }
       else { const gap = 26, pw = (w - 8 - gap * (n - 1)) / n; b = { x: 4 + i * (pw + gap), y: 16, w: pw, h: h - 36 }; }
-      const m = M.panel(x, b, s.xr, s.yr, { lab: s.lab, ticks: s.ticks || [], base: s.base, hlines: s.hlines, yaxis: s.yaxis });
+      const m = M.panel(x, b, s.xr, s.yr, { lab: s.lab, yl: s.yl, xl: s.xl, ticks: s.ticks || [], base: s.base, hlines: s.hlines, yaxis: s.yaxis });
       if (s.draw) s.draw(x, m, c); });
     return { x, w, h, c }; }
   const nT = (N, step) => { const t = []; for (let n = 0; n < N; n += step) t.push([n, String(n)]); return t; };
@@ -746,12 +757,12 @@
     const gap = 16, cw = (w - 2 * gap) / 3, rh = 117;
     rows.forEach(([nm, p, fn], r) => { const y = 16 + r * rh; const bx = i => ({ x: 4 + i * (cw + gap), y, w: cw - 8, h: rh - 38 });
       const tk = [[0, '0'], [1, '1'], [2, '2'], [3, '3']];
-      const m1 = M.panel(x, bx(0), [-0.6, 3.8], [-0.4, 4.8], { lab: 'x[n]', ticks: tk });
+      const m1 = M.panel(x, bx(0), [-0.6, 3.8], [-0.4, 4.8], { yl: 'x[n]', xl: 'n', ticks: tk });
       lol(x, m1, xs.map((v, n) => [n, v]), c.a); xs.forEach((v, n) => txt(x, String(v), m1.X(n) + 5, m1.Y(v) - 2, c.a));
-      const m2 = M.panel(x, bx(1), [-0.6, 3.8], [-1.5, 1.5], { lab: nm + '(2πn/4)', ticks: tk });
+      const m2 = M.panel(x, bx(1), [-0.6, 3.8], [-1.5, 1.5], { yl: nm + '(2πn/4)', xl: 'n', ticks: tk });
       M.curve(x, m2, fn, c.b, { w: 1, dash: [3, 3] }); lol(x, m2, p.map((v, n) => [n, v]), c.b);
       const pr = xs.map((v, n) => v * p[n]), S = pr.reduce((a, b) => a + b, 0);
-      const m3 = M.panel(x, bx(2), [-0.6, 3.8], [-4.8, 4.8], { lab: 'x·' + nm + '   Σ = ' + fx(S, 0), ticks: tk });
+      const m3 = M.panel(x, bx(2), [-0.6, 3.8], [-4.8, 4.8], { yl: 'x·' + nm + '   Σ = ' + fx(S, 0), xl: 'n', ticks: tk });
       lol(x, m3, pr.map((v, n) => [n, v]), c.d); pr.forEach((v, n) => { if (v) txt(x, fx(v, 0), m3.X(n) + 5, m3.Y(v), c.d); });
       txt(x, '×', 4 + cw - 4 + gap / 2, y + (rh - 38) / 2, c.mu, 'center', 'middle', 14, true);
       txt(x, '=', 4 + 2 * cw + gap - 4 + gap / 2, y + (rh - 38) / 2, c.mu, 'center', 'middle', 14, true); }); }
@@ -764,11 +775,11 @@
     $('m2-d1-f-o').textContent = f.toFixed(1); $('m2-d1-p-o').textContent = fx(phd, 0) + '°'; $('m2-d1-k-o').textContent = k; $('m2-d1-n-o').textContent = ns;
     const cv = $('m2-d1-cv'); const wide = (cv.clientWidth || 600) >= 560; const { x, w, h } = M.size(cv, wide ? 410 : 590);
     const xr = [-0.5, N - 0.5], yr = [-1.35, 1.35];
-    const axT = Lab.axes(x, { x: 40, y: 14, w: w - 52, h: 84 }, xr, yr, { xlabel: 'sample n', xticks: [0, 4, 8, 12, 15], yticks: [-1, 0, 1] }); const mT = axm(axT, xr, yr);
-    M.curve(x, mT, t => Math.cos(TAU * k * t / N), c.b, { w: 1.1 }); M.curve(x, mT, t => -Math.sin(TAU * k * t / N), c.b, { w: 1.1, dash: [4, 3] });
-    M.curve(x, mT, t => Math.cos(TAU * f * t / N + ph), c.mu, { w: 1, dash: [2, 3] });
+    const axT = Lab.axes(x, { x: 40, y: 14, w: w - 52, h: 84 }, xr, yr, { xlabel: 'sample n', ylabel: 'x[n]', xticks: [0, 4, 8, 12, 15], yticks: [-1, 0, 1] }); const mT = axm(axT, xr, yr);
+    const LT = 'm2-d1-legT', LB = 'm2-d1-legB'; if (Lab.on(LT, 'pcos')) M.curve(x, mT, t => Math.cos(TAU * k * t / N), c.b, { w: 1.1 }); if (Lab.on(LT, 'psin')) M.curve(x, mT, t => -Math.sin(TAU * k * t / N), c.e, { w: 1.1, dash: [6, 4] });
+    if (Lab.on(LT, 'tone')) M.curve(x, mT, t => Math.cos(TAU * f * t / N + ph), c.mu, { w: 1, dash: [2, 3] });
     const xs = Array.from({ length: N }, (_, n) => [n, Math.cos(TAU * f * n / N + ph)]);
-    lol(x, mT, xs.slice(0, ns), c.a, { r: 2.6 }); lol(x, mT, xs.slice(ns), c.a, { r: 2.6, alpha: 0.3 });
+    if (Lab.on(LT, 'samp')) { lol(x, mT, xs.slice(0, ns), c.a, { r: 2.6 }); lol(x, mT, xs.slice(ns), c.a, { r: 2.6, alpha: 0.3 }); }
     const full = d1sum(f, ph, k, N, N), R = Math.max(1.5, maxMod(full)) * 1.12;
     const pb = wide ? { x: 10, y: 136, w: Math.min(270, w * 0.46), h: 262 } : { x: (w - 250) / 2, y: 134, w: 250, h: 250 };
     const P = plane(x, pb, R, { lab: 'running sum' });
@@ -778,10 +789,10 @@
     /* phase sweep */
     const phs = [], RE = [], IM = [], AB = []; for (let i = 0; i <= 180; i++) { const p = -180 + 2 * i, q = d1sum(f, p * PI / 180, k, N, N)[N]; phs.push(p); RE.push(q[0]); IM.push(q[1]); AB.push(Math.hypot(q[0], q[1])); }
     const top = Math.max(1, ...AB) * 1.15, ab = wide ? { x: pb.x + pb.w + 58, y: 150, w: w - (pb.x + pb.w + 58) - 12, h: 214 } : { x: 54, y: 412, w: w - 66, h: 140 };
-    const ax2 = Lab.axes(x, ab, [-180, 180], [-top, top], { xlabel: 'tone phase φ (deg), full N-sample sum', ylabel: 'X[k]', xticks: [-180, -90, 0, 90, 180], title: 'blue Re X (cos only) · pink Im X · gold |X|' });
-    Lab.line(x, ax2, phs, RE, c.a, 1.8); Lab.line(x, ax2, phs, IM, c.b, 1.4, [4, 3]); Lab.line(x, ax2, phs, AB, c.c, 2);
+    const ax2 = Lab.axes(x, ab, [-180, 180], [-top, top], { xlabel: 'tone phase φ (deg), full N-sample sum', ylabel: 'X[k]', xticks: [-180, -90, 0, 90, 180], title: 'Re X (cos only) · Im X dashed · |X| dotted' });
+    if (Lab.on(LB, 're')) Lab.line(x, ax2, phs, RE, c.a, 1.8); if (Lab.on(LB, 'im')) Lab.line(x, ax2, phs, IM, c.b, 1.4, [6, 4]); if (Lab.on(LB, 'ab')) Lab.line(x, ax2, phs, AB, c.c, 2.2, [2, 3]);
     seg(x, ax2.X(phd), ab.y, ax2.X(phd), ab.y + ab.h, c.mu, 1, [3, 3]);
-    const q = full[N]; dot(x, ax2.X(phd), ax2.Y(q[0]), c.a, 3.5); dot(x, ax2.X(phd), ax2.Y(Math.hypot(q[0], q[1])), c.c, 3.5);
+    const q = full[N]; if (Lab.on(LB, 're')) dot(x, ax2.X(phd), ax2.Y(q[0]), c.a, 3.5); if (Lab.on(LB, 'ab')) dot(x, ax2.X(phd), ax2.Y(Math.hypot(q[0], q[1])), c.c, 3.5);
     /* readout */
     let C = 0, Sn = 0; for (let n = 0; n < ns; n++) { const v = xs[n][1]; C += v * Math.cos(TAU * k * n / N); Sn += v * Math.sin(TAU * k * n / N); }
     const on = Math.abs(f - Math.round(f)) < 1e-9, same = on && Math.round(f) === k; let th;
@@ -794,7 +805,7 @@
   function d1stop() { if (D1.timer) { clearInterval(D1.timer); D1.timer = null; } $('m2-d1-play').textContent = 'Play sum'; }
   $('m2-d1-play').addEventListener('click', () => { if (D1.timer) { d1stop(); return; } $('m2-d1-n').value = 0; drawD1(); $('m2-d1-play').textContent = 'Pause';
     D1.timer = setInterval(() => { const s = $('m2-d1-n'), v = +s.value + 1; s.value = v; drawD1(); if (v >= 16 || Lab.current !== 'm2') d1stop(); }, 220); });
-  ['m2-d1-f', 'm2-d1-p', 'm2-d1-k', 'm2-d1-n'].forEach(id => $(id).addEventListener('input', drawD1));
+  ['m2-d1-f', 'm2-d1-p', 'm2-d1-k', 'm2-d1-n'].forEach(id => $(id).addEventListener('input', drawD1)); Lab.legendToggle('m2-d1-legT', drawD1); Lab.legendToggle('m2-d1-legB', drawD1);
 
   /* ================= Demo 02.2: N = 8 table ================= */
   function drawD2() { const c = col(), N = 8; const key = $('m2-d2-sig').value, k = +$('m2-d2-k').value, nf = +$('m2-d2-n').value;
@@ -819,11 +830,11 @@
     path(x, P2, full, c.d, 1, 0.25, [3, 3]); chain(x, P2, full.slice(0, nf + 1), c.d, 1.5);
     const S = full[nf]; if (Math.hypot(S[0], S[1]) * P2.s > 3) Lab.arrow(x, P2.X(0), P2.Y(0), P2.X(S[0]), P2.Y(S[1]), c.c, 2.4); dot(x, P2.X(S[0]), P2.Y(S[1]), c.c, 3);
     const [XR, XI] = dft(xv); const top = Math.max(1, ...XR.map(Math.abs), ...XI.map(Math.abs)) * 1.25;
-    const box = { x: 44, y: ps + 30, w: w - 56, h: h - ps - 30 - 34 };
-    x.save(); x.fillStyle = c.grid; const ax0 = Lab.axes(x, box, [-0.6, 7.6], [-top, top], { xlabel: 'bin k (all 8 bins, full sums)', xticks: [0, 1, 2, 3, 4, 5, 6, 7], ny: 2 }); x.restore();
+    const box = { x: 52, y: ps + 30, w: w - 64, h: h - ps - 30 - 34 };
+    x.save(); x.fillStyle = c.grid; const ax0 = Lab.axes(x, box, [-0.6, 7.6], [-top, top], { xlabel: 'bin k (all 8 bins, full sums)', ylabel: 'Re X, Im X', xticks: [0, 1, 2, 3, 4, 5, 6, 7], ny: 2 }); x.restore();
     x.save(); x.globalAlpha = 0.5; x.fillStyle = c.grid; x.fillRect(ax0.X(k - 0.45), box.y + 1, ax0.X(k + 0.45) - ax0.X(k - 0.45), box.h - 1); x.restore();
     const m = axm(ax0, [-0.6, 7.6], [-top, top]);
-    lol(x, m, XR.map((v, kk) => [kk - 0.14, v]), c.a, { r: 2.6 }); lol(x, m, XI.map((v, kk) => [kk + 0.14, v]), c.c, { r: 2.6 });
+    lol(x, m, XR.map((v, kk) => [kk - 0.14, v]), c.a, { r: 2.6 }); lol(x, m, XI.map((v, kk) => [kk + 0.14, v]), c.e, { r: 2.6, dash: [3, 2], hollow: true });
     /* readout */
     const Xr = XR[k], Xi = XI[k], A = Math.hypot(Xr, Xi), ph = deg(Xr, Xi);
     let msg = 'X[' + k + '] = <b>' + cf(Xr, Xi, 3) + '</b><br>|X| = <b>' + fx(A, 3) + '</b>, ∠X = <b>' + (A > 1e-9 ? fx(ph, 1) + '°' : '— (|X| = 0)') + '</b><br>';
@@ -886,22 +897,22 @@
     path(x, P, tr.map((v, i) => [v, ti[i]]), c.d, 1.2, 0.3);
     const pts = tipAt(T, t);
     x.save(); x.strokeStyle = c.grid; x.lineWidth = 1; for (let i = 0; i < T.length; i++) { const r = Math.hypot(T[i].re, T[i].im) * P.s; if (r > 2) { x.beginPath(); x.arc(P.X(pts[i][0]), P.Y(pts[i][1]), r, 0, TAU); x.stroke(); } } x.restore();
-    chain(x, P, pts, c.d, 1.5); const e = pts[pts.length - 1]; dot(x, P.X(e[0]), P.Y(e[1]), c.c, 4);
+    const LG = 'm2-d4-leg'; if (Lab.on(LG, 'arr')) chain(x, P, pts, c.d, 1.5); const e = pts[pts.length - 1]; dot(x, P.X(e[0]), P.Y(e[1]), c.c, 4);
     seg(x, P.X(e[0]), P.Y(e[1]), P.X(e[0]), P.Y(0), c.mu, 1, [2, 3]);
     let lo = Math.min(...tr, ...ti, ...xv), hi = Math.max(...tr, ...ti, ...xv); const pad = (hi - lo) * 0.12 + 0.1; lo -= pad; hi += pad;
     const ab = wide ? { x: pb.x + pb.w + 52, y: 20, w: w - (pb.x + pb.w + 52) - 12, h: 236 } : { x: 54, y: 300, w: w - 66, h: 160 };
     const ax = Lab.axes(x, ab, [0, 8], [lo, hi], { xlabel: 't (samples)', xticks: [0, 1, 2, 3, 4, 5, 6, 7, 8], ylabel: 'tip of the chain' });
-    Lab.line(x, ax, ts, ti, c.b, 1.4, [4, 3]); Lab.line(x, ax, ts, tr, c.a, 2);
-    for (let n = 0; n <= 8; n++) dot(x, ax.X(n), ax.Y(xv[n % 8]), c.c, 3.6, n === 8);
-    seg(x, ax.X(t), ab.y, ax.X(t), ab.y + ab.h, c.mu, 1, [3, 3]); dot(x, ax.X(t), ax.Y(e[0]), c.a, 3.5);
+    if (Lab.on(LG, 'im')) Lab.line(x, ax, ts, ti, c.b, 1.4, [6, 4]); if (Lab.on(LG, 're')) Lab.line(x, ax, ts, tr, c.a, 2);
+    if (Lab.on(LG, 'smp')) for (let n = 0; n <= 8; n++) dot(x, ax.X(n), ax.Y(xv[n % 8]), c.c, 3.6, n === 8);
+    seg(x, ax.X(t), ab.y, ax.X(t), ab.y + ab.h, c.mu, 1, [3, 3]); if (Lab.on(LG, 're')) dot(x, ax.X(t), ax.Y(e[0]), c.a, 3.5);
     const n0 = Math.round(t), at = Math.abs(t - n0) < 0.006;
-    $('m2-d4-read').innerHTML = 'arrows: <b>' + T.length + '</b> (' + (mode === 'stored' ? 'k = 0 … ' + (K - 1) : 'freqs ' + T.map(q => q.f === 4 ? '+4/2' : q.f === -4 ? '−4/2' : fx(q.f, 0)).join(', ')) + ')<br>tip at t = ' + t.toFixed(2) + ': <b>' + cf(e[0], e[1], 3) + '</b><br>' +
+    $('m2-d4-read').innerHTML = 'arrows added: <b>' + T.length + '</b> (' + (mode === 'stored' ? 'k = 0 … ' + (K - 1) : 'freqs ' + T.map(q => q.f === 4 ? '+4/2' : q.f === -4 ? '−4/2' : fx(q.f, 0)).join(', ')) + ')<br>tip at t = ' + t.toFixed(2) + ': <b>' + cf(e[0], e[1], 3) + '</b><br>' +
       (at ? 'sample x[' + (n0 % 8) + '] = <b>' + fx(xv[n0 % 8], 3) + '</b><br>' : '') + 'max |Im(tip)| over t: <b>' + fx(mIm, 3) + '</b>' + (mIm < 1e-9 ? ' (real interpolant)' : ''); }
   function d4stop() { if (D4.raf) cancelAnimationFrame(D4.raf); D4.raf = null; $('m2-d4-play').textContent = 'Play'; }
   function d4step(ts) { if (Lab.current !== 'm2') { d4stop(); return; } if (!D4.last) D4.last = ts; const dt = Math.min(0.1, (ts - D4.last) / 1000); D4.last = ts;
     let t = +$('m2-d4-t').value + dt * 1.4; if (t > 8) t -= 8; $('m2-d4-t').value = t; drawD4(); D4.raf = requestAnimationFrame(d4step); }
   $('m2-d4-play').addEventListener('click', () => { if (D4.raf) { d4stop(); return; } D4.last = 0; $('m2-d4-play').textContent = 'Pause'; D4.raf = requestAnimationFrame(d4step); });
-  ['m2-d4-K', 'm2-d4-t'].forEach(id => $(id).addEventListener('input', drawD4)); ['m2-d4-sig', 'm2-d4-mode'].forEach(id => $(id).addEventListener('change', drawD4));
+  ['m2-d4-K', 'm2-d4-t'].forEach(id => $(id).addEventListener('input', drawD4)); ['m2-d4-sig', 'm2-d4-mode'].forEach(id => $(id).addEventListener('change', drawD4)); Lab.legendToggle('m2-d4-leg', drawD4);
 
   /* ================= Demo 02.5: leakage explorer ================= */
   function drawD5() { const c = col(), N = 32; const k0 = +$('m2-d5-f').value, win = $('m2-d5-win').value, P = +$('m2-d5-pad').value, useDb = $('m2-d5-db').checked;
@@ -911,24 +922,24 @@
     const mag = f => { let re = 0, im = 0; for (let n = 0; n < N; n++) { const a = -TAU * f * n / N; re += xv[n] * Math.cos(a); im += xv[n] * Math.sin(a); } return Math.hypot(re, im) / ref; };
     const tf = v => useDb ? Math.max(-70, 20 * Math.log10(v + 1e-12)) : v;
     const cv = $('m2-d5-cv'); const { x, w, h } = M.size(cv, 390);
-    const axT = Lab.axes(x, { x: 44, y: 14, w: w - 56, h: 82 }, [-0.5, 2 * N - 0.5], [-1.25, 1.25], { xlabel: 'sample n (second copy = periodic extension)', xticks: [0, 16, 32, 48, 63], yticks: [-1, 0, 1] });
+    const axT = Lab.axes(x, { x: 44, y: 14, w: w - 56, h: 82 }, [-0.5, 2 * N - 0.5], [-1.25, 1.25], { xlabel: 'sample n (second copy = periodic extension)', ylabel: 'windowed x[n]', xticks: [0, 16, 32, 48, 63], yticks: [-1, 0, 1] });
     const mT = axm(axT, [-0.5, 2 * N - 0.5], [-1.25, 1.25]);
     lol(x, mT, xv.map((v, n) => [n, v]), c.a, { r: 1.7, w: 1 }); lol(x, mT, xv.map((v, n) => [n + N, v]), c.a, { r: 1.7, w: 1, alpha: 0.32 });
     seg(x, axT.X(N - 0.5), axT.box.y, axT.X(N - 0.5), axT.box.y + axT.box.h, c.b, 1, [3, 3]); txt(x, 'wrap', axT.X(N - 0.5) + 4, axT.box.y + 8, c.b, 'left', 'middle', 9.5);
     const yr = useDb ? [-70, 6] : [0, 1.12];
     const ax = Lab.axes(x, { x: 54, y: 134, w: w - 66, h: 214 }, [0, 16], yr, { xlabel: 'frequency (bins of the N = 32 record)', ylabel: useDb ? 'dB re A·N·cg/2' : '|X| / (A·N·cg/2)', xticks: [0, 2, 4, 6, 8, 10, 12, 14, 16], yticks: useDb ? [-60, -40, -20, 0] : [0, 0.5, 1] });
     const fs = [], ys = []; for (let i = 0; i <= 800; i++) { const f = i * 0.02; fs.push(f); ys.push(tf(mag(f))); }
-    ax.clip(); Lab.line(x, ax, fs, ys, c.mu, 1.2); ax.unclip();
+    const LG = 'm2-d5-leg'; if (Lab.on(LG, 'dtft')) { ax.clip(); Lab.line(x, ax, fs, ys, c.mu, 1.2); ax.unclip(); }
     const m = axm(ax, [0, 16], yr, yr[0]);
-    for (let q = 0; q <= 16 * P; q++) { const f = q / P; if (P > 1) dot(x, ax.X(f), ax.Y(tf(mag(f))), c.d, 2.2); }
-    const bins = []; for (let k = 0; k <= 16; k++) bins.push([k, tf(mag(k))]); lol(x, m, bins, c.b, { r: 3 });
+    for (let q = 0; q <= 16 * P; q++) { const f = q / P; if (P > 1 && Lab.on(LG, 'pad')) dot(x, ax.X(f), ax.Y(tf(mag(f))), c.d, 2.2); }
+    const bins = []; for (let k = 0; k <= 16; k++) bins.push([k, tf(mag(k))]); if (Lab.on(LG, 'bins')) lol(x, m, bins, c.b, { r: 3 });
     const kn = Math.round(k0), dl = k0 - kn, pk = mag(kn);
     const tone = d => { let re = 0, im = 0; for (let n = 0; n < N; n++) { const a = TAU * d * n / N; re += wf(n) * Math.cos(a); im += wf(n) * Math.sin(a); } return Math.hypot(re, im) / (N * cg); };
     let Etot = 0, Ein = 0; for (let k = 0; k <= 16; k++) { const e = mag(k) ** 2; Etot += e; if (Math.abs(k - kn) <= 1) Ein += e; }
     let best = 0, fb = 0; for (let q = 1; q < 16 * P; q++) { const v = mag(q / P); if (v > best) { best = v; fb = q / P; } }
-    $('m2-d5-read').innerHTML = 'nearest bin <b>' + kn + '</b>, offset δ = <b>' + fx(dl, 2) + '</b><br>peak bin: <b>' + fx(20 * Math.log10(pk + 1e-12), 2) + ' dB</b><br>complex-tone theory: <b>' + fx(20 * Math.log10(tone(dl) + 1e-12), 2) + ' dB</b><br>energy outside bins ' + kn + ' ± 1: <b>' + fx(100 * (1 - Ein / Etot), 2) + ' %</b><br>' +
+    $('m2-d5-read').innerHTML = 'nearest bin <b>' + kn + '</b>, offset from it δ = <b>' + fx(dl, 2) + ' bins</b><br>level of that bin: <b>' + fx(20 * Math.log10(pk + 1e-12), 2) + ' dB</b><br>complex-tone theory: <b>' + fx(20 * Math.log10(tone(dl) + 1e-12), 2) + ' dB</b><br>energy outside bins ' + kn + ' ± 1: <b>' + fx(100 * (1 - Ein / Etot), 2) + ' %</b><br>' +
       (P > 1 ? 'padded peak at <b>' + fx(fb, 3) + '</b> bins (error ' + fx(fb - k0, 3) + ')' : 'no padding: grid = 1 bin'); }
-  $('m2-d5-f').addEventListener('input', drawD5); ['m2-d5-win', 'm2-d5-pad', 'm2-d5-db'].forEach(id => $(id).addEventListener('change', drawD5));
+  $('m2-d5-f').addEventListener('input', drawD5); ['m2-d5-win', 'm2-d5-pad', 'm2-d5-db'].forEach(id => $(id).addEventListener('change', drawD5)); Lab.legendToggle('m2-d5-leg', drawD5);
 
   /* ================= Butterfly diagram (Fig 02.8 and Demo 02.6) ================= */
   function fftStages(xv) { const N = xv.length, L = Math.round(Math.log2(N)); const rev = i => { let r = 0; for (let b = 0; b < L; b++) if (i & (1 << b)) r |= 1 << (L - 1 - b); return r; };
@@ -945,7 +956,7 @@
     for (let s = 0; s <= L; s++) txt(x, s === 0 ? 'x[rev n]' : s === L ? 'X[k]' : 'stage ' + s, cx(s), 10, c.mu, s === 0 ? 'left' : s === L ? 'left' : 'center', 'middle', 10, true);
     for (let s = 1; s <= L; s++) F.B[s - 1].forEach((q, bi) => { const isSel = sel && sel.s === s && sel.b === bi, done = s <= shown, al = done ? 1 : 0.22;
       const x0 = cx(s - 1), x1 = cx(s), ya = cy(q.a), yb = cy(q.b), ca = isSel ? c.c : c.a, cb = isSel ? c.c : c.b, lw = isSel ? 2.6 : 1.2;
-      seg(x, x0, ya, x1, ya, ca, lw, null, al); seg(x, x0, yb, x1, ya, ca, lw, null, al); seg(x, x0, ya, x1, yb, cb, lw, null, al); seg(x, x0, yb, x1, yb, cb, lw, null, al);
+      seg(x, x0, ya, x1, ya, ca, lw, null, al); seg(x, x0, yb, x1, ya, ca, lw, null, al); seg(x, x0, ya, x1, yb, cb, lw, [6, 4], al); seg(x, x0, yb, x1, yb, cb, lw, [6, 4], al);
       if (q.m > 0) txt(x, 'W' + SUP[q.m], x0 + 6, yb + 9, isSel ? c.c : c.mu, 'left', 'middle', fsz, isSel); });
     for (let s = 0; s <= L; s++) for (let i = 0; i < N; i++) { const ok = s <= shown; dot(x, cx(s), cy(i), ok ? c.fg : c.mu, ok ? 3 : 2.6, !ok);
       if (ok) { const v = cf(F.V[s][0][i], F.V[s][1][i], dd, false); txt(x, s === L ? 'X' + i + ' = ' + v : v, cx(s) + 5, cy(i) - 5, s === L ? c.a : c.fg, 'left', 'bottom', fsz, s === L); } }
@@ -975,7 +986,7 @@
     chain(x, P2, pts, c.d, 1.5); dot(x, P2.X(0), P2.Y(0), c.fg, 3.2); const e = pts[N];
     txt(x, 'Σ = ' + fx(Math.hypot(e[0], e[1]), 0), sz + 16, 10, c.fg, 'left', 'middle', 10.5, true); }
   function bflySchem(cv, nums, H) { const c = col(); const { x, w, h } = M.size(cv, H || 140); const x0 = Math.max(70, w * 0.22), x1 = w - Math.max(110, w * 0.3), ya = 34, yb = h - 34;
-    seg(x, x0, ya, x1, ya, c.a, 1.6); seg(x, x0, yb, x1, ya, c.a, 1.6); seg(x, x0, ya, x1, yb, c.b, 1.6); seg(x, x0, yb, x1, yb, c.b, 1.6);
+    seg(x, x0, ya, x1, ya, c.a, 1.6); seg(x, x0, yb, x1, ya, c.a, 1.6); seg(x, x0, ya, x1, yb, c.b, 1.6, [6, 4]); seg(x, x0, yb, x1, yb, c.b, 1.6, [6, 4]);
     [[x0, ya], [x0, yb], [x1, ya], [x1, yb]].forEach(p => dot(x, p[0], p[1], c.fg, 3.2));
     txt(x, nums ? 'E = ' + nums[0] : 'E[k]', x0 - 8, ya, c.fg, 'right'); txt(x, nums ? 'O = ' + nums[1] : 'O[k]', x0 - 8, yb, c.fg, 'right');
     txt(x, nums ? '× W = ' + nums[2] : '× Wᵏ', x0 + 6, yb + 13, c.c, 'left', 'middle', 10.5, true); txt(x, '−', (x0 + x1) / 2 + 18, yb - 16, c.b, 'center', 'middle', 13, true);
@@ -983,14 +994,14 @@
   function opsFig(cv, H) { const c = col(); const { x, w, h } = M.size(cv, H || 140);
     const m = M.panel(x, { x: 30, y: 16, w: w - 36, h: h - 36 }, [1, 17.6], [0, 10], { lab: 'log₁₀ multiplies vs N', base: 0, ticks: [[3, '8'], [6, '64'], [10, '1024'], [13, '8192'], [16, '65536']] });
     [[0, '1'], [5, '10⁵'], [10, '10¹⁰']].forEach(([v, t]) => txt(x, t, 26, m.Y(v), c.mu, 'right', 'middle', 9.5));
-    M.curve(x, m, p => 2 * p * Math.log10(2), c.b); M.curve(x, m, p => Math.log10(Math.pow(2, p) / 2 * p), c.a);
+    M.curve(x, m, p => 2 * p * Math.log10(2), c.b); M.curve(x, m, p => Math.log10(Math.pow(2, p) / 2 * p), c.a, { dash: [6, 4] });
     txt(x, 'N²', m.X(12.5), m.Y(2 * 12.5 * Math.log10(2)) - 8, c.b, 'center', 'middle', 10.5, true); txt(x, '(N/2)log₂N', m.X(13), m.Y(Math.log10(Math.pow(2, 13) / 2 * 13)) + 12, c.a, 'center', 'middle', 10.5, true);
     seg(x, m.X(10), m.Y(Math.log10(5120)), m.X(10), m.Y(Math.log10(1048576)), c.mu, 1, [2, 2]); txt(x, '205×', m.X(10) + 4, m.Y(4.4), c.mu, 'left', 'middle', 9.5); }
   function orderFig(cv, H, which) { const c = col(); const N = 8, fsM = 40; const [XR, XI] = dft(sig8('pulse')), A = XR.map((v, i) => Math.hypot(v, XI[i]));
     const lab = k => { const kk = k >= N / 2 ? k - N : k; return k === N / 2 ? '±20' : fx(kk * fsM / N, 0); };
     const env = f => { const s = Math.sin(PI * f / N); return Math.abs(s) < 1e-9 ? 4 : Math.abs(Math.sin(PI * f * 4 / N) / s); };
-    const P1 = { xr: [-0.6, 7.6], yr: [0, 4.6], lab: 'fft order: bins 0 … 7, f in MHz', ticks: Array.from({ length: N }, (_, k) => [k, lab(k)]), draw: (x, m, cc) => lol(x, m, A.map((v, k) => [k, v]), cc.a, { r: 2.4 }) };
-    const P2 = { xr: [-4.6, 3.6], yr: [0, 4.6], lab: 'after fftshift: f in MHz', ticks: Array.from({ length: N }, (_, i) => [i - 4, fx((i - 4) * fsM / N, 0)]), draw: (x, m, cc) => { M.curve(x, m, env, cc.mu, { w: 1, dash: [3, 3] }); lol(x, m, A.map((v, k) => [k >= N / 2 ? k - N : k, v]), cc.b, { r: 2.4 }); } };
+    const P1 = { xr: [-0.6, 7.6], yr: [0, 4.6], yl: '|X[k]|, fft order', xl: 'f (MHz), bins 0 … 7', ticks: Array.from({ length: N }, (_, k) => [k, lab(k)]), draw: (x, m, cc) => lol(x, m, A.map((v, k) => [k, v]), cc.a, { r: 2.4 }) };
+    const P2 = { xr: [-4.6, 3.6], yr: [0, 4.6], yl: '|X[k]| after fftshift', xl: 'f (MHz)', ticks: Array.from({ length: N }, (_, i) => [i - 4, fx((i - 4) * fsM / N, 0)]), draw: (x, m, cc) => { M.curve(x, m, env, cc.mu, { w: 1, dash: [3, 3] }); lol(x, m, A.map((v, k) => [k >= N / 2 ? k - N : k, v]), cc.b, { r: 2.4 }); } };
     panels(cv, H || 150, which === 'fft' ? [P1] : which === 'shift' ? [P2] : [P1, P2], 'col'); }
   const dirich = (dl, N) => Math.abs(dl) < 1e-9 ? 1 : Math.abs(Math.sin(PI * dl) / (N * Math.sin(PI * dl / N)));
   const hannK = (dl, N) => { let re = 0, im = 0; for (let n = 0; n < N; n++) { const wv = 0.5 - 0.5 * Math.cos(TAU * n / N), a = TAU * dl * n / N; re += wv * Math.cos(a); im += wv * Math.sin(a); } return Math.hypot(re, im) / (N / 2); };
@@ -999,12 +1010,13 @@
     const m = M.panel(x, { x: 4, y: 16, w: w - 8, h: h - 36 }, [0, 8], [0, 0.75], { lab: lab || '|DFT| vs bin', ticks: [[4, '4'], [4 + sep, fx(4 + sep, 1)], [8, '8'], [0, '0']] });
     M.curve(x, m, D, c.b, { w: 1.4 }); for (let k = 0; k <= 8; k++) dot(x, m.X(k), m.Y(D(k)), c.a, 3.2); }
 
+  const RLEG_ROOTS = [['roots e^(j2πdn/N) visited (labels: n)', 'b', 'mark'], ['probe products summed tip to tail', 'd', 'solid']];
   /* ================= grid 02.3: roots of unity ================= */
   Lab.cardGrid('m2', 'm2-g3', [
-    { q: 'd = 0: a probe against itself', prov: 'exact', a: 'Every term is 1, the arrows line up: <b>\\(\\Sigma = N = 8\\)</b>. This is the energy of one probe and the reason for the 1/N in the inverse.', draw: cv => rootsFig(cv, 8, 0) },
-    { q: 'd = 1: one lap around the circle', prov: 'exact', a: 'Eight steps of 45° close an octagon: <b>Σ = 0</b>. Probes k and k + 1 are orthogonal.', draw: cv => rootsFig(cv, 8, 1) },
-    { q: 'd = 2: two laps', prov: 'exact', a: 'Steps of 90° visit four points twice and close a square twice: <b>Σ = 0</b>.', draw: cv => rootsFig(cv, 8, 2) },
-    { q: 'd = 3: three laps', prov: 'exact', a: 'Steps of 135° trace an eight-point star that still closes: <b>Σ = 0</b>. Any d that is not a multiple of N closes.', draw: cv => rootsFig(cv, 8, 3) }
+    { q: 'd = 0: a probe against itself', prov: 'exact', a: 'Every term is 1, the arrows line up: <b>\\(\\Sigma = N = 8\\)</b>. This is the energy of one probe and the reason for the 1/N in the inverse.', draw: cv => rootsFig(cv, 8, 0), leg: RLEG_ROOTS },
+    { q: 'd = 1: one lap around the circle', prov: 'exact', a: 'Eight steps of 45° close an octagon: <b>Σ = 0</b>. Probes k and k + 1 are orthogonal.', draw: cv => rootsFig(cv, 8, 1), leg: RLEG_ROOTS },
+    { q: 'd = 2: two laps', prov: 'exact', a: 'Steps of 90° visit four points twice and close a square twice: <b>Σ = 0</b>.', draw: cv => rootsFig(cv, 8, 2), leg: RLEG_ROOTS },
+    { q: 'd = 3: three laps', prov: 'exact', a: 'Steps of 135° trace an eight-point star that still closes: <b>Σ = 0</b>. Any d that is not a multiple of N closes.', draw: cv => rootsFig(cv, 8, 3), leg: RLEG_ROOTS }
   ]);
 
   /* ================= grid 02.9: index order and two-for-one ================= */
@@ -1012,48 +1024,48 @@
     const X = [], Y = []; for (let k = 0; k < N; k++) { const r = (N - k) % N, cr = ZR[r], ci = -ZI[r]; X.push(Math.hypot((ZR[k] + cr) / 2, (ZI[k] + ci) / 2)); Y.push(Math.hypot((ZR[k] - cr) / 2, (ZI[k] - ci) / 2)); }
     const [AR, AI] = dft(xv), [BR, BI] = dft(yv);
     panels(cv, 170, [
-      { xr: [-0.6, 7.6], yr: [0, 13], lab: '|Z[k]|, Z = FFT(x + jy): no symmetry', ticks: nT(8, 1), draw: (x, m, cc) => lol(x, m, ZR.map((v, k) => [k, Math.hypot(v, ZI[k])]), cc.mu, { r: 2.4 }) },
-      { xr: [-0.6, 7.6], yr: [0, 10], lab: 'recovered |X| (blue), |Y| (pink); rings: direct FFT', ticks: nT(8, 1), draw: (x, m, cc) => { lol(x, m, X.map((v, k) => [k - 0.15, v]), cc.a, { r: 2.4 }); lol(x, m, Y.map((v, k) => [k + 0.15, v]), cc.b, { r: 2.4 });
+      { xr: [-0.6, 7.6], yr: [0, 13], yl: '|Z[k]|, Z = FFT(x + jy): no symmetry', xl: 'k', ticks: nT(8, 1), draw: (x, m, cc) => lol(x, m, ZR.map((v, k) => [k, Math.hypot(v, ZI[k])]), cc.mu, { r: 2.4 }) },
+      { xr: [-0.6, 7.6], yr: [0, 10], yl: 'recovered |X| (blue), |Y| (pink); rings: direct FFT', xl: 'k', ticks: nT(8, 1), draw: (x, m, cc) => { lol(x, m, X.map((v, k) => [k - 0.15, v]), cc.a, { r: 2.4 }); lol(x, m, Y.map((v, k) => [k + 0.15, v]), cc.b, { r: 2.4, dash: [3, 2] });
         AR.forEach((v, k) => dot(x, m.X(k - 0.15), m.Y(Math.hypot(v, AI[k])), cc.fg, 4.5, true)); BR.forEach((v, k) => dot(x, m.X(k + 0.15), m.Y(Math.hypot(v, BI[k])), cc.fg, 4.5, true)); } }], 'col'); }
   Lab.cardGrid('m2', 'm2-g9', [
-    { q: 'fft order: where are the negative frequencies?', prov: 'exact', a: 'Bins 0 … N−1. For N = 8, fs = 40 MHz the frequencies are <b>0, 5, 10, 15, ±20, −15, −10, −5 MHz</b>, so the spectrum of a low-pass pulse peaks at both ends.', draw: cv => orderFig(cv, 120, 'fft') },
-    { q: 'After fftshift?', prov: 'exact', a: '<b>DC moves to the centre</b> (index N/2 + 1 for even N) and the axis runs −20 … 15 MHz, <code>(-N/2:N/2-1)*fs/N</code>. Dashed: the continuous DTFT the bins sample.', draw: cv => orderFig(cv, 120, 'shift') },
-    { q: 'Two real FFTs in one?', prov: 'exact', a: 'FFT(x + jy) has no symmetry. Its conjugate-symmetric part is X, its antisymmetric part jY: <b>\\(X = (Z[k] + Z^{*}[N-k])/2\\)</b>, <b>\\(Y = (Z[k] - Z^{*}[N-k])/(2j)\\)</b>.', draw: twoForOne }
+    { q: 'fft order: where are the negative frequencies?', prov: 'exact', a: 'Bins 0 … N−1. For N = 8, fs = 40 MHz the frequencies are <b>0, 5, 10, 15, ±20, −15, −10, −5 MHz</b>, so the spectrum of a low-pass pulse peaks at both ends.', draw: cv => orderFig(cv, 120, 'fft'), leg: [['|X[k]| in fft order (bins 0 … 7)', 'a', 'stem']] },
+    { q: 'After fftshift?', prov: 'exact', a: '<b>DC moves to the centre</b> (index N/2 + 1 for even N) and the axis runs −20 … 15 MHz, <code>(-N/2:N/2-1)*fs/N</code>. Dashed: the continuous DTFT the bins sample.', draw: cv => orderFig(cv, 120, 'shift'), leg: [['|X[k]| after fftshift', 'b', 'stem'], ['continuous DTFT', 'mu', 'dash']] },
+    { q: 'Two real FFTs in one?', prov: 'exact', a: 'FFT(x + jy) has no symmetry. Its conjugate-symmetric part is X, its antisymmetric part jY: <b>\\(X = (Z[k] + Z^{*}[N-k])/2\\)</b>, <b>\\(Y = (Z[k] - Z^{*}[N-k])/(2j)\\)</b>.', draw: twoForOne, leg: [['|Z[k]|', 'mu', 'stem'], ['recovered |X|', 'a', 'stem'], ['recovered |Y|', 'b', 'dash'], ['direct FFT (rings)', 'fg', 'mark']] }
   ]);
 
   /* ================= visual summary ================= */
   const N16 = 16;
   const toneX = (fn, N) => { const xv = Array.from({ length: N }, (_, n) => fn(n)); return dft(xv); };
   const VIS = [
-    { q: 'What is one DFT bin?', prov: 'exact', scaled: true, a: 'A correlation: <b>\\(X[k] = \\sum x[n]\\cos(2\\pi kn/N)\\) \\(- j\\sum x[n]\\sin(2\\pi kn/N)\\)</b>. Dots: the tone; pink: the probe for the nearest bin (cos solid, −sin dashed).',
-      draw: (cv, T) => { const k = Math.round(T); panels(cv, 140, [{ xr: [-0.5, 15.5], yr: [-1.3, 1.3], lab: 'x[n] = cos(2πk₀n/16) and probe k = ' + k, ticks: nT(16, 4), draw: (x, m, c) => {
+    { q: 'What is one DFT bin?', prov: 'exact', scaled: true, a: 'A correlation: <b>\\(X[k] = \\sum x[n]\\cos(2\\pi kn/N)\\) \\(- j\\sum x[n]\\sin(2\\pi kn/N)\\)</b>. Dots: the tone; pink: the probe for the nearest bin (cos solid, −sin dashed).', leg: [['tone samples x[n]', 'a', 'stem'], ['probe cos', 'b', 'solid'], ['probe −sin', 'b', 'dash']],
+      draw: (cv, T) => { const k = Math.round(T); panels(cv, 140, [{ xr: [-0.5, 15.5], yr: [-1.3, 1.3], yl: 'x[n] = cos(2πk₀n/16) and probe k = ' + k, xl: 'n', ticks: nT(16, 4), draw: (x, m, c) => {
         M.curve(x, m, t => Math.cos(TAU * k * t / N16), c.b, { w: 1.2 }); M.curve(x, m, t => -Math.sin(TAU * k * t / N16), c.b, { w: 1.2, dash: [4, 3] }); lol(x, m, Array.from({ length: N16 }, (_, n) => [n, Math.cos(TAU * T * n / N16)]), c.a, { r: 2.3 }); } }]); } },
-    { q: 'What is the spectrum of a cosine?', prov: 'exact', scaled: true, a: '<b>Two real lines of height \\(AN/2\\)</b> at \\(k_0\\) and \\(N - k_0\\) (8 at bins 3 and 13 here). Off-bin, the Dirichlet kernel lights every bin.',
-      draw: (cv, T) => { const [R, I] = toneX(n => Math.cos(TAU * T * n / N16), N16); panels(cv, 140, [{ xr: [-0.6, 15.6], yr: [0, 9.5], lab: '|X[k]|, N = 16', ticks: nT(16, 4), hlines: [[8, 'AN/2 = 8']], draw: (x, m, c) => lol(x, m, R.map((v, k) => [k, Math.hypot(v, I[k])]), c.a) }]); } },
-    { q: 'And of a sine?', prov: 'exact', scaled: true, a: '<b>Purely imaginary: \\(-jAN/2\\) at \\(k_0\\), \\(+jAN/2\\) at \\(N - k_0\\).</b> Imaginary means sine; the minus sign comes from e<sup>−j</sup> in the forward transform.',
-      draw: (cv, T) => { const [R, I] = toneX(n => Math.sin(TAU * T * n / N16), N16); panels(cv, 140, [{ xr: [-0.6, 15.6], yr: [-9.5, 9.5], lab: 'Im X (pink), Re X (blue)', ticks: [[4, '4'], [8, '8'], [12, '12']], draw: (x, m, c) => { lol(x, m, R.map((v, k) => [k - 0.15, v]), c.a, { r: 2.2 }); lol(x, m, I.map((v, k) => [k + 0.15, v]), c.b); } }]); } },
-    { q: 'Impulse at n = 0?', prov: 'exact', a: '<b>Every bin equals 1</b>, real: an impulse contains every frequency with equal weight and zero phase.',
-      draw: cv => panels(cv, 130, [{ xr: [-0.6, 7.6], yr: [0, 1.3], lab: 'x[n] = δ[n]', ticks: nT(8, 2), draw: (x, m, c) => lol(x, m, [[0, 1]], c.a) }, { xr: [-0.6, 7.6], yr: [0, 1.3], lab: 'X[k] (real)', ticks: nT(8, 2), draw: (x, m, c) => lol(x, m, Array.from({ length: 8 }, (_, k) => [k, 1]), c.b) }]) },
-    { q: 'Impulse delayed to n = 1?', prov: 'exact', a: '<b>\\(\\lvert X\\rvert = 1,\\ \\angle X = -360°\\cdot k/N\\)</b>: a delay is a linear phase (shown wrapped to ±180°, N = 8).',
-      draw: cv => panels(cv, 130, [{ xr: [-0.6, 7.6], yr: [0, 1.3], lab: 'x[n] = δ[n − 1]', ticks: nT(8, 2), draw: (x, m, c) => lol(x, m, [[1, 1]], c.a) }, { xr: [-0.6, 7.6], yr: [-200, 200], lab: '∠X[k] (deg)', ticks: [[2, '2'], [4, '4'], [6, '6']], hlines: [[180, '180'], [-180, '−180']], draw: (x, m, c) => lol(x, m, Array.from({ length: 8 }, (_, k) => [k, deg(Math.cos(TAU * k / 8), -Math.sin(TAU * k / 8))]), c.b) }]) },
-    { q: 'A constant?', prov: 'exact', a: '<b>Only \\(X[0] = Nc\\)</b>: every other probe sums to zero over its whole cycles.',
-      draw: cv => panels(cv, 130, [{ xr: [-0.6, 7.6], yr: [0, 1.3], lab: 'x[n] = 1', ticks: nT(8, 2), draw: (x, m, c) => lol(x, m, Array.from({ length: 8 }, (_, n) => [n, 1]), c.a) }, { xr: [-0.6, 7.6], yr: [0, 9.5], lab: 'X[k]', ticks: nT(8, 2), draw: (x, m, c) => { lol(x, m, Array.from({ length: 8 }, (_, k) => [k, k ? 0 : 8]), c.b); txt(x, '8', m.X(0) + 6, m.Y(8), c.b); } }]) },
-    { q: 'Alternating (−1)ⁿ?', prov: 'exact', a: '<b>Only the Nyquist bin, \\(X[N/2] = N\\)</b>, and it is real: the fastest oscillation the grid can hold.',
-      draw: cv => panels(cv, 130, [{ xr: [-0.6, 7.6], yr: [-1.3, 1.3], lab: 'x[n] = (−1)ⁿ', ticks: [[2, '2'], [4, '4'], [6, '6']], draw: (x, m, c) => lol(x, m, Array.from({ length: 8 }, (_, n) => [n, n % 2 ? -1 : 1]), c.a) }, { xr: [-0.6, 7.6], yr: [0, 9.5], lab: 'X[k]', ticks: nT(8, 2), draw: (x, m, c) => { lol(x, m, Array.from({ length: 8 }, (_, k) => [k, k === 4 ? 8 : 0]), c.b); txt(x, '8', m.X(4) + 6, m.Y(8), c.b); } }]) },
-    { q: 'Sum of the N roots of unity?', prov: 'exact', a: '<b>Zero</b>, unless the step d is a multiple of N (then N). This orthogonality is behind the inverse DFT and Parseval.', draw: cv => rootsFig(cv, 8, 1, 140) },
-    { q: 'A rectangular pulse of L samples?', prov: 'exact', a: '<b>\\(\\lvert X[k]\\rvert = \\left\\lvert \\frac{\\sin(\\pi kL/N)}{\\sin(\\pi k/N)} \\right\\rvert\\)</b>, a sampled Dirichlet kernel with zeros every N/L bins (N = 16, L = 4: every 4 bins).',
-      draw: cv => panels(cv, 130, [{ xr: [-0.6, 15.6], yr: [0, 1.3], lab: 'x[n], L = 4', ticks: nT(16, 4), draw: (x, m, c) => lol(x, m, Array.from({ length: 16 }, (_, n) => [n, n < 4 ? 1 : 0]), c.a, { r: 2 }) },
-        { xr: [-0.6, 15.6], yr: [0, 4.6], lab: '|X[k]|', ticks: nT(16, 4), draw: (x, m, c) => { M.curve(x, m, k => { const s = Math.sin(PI * k / 16); return Math.abs(s) < 1e-9 ? 4 : Math.abs(Math.sin(PI * k * 4 / 16) / s); }, c.mu, { w: 1, dash: [3, 3] });
+    { q: 'What is the spectrum of a cosine?', prov: 'exact', scaled: true, a: '<b>Two real lines of height \\(AN/2\\)</b> at \\(k_0\\) and \\(N - k_0\\) (8 at bins 3 and 13 here). Off-bin, the Dirichlet kernel lights every bin.', leg: [['|X[k]|', 'a', 'stem'], ['AN/2 = 8', 'mu', 'dash']],
+      draw: (cv, T) => { const [R, I] = toneX(n => Math.cos(TAU * T * n / N16), N16); panels(cv, 140, [{ xr: [-0.6, 15.6], yr: [0, 9.5], yl: '|X[k]|, N = 16', xl: 'k', ticks: nT(16, 4), hlines: [[8, 'AN/2 = 8']], draw: (x, m, c) => lol(x, m, R.map((v, k) => [k, Math.hypot(v, I[k])]), c.a) }]); } },
+    { q: 'And of a sine?', prov: 'exact', scaled: true, a: '<b>Purely imaginary: \\(-jAN/2\\) at \\(k_0\\), \\(+jAN/2\\) at \\(N - k_0\\).</b> Imaginary means sine; the minus sign comes from e<sup>−j</sup> in the forward transform.', leg: [['Re X', 'a', 'stem'], ['Im X (hollow, dashed)', 'b', 'dash']],
+      draw: (cv, T) => { const [R, I] = toneX(n => Math.sin(TAU * T * n / N16), N16); panels(cv, 140, [{ xr: [-0.6, 15.6], yr: [-9.5, 9.5], yl: 'Im X (pink), Re X (blue)', xl: 'k', ticks: [[4, '4'], [8, '8'], [12, '12']], draw: (x, m, c) => { lol(x, m, R.map((v, k) => [k - 0.15, v]), c.a, { r: 2.2 }); lol(x, m, I.map((v, k) => [k + 0.15, v]), c.b, { dash: [3, 2], hollow: true }); } }]); } },
+    { q: 'Impulse at n = 0?', prov: 'exact', leg: [['x[n] = δ[n] (left)', 'a', 'stem'], ['X[k] = 1, real (right)', 'b', 'stem']], a: '<b>Every bin equals 1</b>, real: an impulse contains every frequency with equal weight and zero phase.',
+      draw: cv => panels(cv, 130, [{ xr: [-0.6, 7.6], yr: [0, 1.3], yl: 'x[n] = δ[n]', xl: 'n', ticks: nT(8, 2), draw: (x, m, c) => lol(x, m, [[0, 1]], c.a) }, { xr: [-0.6, 7.6], yr: [0, 1.3], yl: 'X[k] (real)', xl: 'k', ticks: nT(8, 2), draw: (x, m, c) => lol(x, m, Array.from({ length: 8 }, (_, k) => [k, 1]), c.b) }]) },
+    { q: 'Impulse delayed to n = 1?', prov: 'exact', leg: [['x[n] = δ[n − 1] (left)', 'a', 'stem'], ['∠X[k] (right)', 'b', 'stem'], ['±180°', 'mu', 'dash']], a: '<b>\\(\\lvert X\\rvert = 1,\\ \\angle X = -360°\\cdot k/N\\)</b>: a delay is a linear phase (shown wrapped to ±180°, N = 8).',
+      draw: cv => panels(cv, 130, [{ xr: [-0.6, 7.6], yr: [0, 1.3], yl: 'x[n] = δ[n − 1]', xl: 'n', ticks: nT(8, 2), draw: (x, m, c) => lol(x, m, [[1, 1]], c.a) }, { xr: [-0.6, 7.6], yr: [-200, 200], yl: '∠X[k] (deg)', xl: 'k', ticks: [[2, '2'], [4, '4'], [6, '6']], hlines: [[180, '180'], [-180, '−180']], draw: (x, m, c) => lol(x, m, Array.from({ length: 8 }, (_, k) => [k, deg(Math.cos(TAU * k / 8), -Math.sin(TAU * k / 8))]), c.b) }]) },
+    { q: 'A constant?', prov: 'exact', leg: [['x[n] = 1 (left)', 'a', 'stem'], ['X[k] (right)', 'b', 'stem']], a: '<b>Only \\(X[0] = Nc\\)</b>: every other probe sums to zero over its whole cycles.',
+      draw: cv => panels(cv, 130, [{ xr: [-0.6, 7.6], yr: [0, 1.3], yl: 'x[n] = 1', xl: 'n', ticks: nT(8, 2), draw: (x, m, c) => lol(x, m, Array.from({ length: 8 }, (_, n) => [n, 1]), c.a) }, { xr: [-0.6, 7.6], yr: [0, 9.5], yl: 'X[k]', xl: 'k', ticks: nT(8, 2), draw: (x, m, c) => { lol(x, m, Array.from({ length: 8 }, (_, k) => [k, k ? 0 : 8]), c.b); txt(x, '8', m.X(0) + 6, m.Y(8), c.b); } }]) },
+    { q: 'Alternating (−1)ⁿ?', prov: 'exact', leg: [['x[n] = (−1)ⁿ (left)', 'a', 'stem'], ['X[k] (right)', 'b', 'stem']], a: '<b>Only the Nyquist bin, \\(X[N/2] = N\\)</b>, and it is real: the fastest oscillation the grid can hold.',
+      draw: cv => panels(cv, 130, [{ xr: [-0.6, 7.6], yr: [-1.3, 1.3], yl: 'x[n] = (−1)ⁿ', xl: 'n', ticks: [[2, '2'], [4, '4'], [6, '6']], draw: (x, m, c) => lol(x, m, Array.from({ length: 8 }, (_, n) => [n, n % 2 ? -1 : 1]), c.a) }, { xr: [-0.6, 7.6], yr: [0, 9.5], yl: 'X[k]', xl: 'k', ticks: nT(8, 2), draw: (x, m, c) => { lol(x, m, Array.from({ length: 8 }, (_, k) => [k, k === 4 ? 8 : 0]), c.b); txt(x, '8', m.X(4) + 6, m.Y(8), c.b); } }]) },
+    { q: 'Sum of the N roots of unity?', prov: 'exact', a: '<b>Zero</b>, unless the step d is a multiple of N (then N). This orthogonality is behind the inverse DFT and Parseval.', draw: cv => rootsFig(cv, 8, 1, 140), leg: RLEG_ROOTS },
+    { q: 'A rectangular pulse of L samples?', prov: 'exact', a: '<b>\\(\\lvert X[k]\\rvert = \\left\\lvert \\frac{\\sin(\\pi kL/N)}{\\sin(\\pi k/N)} \\right\\rvert\\)</b>, a sampled Dirichlet kernel with zeros every N/L bins (N = 16, L = 4: every 4 bins).', leg: [['x[n]', 'a', 'stem'], ['|X[k]| bins', 'b', 'stem'], ['continuous Dirichlet', 'mu', 'dash']],
+      draw: cv => panels(cv, 130, [{ xr: [-0.6, 15.6], yr: [0, 1.3], yl: 'x[n], L = 4', xl: 'n', ticks: nT(16, 4), draw: (x, m, c) => lol(x, m, Array.from({ length: 16 }, (_, n) => [n, n < 4 ? 1 : 0]), c.a, { r: 2 }) },
+        { xr: [-0.6, 15.6], yr: [0, 4.6], yl: '|X[k]|', xl: 'k', ticks: nT(16, 4), draw: (x, m, c) => { M.curve(x, m, k => { const s = Math.sin(PI * k / 16); return Math.abs(s) < 1e-9 ? 4 : Math.abs(Math.sin(PI * k * 4 / 16) / s); }, c.mu, { w: 1, dash: [3, 3] });
           const [R, I] = dft(Array.from({ length: 16 }, (_, n) => n < 4 ? 1 : 0)); lol(x, m, R.map((v, k) => [k, Math.hypot(v, I[k])]), c.b, { r: 2 }); } }]) },
-    { q: 'Real signal: which parts mirror?', prov: 'exact', a: '<b>Re X is even and Im X is odd about N/2</b>: \\(X[N-k] = X[k]^{*}\\). Only N/2 + 1 bins are independent (pulse, N = 8).',
-      draw: cv => { const [R, I] = dft(sig8('pulse')); panels(cv, 140, [{ xr: [-0.6, 7.6], yr: [-3, 4.6], lab: 'Re X (blue), Im X (pink)', ticks: nT(8, 1), draw: (x, m, c) => { seg(x, m.X(4), m.b.y, m.X(4), m.b.y + m.b.h, c.mu, 1, [3, 3]); lol(x, m, R.map((v, k) => [k - 0.13, v]), c.a, { r: 2.4 }); lol(x, m, I.map((v, k) => [k + 0.13, v]), c.b, { r: 2.4 }); } }]); } },
-    { q: 'A tone half-way between bins?', prov: 'exact', a: 'The bins sample the Dirichlet kernel off its peak: <b>−3.92 dB</b> (2/π) in the two nearest bins, and every other bin picks up leakage.',
+    { q: 'Real signal: which parts mirror?', prov: 'exact', a: '<b>Re X is even and Im X is odd about N/2</b>: \\(X[N-k] = X[k]^{*}\\). Only N/2 + 1 bins are independent (pulse, N = 8).', leg: [['Re X', 'a', 'stem'], ['Im X (hollow, dashed)', 'b', 'dash'], ['symmetry axis N/2', 'mu', 'dash']],
+      draw: cv => { const [R, I] = dft(sig8('pulse')); panels(cv, 140, [{ xr: [-0.6, 7.6], yr: [-3, 4.6], yl: 'Re X (blue), Im X (pink)', xl: 'k', ticks: nT(8, 1), draw: (x, m, c) => { seg(x, m.X(4), m.b.y, m.X(4), m.b.y + m.b.h, c.mu, 1, [3, 3]); lol(x, m, R.map((v, k) => [k - 0.13, v]), c.a, { r: 2.4 }); lol(x, m, I.map((v, k) => [k + 0.13, v]), c.b, { r: 2.4, dash: [3, 2], hollow: true }); } }]); } },
+    { q: 'A tone half-way between bins?', prov: 'exact', a: 'The bins sample the Dirichlet kernel off its peak: <b>−3.92 dB</b> (2/π) in the two nearest bins, and every other bin picks up leakage.', leg: [['|D_N(δ)|/N', 'mu', 'solid'], ['bins of a half-bin tone', 'b', 'stem'], ['2/π = −3.92 dB', 'mu', 'dash']],
       draw: cv => panels(cv, 140, [{ xr: [-3.2, 3.2], yr: [0, 1.1], lab: '|D_N(δ)|/N vs δ (bins), N = 32', ticks: [[-2, '−2'], [-1, '−1'], [1, '1'], [2, '2']], hlines: [[2 / PI, '2/π']], draw: (x, m, c) => { M.curve(x, m, dl => dirich(dl, 32), c.mu, { w: 1.2 });
         lol(x, m, [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5].map(dl => [dl, dirich(dl, 32)]), c.b); } }]) },
-    { q: 'Does zero padding add resolution?', prov: 'exact', a: '<b>No.</b> It samples the same DTFT more densely. Two equal in-phase tones 0.5 bin apart in 16 samples stay one lobe: the 16-point bins (dots) lie on the padded curve.', draw: cv => padFig(cv, 0.5, 140) },
-    { q: 'What is a butterfly?', prov: 'schem', a: '<b>\\(X[k] = E[k] + W^kO[k]\\) and \\(X[k+N/2] = E[k] - W^kO[k]\\)</b>: one complex multiply serves two outputs.', draw: cv => bflySchem(cv, null, 140) },
-    { q: 'How much faster is the FFT?', prov: 'exact', a: '<b>\\((N/2)\\log_2 N\\) vs \\(N^2\\)</b> multiplies: 5 120 vs 1 048 576 at N = 1024, a factor 205.', draw: cv => opsFig(cv, 140) },
-    { q: 'Which bin is which frequency?', prov: 'exact', a: '<b>Bin k is \\(k f_s/N\\) below N/2 and \\((k - N) f_s/N\\) above.</b> <code>fftshift</code> rotates the array so DC sits in the middle.', draw: cv => orderFig(cv, 160) }
+    { q: 'Does zero padding add resolution?', prov: 'exact', a: '<b>No.</b> It samples the same DTFT more densely. Two equal in-phase tones 0.5 bin apart in 16 samples stay one lobe: the 16-point bins (dots) lie on the padded curve.', draw: cv => padFig(cv, 0.5, 140), leg: [['zero-padded DFT (dense)', 'b', 'solid'], ['16-point bins', 'a', 'mark']] },
+    { q: 'What is a butterfly?', prov: 'schem', a: '<b>\\(X[k] = E[k] + W^kO[k]\\) and \\(X[k+N/2] = E[k] - W^kO[k]\\)</b>: one complex multiply serves two outputs.', draw: cv => bflySchem(cv, null, 140), leg: [['branches to the top output a + Wb', 'a', 'solid'], ['branches to the bottom output a − Wb', 'b', 'dash']] },
+    { q: 'How much faster is the FFT?', prov: 'exact', a: '<b>\\((N/2)\\log_2 N\\) vs \\(N^2\\)</b> multiplies: 5 120 vs 1 048 576 at N = 1024, a factor 205.', draw: cv => opsFig(cv, 140), leg: [['N² (direct)', 'b', 'solid'], ['(N/2) log₂N (radix-2)', 'a', 'dash'], ['ratio at N = 1024', 'mu', 'dash']] },
+    { q: 'Which bin is which frequency?', prov: 'exact', a: '<b>Bin k is \\(k f_s/N\\) below N/2 and \\((k - N) f_s/N\\) above.</b> <code>fftshift</code> rotates the array so DC sits in the middle.', draw: cv => orderFig(cv, 160), leg: [['fft order', 'a', 'stem'], ['after fftshift', 'b', 'stem'], ['continuous DTFT', 'mu', 'dash']] }
   ];
   Lab.cardGrid('m2', 'm2-vis', VIS, 'm2-vis-T');
   function visRead() { const T = +$('m2-vis-T').value; $('m2-vis-T-o').textContent = T.toFixed(2); const on = Math.abs(T - Math.round(T)) < 1e-9;
@@ -1071,40 +1083,58 @@
     Lab.arrow(x, P.X(0), P.Y(0), P.X(4), P.Y(0), c.a, 2.4); txt(x, 'cos(2πn/8) → 4', P.X(4) + 4, P.Y(0) + 12, c.a, 'right');
     Lab.arrow(x, P.X(0), P.Y(0), P.X(0), P.Y(-4), c.b, 2.4); txt(x, 'sin(2πn/8) → −4j', P.X(0) + 6, P.Y(-4) + 4, c.b);
     const a = PI / 4; Lab.arrow(x, P.X(0), P.Y(0), P.X(4 * Math.cos(a)), P.Y(4 * Math.sin(a)), c.c, 1.8); txt(x, 'cos(·+45°) → 4e^(j45°)', P.X(4 * Math.cos(a)) + 6, P.Y(4 * Math.sin(a)), c.c); };
-  RF[3] = () => { const [R, I] = toneX(n => Math.cos(TAU * 3 * n / 16), 16); panels(rcv(3), 140, [{ xr: [-0.6, 15.6], yr: [0, 9.5], lab: '|X[k]| of cos(2π·3n/16)', ticks: nT(16, 1).filter(t => t[0] % 2 === 1 || t[0] === 0), hlines: [[8, 'A·N/2']], draw: (x, m, c) => { lol(x, m, R.map((v, k) => [k, Math.hypot(v, I[k])]), c.a); txt(x, '8', m.X(3) + 6, m.Y(8) + 8, c.a); txt(x, '8', m.X(13) + 6, m.Y(8) + 8, c.a); } }]); };
-  RF[4] = () => { const [R, I] = dft(sig8('pulse')); panels(rcv(4), 140, [{ xr: [-0.6, 7.6], yr: [-0.5, 4.5], lab: 'Re X (even about 4)', ticks: nT(8, 1), draw: (x, m, c) => { seg(x, m.X(4), m.b.y, m.X(4), m.b.y + m.b.h, c.mu, 1, [3, 3]); lol(x, m, R.map((v, k) => [k, v]), c.a); } },
-    { xr: [-0.6, 7.6], yr: [-3, 3], lab: 'Im X (odd about 4)', ticks: nT(8, 1), draw: (x, m, c) => { seg(x, m.X(4), m.b.y, m.X(4), m.b.y + m.b.h, c.mu, 1, [3, 3]); lol(x, m, I.map((v, k) => [k, v]), c.b); } }]); };
-  RF[5] = () => panels(rcv(5), 140, [{ xr: [-0.3, 7.3], yr: [-1.3, 1.3], lab: 'cos(πt + φ): φ = 0 (blue), φ = 90° (pink)', ticks: nT(8, 1), draw: (x, m, c) => {
-    M.curve(x, m, t => Math.cos(PI * t), c.a, { w: 1, dash: [3, 3] }); M.curve(x, m, t => -Math.sin(PI * t), c.b, { w: 1, dash: [3, 3] });
+  RF[3] = () => { const [R, I] = toneX(n => Math.cos(TAU * 3 * n / 16), 16); panels(rcv(3), 140, [{ xr: [-0.6, 15.6], yr: [0, 9.5], yl: '|X[k]| of cos(2π·3n/16)', xl: 'k', ticks: nT(16, 1).filter(t => t[0] % 2 === 1 || t[0] === 0), hlines: [[8, 'A·N/2']], draw: (x, m, c) => { lol(x, m, R.map((v, k) => [k, Math.hypot(v, I[k])]), c.a); txt(x, '8', m.X(3) + 6, m.Y(8) + 8, c.a); txt(x, '8', m.X(13) + 6, m.Y(8) + 8, c.a); } }]); };
+  RF[4] = () => { const [R, I] = dft(sig8('pulse')); panels(rcv(4), 140, [{ xr: [-0.6, 7.6], yr: [-0.5, 4.5], yl: 'Re X (even about 4)', xl: 'k', ticks: nT(8, 1), draw: (x, m, c) => { seg(x, m.X(4), m.b.y, m.X(4), m.b.y + m.b.h, c.mu, 1, [3, 3]); lol(x, m, R.map((v, k) => [k, v]), c.a); } },
+    { xr: [-0.6, 7.6], yr: [-3, 3], yl: 'Im X (odd about 4)', xl: 'k', ticks: nT(8, 1), draw: (x, m, c) => { seg(x, m.X(4), m.b.y, m.X(4), m.b.y + m.b.h, c.mu, 1, [3, 3]); lol(x, m, I.map((v, k) => [k, v]), c.b); } }]); };
+  RF[5] = () => panels(rcv(5), 140, [{ xr: [-0.3, 7.3], yr: [-1.3, 1.3], yl: 'cos(πt + φ): φ = 0 (blue), φ = 90° (pink)', xl: 't = n (samples)', ticks: nT(8, 1), draw: (x, m, c) => {
+    M.curve(x, m, t => Math.cos(PI * t), c.a, { w: 1.2, dash: [6, 4] }); M.curve(x, m, t => -Math.sin(PI * t), c.b, { w: 1.4, dash: [2, 3] });
     lol(x, m, Array.from({ length: 8 }, (_, n) => [n, n % 2 ? -1 : 1]), c.a); for (let n = 0; n < 8; n++) dot(x, m.X(n), m.Y(0), c.b, 3.6, true); } }]);
   RF[6] = () => rootsFig(rcv(6), 8, 3, 150);
-  RF[7] = () => { const xv = [1, 2, 3, 4], [R, I] = dft(xv); panels(rcv(7), 140, [{ xr: [-0.6, 3.6], yr: [0, 28], lab: '|x[n]|², Σ = 30', ticks: nT(4, 1), draw: (x, m, c) => { lol(x, m, xv.map((v, n) => [n, v * v]), c.a); xv.forEach((v, n) => txt(x, String(v * v), m.X(n) + 5, m.Y(v * v), c.a)); } },
-    { xr: [-0.6, 3.6], yr: [0, 28], lab: '|X[k]|²/N, Σ = 30', ticks: nT(4, 1), draw: (x, m, c) => { const e = R.map((v, k) => (v * v + I[k] * I[k]) / 4); lol(x, m, e.map((v, k) => [k, v]), c.b); e.forEach((v, k) => txt(x, fx(v, 0), m.X(k) + 5, m.Y(v), c.b)); } }]); };
+  RF[7] = () => { const xv = [1, 2, 3, 4], [R, I] = dft(xv); panels(rcv(7), 140, [{ xr: [-0.6, 3.6], yr: [0, 28], yl: '|x[n]|², Σ = 30', xl: 'n', ticks: nT(4, 1), draw: (x, m, c) => { lol(x, m, xv.map((v, n) => [n, v * v]), c.a); xv.forEach((v, n) => txt(x, String(v * v), m.X(n) + 5, m.Y(v * v), c.a)); } },
+    { xr: [-0.6, 3.6], yr: [0, 28], yl: '|X[k]|²/N, Σ = 30', xl: 'k', ticks: nT(4, 1), draw: (x, m, c) => { const e = R.map((v, k) => (v * v + I[k] * I[k]) / 4); lol(x, m, e.map((v, k) => [k, v]), c.b); e.forEach((v, k) => txt(x, fx(v, 0), m.X(k) + 5, m.Y(v), c.b)); } }]); };
   RF[8] = () => { const N = 256, r = Lab.rng(18), re = new Float64Array(N), im = new Float64Array(N); for (let n = 0; n < N; n++) re[n] = 0.5 * Math.cos(TAU * 40 * n / N) + r.g(); Lab.fft(re, im);
-    panels(rcv(8), 150, [{ xr: [0, 136], yr: [-20, 18], base: -20, lab: '10log₁₀(|X|²/Nσ²), A = 0.5, σ = 1, N = 256', ticks: [[0, '0'], [40, '40'], [64, '64'], [128, '128']], hlines: [[12.04, '12.0 dB'], [0, '0 dB']], draw: (x, m, c) => {
+    panels(rcv(8), 150, [{ xr: [0, 136], yr: [-20, 18], base: -20, yl: '10log₁₀(|X|²/Nσ²), A = 0.5, σ = 1, N = 256', xl: 'k', ticks: [[0, '0'], [40, '40'], [64, '64'], [128, '128']], hlines: [[12.04, '12.0 dB'], [0, '0 dB']], draw: (x, m, c) => {
       const p = []; for (let k = 0; k <= 128; k++) p.push([k, Math.max(-20, 10 * Math.log10((re[k] * re[k] + im[k] * im[k]) / N + 1e-12))]); x.save(); x.strokeStyle = c.mu; x.lineWidth = 1; x.beginPath(); p.forEach((q, i) => i ? x.lineTo(m.X(q[0]), m.Y(q[1])) : x.moveTo(m.X(q[0]), m.Y(q[1]))); x.stroke(); x.restore();
       dot(x, m.X(40), m.Y(p[40][1]), c.b, 3.5); } }]); };
   RF[9] = () => { const cv = rcv(9), c = col(); const { x, w, h } = M.size(cv, 150); const N = 16;
-    const P = plane(x, { x: w * 0.25, y: 4, w: w * 0.75 - 8, h: h - 8 }, 9.2, {}); [[0, c.a, 'δ = 0: |X| = 16'], [0.5, c.c, 'δ = ½: 16·2/π = 10.2'], [1, c.b, 'δ = 1: |X| = 0']].forEach(([dl, cc, lab], i) => {
-      const pts = cum(n => [Math.cos(TAU * dl * n / N), Math.sin(TAU * dl * n / N)], N).map(p => [p[0] - 8, p[1] - 3]); path(x, P, pts, cc, 2.2); dot(x, P.X(pts[0][0]), P.Y(pts[0][1]), c.fg, 3); dot(x, P.X(pts[N][0]), P.Y(pts[N][1]), cc, 3.4);
+    const P = plane(x, { x: w * 0.25, y: 4, w: w * 0.75 - 8, h: h - 8 }, 9.2, {}); [[0, c.a, 'δ = 0: |X| = 16', null], [0.5, c.c, 'δ = ½: 16·2/π = 10.2', [6, 4]], [1, c.b, 'δ = 1: |X| = 0', [2, 3]]].forEach(([dl, cc, lab, ds], i) => {
+      const pts = cum(n => [Math.cos(TAU * dl * n / N), Math.sin(TAU * dl * n / N)], N).map(p => [p[0] - 8, p[1] - 3]); path(x, P, pts, cc, 2.2, 0, ds); dot(x, P.X(pts[0][0]), P.Y(pts[0][1]), c.fg, 3); dot(x, P.X(pts[N][0]), P.Y(pts[N][1]), cc, 3.4);
       txt(x, lab, 6, 14 + 15 * i, cc, 'left', 'middle', 10.5, true); }); };
   RF[10] = () => panels(rcv(10), 150, [{ xr: [0, 8], yr: [-70, 3], base: -70, lab: 'window spectrum (dB) vs offset (bins), N = 32', ticks: [[1, '1'], [2, '2'], [4, '4'], [6, '6'], [8, '8']], hlines: [[-13.26, '−13.3'], [-31.47, '−31.5']], draw: (x, m, c) => {
-    M.curve(x, m, dl => Math.max(-70, 20 * Math.log10(dirich(dl, 32) + 1e-9)), c.a, { w: 1.4 }); M.curve(x, m, dl => Math.max(-70, 20 * Math.log10(hannK(dl, 32) + 1e-9)), c.b, { w: 1.6 }); } }]);
+    M.curve(x, m, dl => Math.max(-70, 20 * Math.log10(dirich(dl, 32) + 1e-9)), c.a, { w: 1.4 }); M.curve(x, m, dl => Math.max(-70, 20 * Math.log10(hannK(dl, 32) + 1e-9)), c.b, { w: 1.6, dash: [6, 4] }); } }]);
   RF[11] = () => { const cv = rcv(11); const { x, w, h } = M.size(cv, 150); const c = col(); const N = 16;
     [[0.5, 'tones 0.5 bin apart: one lobe'], [2, 'tones 2 bins apart: resolved']].forEach(([sep, lab], i) => { const sig = n => Math.cos(TAU * 4 * n / N) + Math.cos(TAU * (4 + sep) * n / N);
       const D = k => { let re = 0, im = 0; for (let n = 0; n < N; n++) { const v = sig(n), a = -TAU * k * n / N; re += v * Math.cos(a); im += v * Math.sin(a); } return Math.hypot(re, im) / N; };
-      const pw = (w - 30) / 2, m = M.panel(x, { x: 4 + i * (pw + 22), y: 16, w: pw, h: h - 36 }, [1, 8], [0, sep < 1 ? 1.05 : 0.62], { lab, ticks: [[4, '4'], [4 + sep, fx(4 + sep, 1)]] });
+      const pw = (w - 30) / 2, m = M.panel(x, { x: 4 + i * (pw + 22), y: 16, w: pw, h: h - 36 }, [1, 8], [0, sep < 1 ? 1.05 : 0.62], { yl: '|X|/N, ' + lab, xl: 'k (bins)', ticks: [[4, '4'], [4 + sep, fx(4 + sep, 1)]] });
       M.curve(x, m, D, c.b, { w: 1.4 }); for (let k = 1; k <= 8; k++) dot(x, m.X(k), m.Y(D(k)), c.a, 3); }); };
   RF[12] = () => bflySchem(rcv(12), ['−2', '−2', '−j', '−2+2j', '−2−2j'], 130);
   RF[13] = () => opsFig(rcv(13), 140);
   RF[14] = () => { const cv = rcv(14), c = col(); const { x, w, h } = M.size(cv, 140); const N = 8, xl = 64, xr = w - 96, y = i => 14 + i * (h - 26) / (N - 1);
     const rev = i => ((i & 1) << 2) | (i & 2) | ((i & 4) >> 2);
-    for (let p = 0; p < N; p++) { const n = rev(p); seg(x, xl, y(n), xr, y(p), p % 2 ? c.b : c.a, 1.4); txt(x, n + ' (' + n.toString(2).padStart(3, '0') + ')', xl - 6, y(n), c.fg, 'right', 'middle', 9.5);
+    for (let p = 0; p < N; p++) { const n = rev(p); seg(x, xl, y(n), xr, y(p), p % 2 ? c.b : c.a, 1.4, p % 2 ? [6, 4] : null); txt(x, n + ' (' + n.toString(2).padStart(3, '0') + ')', xl - 6, y(n), c.fg, 'right', 'middle', 9.5);
       txt(x, 'pos ' + p + ' (' + p.toString(2).padStart(3, '0') + ')', xr + 6, y(p), c.fg, 'left', 'middle', 9.5); dot(x, xl, y(n), c.fg, 2.4); dot(x, xr, y(p), c.fg, 2.4); } };
   RF[15] = () => orderFig(rcv(15), 160);
-  RF[16] = () => panels(rcv(16), 140, [{ xr: [-0.4, 7.6], yr: [-330, 200], lab: '∠X[k] of δ[n − 1], N = 8: wrapped (dots), unwrapped (dashed)', ticks: nT(8, 1), hlines: [[-180, '−180°']], draw: (x, m, c) => {
-    M.curve(x, m, k => -45 * k, c.mu, { w: 1.2, dash: [4, 3] }); lol(x, m, Array.from({ length: 8 }, (_, k) => [k, deg(Math.cos(TAU * k / 8), -Math.sin(TAU * k / 8))]), c.b); } }]);
-  function drawRF() { Object.keys(RF).forEach(k => { try { RF[k](); } catch (e) { console.error(e); } }); }
+  RF[16] = () => panels(rcv(16), 140, [{ xr: [-0.4, 7.6], yr: [-330, 200], yl: '∠X[k] of δ[n − 1] (°), N = 8', xl: 'k', ticks: nT(8, 1), hlines: [[-180, '−180°']], draw: (x, m, c) => {
+    M.curve(x, m, k => -45 * k, c.d, { w: 1.4, dash: [6, 4] }); lol(x, m, Array.from({ length: 8 }, (_, k) => [k, deg(Math.cos(TAU * k / 8), -Math.sin(TAU * k / 8))]), c.b); } }]);
+  const RLEG = {
+    1: [['products summed tip to tail', 'd', 'solid'], ['resultant X[k]', 'c', 'solid']],
+    2: [['cos(2πn/8) → 4', 'a', 'solid'], ['sin(2πn/8) → −4j', 'b', 'solid'], ['cos(2πn/8 + 45°) → 4e^(j45°)', 'c', 'solid']],
+    3: [['|X[k]|', 'a', 'stem'], ['A·N/2 = 8', 'mu', 'dash']],
+    4: [['Re X (top)', 'a', 'stem'], ['Im X (bottom)', 'b', 'stem'], ['symmetry axis k = 4', 'mu', 'dash']],
+    5: [['φ = 0: cos πt', 'a', 'dash'], ['φ = 90°: −sin πt', 'b', 'dot'], ['samples, φ = 0: ±1', 'a', 'stem'], ['samples, φ = 90°: all 0', 'b', 'mark']],
+    6: RLEG_ROOTS,
+    7: [['|x[n]|² (top)', 'a', 'stem'], ['|X[k]|²/N (bottom)', 'b', 'stem']],
+    8: [['noisy periodogram (dB)', 'mu', 'solid'], ['tone bin k = 40', 'b', 'mark'], ['12.0 dB and 0 dB levels', 'mu', 'dash']],
+    9: [['δ = 0', 'a', 'solid'], ['δ = ½', 'c', 'dash'], ['δ = 1', 'b', 'dot']],
+    10: [['rectangular (Dirichlet)', 'a', 'solid'], ['Hann', 'b', 'dash'], ['first sidelobes −13.3 and −31.5 dB', 'mu', 'dash']],
+    11: [['DTFT of the 16-point record', 'b', 'solid'], ['16-point DFT bins', 'a', 'mark']],
+    12: [['to the top output E + WO', 'a', 'solid'], ['to the bottom output E − WO', 'b', 'dash']],
+    13: [['N² (direct)', 'b', 'solid'], ['(N/2) log₂N (radix-2)', 'a', 'dash'], ['ratio at N = 1024', 'mu', 'dash']],
+    14: [['to an even output position', 'a', 'solid'], ['to an odd output position', 'b', 'dash']],
+    15: [['fft order (top)', 'a', 'stem'], ['after fftshift (bottom)', 'b', 'stem'], ['continuous DTFT', 'mu', 'dash']],
+    16: [['∠X[k], wrapped', 'b', 'stem'], ['−45°·k, unwrapped', 'd', 'dash'], ['−180°', 'mu', 'dash']]
+  };
+  function drawRF() { Object.keys(RF).forEach(k => { try { RF[k](); const cv = rcv(k), nx = cv && cv.nextElementSibling; if (cv && RLEG[k] && !(nx && nx.classList.contains('legend'))) cv.insertAdjacentHTML('afterend', Lab.legendHTML(RLEG[k])); } catch (e) { console.error(e); } }); }
 
   function drawAll() { visRead(); drawF1(); drawD1(); drawD2(); drawD3(); drawD4(); drawD5(); drawF8(); drawD6(); drawRF(); }
   Lab.onShow('m2', drawAll);
