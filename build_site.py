@@ -247,14 +247,55 @@ SITE_CSS = r'''<style>
 @media (max-width: 860px) {
   .site-rail details.part, .site-rail .quick, .site-rail .part h4 { display: none; }
   .site-rail .part.cur { display: contents; }
+  .site-rail .brand .bt { display: none; } .site-rail .brand .mark { width: 30px; height: 26px; }
   .site-rail .allmods { display: block; white-space: nowrap; font: 600 0.82rem var(--f-display); text-decoration: none; padding: 6px 8px; }
   .page-meta { margin-top: 0; }
 }
+.site-rail .rmenu { display: none; }
+@media (max-width: 860px) {
+  .site-rail .rmenu { display: block; position: sticky; right: 0; margin-left: auto; padding-left: 6px; background: var(--paper); z-index: 2; }
+  .site-rail .rmenu > summary { list-style: none; width: 44px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; color: var(--ink); }
+  .site-rail .rmenu > summary::-webkit-details-marker { display: none; }
+  .site-rail .rmenu > summary:hover, .site-rail .rmenu[open] > summary { background: var(--grid); }
+  .site-rail .rmenu-pop { position: fixed; right: max(8px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 60px); width: min(300px, calc(100vw - 24px));
+    max-height: calc(100vh - 80px); overflow-y: auto; overscroll-behavior: contain; padding: 10px 10px 12px; background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; box-shadow: 0 12px 28px rgba(0,0,0,.25); z-index: 60; }
+  .site-rail .rmenu-pop .os-menu { margin-bottom: 4px; }
+  .site-rail .rmenu-pop .mh { margin: 10px 4px 4px; font: 600 0.7rem/1.3 var(--f-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .site-rail .mpart > summary { list-style: none; cursor: pointer; padding: 8px 4px; font: 600 0.86rem/1.3 var(--f-display); color: var(--ink); border-left: 3px solid var(--pc, var(--accent)); padding-left: 8px; margin: 2px 0; }
+  .site-rail .mpart > summary::-webkit-details-marker { display: none; }
+  .site-rail .mpart a, .site-rail .msite a { display: block; padding: 8px 6px 8px 12px; border-radius: 6px; color: var(--ink); text-decoration: none; font: 500 0.9rem/1.3 var(--f-display); white-space: normal; }
+  .site-rail .mpart a .num { font: 600 0.76rem var(--f-mono); color: var(--muted); margin-right: 8px; }
+  .site-rail .mpart a[aria-current="page"] { background: var(--accent-wash); color: var(--accent); }
+  .site-rail .mpart a:hover, .site-rail .msite a:hover { background: var(--grid); }
+  .site-rail .msite { display: grid; grid-template-columns: 1fr 1fr; gap: 0 4px; } .site-rail .msite a { padding-left: 6px; }
+}
 /* ---- standalone pages (landing, about, ...) ---- */
-.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 22px; padding: 14px clamp(16px, 4vw, 56px); border-bottom: 1px solid var(--rule); }
-.top .brand { font: 700 1.08rem/1.15 var(--f-display); font-stretch: 82%; color: var(--ink); text-decoration: none; margin-right: auto; }
-.top nav { display: flex; flex-wrap: wrap; gap: 4px 18px; font: 500 0.9rem/1.4 var(--f-display); }
-.top nav a { color: var(--ink); text-decoration: none; } .top nav a:hover, .top nav a[aria-current="page"] { color: var(--accent); }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 40; display: flex; align-items: center; gap: 6px 22px; min-height: 60px; box-sizing: border-box;
+  padding: 0 max(clamp(16px, 4vw, 56px), env(safe-area-inset-right, 0px)) 0 max(clamp(16px, 4vw, 56px), env(safe-area-inset-left, 0px));
+  background: color-mix(in srgb, var(--paper) 92%, transparent); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--rule); }
+.top .brand { display: flex; align-items: center; gap: 10px; font: 700 1.08rem/1.15 var(--f-display); font-stretch: 82%; color: var(--ink); text-decoration: none; margin-right: auto; white-space: nowrap; text-transform: none; letter-spacing: 0; }
+.mark .mk-w { fill: none; stroke: var(--sig4); stroke-width: 1.6; } .mark .mk-w2 { opacity: .6; } .mark .mk-e { fill: var(--accent); }
+.top nav.main { display: flex; align-items: center; gap: 4px 20px; font: 500 0.92rem/1.4 var(--f-display); }
+.top nav.main > a, .top .more > summary { color: var(--ink); text-decoration: none; padding: 19px 0 17px; border-bottom: 2px solid transparent; cursor: pointer; }
+.top nav.main > a:hover, .top .more > summary:hover { color: var(--accent); }
+.top nav.main > a[aria-current="page"], .top .more > summary.cur { border-bottom-color: var(--accent); }
+.top details > summary { list-style: none; } .top details > summary::-webkit-details-marker { display: none; }
+.top .more { position: relative; } .top .more > summary::after { content: " \25BE"; font-size: .8em; color: var(--muted); }
+.top .more-pop { position: absolute; right: 0; top: calc(100% + 6px); min-width: 12rem; display: flex; flex-direction: column; padding: 6px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+.top .more-pop a { color: var(--ink); text-decoration: none; padding: 9px 10px; border-radius: 6px; } .top .more-pop a:hover, .top .more-pop a[aria-current="page"] { background: var(--grid); color: var(--accent); }
+.top .ico { width: 44px; height: 44px; display: none; align-items: center; justify-content: center; color: var(--ink); background: none; border: 0; border-radius: 8px; cursor: pointer; padding: 0; }
+.top .ico:hover { background: var(--grid); } .top .ico:focus-visible, .top summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.top .menu { display: none; position: static; }
+.top .menu-pop { position: absolute; right: max(8px, env(safe-area-inset-right, 0px)); top: calc(100% + 4px); width: min(250px, calc(100vw - 32px)); max-height: calc(100vh - 80px); overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+  padding: 6px 10px 8px; background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; box-shadow: 0 12px 28px rgba(0,0,0,.25); }
+.top .mgrp { display: flex; flex-direction: column; } .top .mgrp p { margin: 6px 0 0; font: 600 0.72rem/1.3 var(--f-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.top .mgrp a { color: var(--ink); text-decoration: none; font: 500 0.98rem/1.3 var(--f-display); padding: 10px 4px; border-radius: 6px; } .top .mgrp a:hover { background: var(--grid); } .top .mgrp a:last-child { border-bottom: 0; }
+.top .mgrp a[aria-current="page"] { color: var(--accent); }
+@media (max-width: 860px) {
+  .top { flex-wrap: wrap; gap: 0 2px; padding-right: max(8px, env(safe-area-inset-right, 0px)); min-height: 56px; }
+  .top nav.main { display: none; } .top .ico { display: flex; } .top .menu { display: block; }
+  .top .os-top { display: none; order: 9; width: 100% !important; flex-basis: 100%; padding: 0 8px 10px 0; } .top.searching .os-top { display: block; }
+}
 .page { max-width: 1060px; padding: 28px clamp(16px, 4vw, 56px) 64px; }
 .page .prose { max-width: 72ch; }
 .page pre.cite { font: 400 0.8rem/1.55 var(--f-mono); background: var(--code-bg); border: 1px solid var(--rule); border-radius: var(--radius); padding: 12px 14px; overflow-x: auto; white-space: pre; }
@@ -271,6 +312,27 @@ SITE_CSS = r'''<style>
 .hero .by { color: var(--muted); font-size: 0.95rem; margin: 2px 0 0; }
 .hero .cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 .hero .cta a { text-decoration: none; }
+.hero2 { display: block; max-width: none; padding-top: 30px; }
+.hero2 h1 { font-size: clamp(2.4rem, 5vw, 3.7rem); line-height: 1; }
+.hero2 .lede { font-size: 1.12rem; }
+.hero2 .statline { font: 400 0.84rem/1.5 var(--f-mono); color: var(--muted); margin: 16px 0 0; }
+.hero-map { min-width: 0; margin-top: 30px; } .hero2 .hero-text { max-width: 760px; } .hero-map .aperture-cap { margin: 0 0 8px; } 
+.hero-map .pathbar { margin: 12px 0 0; } .hero-map .pathbar .btn { font-size: .84rem; padding: 7px 11px; } .hero-map .paths { grid-template-columns: minmax(0, 1fr); margin-top: 10px; }
+.beamfig { margin: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 12px 14px 12px; min-width: 0; }
+.beamfig .bf-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font: 600 0.86rem/1.3 var(--f-display); margin-bottom: 4px; }
+.beamfig canvas { display: block; width: 100%; touch-action: pan-y; }
+.bf-ctl { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.bf-ctl label { display: flex; justify-content: space-between; font: 500 0.86rem/1.3 var(--f-display); }
+.bf-ctl output { font-family: var(--f-mono); color: var(--accent); }
+.bf-ctl input[type=range] { width: 100%; accent-color: var(--accent); }
+.bf-seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.bf-seg button { flex: 1 1 10rem; min-height: 40px; font: 500 0.82rem/1.2 var(--f-display); color: var(--ink); background: transparent; border: 1px solid var(--rule); border-radius: 8px; cursor: pointer; padding: 6px 8px; }
+.bf-seg button[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.bf-read { margin: 0; font: 400 0.8rem/1.4 var(--f-mono); color: var(--muted); }
+.beamfig figcaption { margin-top: 8px; font: 400 0.76rem/1.45 var(--f-display); color: var(--muted); }
+.path details.pmods > summary { cursor: pointer; font: 500 0.88rem/1.3 var(--f-display); color: var(--accent); padding: 4px 0; }
+.path details.pmods[open] > summary { margin-bottom: 6px; }
+@media (max-width: 860px) { .hero2 { grid-template-columns: minmax(0, 1fr); padding-top: 18px; gap: 18px; } .hero2 .cta .btn { flex: 1 1 auto; text-align: center; } }
 .aperture-wrap { margin: 34px 0 6px; }
 .aperture-cap { font: 400 0.84rem/1.45 var(--f-display); color: var(--muted); margin: 0 0 8px; max-width: 72ch; }
 .aperture { display: grid; grid-template-columns: repeat(var(--nmods, 34), minmax(0, 1fr)); gap: 3px; }
@@ -330,8 +392,11 @@ SITE_CSS = r'''<style>
 .iv-toc { columns: 3 15em; column-gap: 24px; font-size: 0.9rem; padding-left: 0; list-style: none; }
 .iv-toc .num { font: 600 0.76rem var(--f-mono); color: var(--muted); margin-right: 6px; }
 @media (max-width: 700px) {
-  .aperture { grid-template-columns: repeat(11, minmax(0, 1fr)); row-gap: 6px; }
-  .aperture a.el { height: 46px; }
+  .aperture { grid-template-columns: repeat(12, minmax(0, 1fr)); row-gap: 5px; }
+  .aperture a.el { height: 34px; font-size: .72rem; }
+  .hero-map .pathbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .hero-map .pathbar .btn { font-size: .78rem; padding: 7px 8px; line-height: 1.2; }
+  .aperture.has-path a.el.on { transform: translateY(-3px); }
   .aperture .plab { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .aperture a.el { transition: none; } .aperture.has-path a.el.on { transform: none; } }
@@ -371,7 +436,7 @@ SEARCH_CSS = r"""
 #os-list .os-none { padding: 10px 12px; color: var(--muted); }
 :target { scroll-margin-top: 76px; }
 .demo:target, .rule:target, .eqn:target, details.quiz:target, tr:target { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (max-width: 860px) { .site-rail .os-rail { display: none; } .os-meta { display: block; } .top .os-box { width: 100%; order: 3; } }
+@media (max-width: 860px) { .site-rail .os-rail { display: none; } .os-meta { display: block; } }
 """
 SITE_CSS = SITE_CSS.replace('</style>', SEARCH_CSS + '</style>')
 SITE_CSS = SITE_CSS.replace('</style>', '''.rv-steps { padding-left: 1.2em; } .rv-steps li { margin: 6px 0; } .rv-d { display: inline-block; min-width: 6.5em; color: var(--muted); font-size: 0.9em; }
@@ -446,10 +511,10 @@ def header_v2(body, n):
     obj_ul, ass = m.group(1), m.group(2)
     items = []
     for li in re.findall(r'<li>(.*?)</li>', ass, re.S):
-        a = re.search(r'(<a [^>]*>)Module (\d+)</a>', li)
-        rest = re.sub(r'^.*?</a>\s*·?\s*', '', li, flags=re.S).strip()
-        hint = rest.split(':', 1)[1].strip() if ':' in rest else rest
-        items.append((a.group(1) + a.group(2) + '</a> ' if a else '') + hint)
+        # Compact only the canonical form "<a>Module NN</a> · Title: hint"; keep any other phrasing verbatim
+        # (31 Oct 2026: free-form items rendered as "Builds on );" in M16/M33 and lost module refs elsewhere).
+        a = re.match(r'\s*(<a [^>]*>)Module (\d+)</a>\s*·\s*([^<]*?):\s*(.*)$', li, re.S)
+        items.append(a.group(1) + a.group(2) + '</a> ' + a.group(4).strip() if a else li.strip())
     builds = '<p class="builds"><span class="lbl">Builds on</span> ' + ' · '.join(items) + '</p>' if items else ''
     heads = re.findall(r'<h2 id="(m%d-(?:s[^"]+|interview))">\s*<span class="sec">([\d.]+)</span>(.*?)</h2>' % n, body, re.S)
     kw = TOC_KW.get(str(n), {})
@@ -805,17 +870,36 @@ def head(title, desc, depth, extra='', path=None, kind='website'):
             f'<title>{esc(title)}</title>\n<meta name="description" content="{attr(desc)}">\n'
             f'<meta property="og:title" content="{attr(title)}">\n<meta property="og:description" content="{attr(desc)}">\n'
             + seo_tags(title, desc, path, kind)
+            + f'<link rel="icon" href="{"../" * depth}favicon.svg" type="image/svg+xml">\n<link rel="icon" href="{"../" * depth}favicon-32.png" sizes="32x32" type="image/png">\n<link rel="apple-touch-icon" href="{"../" * depth}apple-touch-icon.png">\n'
             + HEAD_CSS + '\n' + SITE_CSS + '\n' + search_script(depth) + extra + '</head>\n')
+
+
+MARK = '<svg class="mark" viewBox="0 0 26 22" width="26" height="22" aria-hidden="true"><path class="mk-w" d="M3 11 Q13 1 23 11"/><path class="mk-w mk-w2" d="M6 13 Q13 6 20 13"/><rect class="mk-e" x="2" y="17" width="3" height="4" rx=".5"/><rect class="mk-e" x="7" y="17" width="3" height="4" rx=".5"/><rect class="mk-e" x="12" y="17" width="3" height="4" rx=".5"/><rect class="mk-e" x="17" y="17" width="3" height="4" rx=".5"/><rect class="mk-e" x="22" y="17" width="3" height="4" rx=".5"/></svg>'
+ICON_SEARCH = '<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13 13 L18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+ICON_MENU = '<svg viewBox="0 0 22 22" width="22" height="22" aria-hidden="true"><path d="M3 6h16M3 11h16M3 16h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
 
 
 def topbar(depth, cur=''):
     up = '../' * depth
-    items = [('index.html#map', 'Modules', 'map'), ('index.html#paths', 'Learning paths', 'paths'),
-             ('formula-sheet/index.html', 'Formula sheet', 'sheet'), ('interview/index.html', 'Interview prep', 'interview'),
-             ('glossary.html', 'Glossary', 'glossary'), ('about.html', 'About', 'about'), ('errata.html', 'Review &amp; errata', 'errata')]
-    nav = ''.join(f'<a href="{up}{h}"' + (' aria-current="page"' if k == cur else '') + f'>{t}</a>' for h, t, k in items)
-    return (f'<a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="{up}index.html">Open Ultrasound Lab</a>'
-            f'<nav aria-label="Site">{nav}</nav>{search_box("top", depth)}</header>\n')
+    def a(h, t, k):
+        return f'<a href="{up}{h}"' + (' aria-current="page"' if k == cur else '') + f'>{t}</a>'
+    main = [('index.html#map', 'Modules', 'map'), ('index.html#paths', 'Learning paths', 'paths'),
+            ('formula-sheet/index.html', 'Formula sheet', 'sheet'), ('interview/index.html', 'Interview prep', 'interview')]
+    more = [('glossary.html', 'Glossary', 'glossary'), ('about.html', 'About', 'about'), ('errata.html', 'Review &amp; errata', 'errata')]
+    groups = [('Learn', [main[0], main[1], main[3]]), ('Reference', [main[2], more[0]]), ('About', [('about.html', 'About this lab', 'about'), more[2]])]
+    nav = ''.join(a(*i) for i in main)
+    nav += ('<details class="more"><summary' + (' class="cur"' if cur in ('glossary', 'about', 'errata') else '') + '>More</summary><div class="more-pop">'
+            + ''.join(a(*i) for i in more) + '</div></details>')
+    menu = ''.join(f'<div class="mgrp"><p>{g}</p>' + ''.join(a(*i) for i in items) + '</div>' for g, items in groups)
+    js = ("<script>(function(){var t=document.currentScript.parentNode,b=t.querySelector('.ico-srch'),q=t.querySelector('.os-top input');"
+          "if(b&&q)b.addEventListener('click',function(){var on=t.classList.toggle('searching');b.setAttribute('aria-expanded',on?'true':'false');if(on)q.focus();});"
+          "t.querySelectorAll('details').forEach(function(d){d.addEventListener('toggle',function(){if(d.open)t.querySelectorAll('details').forEach(function(o){if(o!==d)o.open=false;});});});"
+          "t.querySelectorAll('details a').forEach(function(l){l.addEventListener('click',function(){t.querySelectorAll('details[open]').forEach(function(d){d.open=false;});});});document.addEventListener('keydown',function(e){if(e.key==='Escape')t.querySelectorAll('details[open]').forEach(function(d){d.open=false;});});document.addEventListener('click',function(e){if(!t.contains(e.target))t.querySelectorAll('details[open]').forEach(function(d){d.open=false;});});})();</script>")
+    return (f'<a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="{up}index.html">{MARK}<span>Open Ultrasound Lab</span></a>'
+            f'<nav class="main" aria-label="Site">{nav}</nav>{search_box("top", depth)}'
+            f'<button class="ico ico-srch" type="button" aria-label="Search the course" aria-expanded="false">{ICON_SEARCH}</button>'
+            f'<details class="menu"><summary class="ico" aria-label="Menu">{ICON_MENU}</summary><nav class="menu-pop" aria-label="Site menu">{menu}</nav></details>'
+            f'{js}</header>\n')
 
 
 def static_page(path, title, desc, body, cur='', mathjax=False, ld=None):
@@ -846,7 +930,7 @@ def rail_html(cur):
     up = rel('.', from_dir) if from_dir else '.'
     up = up + '/'
     h = [f'<aside class="rail site-rail" aria-label="Course modules">',
-         f'<a class="brand" href="{up}index.html">Open Ultrasound Lab<small>{len(MODS)} modules in six parts</small></a>',
+         f'<a class="brand" href="{up}index.html">{MARK}<span class="bt"> Open Ultrasound Lab</span><small>Math · physics · hardware · signal processing</small></a>',
          f'<div class="quick"><a href="{up}index.html#paths">Learning paths</a><a href="{up}formula-sheet/index.html">Formula sheet</a>'
          f'<a href="{up}interview/index.html">Interview prep</a></div>', search_box('rail', 2)]
     for i, (ro, name, a, z) in enumerate(PARTS, 1):
@@ -863,7 +947,19 @@ def rail_html(cur):
             h.append(f'<div class="part cur p{i}"><h4>{label}</h4>{nav}</div>')
         else:
             h.append(f'<details class="part p{i}"><summary>{label}</summary>{nav}</details>')
-    h.append(f'<a class="allmods" href="{up}index.html#map">All parts</a>')
+    mparts = []
+    for i, (ro, name, a, z) in enumerate(PARTS, 1):
+        ml = ''.join(f'<a href="{"#top" if n == cur else rel(MODS[n]["url"], from_dir)}"' + (' aria-current="page"' if n == cur else '') + f'><span class="num">{n:02d}</span>{esc(MODS[n]["short"])}</a>'
+                     for n in range(a, z + 1) if n in MODS)
+        mparts.append(f'<details class="mpart p{i}"' + (' open' if part_of(cur) == i else '') + f'><summary>Part {ro} · {esc(name)}</summary>{ml}</details>')
+    site = ''.join(f'<a href="{up}{hh}">{tt}</a>' for hh, tt in [('index.html', 'Home'), ('index.html#paths', 'Learning paths'), ('formula-sheet/index.html', 'Formula sheet'),
+                                                                  ('interview/index.html', 'Interview prep'), ('glossary.html', 'Glossary'), ('errata.html', 'Review &amp; errata')])
+    h.append(f'<details class="rmenu"><summary class="ico" aria-label="Menu">{ICON_MENU}</summary><div class="rmenu-pop">{search_box("menu", 2)}'
+             f'<p class="mh">All modules</p>{"".join(mparts)}<p class="mh">Site</p><div class="msite">{site}</div></div></details>')
+    h.append("<script>(function(){var d=document.currentScript.previousElementSibling;if(!d)return;var close=function(){d.open=false;};"
+             "d.querySelectorAll('.rmenu-pop a').forEach(function(l){l.addEventListener('click',close);});"
+             "document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});"
+             "document.addEventListener('click',function(e){if(!d.contains(e.target))close();});})();</script>")
     h.append('</aside>')
     return '\n'.join(h)
 
@@ -1048,7 +1144,7 @@ def landing():
             data = ''
         else:
             lis = ''.join(f'<li><span class="num">{n:02d}</span><a href="{MODS[n]["url"]}">{esc(MODS[n]["short"])}</a></li>' for n in mods if n in MODS)
-            body = f'<p>{esc(desc)} {len(mods)} modules, in order.</p><ol>{lis}</ol>'
+            body = f'<p>{esc(desc)}</p><details class="pmods" open><summary>The {len(mods)} modules, in order</summary><ol>{lis}</ol></details>'
             data = ' data-mods="' + ','.join(str(n) for n in mods) + '"'
         paths.append(f'<div class="path" id="path-{key}"{data}><h3>{esc(name)}</h3>{body}</div>')
         btns.append(f'<button class="btn" type="button" data-path="{key}" aria-pressed="false" aria-controls="path-{key}">{esc(name)}</button>')
@@ -1062,7 +1158,7 @@ def landing():
   function pick(key) {
     var mods = [];
     btns.forEach(function (b) { var on = b.dataset.path === key; b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-    cards.forEach(function (c) { var on = !key || c.id === 'path-' + key; c.hidden = !on; if (key && on && c.dataset.mods) mods = c.dataset.mods.split(',').map(Number); });
+    cards.forEach(function (c) { var on = !!key && c.id === 'path-' + key; c.hidden = !on; if (key && on && c.dataset.mods) mods = c.dataset.mods.split(',').map(Number); });
     ap.classList.toggle('has-path', mods.length > 0);
     ap.querySelectorAll('a.el').forEach(function (a) { a.classList.toggle('on', mods.indexOf(+a.dataset.n) >= 0); });
   }
@@ -1071,47 +1167,43 @@ def landing():
 })();
 </script>'''
 
-    body = f'''<div class="hero">
+    body = f'''<div class="hero hero2">
+  <div class="hero-text">
   <p class="eyebrow">Free · open · interactive</p>
   <h1>Open Ultrasound Lab</h1>
-  <p class="lede">The mathematics, physics and signal processing behind modern ultrasound imaging, from phasors and the FFT to transducers, beamforming, Doppler, elastography, localization microscopy, sound-speed estimation and aberration correction, and on to the display chain, image enhancement and getting a device cleared. Every idea comes with a figure you can change.</p>
-  <ul class="stats" aria-label="Course at a glance">
-    <li><b>{len(MODS)}</b><span>modules in 6 parts</span></li>
-    <li><b>{n_demos}</b><span>live demos</span></li>
-    <li><b>{n_eq}</b><span>numbered equations</span></li>
-    <li><b>{n_scripts}</b><span>MATLAB/Octave labs</span></li>
-    <li><b>{n_questions}</b><span>interview questions</span></li>
-    <li><b>{len(GLOSS)}</b><span>glossary terms</span></li>
-  </ul>
-  {search_box('hero', 0)}
-  <div class="cta"><a class="btn solid" href="{MODS[min(MODS)]["url"]}">Start with module 01</a><a class="btn" href="#paths">Choose a learning path</a><a class="btn" href="formula-sheet/index.html">Formula sheet</a></div>
-  <p class="by">Version {esc(VERSION)} · last reviewed {esc(DATE)}</p>
+  <p class="lede">The mathematics, physics and signal processing behind ultrasound imaging, from phasors to beamforming, Doppler and getting a device cleared. Every idea comes with a figure you can change.</p>
+  <div class="cta"><a class="btn solid" href="{MODS[min(MODS)]["url"]}">Start with module 01</a><a class="btn" href="#paths">Choose a learning path</a></div>
+  <p class="statline">{len(MODS)} modules · {n_demos} live demos · {n_eq} equations · {n_scripts} MATLAB/Octave labs · {n_questions} interview questions · {len(GLOSS)} glossary terms</p>
+  </div>
 </div>
 <section class="note" aria-labelledby="note-h">
   <div class="note-mark" aria-hidden="true">&ldquo;</div>
   <div class="note-body">
     <h2 id="note-h">Why I built this</h2>
     <p class="note-lead">I am an ultrasound engineer, and I am still learning every day.</p>
-    <p>For years I wished the fundamentals, from phasors and the FFT to transducers, beamforming and the newest imaging methods, were gathered in one place and explained with figures you can change. This is my attempt, built with the help of AI and shared freely, especially for students and young engineers who are just getting started.</p>
+    <p>For years I wished the fundamentals, from phasors and the FFT to transducers, beamforming, the newest imaging methods and regulatory planning, were gathered in one place and explained with figures you can change. This is my attempt, built with the help of AI and shared freely, especially for students and young engineers who are just getting started.</p>
     <ul class="note-points">
       <li><b>Free.</b> Not a product; nothing to buy.</li>
-      <li><b>Checked.</b> Numbers come from code you can run.</li>
-      <li><b>Imperfect.</b> It certainly contains mistakes; please tell me.</li>
+      <li><b>Checked.</b> Formulas are recomputed in code; sources are cited.</li>
+      <li><b>Imperfect.</b> Please tell me or contribute.</li>
     </ul>
     <p>If you can explain a topic better, please contribute. I hope it saves you some of the time it would have saved me.</p>
     <div class="note-sig"><span class="name">M. Nguyen</span><span class="role">Ultrasound engineer</span>
       <a class="btn small" href="{attr(AUTHOR)}" rel="noopener">LinkedIn</a><a class="btn small" href="{attr(REPO)}">GitHub</a></div>
   </div>
 </section>
-<div class="aperture-wrap">
-  <p class="aperture-cap">The course as a {len(MODS)}-element array, one element per module, grouped into six parts. Pick a learning path below to light up its active aperture; select an element to open that module.</p>
-  {aperture}
+<div class="hero-maps">
+  <div class="hero-map" id="paths">
+    <p class="aperture-cap">The course as a {len(MODS)}-element array, one element per module. Select an element to open it, or light up a learning path:</p>
+    {aperture}
+    <div class="pathbar" id="pathbar" hidden>{"".join(btns)}</div>
+    <div class="paths" id="paths-list">{"".join(paths)}</div>
+  </div>
 </div>
 
-<h2 id="paths">Learning paths</h2>
-<div class="prose"><p>Each path is an ordered subset of modules for one goal. Earlier modules are prerequisites for later ones, so read them in the order shown.</p></div>
-<div class="pathbar" id="pathbar" hidden>{"".join(btns)}</div>
-<div class="paths" id="paths-list">{"".join(paths)}</div>
+
+
+
 
 <h2 id="map">The six parts</h2>
 <div class="prose"><p>{len(MODS)} modules, {n_demos} interactive demos, {n_eq} numbered equations and {n_scripts} MATLAB/Octave scripts. Each module follows the same arc: an "In 60 seconds" summary and practical lessons "From the field", derivations with live figures and key takeaways per section, a visual summary, how experts think about it, a cheat sheet, interview questions, a MATLAB lab, a self-check, figures from the literature and further reading.</p></div>
@@ -1485,8 +1577,9 @@ def assets():
     for f in sorted((root / 'matlab').glob('*.m')):
         shutil.copy2(f, d / f.name)
     (PUB / '.nojekyll').write_text('', encoding="utf-8")
-    if (root / 'og-card.png').exists():
-        shutil.copy2(root / 'og-card.png', PUB / 'og-card.png')
+    for fn in ('og-card.png', 'favicon.svg', 'favicon-32.png', 'apple-touch-icon.png'):
+        if (root / fn).exists():
+            shutil.copy2(root / fn, PUB / fn)
     (PUB / 'robots.txt').write_text(f'User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}sitemap.xml\n', encoding="utf-8")
     (PUB / 'CITATION.cff').write_text(cff_pub, encoding="utf-8")
     if not LOCAL:

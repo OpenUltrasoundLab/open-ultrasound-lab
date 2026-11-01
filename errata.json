@@ -1,6 +1,18 @@
 {
  "entries": [
   {
+   "version": "1.3.1",
+   "date": "2026-11-01",
+   "title": "Home page and navigation",
+   "body": "A redesigned home page and site header; no module content changed except the items below.",
+   "items": [
+    "Home page: the module map and the learning-path selector now sit together at the top, so a path lights up its modules on the same screen.",
+    "Site header: logo, compact phone menu (Learn / Reference / About) and a single search; on desktop a \"More\" menu holds Glossary, About and Review & errata.",
+    "Home page wording: \"Numbers come from code you can run\" replaced by \"Formulas are recomputed in code; sources are cited.\"",
+    "\"Builds on\" lines in Modules 16, 18 and 33 showed a stray \"Builds on );\" or lost a module link; fixed. Module 33: the symbol W now links to Module 11 and Module 32, Section 32.4."
+   ]
+  },
+  {
    "version": "1.3",
    "date": "2026-10-30",
    "title": "Modules 34–36, more pulsed-wave Doppler, key messages, field lessons, legends and a fuller glossary",
