@@ -66,10 +66,12 @@ for t = 1:ntr
   Sw = Sw/numel(st);
   Rmt(:, t) = Smt(kb)./Strue(fP(kb));  Rp(:, t) = Sp(kb)./Strue(fP(kb));  Rhw(:, t) = Sw(kb)./Strue(fP(kb));
 end
+relv = @(R) mean(var(R, 0, 2)./mean(R, 2).^2);   % per-bin var/mean^2, averaged over the band (compare with 1/K)
 fprintf('\nSpeckle gate, N = %d (%.2f mm), bins within f0 +/- 1.2 MHz, %d trials:\n', N, N/fs*1.54/2, ntr);
-fprintf('  Hann periodogram : var(S^/S) = %.3f, mean = %.3f\n', var(Rp(:)), mean(Rp(:)));
-fprintf('  Multitaper K = %d: var(S^/S) = %.3f (1/K = %.3f), mean = %.3f\n', K, var(Rmt(:)), 1/K, mean(Rmt(:)));
-fprintf('  Hann-Welch M = %d, 50%% overlap (%d segments): var = %.3f, mean = %.3f\n', M, numel(st), var(Rhw(:)), mean(Rhw(:)));
+fprintf('  (relvar = per-bin var/mean^2 averaged over the band; pooled var = var of all S^/S values, includes bin-to-bin bias)\n');
+fprintf('  Hann periodogram : relvar = %.3f, pooled var = %.3f, mean = %.3f\n', relv(Rp), var(Rp(:)), mean(Rp(:)));
+fprintf('  Multitaper K = %d: relvar = %.3f (1/K = %.3f), pooled var = %.3f, mean = %.3f\n', K, relv(Rmt), 1/K, var(Rmt(:)), mean(Rmt(:)));
+fprintf('  Hann-Welch M = %d, 50%% overlap (%d segments): relvar = %.3f, pooled var = %.3f, mean = %.3f\n', M, numel(st), relv(Rhw), var(Rhw(:)), mean(Rhw(:)));
 fprintf('  Resolution: multitaper 2W = %.3f MHz; Welch bin fs/M = %.3f MHz\n', 2*W*fs, fs/M);
 
 %% 4. Bandwidth (int Wk)^2/int Wk^2 of the averaged spectral windows (in MHz)
@@ -78,7 +80,7 @@ Wmt = mean(abs(fft(V(:, 1:K), L)).^2, 2);  Wmt = Wmt/sum(Wmt);
 Whw = abs(fft(wh, L)).^2;  Whw = Whw/sum(Whw);
 Bmt = 1/sum(Wmt.^2)*fs/L;  Bhw = 1/sum(Whw.^2)*fs/L;
 fprintf('  Spectral-window bandwidth: multitaper %.2f MHz, Welch segment %.2f MHz\n', Bmt, Bhw);
-fprintf('  variance x bandwidth x T: multitaper %.2f, Welch %.2f (T = %.2f us)\n', ...
+fprintf('  pooled variance x bandwidth x T: multitaper %.2f, Welch %.2f (T = %.2f us)\n', ...
         var(Rmt(:))*Bmt*N/fs, var(Rhw(:))*Bhw*N/fs, N/fs);
 
 %% Figures

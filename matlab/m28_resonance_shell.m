@@ -72,6 +72,9 @@ for ic = 1:2
 end
 
 %% 4. Damping and cross-section at resonance (physical radiation damping w R0 / c)
+% Note: the RK4 equation of section 3 carries the (1 - 3 k Rdot / c) compressibility term on the gas pressure only,
+% so its effective radiation damping for the shell (about 0.007 at 2 um) is below the w R0 / c used here (0.025):
+% the shelled ring-down Q (5.2 at 2 um) is therefore higher than the table's 4.7. The free bubble differs by about 10 %.
 fprintf('\nDamping at resonance and cross-section (free bubble g = 1.4 with tension; shell g = 1.07)\n');
 fprintf(' R0 (um) | model | f0 MHz | d_rad  d_vis  d_shell | Q   | sigma_s/(pi R0^2) at f0\n');
 for R0 = [1 2 3] * 1e-6

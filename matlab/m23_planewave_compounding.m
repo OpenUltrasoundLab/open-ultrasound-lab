@@ -127,7 +127,8 @@ fprintf('simulation + DAS of %d angles: %.1f s\n\n', Nang, toc);
 inB   = 1:nImg;  inL = nImg+1:nPix;
 dXc   = XG(:);   dZc = ZG(:) - 30;                         % offsets from the central target
 box   = abs(dXc) <= 4 & abs(dZc) <= 4;
-mlobe = abs(dXc) <= 1.2*lam*Fnum & abs(dZc) <= 0.4;        % mainlobe region (excluded)
+if strcmp(rxApod, 'hann'), mlw = 2.4; else, mlw = 1.2; end  % beyond the first receive null (lam*F# rect, 2*lam*F# Hann)
+mlobe = abs(dXc) <= mlw*lam*Fnum & abs(dZc) <= 0.4;        % mainlobe region (excluded)
 rr    = sqrt((XG(:)-cx).^2 + (ZG(:)-cz).^2);
 cin   = rr <= R - 0.5;  cout = rr >= R + 1 & rr <= R + 3.5;
 nS    = numel(subsets);

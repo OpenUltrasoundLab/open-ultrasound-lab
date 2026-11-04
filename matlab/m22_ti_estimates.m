@@ -4,12 +4,16 @@
 %           radiates a Gaussian-envelope pulse in water. From it: p_r.3(z), PII.3(z), I_ta.3(z),
 %           I_pa.3(z), P_alpha(z); MI at z_MI (max derated PII); I_SPTA.3, I_SPPA.3; TIS (scanning:
 %           P1 f/210; non-scanning large aperture: max over z >= z_bp of min[P_alpha, I_ta,alpha x 1 cm^2]
-%           f/210), TIB (model P_alpha/(40 mW/cm x d_-6), scanning TIB = TIS), TIC = P/(40 D_eq).
+%           f/210), TIB (model P_alpha/(40 mW/cm x d_-6), maximized over z >= z_bp as IEC 62359:2010
+%           cl. 3.19 defines the search; scanning TIB = TIS), TIC = P/(40 D_eq).
+%           A single unsteered plane wave ('plane') sends every pulse along the same path, so it is
+%           treated as non-scanning; a multi-angle compound sequence would need its own justification.
 % Change  : the preset structs (f MHz, Lx Ly mm, Fx Fy mm, p0 MPa source pressure, N cycles at -6 dB,
 %           mode 'scan' | 'unscan' | 'plane', rate or lines/frame/fov).
 % Expect  : PW preset: MI 0.60 at 4.80 cm, I_SPTA.3 428 mW/cm^2, P 39.2 mW, TIS 0.34 (z_s 2.36 cm),
 %           TIB 1.49, TIC 0.63. B-mode: MI 1.16, TIS = TIB 0.12, TIC 0.32. Push: MI 1.62,
-%           I_SPTA.3 159 mW/cm^2, I_SPPA.3 206 W/cm^2. sqrt-form TIB cross-check (C_TIB = 50):
+%           I_SPTA.3 159 mW/cm^2, I_SPPA.3 206 W/cm^2. Plane wave: TIS 0.163, TIB 0.242, TIC 0.248.
+%           Focus sweep TIB (z >= z_bp): 1.85 / 2.64 / 1.99 / 1.49 / 0.99 / 0.92 at 20-100 mm. sqrt-form TIB cross-check (C_TIB = 50):
 %           1.063 x the diameter form for these Gaussian beams.
 % Note    : TIB here uses the diameter model (40 mW/cm, Nowicki 2020 eq. 6). IEC 62359 computes
 %           non-scanning TIB as sqrt(P_alpha I_ta,alpha)/C_TIB at the depth where the product is
@@ -53,8 +57,8 @@ for k = 1:numel(presets)
   [ispta3, iT] = max(ita3*0.1); isppa3 = max(ipa3)/1e4;                   % mW/cm^2, W/cm^2
   tisA = P3a*P.f/210; tisB = ita3*0.1*P.f/210; tib = P3a./(40*1.6651*sqrt(wx.*wy)*100);
   Aap = P.Lx*P.Ly/100;
-  if ~strcmp(P.mode, 'unscan')
-    if strcmp(P.mode, 'scan'), fovcm = P.fov/10; else, fovcm = P.Lx/10; end
+  if strcmp(P.mode, 'scan')                          % scanning; 'unscan' and single-angle 'plane' are non-scanning
+    fovcm = P.fov/10;
     Pb = Pw*min(1, 1/fovcm); TIS = Pb*P.f/210; TIB = TIS; Deq = sqrt(4*(fovcm*P.Ly/10)/pi); TIC = Pw/(40*Deq); zsv = NaN; zbv = NaN; zbp = NaN;
   else
     Deq = sqrt(4*Aap/pi); zbp = 1.5*Deq; Pb = NaN;
@@ -63,14 +67,16 @@ for k = 1:numel(presets)
     else
       m = min(tisA, tisB); m(zs < zbp) = 0; [TIS, j] = max(m); zsv = zs(j);
     end
-    [TIB, jb] = max(tib); zbv = zs(jb); TIC = Pw/(40*Deq);
+    tibS = tib; tibS(zs < zbp) = 0;                              % search only z >= z_bp
+    [TIB, jb] = max(tibS); zbv = zs(jb); TIC = Pw/(40*Deq);
     CTIB = 50;                                                   % mW/cm, UNVERIFIED (see header)
-    [TIBsq, jq] = max(sqrt(P3a.*ita3*0.1)/CTIB);                 % sqrt(mW x mW/cm^2) = mW/cm
+    sq = sqrt(P3a.*ita3*0.1)/CTIB; sq(zs < zbp) = 0;             % sqrt(mW x mW/cm^2) = mW/cm
+    [TIBsq, jq] = max(sq);
   end
   fprintf('%-12s: MI %.2f at z_MI %.2f cm | I_SPTA.3 %.1f mW/cm^2 (z %.2f) | I_SPPA.3 %.1f W/cm^2 | P %.1f mW\n', ...
     P.name, MI, zs(iMI), ispta3, zs(iT), isppa3, Pw);
   fprintf('              TIS %.3f (z_s %.2f, z_bp %.2f) | TIB %.3f (z_b %.2f) | TIC %.3f (D_eq %.2f cm)\n', TIS, zsv, zbp, TIB, zbv, TIC, Deq);
-  if strcmp(P.mode, 'unscan')
+  if ~strcmp(P.mode, 'scan')
     fprintf('              cross-check sqrt(P_a I_ta,a)/50: TIB %.3f at %.2f cm (ratio to diameter form %.3f)\n', TIBsq, zs(jq), TIBsq/TIB);
   end
   ok = ispta3 <= 720 && (MI <= 1.9 || isppa3 <= 190);
@@ -79,7 +85,7 @@ for k = 1:numel(presets)
 end
 %% TIB and MI versus azimuth focal depth (PW preset)
 Fl = [20 30 40 50 70 100];
-fprintf('\nPW preset, azimuth focus sweep:\n  Fx (mm) |  MI  | TIS  | TIB\n');
+fprintf('\nPW preset, azimuth focus sweep (TIS and TIB searched at z >= z_bp):\n  Fx (mm) |  MI  | TIS  | TIB\n');
 for F = Fl
   P = P1; P.Fx = F;
   lam = cw/(P.f*1e6); wsx = 0.4*P.Lx*1e-3; wsy = 0.4*P.Ly*1e-3;
@@ -90,7 +96,8 @@ for F = Fl
   MI = p0*amp(iMI)*der(P.f, zs(iMI), 0)/1e6/sqrt(P.f);
   P3a = Pw*der(P.f, zs, 1); tisA = P3a*P.f/210; tisB = pii3*P.rate*0.1*P.f/210;
   Deq = sqrt(4*(P.Lx*P.Ly/100)/pi); m = min(tisA, tisB); m(zs < 1.5*Deq) = 0;
-  fprintf('   %4d   | %.2f | %.2f | %.2f\n', F, MI, max(m), max(P3a./(40*1.6651*sqrt(wx.*wy)*100)));
+  tb = P3a./(40*1.6651*sqrt(wx.*wy)*100); tb(zs < 1.5*Deq) = 0;
+  fprintf('   %4d   | %.2f | %.2f | %.2f\n', F, MI, max(m), max(tb));
 end
 %% Figure
 o = out{1};

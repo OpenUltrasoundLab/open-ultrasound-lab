@@ -447,6 +447,32 @@ SITE_CSS = SITE_CSS.replace('</style>', '''.rv-steps { padding-left: 1.2em; } .r
 @media (max-width: 640px) { .rv-table th:nth-child(2), .rv-table td:nth-child(2), .rv-table th:nth-child(3), .rv-table td:nth-child(3), .rv-table th:nth-child(5), .rv-table td:nth-child(5) { display: none; } }
 </style>''')
 
+XP_CSS = '''<style>
+.xp-intro { max-width: 72ch; }
+.xp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 16px; margin: 22px 0 8px; }
+.xp-card { display: flex; flex-direction: column; gap: 9px; min-width: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px 14px; }
+.xp-card h2 { margin: 0; font: 650 1.12rem/1.25 var(--f-display); } .xp-card h2 a { color: var(--ink); text-decoration: none; } .xp-card h2 a:hover { color: var(--accent); }
+.xp-card .xp-q { margin: 0; font-size: .95rem; line-height: 1.45; max-width: none; }
+.xp-card .xp-meta { margin: 0; font: 400 .76rem/1.4 var(--f-mono); color: var(--muted); }
+.xp-badge { align-self: flex-start; display: inline-block; font: 500 .76rem/1.35 var(--f-display); color: var(--good); border: 1px solid currentColor; border-radius: 999px; padding: 3px 10px; }
+.xp-badge::before { content: "\\2713\\00a0"; }
+.xp-act { margin-top: auto; padding-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font: 500 .88rem/1.3 var(--f-display); }
+.xp-act .btn { text-decoration: none; }
+.page.xp-wide { max-width: 1340px; }
+.xp-crumb { font: 500 .84rem/1.4 var(--f-display); color: var(--muted); margin: 0 0 12px; } .xp-crumb a { color: var(--muted); } .xp-crumb a:hover { color: var(--accent); }
+.xp-crumb span[aria-hidden] { margin: 0 6px; }
+.xp-frag .rtb-root { --rtb-top: 64px; }
+.xp-about { max-width: 980px; margin: 30px 0 10px; padding: 14px 18px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
+.xp-about h2 { margin: 0 0 8px; font-size: var(--step-1, 1.2rem); }
+.xp-about dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; font-size: .92rem; line-height: 1.45; }
+.xp-about dt { font: 600 .78rem/1.6 var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); } .xp-about dd { margin: 0; }
+.xp-about ul { margin: 0; padding-left: 1.1em; } .xp-about li { margin: 2px 0; }
+@media (max-width: 560px) { .xp-about dl { grid-template-columns: minmax(0, 1fr); gap: 2px; } .xp-about dd { margin-bottom: 8px; } }
+#os-list .os-t.t-xp { background: var(--accent); }
+.xp-entry { margin: 18px 0 0; font-size: .95rem; } .xp-entry .lbl { font: 600 .72rem/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-right: 8px; }
+</style>'''
+SITE_CSS = SITE_CSS.replace('</style>', XP_CSS[len('<style>'):], 1)   # explorers index, explorer pages, home entry line
+
 
 def search_box(kind, depth):
     ph = {'hero': 'Search the course: equations, demos, interview questions…'}.get(kind, 'Search (press /)')
@@ -837,13 +863,14 @@ def canon(path):
     return SITE_URL + (path[:-len('index.html')] if path.endswith('index.html') else path)
 
 
-def seo_tags(title, desc, path, kind='website'):
+def seo_tags(title, desc, path, kind='website', image=None):
     if path is None:
         return ''
     u = canon(path)
+    img = SITE_URL + (image or 'og-card.png')
     return (f'<link rel="canonical" href="{attr(u)}">\n<meta property="og:url" content="{attr(u)}">\n'
             f'<meta property="og:type" content="{kind}">\n<meta property="og:site_name" content="Open Ultrasound Lab">\n'
-            f'<meta property="og:image" content="{attr(SITE_URL)}og-card.png">\n<meta property="og:image:width" content="1200">\n'
+            f'<meta property="og:image" content="{attr(img)}">\n<meta property="og:image:width" content="1200">\n'
             f'<meta property="og:image:height" content="630">\n<meta property="og:image:alt" content="Open Ultrasound Lab: free interactive ultrasound course">\n'
             f'<meta name="twitter:card" content="summary_large_image">\n<meta name="author" content="M. Nguyen">\n')
 
@@ -864,12 +891,12 @@ if HAS_DOI:
     COURSE_LD['identifier'] = f"https://doi.org/{CFG['DOI']}"
 
 
-def head(title, desc, depth, extra='', path=None, kind='website'):
+def head(title, desc, depth, extra='', path=None, kind='website', image=None):
     return ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
             f'<title>{esc(title)}</title>\n<meta name="description" content="{attr(desc)}">\n'
             f'<meta property="og:title" content="{attr(title)}">\n<meta property="og:description" content="{attr(desc)}">\n'
-            + seo_tags(title, desc, path, kind)
+            + seo_tags(title, desc, path, kind, image)
             + f'<link rel="icon" href="{"../" * depth}favicon.svg" type="image/svg+xml">\n<link rel="icon" href="{"../" * depth}favicon-32.png" sizes="32x32" type="image/png">\n<link rel="apple-touch-icon" href="{"../" * depth}apple-touch-icon.png">\n'
             + HEAD_CSS + '\n' + SITE_CSS + '\n' + search_script(depth) + extra + '</head>\n')
 
@@ -884,11 +911,12 @@ def topbar(depth, cur=''):
     def a(h, t, k):
         return f'<a href="{up}{h}"' + (' aria-current="page"' if k == cur else '') + f'>{t}</a>'
     main = [('index.html#map', 'Modules', 'map'), ('index.html#paths', 'Learning paths', 'paths'),
-            ('formula-sheet/index.html', 'Formula sheet', 'sheet'), ('interview/index.html', 'Interview prep', 'interview')]
-    more = [('glossary.html', 'Glossary', 'glossary'), ('about.html', 'About', 'about'), ('errata.html', 'Review &amp; errata', 'errata')]
-    groups = [('Learn', [main[0], main[1], main[3]]), ('Reference', [main[2], more[0]]), ('About', [('about.html', 'About this lab', 'about'), more[2]])]
+            ('formula-sheet/index.html', 'Formula sheet', 'sheet'), ('explorers/index.html', 'Explorers', 'explorers')]
+    more = [('interview/index.html', 'Interview prep', 'interview'), ('glossary.html', 'Glossary', 'glossary'), ('about.html', 'About', 'about'),
+            ('errata.html', 'Review &amp; errata', 'errata')]
+    groups = [('Learn', [main[0], main[1], main[3]]), ('Reference', [main[2], more[1], more[0]]), ('About', [('about.html', 'About this lab', 'about'), more[3]])]
     nav = ''.join(a(*i) for i in main)
-    nav += ('<details class="more"><summary' + (' class="cur"' if cur in ('glossary', 'about', 'errata') else '') + '>More</summary><div class="more-pop">'
+    nav += ('<details class="more"><summary' + (' class="cur"' if cur in ('interview', 'glossary', 'about', 'errata') else '') + '>More</summary><div class="more-pop">'
             + ''.join(a(*i) for i in more) + '</div></details>')
     menu = ''.join(f'<div class="mgrp"><p>{g}</p>' + ''.join(a(*i) for i in items) + '</div>' for g, items in groups)
     js = ("<script>(function(){var t=document.currentScript.parentNode,b=t.querySelector('.ico-srch'),q=t.querySelector('.os-top input');"
@@ -932,7 +960,7 @@ def rail_html(cur):
     h = [f'<aside class="rail site-rail" aria-label="Course modules">',
          f'<a class="brand" href="{up}index.html">{MARK}<span class="bt"> Open Ultrasound Lab</span><small>Math · physics · hardware · signal processing</small></a>',
          f'<div class="quick"><a href="{up}index.html#paths">Learning paths</a><a href="{up}formula-sheet/index.html">Formula sheet</a>'
-         f'<a href="{up}interview/index.html">Interview prep</a></div>', search_box('rail', 2)]
+         f'<a href="{up}explorers/index.html">Explorers</a><a href="{up}interview/index.html">Interview prep</a></div>', search_box('rail', 2)]
     for i, (ro, name, a, z) in enumerate(PARTS, 1):
         links = []
         for n in range(a, z + 1):
@@ -953,7 +981,8 @@ def rail_html(cur):
                      for n in range(a, z + 1) if n in MODS)
         mparts.append(f'<details class="mpart p{i}"' + (' open' if part_of(cur) == i else '') + f'><summary>Part {ro} · {esc(name)}</summary>{ml}</details>')
     site = ''.join(f'<a href="{up}{hh}">{tt}</a>' for hh, tt in [('index.html', 'Home'), ('index.html#paths', 'Learning paths'), ('formula-sheet/index.html', 'Formula sheet'),
-                                                                  ('interview/index.html', 'Interview prep'), ('glossary.html', 'Glossary'), ('errata.html', 'Review &amp; errata')])
+                                                                  ('explorers/index.html', 'Explorers'), ('glossary.html', 'Glossary'), ('interview/index.html', 'Interview prep'),
+                                                                  ('errata.html', 'Review &amp; errata'), ('about.html', 'About')])
     h.append(f'<details class="rmenu"><summary class="ico" aria-label="Menu">{ICON_MENU}</summary><div class="rmenu-pop">{search_box("menu", 2)}'
              f'<p class="mh">All modules</p>{"".join(mparts)}<p class="mh">Site</p><div class="msite">{site}</div></div></details>')
     h.append("<script>(function(){var d=document.currentScript.previousElementSibling;if(!d)return;var close=function(){d.open=false;};"
@@ -1096,6 +1125,141 @@ def interview_page():
 n_questions = interview_page()
 
 
+# ---------------------------------------------------------------- explorers
+# Standalone interactive demos at /explorers/<slug>/. Public sources live in explorers_src/:
+#   explorers_src/registry.json          ordered list: {"slug", "badge", optional "dist", optional "changelog"}
+#   explorers_src/<slug>/fragment.html   the explorer (style + markup + scripts; needs the shell's Lab helpers)
+#   explorers_src/<slug>/meta.json       title, question, description, validation, module ("m23"), date, version
+#   explorers_src/<slug>/og.png          optional share image (1200x630); default og-card.png
+# A private build first syncs the newest fragment/meta from the registry's "dist" folder (a private working
+# folder such as notes/<slug>/dist, absent in the public repo) into explorers_src/<slug>/, so the public repo
+# can always rebuild from explorers_src/ alone.
+XP_SRC = root / 'explorers_src'
+
+
+def _xp_fallback_from_demo(demo):
+    """Temporary stand-in: the explorer section, its own styles and page scripts from a standalone demo page."""
+    s = demo.read_text(encoding='utf-8')
+    body = s[s.index('<body'):]
+    sec = re.search(r'<section class="view"[^>]*>(.*?)</section>\s*</main>', body, re.S)
+    styles = [m for m in re.findall(r'<style>.*?</style>', body, re.S) if '.app {' not in m]
+    scripts = [m for m in re.findall(r'<script\b[^>]*>.*?</script>', body, re.S)
+               if m not in shell and 'window.MathJax' not in m and 'src=' not in m.split('>', 1)[0]]
+    return '\n'.join(styles) + '\n' + (sec.group(1) if sec else '') + '\n' + '\n'.join(scripts)
+
+
+def explorers_load():
+    reg_f = XP_SRC / 'registry.json'
+    if not reg_f.exists():
+        return []
+    out = []
+    for ent in json.loads(reg_f.read_text(encoding='utf-8')):
+        slug = ent['slug']
+        d = XP_SRC / slug
+        d.mkdir(parents=True, exist_ok=True)
+        dist = root / ent['dist'] if ent.get('dist') else None
+        if dist and (dist / f'{slug}_fragment.html').exists() and (dist / f'{slug}_meta.json').exists():
+            for a, b in ((f'{slug}_fragment.html', 'fragment.html'), (f'{slug}_meta.json', 'meta.json')):
+                if not (d / b).exists() or (d / b).read_bytes() != (dist / a).read_bytes():
+                    shutil.copy2(dist / a, d / b)
+                    print(f'explorers: synced {ent["dist"]}/{a} -> explorers_src/{slug}/{b}')
+        if not (d / 'fragment.html').exists() and ent.get('fallback') and (root / ent['fallback']).exists():
+            frag = _xp_fallback_from_demo(root / ent['fallback'])   # not written to explorers_src: stand-in only
+        elif (d / 'fragment.html').exists():
+            frag = (d / 'fragment.html').read_text(encoding='utf-8')
+        else:
+            print(f'explorers: {slug} has no fragment, skipped')
+            continue
+        meta = json.loads((d / 'meta.json').read_text(encoding='utf-8')) if (d / 'meta.json').exists() else {}
+        meta = {**{k: v for k, v in ent.items() if k not in ('dist', 'fallback')}, **meta}
+        meta.setdefault('title', slug); meta.setdefault('question', ''); meta.setdefault('description', meta['question'])
+        mn = int(re.sub(r'\D', '', str(meta.get('module', ''))) or 0)
+        meta['mod_n'] = mn if mn in MODS else None
+        log = meta.get('changelog') or ent.get('changelog') or [{'version': meta.get('version', '1.0'), 'date': meta.get('date', DATE), 'note': 'First release.'}]
+        meta['changelog'] = [c if isinstance(c, dict) else {'note': str(c)} for c in log]
+        meta['badge'] = ent.get('badge') or clip(plain(meta.get('validation', '')).split(';')[0], 70)
+        meta['slug'], meta['frag'], meta['url'] = slug, frag, f'explorers/{slug}/index.html'
+        meta['og'] = (d / 'og.png') if (d / 'og.png').exists() else None
+        out.append(meta)
+    return out
+
+
+EXPLORERS = explorers_load()
+SHELL_TAIL = shell_body[shell_body.index('<script>'):]   # shell scripts (Lab helpers, MathJax config) after the app grid
+XP_INTRO = ('Standalone interactive demos, each checked against an independent simulation and linked to the module that explains it. '
+            'New ones are added regularly.')
+
+
+def explorer_card(x, up):
+    mod = (f'<a href="{up}{MODS[x["mod_n"]]["url"]}">Related: Module {x["mod_n"]:02d}</a>' if x['mod_n'] else '')
+    return (f'<article class="xp-card"><h2><a href="{up}explorers/{x["slug"]}/index.html">{esc(x["title"])}</a></h2>'
+            f'<p class="xp-q">{esc(x["question"])}</p>'
+            f'<span class="xp-badge" title="{attr(plain(x.get("validation", "")))}">{esc(x["badge"])}</span>'
+            f'<p class="xp-meta">{esc(x.get("date", ""))} · v{esc(str(x.get("version", "1.0")))}</p>'
+            f'<div class="xp-act"><a class="btn solid" href="{up}explorers/{x["slug"]}/index.html">Open</a>{mod}</div></article>')
+
+
+def explorers_pages():
+    if not EXPLORERS:
+        static_page('explorers/index.html', 'Explorers — Open Ultrasound Lab', XP_INTRO,
+                    f'<div class="hero"><h1>Explorers</h1><p class="lede xp-intro">{esc(XP_INTRO)}</p></div><p>None yet.</p>', 'explorers')
+        return 0
+    cards = ''.join(explorer_card(x, '../') for x in EXPLORERS)
+    ld = {'@context': 'https://schema.org', '@type': 'ItemList', 'name': 'Open Ultrasound Lab Explorers',
+          'itemListElement': [{'@type': 'ListItem', 'position': i + 1, 'url': canon(x['url']), 'name': x['title']} for i, x in enumerate(EXPLORERS)]}
+    static_page('explorers/index.html', 'Explorers — Open Ultrasound Lab',
+                'Standalone interactive ultrasound demos, each checked against an independent simulation and linked to the module that explains it.',
+                f'<div class="hero"><h1>Explorers</h1><p class="lede xp-intro">{esc(XP_INTRO)}</p></div>\n<div class="xp-grid">{cards}</div>', 'explorers', ld=ld)
+    SEARCH_INDEX['mods']['x'] = ['Explorers', 'explorers/index.html']
+    SEARCH_INDEX['e'].append(['xp', 'Explorers: ' + XP_INTRO, 'x', ''])
+    for x in EXPLORERS:
+        path, depth, slug = x['url'], 2, x['slug']
+        up = '../' * depth
+        frag = x['frag']
+        scripts = re.findall(r'<script\b[^>]*>.*?</script>', frag, flags=re.S)
+        body = re.sub(r'<script\b[^>]*>.*?</script>', '', frag, flags=re.S).strip()
+        vid = f'xp-{slug}'
+        mod = x['mod_n']
+        rel_mod = (f'<a href="{up}{MODS[mod]["url"]}">Module {mod:02d}: {esc(MODS[mod]["title"])}</a>' if mod else '—')
+        log = ''.join(f'<li>' + ' · '.join(esc(str(v)) for v in ((('v' + str(c['version'])) if c.get('version') else ''), c.get('date', ''), c.get('note', '')) if v) + '</li>'
+                      for c in x['changelog'])
+        about = (f'<section class="xp-about" aria-labelledby="{vid}-about"><h2 id="{vid}-about">About this explorer</h2><dl>'
+                 f'<dt>Related module</dt><dd>{rel_mod}</dd>'
+                 + (f'<dt>Validation</dt><dd>{esc(plain(x["validation"]))}</dd>' if x.get('validation') else '')
+                 + (f'<dt>Credit</dt><dd>{esc(plain(x["credit"]))}</dd>' if x.get('credit') else '')
+                 + f'<dt>Changelog</dt><dd><ul>{log}</ul></dd></dl></section>')
+        crumb = (f'<nav class="xp-crumb" aria-label="Breadcrumb"><a href="../index.html">Explorers</a><span aria-hidden="true">›</span>'
+                 f'<span aria-current="page">{esc(x["title"])}</span></nav>')
+        main = (f'<main id="main" class="page xp-wide">\n{crumb}\n<section class="view xp-frag" id="{vid}" data-title="{attr(x["title"])}">\n{body}\n</section>\n'
+                f'{about}\n{footer(depth)}\n</main>\n')
+        tail = SHELL_TAIL.replace('<!--MATHJAX-->', mj_tag(depth)).replace('<!--MODULE-SCRIPTS-->', '\n'.join(scripts))
+        img = None
+        if x['og']:
+            (PUB / 'explorers' / slug).mkdir(parents=True, exist_ok=True)
+            shutil.copy2(x['og'], PUB / 'explorers' / slug / 'og.png')
+            img = f'explorers/{slug}/og.png'
+        title = f'{x["title"]} — Explorer | Open Ultrasound Lab'
+        desc = clip(plain(x['question'] + ' ' + x['description']))
+        xld = {'@context': 'https://schema.org', '@type': 'LearningResource', 'name': x['title'], 'url': canon(path), 'description': desc,
+               'learningResourceType': 'Interactive simulation', 'isAccessibleForFree': True, 'inLanguage': 'en',
+               'license': 'https://creativecommons.org/licenses/by/4.0/', 'author': AUTHOR_LD, 'version': str(x.get('version', '')),
+               'dateModified': x.get('date', DATE), 'isPartOf': {'@type': 'Course', '@id': SITE_URL + '#course', 'name': 'Open Ultrasound Lab', 'url': SITE_URL}}
+        crumbs = {'@context': 'https://schema.org', '@type': 'BreadcrumbList', 'itemListElement': [
+            {'@type': 'ListItem', 'position': 1, 'name': 'Open Ultrasound Lab', 'item': SITE_URL},
+            {'@type': 'ListItem', 'position': 2, 'name': 'Explorers', 'item': canon('explorers/index.html')},
+            {'@type': 'ListItem', 'position': 3, 'name': x['title'], 'item': canon(path)}]}
+        out = (head(title, desc, depth, jsonld(xld) + jsonld(crumbs), path, 'article', img) + f'<body data-single="{vid}">\n'
+               + topbar(depth, 'explorers') + main + tail + '\n</body>\n</html>\n')
+        write(path, out)
+        key = f'x-{slug}'
+        SEARCH_INDEX['mods'][key] = [f'Explorer: {x["title"]}', path]
+        SEARCH_INDEX['e'].append(['xp', ptxt(f'{x["title"]}: {x["question"]} {x["description"]}'), key, ''])
+    return len(EXPLORERS)
+
+
+n_explorers = explorers_pages()
+
+
 # ---------------------------------------------------------------- landing page
 def count(pat):
     return sum(len(re.findall(pat, M['src'])) for M in MODS.values())
@@ -1167,6 +1331,8 @@ def landing():
 })();
 </script>'''
 
+    xp_entry = (f'<p class="xp-entry"><span class="lbl">Explorers</span>{len(EXPLORERS)} standalone interactive demo{"s" if len(EXPLORERS) != 1 else ""}, each checked against an independent simulation. '
+                f'<a href="explorers/index.html">Browse the explorers</a></p>') if EXPLORERS else ''
     body = f'''<div class="hero hero2">
   <div class="hero-text">
   <p class="eyebrow">Free · open · interactive</p>
@@ -1200,6 +1366,7 @@ def landing():
     <div class="paths" id="paths-list">{"".join(paths)}</div>
   </div>
 </div>
+{xp_entry}
 
 
 
@@ -1598,9 +1765,10 @@ idx_bytes, idx_n = write_search_index()
 xref_n = autolink_xrefs()
 print(f'cross-reference links added: {xref_n}')
 pages = sorted(set(w for w in written if w.endswith('.html')) | {'formula-sheet/index.html'})
+XP_DATES = {x['url']: x.get('date', DATE) for x in EXPLORERS}
 (PUB / 'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-    + ''.join(f'<url><loc>{esc(canon(w))}</loc><lastmod>{esc(DATE)}</lastmod><priority>{"1.0" if w == "index.html" else "0.8" if w.startswith("modules/") else "0.5"}</priority></url>\n' for w in pages)
+    + ''.join(f'<url><loc>{esc(canon(w))}</loc><lastmod>{esc(XP_DATES.get(w, DATE))}</lastmod><priority>{"1.0" if w == "index.html" else "0.8" if w.startswith("modules/") else "0.5"}</priority></url>\n' for w in pages)
     + '</urlset>\n', encoding='utf-8')
 total = sum(f.stat().st_size for f in PUB.rglob('*') if f.is_file())
-print(f'public/: {len(written)} pages, {len(MODS)} modules, {n_questions} interview questions, {n_flags} flagged audit items, '
+print(f'public/: {len(written)} pages, {len(MODS)} modules, {n_questions} interview questions, {n_explorers} explorers, {n_flags} flagged audit items, '
       f'{link_count} module links rewritten, {total / 1e6:.1f} MB, MathJax {"local" if LOCAL else "CDN"}, search index {idx_n} entries / {idx_bytes / 1e3:.0f} kB')

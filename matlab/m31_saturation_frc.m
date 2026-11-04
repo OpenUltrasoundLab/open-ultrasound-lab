@@ -82,8 +82,9 @@ end
 flux = dv.^3; cwf = cumsum(flux)/sum(flux);
 q = (0:Np-1); q(q >= Np/2) = q(q >= Np/2) - Np; [QX, QZ] = meshgrid(q, q); QR = sqrt(QX.^2 + QZ.^2);
 ring = round(QR); nR = Np/2; nring = accumarray(ring(:) + 1, 1); nring = nring(1:nR);
-thrHalf = (0.2071 + 1.9102./sqrt(nring))./(1.2071 + 0.9102./sqrt(nring));
-thr2s = 2./sqrt(nring/2);
+nring3 = conv(nring, ones(3,1), 'same');        % the FRC below is averaged over 3 rings, so the
+thrHalf = (0.2071 + 1.9102./sqrt(nring3))./(1.2071 + 0.9102./sqrt(nring3));   % thresholds use the
+thr2s = 2./sqrt(nring3/2);                      % summed pixel count of those 3 rings
 qf = (0:nR-1)'/(Np*pr);                                    % cycles per um
 nTrackList = [300 1000 3000 10000]; sigList = [5 10 20];
 fprintf('\nFRC resolution (um) = 1/q at the first crossing; render pixel %d um, Nyquist limit %d um\n', pr, 2*pr);
@@ -110,9 +111,10 @@ for sg = sigList
             num = accumarray(ring(:) + 1, real(F1(:).*conj(F2(:)))); d1 = accumarray(ring(:) + 1, abs(F1(:)).^2); d2 = accumarray(ring(:) + 1, abs(F2(:)).^2);
             frc = num(1:nR)./sqrt(d1(1:nR).*d2(1:nR)); frc = conv(frc, ones(3,1)/3, 'same'); frc(1) = 1;
             r = zeros(1,3); th = {1/7*ones(nR,1), thrHalf, thr2s};
-            for k = 1:3                                    % first crossing above 1/(512 um), i.e. from ring 6
-                ic = find(frc(6:end) < th{k}(6:end), 1) + 5;
-                if isempty(ic), r(k) = 2*pr; elseif ic == 6, r(k) = Inf; else, r(k) = 1/qf(ic); end
+            for k = 1:3                                    % first crossing from ring 6 (1/(512 um)) or from the
+                i0 = max(6, find(th{k} < 1, 1));           % first ring whose threshold is below 1
+                ic = find(frc(i0:end) < th{k}(i0:end), 1) + i0 - 1;
+                if isempty(ic), r(k) = 2*pr; elseif ic == i0, r(k) = Inf; else, r(k) = 1/qf(ic); end
             end
             fprintf('   %4d   %6d  %7d    %s   %6.1f    %6.1f    %6.1f\n', sg, nT, nloc, lab, r);
             if sg == 10 && (nT == 1000 || nT == 10000), keepCurves{end+1} = {frc, sprintf('%d tracks, %s', nT, strtrim(lab))}; end %#ok<SAGROW>

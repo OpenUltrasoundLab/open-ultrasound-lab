@@ -14,6 +14,9 @@
 %           part (1) matches theory to < 0.001 MHz; part (2) recovers
 %           alpha0 = 0.49 dB/cm/MHz (true 0.50; a few % spread from speckle
 %           and from the LPF/decimation choices).
+%           Part (2) imposes fc(z) = f0 - 2*alpha0*sigf^2*z on the pulse, so
+%           it tests the estimator, not the downshift model (no propagation,
+%           diffraction or frequency-dependent backscatter is simulated).
 clear; close all; rng(1);
 
 %% Parameters
@@ -43,6 +46,8 @@ fprintf('max |fc power - theory| = %.2e MHz\n', max(abs(fcP - fcT)));
 lossdB = 20*log10(exp(-2*alpha*f0*z(end)));
 fprintf('Round-trip loss at f0, z = %.0f cm: %.1f dB (= 2 x %.1f dB/cm/MHz x %.0f MHz x %.0f cm)\n', ...
         z(end), lossdB, alpha_dB, f0, z(end));
+lossPulse = 20*log10(exp(-2*alpha*f0*z(end) + 2*alpha^2*sigf^2*z(end)^2));  % Gaussian echo peak
+fprintf('Round-trip loss of the downshifting Gaussian pulse, z = %.0f cm: %.1f dB\n', z(end), lossPulse);
 
 %% 2. Toy QUS: speckle lines with a depth-dependent pulse
 c = 1.54; fs = 40; M = 4; fsIQ = fs/M; fd = f0;      % mm/us, MHz

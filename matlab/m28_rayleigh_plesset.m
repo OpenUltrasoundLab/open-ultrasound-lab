@@ -89,6 +89,7 @@ for ic = 1:nc
   fprintf('%-40s %7.2f %6.2f %6.2f %7.1f %7.1f %7.1f %8.1f\n', cases{ic, 1}, res(ic, :));
   keep{ic} = struct('t', t, 'R', R / R0, 'ps', ps, 'f', f, 'fa', fa(1:nf/2), 'X', 20*log10(X(1:nf/2)/L1 + 1e-12));
 end
+fprintf('   (f0 is the elastic-branch linear resonance; for the buckled-at-rest case (s0 = 0) there is no single linear resonance: the elastic branch is 2.90 MHz, the buckled gas-only branch about 1.44 MHz)\n');
 
 %% Compression-only index for the buckled shell: (R0 - Rmin)/(Rmax - R0)
 fprintf('\nCompression/expansion ratio (R0 - Rmin)/(Rmax - R0): elastic %.2f, buckled %.2f\n', ...

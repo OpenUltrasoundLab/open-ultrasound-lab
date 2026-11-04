@@ -14,7 +14,8 @@
 %           linear interpolation of IQ at 10 MHz; -0.1 dB with M = 2);
 %           (c) -12.4 dB image peak, -13.3 dB on the target (narrowband
 %           prediction -13.4 dB, Fresnel -12.5 dB); the loss oscillates with
-%           depth and is still -6.5 dB at 60 mm. Runtime ~20 s in Octave.
+%           depth (-15.4 dB at 12.5 mm, -6.5 dB at 60 mm). Runtime ~20 s
+%           in Octave.
 clear; close all; rng(1);
 
 %% Parameters
@@ -81,6 +82,8 @@ fprintf('  lateral -6 dB width: (a) %.2f mm, (b) %.2f mm, (c) %.2f mm (lambda F#
         w6(latA), w6(latB), w6(latC), lam*z0/(Nel*pitch));
 
 %% Depth sweep of the no-rotation loss (peak at the target only)
+% The 5 mm grid misses the Fresnel-zone minima (e.g. -15.4 dB at z = 12.5 mm,
+% -20 dB at 5.4 mm); use a finer zs to see them.
 zs = 10:5:60; lossC = zeros(size(zs)); lossB = lossC; predS = lossC; frS = lossC;
 for i = 1:numel(zs)
   zt = zs(i); Nt2 = ceil((2*zt + 12)/c*fs) + 64; Nt2 = Nt2 + mod(Nt2, 2*M); t2 = (0:Nt2-1)'/fs;

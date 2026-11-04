@@ -5,8 +5,8 @@
 %           real grating lobes. Prints the visible replicas, their level with and without a soft-baffle
 %           element factor, and the peak level outside the main lobe for five cases.
 %           (2) Largest pitch with no grating lobe for steering anywhere in a cone sin(th) <= s:
-%           square grid d <= lambda/(1+s); hexagonal (triangular) grid, nearest-neighbour spacing
-%           d <= 2 lambda/(sqrt(3)(1+s)), 13.4 % fewer elements for the same aperture.
+%           square grid d < lambda/(1+s); hexagonal (triangular) grid, nearest-neighbour spacing
+%           d < 2 lambda/(sqrt(3)(1+s)) (equality puts a replica on the edge of the visible circle), 13.4 % fewer elements for the same aperture.
 %           (3) Micro-beamformer (K x K subarrays at pitch D = K d): closed-form ratio of the worst
 %           coarse grating lobe to the main lobe, rho = sin(a)/sin(pi/K - a), a = pi d delta/lambda,
 %           and the steering window around the pre-steer for a lobe limit, checked by a direct sum.

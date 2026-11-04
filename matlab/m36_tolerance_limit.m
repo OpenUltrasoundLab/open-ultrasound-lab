@@ -43,6 +43,7 @@ fprintf('   n    k exact   k approx   approx error\n');
 for i = 1:numel(nList)
   fprintf('%4d   %8.4f   %8.4f   %+6.1f %%\n', nList(i), kEx(i), kAp(i), 100*(kAp(i)/kEx(i) - 1));
 end
+fprintf('   (at g = P = 0.9 the approximation is low for n >= 3; at n = 2 it is 37 %% high, and at g = 0.95 it is high at n = 3 (+25 %% at P = 0.95) and within about 1.5 %% from n = 5, and undefined for n = 2)\n');
 
 %% Monte Carlo coverage check (n = 10)
 n = 10; k10 = kEx(nList == 10); trials = 20000;

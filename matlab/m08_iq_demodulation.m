@@ -2,13 +2,16 @@
 % Purpose : build the IQ chain by hand: complex mixing with exp(-j2*pi*fd*t),
 %           a windowed-sinc FIR low-pass you design yourself (Hamming window
 %           written out, no toolbox), and decimation by M. Shows the spectrum
-%           at each stage, compares 2|IQ| with the analytic-signal envelope,
-%           sweeps M to show where aliasing starts, and shows what a
+%           at each stage, compares |IQ| (gain 2 included) with the
+%           analytic-signal envelope, sweeps M to show where aliasing starts, and shows what a
 %           mixing-frequency mismatch does (residual rotation, band clipping).
 % Change  : f0, bw, fd (demodulation frequency), fc (LPF cutoff), L (taps), M.
 % Expect  : M = 4 (10 MHz IQ): envelope error ~0.6 % (set by the LPF);
 %           reconstruction error stays at that floor to M = 5 (8 MHz) and
-%           grows from M = 6; ~4 % at M = 8 (5 MHz), ~12 % at M = 9-10.
+%           grows from M = 6; for this five-echo line ~4 % at M = 8 (5 MHz)
+%           and ~12 % at M = 9-10 (other echo positions or speckle give
+%           about 4-10 % at M = 8 and 6-16 % at M = 9).
+%           IQ here is 2*LPF{x exp(-j2 pi fd t)}, so |IQ| = |x_a| directly.
 %           fd = f0 + 1 MHz rotates IQ at -1 MHz with the envelope intact
 %           (1.7 %) while fc = 4 MHz passes the shifted band; fc = 2 MHz
 %           clips it (envelope error ~24 %, rotation estimate biased).
@@ -63,7 +66,7 @@ eRec = 100*sqrt(sum(abs(abs(rec(1:N)) - abs(xa)).^2.*(abs(xa)>0.05))/sum(abs(xa)
 ws    = abs(xa) > 0.05;                 % evaluate where the echoes are (noise floor excluded)
 eCplx = 100*norm(xl(ws) - ref(ws))/norm(ref(ws));
 fprintf('fd = %.1f MHz, fc = %.1f MHz, L = %d, M = %d (IQ rate %.1f MHz)\n', fd, fc, L, M, fsIQ);
-fprintf('  2|IQ| vs |x_a| at kept samples      = %.3f %% rms\n', eKept);
+fprintf('  |IQ| vs |x_a| at kept samples       = %.3f %% rms\n', eKept);
 fprintf('  band-limited reconstruction error   = %.3f %% rms\n', eRec);
 fprintf('  complex IQ error before decimation  = %.3f %% rms\n', eCplx);
 fprintf('  -20 dB half-width of the echo band  = %.2f MHz (needs fs/M > %.1f MHz)\n', ...
@@ -107,7 +110,7 @@ axis([-fsIQ/2 fsIQ/2 -80 5]); title(sprintf('4 decimated by %d: span \\pm%.2f MH
 subplot(3,2,5); tw = t > 6 & t < 16;
 plot(t(tw), abs(xa(tw)), 'k', t(idx(idx>=find(tw,1) & idx<=find(tw,1,'last'))), ...
      abs(iq(idx>=find(tw,1) & idx<=find(tw,1,'last'))), 'ro');
-xlabel('time (\mus)'); ylabel('envelope'); title('|x_a| (k) and 2|IQ| at kept samples (o)');
+xlabel('time (\mus)'); ylabel('envelope'); title('|x_a| (k) and |IQ| at kept samples (o)');
 subplot(3,2,6); plot(Ms, eM, 'bo-'); xlabel('decimation M'); ylabel('reconstruction error (%)');
 title('band-limited reconstruction error vs M'); grid on;
 

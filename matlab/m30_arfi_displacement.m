@@ -7,8 +7,9 @@
 %           F = 2*alpha*I/c sets the amplitude.
 % Change  : cs (shear speed), eta, I (W/cm^2), a (dB/cm/MHz), f0, push list.
 % Expect  : alpha = 23.0 Np/m, F = 1.50e5 N/m^3 at 500 W/cm^2; peak on-axis
-%           displacement about 3.5 um for a 200 us push at 1.5 m/s (end-of-
-%           push value F*T^2/(2 rho) = 3.0 um); long pushes approach the static
+%           displacement about 3.5 um for a 200 us push at 1.5 m/s (2.0 um at
+%           the end of the push; the inertial bound F*T^2/(2 rho) = 3.0 um holds
+%           only for T << sigma_r/c_s, e.g. 50 us); long pushes approach the static
 %           limit; time-to-peak at 2 and 4 mm gives back c_s; heating 12 mK.
 rng(1);
 rho = 1000; c = 1540;
@@ -51,8 +52,8 @@ for ic = 1:numel(csList)
   for T = pushes
     k = round(T/dts); y = S(1,:) - [zeros(1,k) S(1,1:end-k)];
     [pk, ip] = max(y); irec = find(y(ip:end) < 0.5*pk, 1) + ip - 1;
-    fprintf('  push %4.0f us: peak u = %6.2f um at %.2f ms, F T^2/(2 rho) = %6.2f um, recovery to 50%% %.2f ms after peak\n', ...
-      T*1e6, F*pk*1e6, tt(ip)*1e3, F*T^2/(2*rho)*1e6, (irec - ip)*dts*1e3);
+    fprintf('  push %4.0f us: peak u = %6.2f um at %.2f ms, u(T) = %6.2f um (inertial bound F T^2/(2 rho) = %6.2f um), recovery to 50%% %.2f ms after peak\n', ...
+      T*1e6, F*pk*1e6, tt(ip)*1e3, F*y(k+1)*1e6, F*T^2/(2*rho)*1e6, (irec - ip)*dts*1e3);
   end
   k = round(200e-6/dts); Y = S - [zeros(3,k) S(:,1:end-k)];
   tp = zeros(1,3); for q = 1:3, [~, ip] = max(Y(q,:)); de = Y(q,ip-1) - 2*Y(q,ip) + Y(q,ip+1); tp(q) = (ip - 1 + 0.5*(Y(q,ip-1) - Y(q,ip+1))/de)*dts; end

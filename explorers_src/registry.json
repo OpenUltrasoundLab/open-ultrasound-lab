@@ -1,0 +1,8 @@
+[
+  {
+    "slug": "rtb",
+    "badge": "Checked against an independent time-domain solver",
+    "dist": "notes/rtb/dist",
+    "fallback": "rtb_demo.html"
+  }
+]

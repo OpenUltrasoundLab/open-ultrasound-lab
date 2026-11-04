@@ -9,11 +9,14 @@
 %           cycles/mm at F# 2; >99 % of the image k-space energy inside the bow-tie;
 %           PSF -6 dB widths close to 0.886 lambda F# (rect) and c tau/2;
 %           separable rect window: -13.3 dB sidelobes on the axes, -26.5 dB on the diagonal;
-%           filtering: a k-space mask matched to the PSF passband keeps ~99 % of the signal energy
-%           and raises the SNR of white noise by ~10 log10(1/mask area); a one-sided kz mask gives
-%           the analytic image and its envelope (B-mode).
-% Model   : paraxial, focal plane, Tx = Rx aperture, first-order Born, shift-invariant
-%           over the small field (circular convolution). Base MATLAB only (R2019b+, Octave 8).
+%           filtering: a binary mask keeping a fraction q of k-space and a fraction eta of the
+%           signal energy raises the SNR of white noise by 10 log10(eta/q) (~10 log10(1/q) when
+%           eta ~ 1). The signal is generated with the same H that defines the mask, so this is a
+%           synthetic, internally consistent result, not proof that excluded energy in real data
+%           is noise. A one-sided kz mask gives the analytic image and its envelope (B-mode).
+% Model   : paraxial, near-axis (kz = 2f/c), focal plane, focused Tx = Rx aperture, first-order
+%           Born, shift-invariant over the small field (circular convolution). A single plane-wave
+%           transmit would give the receive-only support, about half as wide laterally. Base MATLAB only (R2019b+, Octave 8).
 clear; close all; rng(1);
 
 %% Parameters
@@ -134,7 +137,7 @@ subplot(2, 2, 4); imagesc(kx_s, kz_s, toDB(fftshift(fft2(abs(ha))))); set(gca, '
 xlabel('k_x (cycles/mm)'); ylabel('k_z (cycles/mm)'); title('envelope k-space: band moved to baseband');
 
 
-%% Filtering in k-space: matched passband mask, then a one-sided kz mask for the envelope
+%% Filtering in k-space: binary passband mask (synthetic: same H made the signal), then a one-sided kz mask
 Nimg  = randn(Nz, Nx); Nimg = Nimg*norm(img(:))/norm(Nimg(:));   % scaled to exactly 0 dB SNR
 Kn    = fft2(Nimg);
 Mpass = abs(H) > 0.01*max(abs(H(:)));        % passband: |H| above -40 dB (fft order)
@@ -145,7 +148,9 @@ snr0 = round(100*10*log10(sum(img(:).^2)/sum(Nimg(:).^2)))/100 + 0;
 snr1 = 10*log10(sum(sigF(:).^2)/sum(noiF(:).^2));
 fprintf('\n--- k-space filtering (white noise at %.1f dB SNR) ---\n', snr0);
 fprintf('passband mask |H| > -40 dB keeps %.1f %% of k-space; signal energy retained %.2f %%\n', 100*fill, 100*sum(sigF(:).^2)/sum(img(:).^2));
-fprintf('SNR after mask %.1f dB: gain %.1f dB (prediction 10 log10(1/fill) = %.1f dB)\n', snr1, snr1 - snr0, 10*log10(1/fill));
+eta = sum(sigF(:).^2)/sum(img(:).^2);       % retained signal energy fraction
+fprintf('SNR after mask %.1f dB: gain %.1f dB (prediction 10 log10(eta/q) = %.1f dB, q = %.3f, eta = %.4f)\n', snr1, snr1 - snr0, 10*log10(eta/fill), fill, eta);
+fprintf('(synthetic white-noise result under a known H; real excluded energy need not be noise)\n');
 % one-sided axial mask: keep kz > 0 (x2), drop kz < 0 -> analytic image along z, |.| = envelope
 Mhalf = [ones(1, Nx); 2*ones(Nz/2-1, Nx); ones(1, Nx); zeros(Nz/2-1, Nx)];
 anaI  = ifft2((K + Kn) .* Mpass .* Mhalf);

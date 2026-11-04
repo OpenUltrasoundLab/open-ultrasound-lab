@@ -1,6 +1,7 @@
 %% m04_aperture_to_beam.m  -- Module 04: the beam pattern is the Fourier transform of the aperture
-% Purpose : compute the far-field (or focal-plane) pattern of a linear array as the DTFT of
-%           its apodization, compare rect vs Hann, one-way vs two-way (Tx = Rx), show that a
+% Purpose : compute the far-field (or focal-plane) magnitude pattern of a linear array as the
+%           DTFT of its apodization (at omega = -psi for the e^{+j} array sum; |.| is the same
+%           for real symmetric weights), compare rect vs Hann, one-way vs two-way (Tx = Rx), show that a
 %           zero-padded FFT of the weights reproduces the direct far-field sum, and move
 %           grating lobes with the pitch (d = lambda/2, lambda, 2 lambda).
 % Change  : f0, N (elements), the pitch list, the steering angle th0_deg.
@@ -9,7 +10,8 @@
 %           -6 dB width (units of lambda/D in sin(theta)): rect 1.21 / 0.89, Hann 2.00 / 1.44;
 %           FFT vs direct sum agree to ~1e-14; grating lobes at sin(th_g) = sin(th0) + m lambda/d
 %           (d = lambda, 20 deg steering: -41.1 deg); element factor (w = 0.9 d) lowers that
-%           grating lobe by ~4.4 dB one-way; a 60 % band fills the rect two-way first null
+%           grating lobe by ~4.4 dB one-way (but steered to 60 deg the replica near -7.7 deg is
+%           favoured: the ratio E(th_g)/E(th0) can exceed 1); a 60 % band fills the rect two-way first null
 %           (-24 dB) and lowers the level at the narrowband sidelobe position to -28.8 dB.
 % Model   : sections 1-3 monochromatic, point-like elements (no element directivity), far field
 %           or focal plane; section 4 adds a rigid-baffle element factor sinc(w sin(theta)/lambda);
@@ -91,10 +93,12 @@ for ip = 1:3
         end
     end
 end
-fprintf('d <= lambda/2: no grating lobe for any steering; d <= lambda/(1+sin(th_max)) for |th0| <= th_max\n');
-fprintf('for th_max = %d deg: d <= %.3f mm (%.3f lambda)\n', th0_deg, lam/(1 + sind(th0_deg)), 1/(1 + sind(th0_deg)));
+fprintf('d = lambda/2: no grating lobe for steering strictly inside +-90 deg; d < lambda/2 if endfire must be clean\n');
+fprintf('(at d = lambda/2 steered to +90 deg the m = -1 replica sits exactly at -90 deg)\n');
+fprintf('no lobe in the closed visible region for |th0| <= th_max needs d < lambda/(1+sin(th_max))\n');
+fprintf('for th_max = %d deg: d < %.3f mm (%.3f lambda)\n', th0_deg, lam/(1 + sind(th0_deg)), 1/(1 + sind(th0_deg)));
 
-%% 4. Element directivity attenuates grating lobes (d = lambda, steered 20 deg)
+%% 4. Element directivity rescales grating lobes by E(th_g)/E(th0) (d = lambda, steered 20 deg)
 dp = lam; xp = (n - (N-1)/2)*dp; s0 = sind(th0_deg);
 we = 0.9*dp;                                       % element width (mm): 10 % kerf
 sincf = @(v) (sin(pi*v) + (v == 0)) ./ (pi*v + (v == 0));
@@ -105,6 +109,9 @@ aG = AF(wR, xp, sind(thg) - s0) * EF(sind(thg));   % grating lobe
 fprintf('\n--- element directivity (d = lambda, w = 0.9 d, steer %d deg) ---\n', th0_deg);
 fprintf('grating lobe at %.1f deg; element factor there %.2f dB, at the main lobe %.2f dB\n', thg, 20*log10(EF(sind(thg))), 20*log10(EF(s0)));
 fprintf('grating lobe re main lobe: %.2f dB one-way, %.2f dB two-way (0 dB without the element factor)\n', 20*log10(aG/aM), 40*log10(aG/aM));
+s60 = sind(60); thg60 = asind(s60 - lam/dp);       % counterexample: replica nearer broadside than the beam
+fprintf('steered 60 deg: replica at %.1f deg, E(th_g)/E(th0) = %+.2f dB one-way (> 0: lobe favoured)\n', ...
+        thg60, 20*log10(EF(sind(thg60))/EF(s60)));
 
 %% 5. Broadband: a 60 % two-way band smears sidelobes and fills nulls (energy pattern)
 FBW = 0.60; sf = FBW/(2*sqrt(2*log(2)));           % Gaussian amplitude-spectrum std (units of f0)

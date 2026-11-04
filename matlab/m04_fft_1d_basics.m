@@ -4,9 +4,12 @@
 %           measure the figures of merit of the classic windows.
 % Change  : fs, N, the tone frequencies, the tone separation sepT (in units of 1/T),
 %           the window list.
-% Expect  : alias of 7 MHz at fs = 10 MHz -> 3.000 MHz; legal bandpass rates: [3.5, 6.5] MHz ->
-%           fs >= 13 or 6.5..7.0 MHz, [3, 7] MHz -> only fs >= 14 MHz (band edges at 6.75 MHz
-%           land at 3.25 and 0.25 MHz); padded short record shows 1 peak,
+% Expect  : alias of 7 MHz at fs = 10 MHz -> 3.000 MHz; legal bandpass rates for HARD-supported
+%           bands: [3.5, 6.5] MHz -> fs >= 13 or 6.5..7.0 MHz, [3, 7] MHz -> only fs >= 14 MHz
+%           (band edges at 6.75 MHz land at 3.25 and 0.25 MHz); if [3.5, 6.5] are only the -6 dB
+%           edges of a 5 MHz Gaussian, the zone-2 edges at 6.75 MHz sit at -7.07 / -8.19 dB, so
+%           the tails alias; Hann tone vs noise normalization: -4.26 dB (noise, uncorrected) vs
+%           -6.02 dB (tone), +1.76 dB left if CG^2 is used on noise; padded short record shows 1 peak,
 %           4x longer record shows 2; Parseval gap ~1e-12; window table
 %           rect -13.3 dB / Hann -31.5 dB / Hamming -42.7 dB / Blackman -58.1 dB,
 %           roll-off about -6, -18, -6, -18 dB/octave.
@@ -39,7 +42,8 @@ fprintf('\n--- aliasing ---\n');
 fprintf('7 MHz at fs = 10 MHz: formula |f0 - fs*round(f0/fs)| = %.3f MHz, FFT peak = %.3f MHz\n', ...
         f_alias_formula, (ka-1)*fsa/Na);
 
-%% 2b. Bandpass sampling: legal rates 2 fH/n <= fs <= 2 fL/(n-1), n = 1..floor(fH/B)
+%% 2b. Bandpass sampling: for a band strictly confined to [fL, fH] (hard support),
+%     2 fH/n <= fs <= 2 fL/(n-1), 1 <= n <= floor(fH/(fH-fL)); n = 1 has no upper bound
 fprintf('\n--- bandpass sampling ---\n');
 bands = [3.5 6.5; 3 7];                            % [fL fH] in MHz
 for ib = 1:size(bands, 1)
@@ -54,6 +58,12 @@ end
 fsb = 6.75; fe = [3.5 6.5];                        % band edges sampled at 6.75 MHz (zone n = 2)
 fa_e = abs(fe - fsb*round(fe/fsb));
 fprintf('fs = %.2f MHz: band edges %.1f / %.1f MHz alias to %.2f / %.2f MHz (zone 2: inverted)\n', fsb, fe, fa_e);
+% A Gaussian has no hard support: if 3.5/6.5 MHz are its -6 dB edges, what lies outside zone 2?
+sgf = 1.5/sqrt(2*log(2));                          % amplitude-spectrum std of a 5 MHz, 60 % Gaussian (MHz)
+zed = [fsb/2 fsb];                                 % zone-2 edges at fs = 6.75 MHz
+fprintf('5 MHz, 60 %% Gaussian: level at the zone-2 edges %.3f / %.2f MHz = %.2f / %.2f dB re peak\n', ...
+        zed, 20*log10(exp(-(zed - 5).^2/(2*sgf^2))));
+fprintf('(so -6 dB edges only mark where the -6 dB intervals do not overlap, not alias-free sampling)\n');
 
 %% 3. Zero padding vs a longer record (complex tones, as IQ data)
 f1 = 5.0; sepT = 0.6;                     % tone separation in units of 1/T
@@ -109,6 +119,13 @@ end
 hold off; xlim([0 12]); ylim([-110 3]); grid on;
 xlabel('frequency offset (bins of N)'); ylabel('|W| (dB re peak)');
 title('Window spectra: mainlobe width vs sidelobe level'); legend(names, 'Location', 'northeast');
+
+%% 5b. Tone vs noise normalization (periodic Hann): different corrections
+wh = 0.5 - 0.5*cos(2*pi*(0:Nw-1)/Nw);
+fprintf('\n--- Hann normalization (tone: divide by sum(w); PSD: |Xw|^2/(fs*sum(w.^2))) ---\n');
+fprintf('CG = %.3f, mean(w^2) = %.4f, ENBW = %.3f bins\n', mean(wh), mean(wh.^2), Nw*sum(wh.^2)/sum(wh)^2);
+fprintf('uncorrected tone amplitude: %.2f dB; uncorrected noise power: %.2f dB; noise corrected by CG^2: %+.2f dB\n', ...
+        20*log10(mean(wh)), 10*log10(mean(wh.^2)), 10*log10(mean(wh.^2)/mean(wh)^2));
 
 %% 6. Figure: aliasing and zero padding
 figure('Name', 'aliasing and zero padding', 'Position', [100 100 760 600]);

@@ -13,6 +13,8 @@
 %           by the tissue harmonic), 35.4 dB (AM), 25.9 dB (AMPI); bubble retained within 1.5 dB
 %           (AM) but 7.5 dB down (PI); 10 mm/s motion at PRF 5 kHz caps AM at about 27 dB;
 %           without tissue nonlinearity and motion every sequence cancels tissue exactly.
+%           The tissue harmonic is the lossless plane-wave second-order term (sigma = beta w P x /(rho c^3) < 1,
+%           pre-shock); focusing raises it and the extra loss of the 2f return path lowers it: an order-of-magnitude anchor.
 % Provenance: simulation (this script). Shell values chi = 0.5 N/m, s0 = 0.02 N/m, ks = 5e-9 kg/s,
 %           g = 1.07 are illustrative (inside the range fitted to lipid agents, not one agent).
 % Runtime : about 6 s.
@@ -32,6 +34,7 @@ dp1 = @(t) (p1(t + dt/4).^2 - p1(t - dt/4).^2) / (dt/2);       % d(p1^2)/dt
 knl = beta * x / (2 * rhoT * cT^3);                            % s/Pa
 fprintf('Tissue 2nd harmonic for a CW wave at this P, f, x: B2/B1 = sigma/2 = %.3f (%.1f dB)\n', ...
   knl * 2*pi*f * P, 20*log10(knl * 2*pi*f * P));
+if 2*knl*2*pi*f*P > 0.7, fprintf('  warning: sigma = %.2f > 0.7, beyond the plane-wave lossless pre-shock model; tissue rows not meaningful\n', 2*knl*2*pi*f*P); end
 
 scen = {'default', 0, 0, beta; 'motion 10 mm/s', 0.01, 0, beta; 'half-pulse error +0.1 dB', 0, 0.1, beta; 'linear tissue, no motion', 0, 0, 0};
 nfft = 2^nextpow2(4*n); df = fs/nfft;

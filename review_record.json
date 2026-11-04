@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-01",
+ "updated": "2026-11-03",
  "passes": [
   {
    "date": "Oct 2026",
@@ -62,6 +62,11 @@
    "detail": "Summary boxes rewritten to be self-contained (owner-reviewed before embedding). Demo controls, readouts, method cards, chart axes and legends revised in all 36 modules; labels flagged by the writers were checked independently against each module's equations and code (11 corrected)."
   },
   {
+   "date": "2026-11-03",
+   "title": "Deep technical audits (Modules 04, 08, 17, 22, 23, 25, 27, 28, 29, 30, 31, 32, 33, 36)",
+   "detail": "One external audit of Module 04 (30 findings) and thirteen AI-assisted deep audits re-derived equations, ran every demo at default and limit settings and every lab (134 findings, 5 high priority). All high and medium findings were corrected and re-checked by a separate reviewer; a few low-priority items are listed in the errata."
+  },
+  {
    "date": "ongoing",
    "title": "Your review",
    "detail": "More expert reviewers are welcome, and reviewers are credited here by name if they wish. Use the \"Report an error\" link on any module page."
@@ -75,7 +80,8 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -86,7 +92,8 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -97,7 +104,8 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -108,7 +116,9 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "External technical audit, 30 findings (Nov 2026)"
    ],
    "open": []
   },
@@ -119,7 +129,8 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -131,7 +142,8 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "Second equation-by-equation pass"
+    "Second equation-by-equation pass",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -143,7 +155,8 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "Second equation-by-equation pass"
+    "Second equation-by-equation pass",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -156,7 +169,10 @@
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
     "External review 1",
-    "Second equation-by-equation pass"
+    "Second equation-by-equation pass",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Cross-module pattern sweep after the Module 04 audit",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },
@@ -168,7 +184,8 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "Second equation-by-equation pass"
+    "Second equation-by-equation pass",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -180,7 +197,9 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "Second equation-by-equation pass"
+    "Second equation-by-equation pass",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Cross-module pattern sweep after the Module 04 audit"
    ],
    "open": []
   },
@@ -191,7 +210,8 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -202,7 +222,8 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -214,7 +235,8 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "Second equation-by-equation pass"
+    "Second equation-by-equation pass",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -225,7 +247,8 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -237,7 +260,8 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "External review 1"
+    "External review 1",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -250,7 +274,8 @@
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
     "Second equation-by-equation pass",
-    "Independent audit of the new transducer material (v1.3)"
+    "Independent audit of the new transducer material (v1.3)",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -263,7 +288,9 @@
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
     "Second equation-by-equation pass",
-    "Independent audit of the new transducer material (v1.3)"
+    "Independent audit of the new transducer material (v1.3)",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },
@@ -276,7 +303,8 @@
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
     "Second equation-by-equation pass",
-    "Independent audit of the new transducer material (v1.3)"
+    "Independent audit of the new transducer material (v1.3)",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -287,7 +315,9 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Cross-module pattern sweep after the Module 04 audit"
    ],
    "open": []
   },
@@ -299,7 +329,8 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "Second equation-by-equation pass"
+    "Second equation-by-equation pass",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -311,7 +342,8 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "Second equation-by-equation pass"
+    "Second equation-by-equation pass",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -324,7 +356,9 @@
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
     "Second equation-by-equation pass",
-    "Standards and robustness review"
+    "Standards and robustness review",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": [
     "C_TIB constant of the IEC 62359 TIB formula; IEC 60601-2-37:2024 temperature-test details"
@@ -337,7 +371,10 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Cross-module pattern sweep after the Module 04 audit",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },
@@ -348,7 +385,8 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -363,7 +401,9 @@
     "External review 1",
     "Second equation-by-equation pass",
     "Standards and robustness review",
-    "Rework audit: paraphrase drift, demos and method claims (v1.3)"
+    "Rework audit: paraphrase drift, demos and method claims (v1.3)",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },
@@ -374,7 +414,8 @@
    "passes": [
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
-    "Reproducible external audit (scripts run, numerical checks, DOIs)"
+    "Reproducible external audit (scripts run, numerical checks, DOIs)",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": [
     "gCNR paper figure numbers (Figs. 4, 5, 7–9)"
@@ -388,7 +429,9 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "External review 1"
+    "External review 1",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },
@@ -400,7 +443,9 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "Second audit with every reference re-checked (v1.3)"
+    "Second audit with every reference re-checked (v1.3)",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },
@@ -413,7 +458,9 @@
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
     "Audit of the new pulsed-wave sections (v1.3)",
-    "Second audit with every reference re-checked (v1.3)"
+    "Second audit with every reference re-checked (v1.3)",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },
@@ -426,7 +473,9 @@
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
     "Second equation-by-equation pass",
-    "Second audit with every reference re-checked (v1.3)"
+    "Second audit with every reference re-checked (v1.3)",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },
@@ -438,7 +487,9 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "Second audit with every reference re-checked (v1.3)"
+    "Second audit with every reference re-checked (v1.3)",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },
@@ -451,7 +502,9 @@
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
     "Second equation-by-equation pass",
-    "Second audit with every reference re-checked (v1.3)"
+    "Second audit with every reference re-checked (v1.3)",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": [
     "Imbault 2017 speed range and cut-offs"
@@ -465,7 +518,9 @@
     "Claim-by-claim audit",
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
-    "Second audit with every reference re-checked (v1.3)"
+    "Second audit with every reference re-checked (v1.3)",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },
@@ -476,7 +531,8 @@
    "passes": [
     "Claim-by-claim audit",
     "Equation pass (domains, units, assumptions)",
-    "Lab outputs checked in Octave"
+    "Lab outputs checked in Octave",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": []
   },
@@ -487,7 +543,9 @@
    "passes": [
     "Primary-source plan (51 sources)",
     "Claim-by-claim audit against FDA and EU primary sources",
-    "Statistics and demo logic re-checked"
+    "Statistics and demo logic re-checked",
+    "Independent pre-publication audit (30 Oct 2026)",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },
@@ -495,7 +553,8 @@
    "passes": [
     "Writer numerical verification",
     "Independent equation and claim audit",
-    "Lab outputs checked in Octave"
+    "Lab outputs checked in Octave",
+    "Independent pre-publication audit (30 Oct 2026)"
    ],
    "open": [],
    "claims": 180,

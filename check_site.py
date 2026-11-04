@@ -14,6 +14,9 @@ COMBOS = [(1280, 'light'), (400, 'dark')]
 JS = """async () => {
   try { if (window.MathJax && MathJax.startup && MathJax.startup.promise) await MathJax.startup.promise; } catch (e) {}
   await new Promise(r => setTimeout(r, 900));
+  const blankNow = () => [...document.querySelectorAll('canvas')].filter(cv => { if (!cv.offsetParent) return false; try { const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let n = 0; for (let i = 3; i < d.length; i += 4 * 97) if (d[i]) { n++; if (n > 3) return false; } return true; } catch (e) { return false; } });
+  /* pages that compute in Web Workers (explorers) draw on completion: allow up to 15 s for visible canvases to fill */
+  for (let t = 0; t < 60 && blankNow().length; t++) await new Promise(r => setTimeout(r, 250));
   const over = document.documentElement.scrollWidth - window.innerWidth;
   const skip = 'mjx-assistive-mml,mjx-container > svg,.eq,.eqn-math,.tbl-wrap,.readout,.pathline,.code pre,.mx-scroll,pre.cite,.rail,.iv-toc,.keyeq,.kmod';
   const wide = [];

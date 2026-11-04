@@ -14,9 +14,12 @@
 % Change  : steps, N, Fnum, FBW, PRF, velocities, the firing order.
 % Expect  : the broadband ghost is a hump centered near lambda/d(sin theta) and smeared by
 %           about +-FBW/2 of that distance, at the same x for every depth. Its level is far
-%           below the narrowband R(x_rep), roughly R(x_rep) x 1.06 M/N: the virtual transmit
-%           array has broadband grating lobes like a real array (-25 dB at a 15 deg step,
-%           about -53 dB at 3 deg). Motion: at the true target position the loss follows the
+%           below the narrowband level: the virtual transmit array has broadband grating
+%           lobes like a real array (-25 dB at a 15 deg step, about -53 dB at 3 deg). The
+%           estimate env(x_rep) x 1.06 M/N, with the receive sidelobe envelope
+%           env(x) = 1/(pi x/(lam F#)), tracks it within 4 dB from 2 to 15 deg (mostly above,
+%           i.e. conservative); the exact R(x_rep) swings through receive nulls (the hump sits
+%           inside x_rep), so R(x_rep) x 1.06 M/N matches only by chance. Motion: at the true target position the loss follows the
 %           ramp law (lambda/4 across the sequence = 25 mm/s here: -3.9 dB). In sequential
 %           order the peak moves 0.12 mm laterally and drops only 2.2 dB (part of the loss
 %           becomes a mislocation); in alternating order it stays put and loses 4.0 dB.
@@ -44,8 +47,9 @@ steps = [1 2 3 5 7.5 10 15];  N = 11;
 wz  = double(abs(xe) <= zt/(2*Fnum));
 Rnb = @(x) abs(exp(-1i*2*pi*x(:)*xe/(lam*zt)) * wz.') / sum(wz);
 fprintf('(1) 11 angles, target at z = %g mm, Rx F# %.1f, FBW %.0f %%\n', zt, Fnum, 100*FBW);
-fprintf('%6s %5s %5s %8s %9s %8s %11s %11s\n', 'step', 'N', 'span', 'x_rep', 'hump at', 'ghost', 'narrowband', '+1.06M/N');
+fprintf('%6s %5s %5s %8s %9s %8s %11s %11s\n', 'step', 'N', 'span', 'x_rep', 'hump at', 'ghost', 'narrowband', 'env*1.06M/N');
 fprintf('%6s %5s %5s %8s %9s %8s %11s %11s\n', '(deg)', '', '(deg)', '(mm)', 'x (mm)', '(dB)', 'R(x_rep)', '(dB)');
+env = @(x) min(1, lam*Fnum ./ (pi*x));                     % receive sidelobe envelope (rect aperture)
 M = 0.883/FBW;                                             % pulse length in cycles
 prof = zeros(numel(xl), numel(steps));
 for k = 1:numel(steps)
@@ -60,7 +64,7 @@ for k = 1:numel(steps)
     [gh, ig] = max(prof(win, k));  xw = xl(win);
     if xr > 11.5, gh = NaN; xm = NaN; else, xm = xw(ig); end
     fprintf('%6.1f %5d %5.0f %8.2f %9.2f %8.1f %11.1f %11.1f\n', steps(k), N, (N-1)*steps(k), xr, xm, gh, ...
-        20*log10(Rnb(xr)), 20*log10(Rnb(xr)) + 20*log10(min(1, 1.064*M/N)));
+        20*log10(Rnb(xr)), 20*log10(env(xr)) + 20*log10(min(1, 1.064*M/N)));
     N = 11;
 end
 

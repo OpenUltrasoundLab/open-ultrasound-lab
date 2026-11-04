@@ -95,6 +95,11 @@ strong { font-weight: 600; }
 .ctrl output, .ctrl .val { font: 600 0.8rem/1.3 var(--f-mono); color: var(--accent); font-variant-numeric: tabular-nums; }
 .ctrl input[type=range] { width: 100%; accent-color: var(--accent); }
 .ctrl select { font: 0.88rem var(--f-display); padding: 5px 6px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); }
+.ctrl input[type=number] { font: 0.88rem var(--f-mono); padding: 5px 6px; width: 100%; box-sizing: border-box; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); }
+.ctrl input[aria-invalid=true] { border-color: var(--bad); outline: 1px solid var(--bad); }
+.zoom-ctl { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--rule); padding-top: 10px; }
+.zoom-ctl .zrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.zoom-ctl .zmsg { min-height: 1.3em; }
 .btn { font: 600 0.82rem/1 var(--f-display); padding: 8px 12px; border-radius: 5px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
 .btn:hover { background: var(--accent-wash); }
 .btn.solid { background: var(--accent); color: var(--panel); }
@@ -597,6 +602,63 @@ const sinc = x => Math.abs(x) < 1e-9 ? 1 : Math.sin(PI * x) / (PI * x);
       const t = () => { off.has(k) ? off.delete(k) : off.add(k); sp.classList.toggle('off', off.has(k)); sp.setAttribute('aria-pressed', off.has(k) ? 'false' : 'true'); try { redraw && redraw(); } catch (e) { console.error(e); } };
       sp.addEventListener('click', t); sp.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t(); } }); }); };
   Lab.legendHTML = function (items) { return legHTML(items).replace('class="rf-leg"', 'class="legend"'); };
+  /* Axis zoom controls: const z = Lab.zoomControls(container, cfg, redraw).
+     cfg = { x:[a,b] default view, y:[a,b] default view, xlim:[lo,hi] hard limits (default = x), ylim:[lo,hi] (default = y),
+             minX, minY (smallest allowed span), id (unique prefix), xname, xsym, xunit, yname, ysym, yunit (label parts),
+             onMain: () => ({x:[a,b], y:[c,d]}) | null  (adds a "Zoom to main lobe" button) }
+     Returns { x(), y() current ranges, axisOpts(plotWidthPx) -> {xticks,yticks,xfmt,yfmt} for Lab.axes, set(x,y), reset() }.
+     Inputs are validated on change (NaN reverts; values clamp to the limits; lower >= upper or span < min is refused and the fields revert,
+     with a message), so the plot is never empty. The draw code must call ax.clip() before traces and sample its curves over z.x(). */
+  Lab.zoomControls = function (container, cfg, redraw) {
+    if (typeof container === 'string') container = document.getElementById(container); if (!container) return null;
+    const X0 = cfg.x.slice(), Y0 = cfg.y.slice(), XL = (cfg.xlim || cfg.x).slice(), YL = (cfg.ylim || cfg.y).slice();
+    const minX = cfg.minX || (XL[1] - XL[0]) * 1e-3, minY = cfg.minY || (YL[1] - YL[0]) * 0.02, id = cfg.id || 'zc' + Math.random().toString(36).slice(2, 6);
+    const xs = cfg.xsym || 'x', ys = cfg.ysym || 'y', xu = cfg.xunit ? ' (' + cfg.xunit + ')' : '', yu = cfg.yunit ? ' (' + cfg.yunit + ')' : '';
+    const num = v => String(+(+v).toFixed(4));
+    const inp = (k, name, sym, sub, unit, hint) => '<div class="ctrl"><label for="' + id + '-' + k + '">' + name + ' <i>' + sym + '</i><sub>' + sub + '</sub>' + unit + '<span class="hint">' + hint + '</span></label><input type="number" step="any" inputmode="decimal" id="' + id + '-' + k + '"></div>';
+    container.classList.add('zoom-ctl');
+    container.innerHTML = '<div class="zrow">' +
+      inp('x0', (cfg.xname || 'x') + ' from', xs, 'min', xu, 'left edge; limits ' + num(XL[0]) + ' to ' + num(XL[1])) +
+      inp('x1', (cfg.xname || 'x') + ' to', xs, 'max', xu, 'right edge; must exceed the left') +
+      inp('y0', (cfg.yname || 'y') + ' floor', ys, 'min', yu, 'bottom edge; limits ' + num(YL[0]) + ' to ' + num(YL[1])) +
+      inp('y1', (cfg.yname || 'y') + ' top', ys, 'max', yu, 'top edge; must exceed the floor') + '</div>' +
+      '<div class="btn-row">' + (cfg.onMain ? '<button class="btn" type="button" data-z="main">Zoom to main lobe</button>' : '') + '<button class="btn" type="button" data-z="reset">Reset axes</button></div>' +
+      '<div class="hint zmsg" role="status" aria-live="polite"></div>';
+    const q = k => container.querySelector('#' + id + '-' + k), msg = container.querySelector('.zmsg');
+    let xr = X0.slice(), yr = Y0.slice();
+    const say = (t, bad) => { msg.textContent = t || ''; msg.style.color = bad ? 'var(--bad)' : ''; };
+    const show = () => { q('x0').value = num(xr[0]); q('x1').value = num(xr[1]); q('y0').value = num(yr[0]); q('y1').value = num(yr[1]); ['x0', 'x1', 'y0', 'y1'].forEach(k => q(k).removeAttribute('aria-invalid')); };
+    const clamp = (v, l) => Math.min(l[1], Math.max(l[0], v));
+    /* validate a pair: returns the clamped pair or null (message set) */
+    const check = (a, b, lim, minSpan, nm) => {
+      if (!isFinite(a) || !isFinite(b)) { say(nm + ': enter a number in both fields; previous values restored.', true); return null; }
+      const ca = clamp(a, lim), cb = clamp(b, lim);
+      if (cb - ca < minSpan * (1 - 1e-9)) { say(nm + ': the lower limit must be below the upper by at least ' + num(minSpan) + '; previous values restored.', true); return null; }
+      say(ca !== a || cb !== b ? nm + ' clamped to the allowed limits ' + num(lim[0]) + ' to ' + num(lim[1]) + '.' : '');
+      return [ca, cb]; };
+    const redo = () => { try { redraw && redraw(); } catch (e) { console.error(e); } };
+    const commit = ax => {
+      const ks = ax === 'x' ? ['x0', 'x1'] : ['y0', 'y1'];
+      const r = ax === 'x' ? check(parseFloat(q('x0').value), parseFloat(q('x1').value), XL, minX, 'x range') : check(parseFloat(q('y0').value), parseFloat(q('y1').value), YL, minY, 'y range');
+      const keep = msg.textContent, bad = msg.style.color;
+      if (r) { if (ax === 'x') xr = r; else yr = r; }
+      show(); msg.textContent = keep; msg.style.color = bad;
+      if (!r) { ks.forEach(k => q(k).setAttribute('aria-invalid', 'true')); setTimeout(() => ks.forEach(k => q(k).removeAttribute('aria-invalid')), 2500); }
+      redo(); };
+    ['x0', 'x1'].forEach(k => q(k).addEventListener('change', () => commit('x'))); ['y0', 'y1'].forEach(k => q(k).addEventListener('change', () => commit('y')));
+    const api = {
+      x: () => xr.slice(), y: () => yr.slice(),
+      set(x, y) { let ok = true; if (x) { const r = check(x[0], x[1], XL, minX, 'x range'); if (r) xr = r; else ok = false; } if (y) { const r = check(y[0], y[1], YL, minY, 'y range'); if (r) yr = r; else ok = false; } show(); return ok; },
+      reset() { xr = X0.slice(); yr = Y0.slice(); show(); say(''); redo(); },
+      axisOpts(plotW) { const tk = (r, n) => { const t = Lab.ticks(r[0], r[1], n); const st = t.length > 1 ? Math.abs(t[1] - t[0]) : (r[1] - r[0]); const d = Math.max(0, Math.min(5, -Math.floor(Math.log10(st) + 1e-9))); return [t, v => (+v).toFixed(d).replace(/^-0(\.0*)?$/, '0')]; };
+        const a = tk(xr, plotW && plotW < 420 ? 3 : 6), b = tk(yr, 3); return { xticks: a[0], xfmt: a[1], yticks: b[0], yfmt: b[1] }; }
+    };
+    container.querySelectorAll('[data-z]').forEach(bn => bn.addEventListener('click', () => {
+      if (bn.dataset.z === 'reset') { api.reset(); return; }
+      const t = cfg.onMain && cfg.onMain(); if (!t) { say('No main lobe to fit at these settings.', true); return; }
+      api.set(t.x, t.y); redo(); }));
+    show(); return api;
+  };
   let LEGON = true; try { LEGON = localStorage.getItem('oul-legends') !== '0'; } catch (e) {}
   Lab.cardGrid = function (viewId, gridId, specs, sliderId) {
     const grid = document.getElementById(gridId); if (!grid) return; const cards = [];

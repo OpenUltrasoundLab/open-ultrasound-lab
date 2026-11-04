@@ -10,7 +10,11 @@
 % Expect  : N = 12, PRF = 2 kHz, f0 = 5 MHz: v_Nyq = 0.154 m/s. p = 0 leaves
 %           tissue moving at 3 mm/s partly unfiltered (residual clutter >> blood,
 %           velocities pulled toward the tissue value, flash outside the vessel);
-%           p = 1-2 is the usable range; p = 3 eats slow flow near the walls.
+%           p = 1 still flashes; p = 2 gets the lumen velocities right but
+%           about a quarter of the background still flashes; p = 3 clears the
+%           flash and starts to darken slow flow near the walls. The -3 dB
+%           cutoff is a half-power point: slower flow is attenuated (p = 2:
+%           18 dB at 3 cm/s along the vessel), not removed.
 rng(1);
 
 %% Parameters
@@ -45,7 +49,7 @@ Xsig = 10^(CBRdB/20)*tiss + blood + noise;
 
 %% Regression filters, responses and processing
 fax = linspace(-PRF/2, PRF/2, 801);  E = exp(2j*pi*n'*fax*T);        % N x F test tones
-fprintf(' p  -3dB cutoff (Hz)  approx(0.44+0.41p)PRF/N  v_min(m/s)  resid CBR(dB)  detect%%  flash%%  mean|err| (m/s)\n');
+fprintf(' p  -3dB cutoff (Hz)  approx(0.44+0.41p)PRF/N  v-3dB(m/s)  resid CBR(dB)  detect%%  flash%%  mean|err| (m/s)\n');
 maps = cell(1, 4);
 for p = 0:3
     V = bsxfun(@power, ((0:N-1)' - (N-1)/2)/N, 0:p);  [Q, ~] = qr(V, 0);   % orthonormal polynomial basis
@@ -67,7 +71,7 @@ for p = 0:3
     if p == 2, Hp2 = H2; end
 end
 fprintf('Detection threshold: R0 > 2 x expected noise power. Velocities in m/s are axial (toward probe > 0).\n');
-fprintf('Slowest detectable flow (p = 2): about %.3f m/s along the vessel at theta = 60 deg\n', c*(0.44+0.82)*PRF/N/(2*f0*cos(theta)));
+fprintf('Half-power (-3 dB) velocity (p = 2, rule): about %.3f m/s along the vessel at theta = 60 deg; slower flow is attenuated, not removed\n', c*(0.44+0.82)*PRF/N/(2*f0*cos(theta)));
 
 % Normalized variance map (p = 2): high where noise dominates
 V = bsxfun(@power, ((0:N-1)' - (N-1)/2)/N, 0:2);  [Q, ~] = qr(V, 0);  A = eye(N) - Q*Q';  Y = Xsig*A.';

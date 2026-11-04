@@ -9,7 +9,8 @@
 % Change  : Ns (speckle cells in the ROI), frame rate, true parameters, DR of the display map.
 % Expect  : linear-domain fits recover MTT = 11.97 s and TTP = 9.98 s within a few percent
 %           (Monte Carlo std printed); fitting the 40 dB log-compressed values lengthens MTT
-%           by a factor of about 2 and the flash fit recovers A, beta to a few percent.
+%           by a factor that depends on bolus width and display range (x2.2 for this s = 0.6, 40 dB example;
+%           about x1.4 at s = 0.3, x8 at s = 1) and the flash fit recovers A, beta to a few percent.
 % Provenance: Monte Carlo speckle on model curves (lognormal, Wei), not patient data.
 % Runtime : about 2 s.
 clear; close all; rng(1);

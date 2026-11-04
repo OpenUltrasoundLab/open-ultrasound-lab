@@ -24,7 +24,9 @@
 %           noise. The 95th percentile reads PSV about 6 % low at any SNR.
 %           Aperture broadening (F# 2) raises the threshold PSV by about 20 %
 %           while RI barely moves; a wall filter above the diastolic Doppler
-%           removes EDV (RI -> 1).
+%           removes EDV (RI -> 1). Columns with too little power left above
+%           the noise are set to 0 for the percentile and the spectral mean
+%           (a percentile of noise lands anywhere up to the Nyquist limit).
 rng(2);
 
 %% Parameters
@@ -123,8 +125,11 @@ for r = 1:nreal
             run3 = above & [false; above(1:end-1)] & [false; false; above(1:end-2)];
             i3 = find(run3, 1, 'last');  if ~isempty(i3), envT(j) = fax(pos(i3)); end
             q = p - Pn;  q(fax(pos) < fwall) = 0;  cq = cumsum(q);
-            if cq(end) > 0, envP(j) = fax(pos(find(cq >= 0.95*cq(end), 1))); end
-            fmean(j) = max(sum(fax(pos).*q)/max(sum(q), eps), 0);
+            sN = Pn*sqrt(sum(fax(pos) >= fwall)/2);                % noise-only fluctuation of sum(q)
+            % no signal: percentile undefined if the top 5 % of the power is within 2 sN,
+            % spectral mean undefined if the total is within 4 sN (the column is then set to 0)
+            if cq(end) > 4*sN && 0.05*cq(end) > 2*sN, envP(j) = fax(pos(find(cq >= 0.95*cq(end), 1))); end
+            if cq(end) > 4*sN, fmean(j) = max(sum(fax(pos).*q)/cq(end), 0); end
         end
         envs = {mf(envT)/kf, mf(envP)/kf};
         for im = 1:2
