@@ -63,7 +63,7 @@ details.regdetail li { font-size: 0.92rem; }
     <p class="rtb-q">Can stored focused transmits be combined after the fact into a transmit beam that is focused at every depth? <span class="prov sim">Simulation</span> <span class="rtb-credit">Own frequency-domain solver (not Field II), validated against an independent Python solver. Inspired by J. Honer's LinkedIn post on retrospective transmit focusing (Nov 2026); primary literature under References in Details.</span></p>
   </header>
   <div class="rtb-x" id="rtb-demo">
-    <div class="rtb-scen" id="rtb-scen"><div class="rtb-scbtns" role="group" aria-label="Scenarios"><button class="btn rtb-scn" type="button" data-sc="sweep">▶ Sweep K</button><button class="btn rtb-scn" type="button" data-sc="def">Default (K = 1, A = B)</button><button class="btn rtb-scn" type="button" data-sc="k41">K = 41</button><button class="btn rtb-scn" type="button" data-sc="notch">Dark notch (virtual source)</button><button class="btn rtb-scn" type="button" data-sc="unif">Uniform weights</button><button class="btn rtb-scn" type="button" data-sc="raw">Raw scaling</button><button class="btn rtb-scn" type="button" data-sc="wide">Wide spacing (4 p)</button><button class="btn rtb-scn" type="button" data-sc="mot">Motion (+50 mm/s)</button></div><div class="rtb-look" id="rtb-look" role="status">Pick a scenario, or change the controls.</div></div>
+    <div class="rtb-scen" id="rtb-scen"><div class="rtb-scbtns" role="group" aria-label="Scenarios"><button class="btn rtb-scn" type="button" data-sc="sweep">▶ Sweep K</button><button class="btn rtb-scn" type="button" data-sc="def">Default (K = 1, A = B)</button><button class="btn rtb-scn" type="button" data-sc="k41">K = 41</button><button class="btn rtb-scn" type="button" data-sc="notch">Dark notch (virtual source)</button><button class="btn rtb-scn" type="button" data-sc="unif">Uniform weights</button><button class="btn rtb-scn" type="button" data-sc="raw">Raw scaling</button><button class="btn rtb-scn" type="button" data-sc="wide">Wide spacing (4 p)</button></div><div class="rtb-look" id="rtb-look" role="status">Pick a scenario, or change the controls.</div></div>
     <div class="rtb-mapw">
       <div class="rtb-maps">
           <figure><figcaption><b>A</b> Physical beams of the K transmits, overlaid <span class="rtb-sub" id="rtb-capA">maximum over k, each gated at its own line’s sample time</span></figcaption><canvas id="rtb-cvA" aria-label="Map of the physical transmit fields of the K transmits, lateral position versus depth, in dB"></canvas></figure>
@@ -77,8 +77,8 @@ details.regdetail li { font-size: 0.92rem; }
       <details class="rtb-grp" id="rtb-g-rtb" open><summary>① RTB</summary>
         <div class="ctrl"><label for="rtb-K">Transmits combined K <output id="rtb-K-o">1</output><span class="hint">focused transmits centred on the receive line and summed; odd</span></label><div class="rtb-prow"><input type="range" id="rtb-K" min="1" max="41" step="2" value="1"><button class="btn rtb-play" type="button" id="rtb-playK" aria-pressed="false" title="Sweep K = 1, 3, … 41 (or the cap)">▶ Play</button></div></div>
         <div class="ctrl"><label for="rtb-s">Transmit spacing s <output id="rtb-s-o">0.30 mm</output><span class="hint">step between neighbouring transmit lines, 0.5–4 pitches (p = 0.3 mm); centres kept within ±6 mm, so K is capped at large s</span></label><div class="rtb-prow"><input type="range" id="rtb-s" min="0.5" max="4" step="0.5" value="1"><button class="btn rtb-play" type="button" id="rtb-playS" aria-pressed="false" title="Sweep s = 0.5 … 4 pitches (K = 41, capped)">▶ Play</button></div></div>
-        <div class="ctrl"><label for="rtb-dm">Delay model t<sub>k</sub>(z)<span class="hint">arrival time each transmit is corrected for</span></label><select id="rtb-dm"><option value="gb">Focal-zone corrected (R.1b)</option><option value="vs" selected>Virtual source (R.1): slight dip at z<sub>f</sub></option></select></div>
-        <div class="ctrl"><label for="rtb-wts">RTB weights w<sub>k</sub><span class="hint">weight of each transmit in the coherent sum</span></label><select id="rtb-wts"><option value="foot">Footprint: transmits whose −6 dB beam covers the line</option><option value="uniform" selected>Uniform over K</option><option value="hann">Hann over K</option><option value="tukey">Tukey (α = 0.5) over K</option></select></div>
+        <div class="ctrl"><label for="rtb-dm">Delay model t<sub>k</sub>(z)<span class="hint">arrival time each transmit is corrected for</span></label><select id="rtb-dm"><option value="exact" selected>Exact: phase of each transmit's simulated field on the line (idealised, as in the reference post)</option><option value="vs">Virtual source (R.1): slight dip at z<sub>f</sub></option></select></div>
+        <div class="ctrl"><label for="rtb-wts">RTB weights w<sub>k</sub><span class="hint">weight of each transmit in the coherent sum</span></label><select id="rtb-wts"><option value="foot">Footprint: transmits whose −6 dB beam covers the line</option><option value="match">Matched: each transmit weighted by its amplitude on the line</option><option value="uniform" selected>Uniform over K</option><option value="hann">Hann over K</option><option value="tukey">Tukey (α = 0.5) over K</option></select></div>
       </details>
       <details class="rtb-grp" id="rtb-g-tx"><summary>② Transmit</summary>
         <div class="ctrl"><label for="rtb-zf">Transmit focus z<sub>f</sub> <output id="rtb-zf-o">30 mm</output><span class="hint">focal depth of every transmit</span></label><input type="range" id="rtb-zf" min="15" max="55" step="1" value="30"></div>
@@ -377,6 +377,12 @@ var RTBCore = (function () {
       else pk = Math.max(v0, vm, vp);
       Pk[jj] = pk * pk;
     }
+    if (D.P.dmodel === 'exact') {   /* gate = phase of this transmit's own field on its own line (x = 0 of the template), as map B does */
+      const b0 = (0 - j0) * nf;
+      for (let jj = 0; jj < nj; jj++) { const base = jj * nf; let gr = 0, gi = 0;
+        for (let f = 0; f < nf; f++) { const pr = R[b0 + f], pi = I[b0 + f], m = Math.hypot(pr, pi) || 1e-30, a = R[base + f], b = I[base + f];
+          gr += (a * pr + b * pi) / m; gi += (b * pr - a * pi) / m; }
+        G[jj] = (gr * gr + gi * gi) * df * df; } }
     return { R, I, E, G, Pk, j0, nj };
   }
 
@@ -409,6 +415,10 @@ var RTBCore = (function () {
       for (let f = 0; f < nf; f++) { const fr = D.flo + f * df;
         const a = TWO_PI * fr * ta, b = TWO_PI * fr * ti;
         CR[k * nf + f] = wr[k] * Math.cos(a); CI[k * nf + f] = wr[k] * Math.sin(a);
+        if (P.dmodel === 'exact') {   /* align with the phase of transmit k's own simulated field on the line x = 0 (phase conjugation, per frequency) */
+          const ti0 = D.tmplOf[k], tr0 = T[ti0], t0 = D.tmpl[ti0], jj0 = -D.mk[k], b00 = (t0.sym ? Math.abs(jj0) : jj0 - tr0.j0) * nf;
+          const pr0 = tr0.R[b00 + f], pi0 = tr0.I[b00 + f], m0 = Math.hypot(pr0, pi0) || 1e-30;
+          CR[k * nf + f] = wr[k] * pr0 / m0; CI[k * nf + f] = -wr[k] * pi0 / m0; }
         IR[k * nf + f] = wr[k] * Math.cos(b); II[k * nf + f] = wr[k] * Math.sin(b); }
     }
     const Nv = D.Nv, Es = new Float64Array(Nv), Ep = new Float64Array(Nv), Em = new Float64Array(Nv), Er = new Float64Array(Nv), Ei = new Float64Array(Nv),
@@ -507,6 +517,8 @@ var RTBCore = (function () {
       const e = excess(Dc, Dc.xk[k], z), ta = z / c + e / Dc.ca - 2 * fk * Dc.dmotReal * 1e-3 / c, ti = z / c + e / c;
       for (let f = 0; f < nf; f++) { const fr = Dc.flo + f * df, a = TWO_PI * fr * ta, b = TWO_PI * fr * ti; CR[f] = Math.cos(a); CI[f] = Math.sin(a); IR[f] = Math.cos(b); II[f] = Math.sin(b); }
       const ti0 = Dc.tmplOf[k], tr = T[ti0], t = Dc.tmpl[ti0], ms = Dc.miss[k];
+      if (P.dmodel === 'exact') { const jj0 = -Dc.mk[k], b00 = (t.sym ? Math.abs(jj0) : jj0 - tr.j0) * nf;
+        for (let f = 0; f < nf; f++) { const pr0 = tr.R[b00 + f], pi0 = tr.I[b00 + f], m0 = Math.hypot(pr0, pi0) || 1e-30; CR[f] = IR[f] = pr0 / m0; CI[f] = II[f] = -pi0 / m0; } }
       for (let jv = -Dc.Jv; jv <= Dc.Jv; jv++) {
         const j = jv - Dc.mk[k], b0 = (t.sym ? Math.abs(j) : j - tr.j0) * nf, x = jv * Dc.dx;
         let pr = tr.R, pi = tr.I, off = b0;
@@ -600,7 +612,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = RTBCore;
   let job = 0, shown = null, fallbackTimer = 0;   /* shown: last completed result (the only one drawn) */
 
   /* -------- controls -------- */
-  const DEF = { K: 1, s: 1, dm: 'vs', zf: 30, na: 64, apod: 'rect', wts: 'uniform', f0: 3.5, bw: 60, eps: 0, v: 0, prf: 5, ord: 'lr', norm: 'row', floor: -25, comb: 'max', meas: 'gate' };
+  const DEF = { K: 1, s: 1, dm: 'exact', zf: 30, na: 64, apod: 'rect', wts: 'uniform', f0: 3.5, bw: 60, eps: 0, v: 0, prf: 5, ord: 'lr', norm: 'row', floor: -25, comb: 'max', meas: 'gate' };
   const SPAN = 6.0;   /* mm: transmit centres are kept within +-SPAN, so K is capped at 2 floor(SPAN / s) + 1 */
   const kcap = s => 2 * Math.floor(SPAN / (s * 0.3) + 1e-9) + 1;
   function params() {
@@ -631,7 +643,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = RTBCore;
   function start() {
     labels();
     const P = params();
-    if ($('rtb-meas').value === 'gate') { const key = C.cacheKey(P);
+    if ($('rtb-meas').value === 'gate' && P.wts !== 'match') { const key = C.cacheKey(P);
       if (cache && cache.key === key) { frame(); return; }
       if (building && building.key === key) return;
       buildCache(P, key); return; }
