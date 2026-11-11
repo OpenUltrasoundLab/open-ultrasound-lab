@@ -1,0 +1,16 @@
+{
+ "id": "focal-point",
+ "title": "Focal Point: piano × ultrasound",
+ "question": "Can a piano explain ultrasound? Each key is one array element; only the timing of the notes changes.",
+ "description": "A solo-piano video (1:44, sound on) in which the 88 keys act as array elements. Chapters: plane wave, steering, near, mid and far focus, steer plus focus, echo with delay-and-sum, and a moving sub-aperture that builds an image pixel by pixel.",
+ "validation": "Every transmit note (207) starts within 0.05 ms of the delay law of its gesture (plane wave, steering or focusing), checked against the geometry independently of the renderer; geometry and wave speed are scaled so the delays can be heard.",
+ "date": "2026-11-10",
+ "version": "1.0",
+ "credit": "Original composition and animation by M. Nguyen. Piano samples: Salamander Grand Piano by Alexander Holm (CC BY).",
+ "prov": "schem",
+ "mathjax": true,
+ "modules": [
+  "m19",
+  "m23"
+ ]
+}

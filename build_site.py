@@ -1173,8 +1173,9 @@ def explorers_load():
         meta = json.loads((d / 'meta.json').read_text(encoding='utf-8')) if (d / 'meta.json').exists() else {}
         meta = {**{k: v for k, v in ent.items() if k not in ('dist', 'fallback')}, **meta}
         meta.setdefault('title', slug); meta.setdefault('question', ''); meta.setdefault('description', meta['question'])
-        mn = int(re.sub(r'\D', '', str(meta.get('module', ''))) or 0)
-        meta['mod_n'] = mn if mn in MODS else None
+        mods = meta.get('modules') or [meta.get('module', '')]
+        meta['mod_ns'] = [m for m in (int(re.sub(r'\D', '', str(v)) or 0) for v in mods) if m in MODS]
+        meta['mod_n'] = meta['mod_ns'][0] if meta['mod_ns'] else None
         log = meta.get('changelog') or ent.get('changelog') or [{'version': meta.get('version', '1.0'), 'date': meta.get('date', DATE), 'note': 'First release.'}]
         meta['changelog'] = [c if isinstance(c, dict) else {'note': str(c)} for c in log]
         meta['badge'] = ent.get('badge') or clip(plain(meta.get('validation', '')).split(';')[0], 70)
@@ -1186,12 +1187,12 @@ def explorers_load():
 
 EXPLORERS = explorers_load()
 SHELL_TAIL = shell_body[shell_body.index('<script>'):]   # shell scripts (Lab helpers, MathJax config) after the app grid
-XP_INTRO = ('Standalone interactive demos, each checked against an independent simulation and linked to the module that explains it. '
+XP_INTRO = ('Standalone interactive demos, each linked to the module that explains it; each says how it was checked (against an independent simulation, Field II or the governing equations). '
             'New ones are added regularly.')
 
 
 def explorer_card(x, up):
-    mod = (f'<a href="{up}{MODS[x["mod_n"]]["url"]}">Related: Module {x["mod_n"]:02d}</a>' if x['mod_n'] else '')
+    mod = (('Related: ' + ' · '.join(f'<a href="{up}{MODS[m]["url"]}">Module {m:02d}</a>' for m in x['mod_ns'])) if x['mod_ns'] else '')
     return (f'<article class="xp-card"><h2><a href="{up}explorers/{x["slug"]}/index.html">{esc(x["title"])}</a></h2>'
             f'<p class="xp-q">{esc(x["question"])}</p>'
             f'<span class="xp-badge" title="{attr(plain(x.get("validation", "")))}">{esc(x["badge"])}</span>'
@@ -1208,7 +1209,7 @@ def explorers_pages():
     ld = {'@context': 'https://schema.org', '@type': 'ItemList', 'name': 'Open Ultrasound Lab Explorers',
           'itemListElement': [{'@type': 'ListItem', 'position': i + 1, 'url': canon(x['url']), 'name': x['title']} for i, x in enumerate(EXPLORERS)]}
     static_page('explorers/index.html', 'Explorers — Open Ultrasound Lab',
-                'Standalone interactive ultrasound demos, each checked against an independent simulation and linked to the module that explains it.',
+                'Standalone interactive ultrasound demos, each linked to the module that explains it and checked against an independent simulation, Field II or the governing equations.',
                 f'<div class="hero"><h1>Explorers</h1><p class="lede xp-intro">{esc(XP_INTRO)}</p></div>\n<div class="xp-grid">{cards}</div>', 'explorers', ld=ld)
     SEARCH_INDEX['mods']['x'] = ['Explorers', 'explorers/index.html']
     SEARCH_INDEX['e'].append(['xp', 'Explorers: ' + XP_INTRO, 'x', ''])
@@ -1219,12 +1220,11 @@ def explorers_pages():
         scripts = re.findall(r'<script\b[^>]*>.*?</script>', frag, flags=re.S)
         body = re.sub(r'<script\b[^>]*>.*?</script>', '', frag, flags=re.S).strip()
         vid = f'xp-{slug}'
-        mod = x['mod_n']
-        rel_mod = (f'<a href="{up}{MODS[mod]["url"]}">Module {mod:02d}: {esc(MODS[mod]["title"])}</a>' if mod else '—')
+        rel_mod = (' · '.join(f'<a href="{up}{MODS[m]["url"]}">Module {m:02d}: {esc(MODS[m]["title"])}</a>' for m in x['mod_ns']) or '—')
         log = ''.join(f'<li>' + ' · '.join(esc(str(v)) for v in ((('v' + str(c['version'])) if c.get('version') else ''), c.get('date', ''), c.get('note', '')) if v) + '</li>'
                       for c in x['changelog'])
         about = (f'<section class="xp-about" aria-labelledby="{vid}-about"><h2 id="{vid}-about">About this explorer</h2><dl>'
-                 f'<dt>Related module</dt><dd>{rel_mod}</dd>'
+                 f'<dt>Related module{'s' if len(x['mod_ns']) > 1 else ''}</dt><dd>{rel_mod}</dd>'
                  + (f'<dt>Validation</dt><dd>{esc(plain(x["validation"]))}</dd>' if x.get('validation') else '')
                  + (f'<dt>Credit</dt><dd>{esc(plain(x["credit"]))}</dd>' if x.get('credit') else '')
                  + f'<dt>Changelog</dt><dd><ul>{log}</ul></dd></dl></section>')
@@ -1238,6 +1238,10 @@ def explorers_pages():
             (PUB / 'explorers' / slug).mkdir(parents=True, exist_ok=True)
             shutil.copy2(x['og'], PUB / 'explorers' / slug / 'og.png')
             img = f'explorers/{slug}/og.png'
+        for f in sorted((XP_SRC / slug).iterdir()):   # media next to the page (video, poster, captions)
+            if f.suffix.lower() in ('.mp4', '.webm', '.jpg', '.jpeg', '.vtt') or (f.suffix.lower() == '.png' and f.name != 'og.png'):
+                (PUB / 'explorers' / slug).mkdir(parents=True, exist_ok=True)
+                shutil.copy2(f, PUB / 'explorers' / slug / f.name)
         title = f'{x["title"]} — Explorer | Open Ultrasound Lab'
         desc = clip(plain(x['question'] + ' ' + x['description']))
         xld = {'@context': 'https://schema.org', '@type': 'LearningResource', 'name': x['title'], 'url': canon(path), 'description': desc,

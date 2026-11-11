@@ -4,5 +4,10 @@
     "badge": "Checked against an independent time-domain solver",
     "dist": "notes/rtb/dist",
     "fallback": "rtb_demo.html"
+  },
+  {
+    "slug": "focal-point",
+    "badge": "Note timings checked against the delay laws",
+    "dist": "notes/focal-point/dist"
   }
 ]

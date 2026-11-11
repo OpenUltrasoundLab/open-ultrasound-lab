@@ -2,12 +2,29 @@
  "id": "rtb",
  "title": "Retrospective transmit beamforming",
  "question": "Can stored focused transmits be combined after the fact into a transmit beam that is focused at every depth?",
- "description": "Broadband field simulation of K focused transmits (physical beams) and the RTB synthetic transmit beam for one receive line; opens at K = 1 (maps identical) and plays K up to 41 and the transmit spacing, with delay models, weights, sound-speed error and tissue motion.",
+ "description": "Broadband field simulation of K focused transmits (physical beams) and the RTB synthetic transmit beam for one receive line; press Play to add transmits and watch the beam narrow at every depth. Combining methods, transmit spacing, focus, aperture and tissue motion can be changed.",
  "validation": "Own frequency-domain point-source solver, validated against an independent Python time-domain solver (amplitude NRMSE of 0.04 % or less on 5 settings); K = 1 gives identical maps A and B.",
  "module": "m23",
  "module_title": "Beam patterns, k-space and compounding",
- "date": "2026-11-03",
- "version": "1.1",
+ "date": "2026-11-10",
+ "version": "1.2",
+ "changelog": [
+  {
+   "version": "1.0",
+   "date": "2026-11-03",
+   "note": "First release."
+  },
+  {
+   "version": "1.1",
+   "date": "2026-11-04",
+   "note": "Exact-phase alignment and amplitude + phase combining."
+  },
+  {
+   "version": "1.2",
+   "date": "2026-11-10",
+   "note": "Simplified: 6 controls, 3 scenarios, one chart; amplitude + phase is the default and plays instantly."
+  }
+ ],
  "credit": "Inspired by J. Honer's LinkedIn post on retrospective transmit focusing (Nov 2026); primary literature under References.",
  "prov": "sim",
  "fragment": "rtb_fragment.html",

@@ -63,7 +63,7 @@ details.regdetail li { font-size: 0.92rem; }
     <p class="rtb-q">Can stored focused transmits be combined after the fact into a transmit beam that is focused at every depth? <span class="prov sim">Simulation</span> <span class="rtb-credit">Own frequency-domain solver (not Field II), validated against an independent Python solver. Inspired by J. Honer's LinkedIn post on retrospective transmit focusing (Nov 2026); primary literature under References in Details.</span></p>
   </header>
   <div class="rtb-x" id="rtb-demo">
-    <div class="rtb-scen" id="rtb-scen"><div class="rtb-scbtns" role="group" aria-label="Scenarios"><button class="btn rtb-scn" type="button" data-sc="sweep">▶ Sweep K</button><button class="btn rtb-scn" type="button" data-sc="amp">Amplitude + phase</button><button class="btn rtb-scn" type="button" data-sc="def">Default (K = 1, A = B)</button><button class="btn rtb-scn" type="button" data-sc="k41">K = 41</button><button class="btn rtb-scn" type="button" data-sc="notch">Dark notch (virtual source)</button><button class="btn rtb-scn" type="button" data-sc="unif">Uniform weights</button><button class="btn rtb-scn" type="button" data-sc="raw">Raw scaling</button><button class="btn rtb-scn" type="button" data-sc="wide">Wide spacing (4 p)</button></div><div class="rtb-look" id="rtb-look" role="status">Pick a scenario, or change the controls.</div></div>
+    <div class="rtb-scen" id="rtb-scen"><div class="rtb-scbtns" role="group" aria-label="Scenarios"><button class="btn rtb-scn" type="button" data-sc="def">① Start (K = 1)</button><button class="btn rtb-scn" type="button" data-sc="k41">② Full RTB (K = 41)</button><button class="btn rtb-scn" type="button" data-sc="wide">③ Spacing too wide</button></div><div class="rtb-look" id="rtb-look" role="status">Pick a scenario, or change the controls.</div></div>
     <div class="rtb-mapw">
       <div class="rtb-maps">
           <figure><figcaption><b>A</b> Physical beams of the K transmits, overlaid <span class="rtb-sub" id="rtb-capA">maximum over k, each gated at its own line’s sample time</span></figcaption><canvas id="rtb-cvA" aria-label="Map of the physical transmit fields of the K transmits, lateral position versus depth, in dB"></canvas></figure>
@@ -74,36 +74,33 @@ details.regdetail li { font-size: 0.92rem; }
     <div class="rtb-strip" id="rtb-strip" aria-live="polite"></div>
     <div class="rtb-stat"><span class="rtb-status" id="rtb-status" role="status">Computing…</span> <span class="rtb-keys" id="rtb-fii-note"></span><span class="rtb-warn" id="rtb-warn" role="status"></span></div>
     <aside class="rtb-panel" id="rtb-panel" aria-label="Controls">
-      <details class="rtb-grp" id="rtb-g-rtb" open><summary>① RTB</summary>
+      <div class="rtb-grp">
         <div class="ctrl"><label for="rtb-K">Transmits combined K <output id="rtb-K-o">1</output><span class="hint">focused transmits centred on the receive line and summed; odd</span></label><div class="rtb-prow"><input type="range" id="rtb-K" min="1" max="41" step="2" value="1"><button class="btn rtb-play" type="button" id="rtb-playK" aria-pressed="false" title="Sweep K = 1, 3, … 41 (or the cap)">▶ Play</button></div></div>
         <div class="ctrl"><label for="rtb-s">Transmit spacing s <output id="rtb-s-o">0.30 mm</output><span class="hint">step between neighbouring transmit lines, 0.5–4 pitches (p = 0.3 mm); centres kept within ±6 mm, so K is capped at large s</span></label><div class="rtb-prow"><input type="range" id="rtb-s" min="0.5" max="4" step="0.5" value="1"><button class="btn rtb-play" type="button" id="rtb-playS" aria-pressed="false" title="Sweep s = 0.5 … 4 pitches (K = 41, capped)">▶ Play</button></div></div>
-        <div class="ctrl"><label for="rtb-dm">Delay model t<sub>k</sub>(z)<span class="hint">arrival time each transmit is corrected for</span></label><select id="rtb-dm"><option value="exact" selected>Exact: phase of each transmit's simulated field on the line (idealised, as in the reference post)</option><option value="vs">Virtual source (R.1): slight dip at z<sub>f</sub></option></select></div>
-        <div class="ctrl"><label for="rtb-wts">RTB weights w<sub>k</sub><span class="hint">weight of each transmit in the coherent sum</span></label><select id="rtb-wts"><option value="foot">Footprint: transmits whose −6 dB beam covers the line</option><option value="ampn">Amplitude + phase: matched weights, each depth normalised by the summed amplitude (even beam)</option><option value="match">Matched: each transmit weighted by its amplitude on the line</option><option value="uniform" selected>Uniform over K</option><option value="hann">Hann over K</option><option value="tukey">Tukey (α = 0.5) over K</option></select></div>
-      </details>
-      <details class="rtb-grp" id="rtb-g-tx"><summary>② Transmit</summary>
+        <div class="ctrl"><label for="rtb-method">Combining method<span class="hint">how the K stored transmits are lined up and added</span></label><select id="rtb-method"><option value="ampn" selected>Amplitude + phase (even beam)</option><option value="phase">Phase only</option><option value="simple">Simple delay model (shows the dip at z<sub>f</sub>)</option></select></div>
         <div class="ctrl"><label for="rtb-zf">Transmit focus z<sub>f</sub> <output id="rtb-zf-o">30 mm</output><span class="hint">focal depth of every transmit</span></label><input type="range" id="rtb-zf" min="15" max="55" step="1" value="30"></div>
         <div class="ctrl"><label for="rtb-na">Transmit aperture N<sub>a</sub> <output id="rtb-na-o">64 el.</output><span class="hint">active elements per transmit; width A = N<sub>a</sub> p</span></label><input type="range" id="rtb-na" min="16" max="96" step="8" value="64"></div>
+        <div class="ctrl"><label for="rtb-v">Axial tissue velocity v <output id="rtb-v-o">0 mm/s</output><span class="hint">+ = away from the array; constant during the K transmits; at PRF 5 kHz</span></label><input type="range" id="rtb-v" min="-150" max="150" step="5" value="0"></div>
+      </div>
+      <div hidden>
+        <div class="ctrl"><label for="rtb-dm">Delay model t<sub>k</sub>(z)<span class="hint">arrival time each transmit is corrected for</span></label><select id="rtb-dm"><option value="exact" selected>Exact: phase of each transmit's simulated field on the line (idealised, as in the reference post)</option><option value="vs">Virtual source (R.1): slight dip at z<sub>f</sub></option></select></div>
+        <div class="ctrl"><label for="rtb-wts">RTB weights w<sub>k</sub><span class="hint">weight of each transmit in the coherent sum</span></label><select id="rtb-wts"><option value="foot">Footprint: transmits whose −6 dB beam covers the line</option><option value="ampn" selected>Amplitude + phase: matched weights, each depth normalised by the summed amplitude (even beam)</option><option value="match">Matched: each transmit weighted by its amplitude on the line</option><option value="uniform">Uniform over K</option><option value="hann">Hann over K</option><option value="tukey">Tukey (α = 0.5) over K</option></select></div>
         <div class="ctrl"><label for="rtb-apod">Transmit apodization a<sub>n</sub><span class="hint">element weights across each sub-aperture</span></label><select id="rtb-apod"><option value="rect">Uniform</option><option value="hann">Hann</option><option value="tukey">Tukey (α = 0.5)</option></select></div>
         <div class="ctrl"><label for="rtb-f0">Centre frequency f<sub>0</sub> <output id="rtb-f0-o">3.5 MHz</output><span class="hint">pulse centre frequency; λ<sub>0</sub> = c/f<sub>0</sub></span></label><input type="range" id="rtb-f0" min="2" max="7" step="0.5" value="3.5"></div>
         <div class="ctrl"><label for="rtb-bw">Fractional bandwidth B <output id="rtb-bw-o">60 %</output><span class="hint">−6 dB width of the Gaussian pulse spectrum over f<sub>0</sub></span></label><input type="range" id="rtb-bw" min="30" max="80" step="5" value="60"></div>
-      </details>
-      <details class="rtb-grp" id="rtb-g-err"><summary>③ Errors</summary>
         <div class="ctrl"><label for="rtb-eps">Sound-speed error ε<sub>c</sub> <output id="rtb-eps-o">0 %</output><span class="hint">error of c<sub>a</sub> in the RTB delay correction only; transmit focusing uses the true c</span></label><input type="range" id="rtb-eps" min="-5" max="5" step="0.5" value="0"></div>
-        <div class="ctrl"><label for="rtb-v">Axial tissue velocity v <output id="rtb-v-o">0 mm/s</output><span class="hint">+ = away from the array; constant during the K transmits</span></label><input type="range" id="rtb-v" min="-150" max="150" step="5" value="0"></div>
         <div class="ctrl"><label for="rtb-prf">Pulse repetition frequency PRF <output id="rtb-prf-o">5 kHz</output><span class="hint">transmits per second; displacement per transmit <span id="rtb-d-o">d = v/PRF = 0 µm per transmit</span></span></label><input type="range" id="rtb-prf" min="1" max="10" step="0.5" value="5"></div>
         <div class="ctrl"><label for="rtb-ord">Firing order<span class="hint">sequence in which the K transmits fire</span></label><select id="rtb-ord"><option value="lr" selected>Left → right (linear delay ramp)</option><option value="co">Centre-out (0, +1, −1, +2, …)</option></select></div>
-      </details>
-      <details class="rtb-grp" id="rtb-g-disp"><summary>④ Display</summary>
         <div class="ctrl"><label for="rtb-meas">Field measure<span class="hint" id="rtb-meas-note">Gated: the transmit field at the instant the depth-z sample of line x = 0 refers to (receive beamforming not modelled).</span></label><select id="rtb-meas"><option value="gate">Gated at the sample time (envelope)</option><option value="energy">Pulse energy over all time</option></select></div>
-        <div class="ctrl"><label for="rtb-norm">Display scaling<span class="hint">how maps A and B are scaled to the colour range; C2 always shows the raw gain</span></label><select id="rtb-norm"><option value="row" selected>Each depth re its row peak, A and B (beam width, not brightness)</option><option value="global">Global maximum of each map (B: raw coherent sum)</option><option value="sumw">B only: ÷ Σ w<sub>k</sub> over covering transmits (A global)</option><option value="coh">B only: ÷ Σ w<sub>k</sub>|q<sub>k</sub>| on the line, coherence (A global)</option></select></div>
+        <div class="ctrl"><label for="rtb-norm">Display scaling<span class="hint">how maps A and B are scaled to the colour range; C2 always shows the raw gain</span></label><select id="rtb-norm"><option value="row">Each depth re its row peak, A and B (beam width, not brightness)</option><option value="global">Global maximum of each map (B: raw coherent sum)</option><option value="sumw">B only: ÷ Σ w<sub>k</sub> over covering transmits (A global)</option><option value="coh" selected>B only: ÷ Σ w<sub>k</sub>|q<sub>k</sub>| on the line, coherence (A global)</option></select></div>
         <div class="ctrl"><label for="rtb-floor">Colour floor <output id="rtb-floor-o">−25 dB</output><span class="hint">lowest level shown in maps A and B</span></label><input type="range" id="rtb-floor" min="-60" max="-10" step="5" value="-25"></div>
         <div class="ctrl"><label for="rtb-comb">Map A combination<span class="hint">how the K physical beams are overlaid; gated = each transmit sampled at its own line’s time, as B</span></label><select id="rtb-comb"><option value="max" selected>Maximum over k, gated</option><option value="sum">Incoherent sum over k, gated</option><option value="peak">Envelope peak over time, max over k (hydrophone view: each transmit at its own peak time, not at the depth-sample time)</option></select></div>
         <div class="ctrl" id="rtb-solver-wrap" hidden><label for="rtb-solver">Solver<span class="hint">maps from this page's solver or from Field II; choosing Field II sets its preset, any other change returns to the own solver</span></label><select id="rtb-solver"><option value="own" selected>Own solver (live)</option><option value="fieldii">Field II, precomputed for K = 41, s = 0.3 mm, z_f 30 mm</option></select></div>
-      </details>
+      </div>
       <div class="btn-row rtb-reset"><button class="btn" type="button" id="rtb-reset">Defaults</button></div>
     </aside>
     <div class="rtb-charts">
-      <div class="rtb-tabs" role="tablist"><button type="button" role="tab" class="rtb-tab" data-t="1" aria-selected="true">C1 · width</button><button type="button" role="tab" class="rtb-tab" data-t="2" aria-selected="false">C2 · gain</button><button type="button" role="tab" class="rtb-tab" data-t="3" aria-selected="false">C3 · transmits covering</button></div>
+      <div class="rtb-tabs" role="tablist" hidden><button type="button" role="tab" class="rtb-tab" data-t="1" aria-selected="true">C1 · width</button><button type="button" role="tab" class="rtb-tab" data-t="2" aria-selected="false">C2 · gain</button><button type="button" role="tab" class="rtb-tab" data-t="3" aria-selected="false">C3 · transmits covering</button></div>
       <div class="rtb-chart" id="rtb-p1" role="tabpanel"><canvas id="rtb-c1" aria-label="Minus 6 dB lateral width versus depth"></canvas>
         <div class="legend" id="rtb-l1"><span data-s="rtb"><i class="solid" style="color:var(--accent);background:var(--accent)"></i>RTB, K transmits</span><span data-s="single"><i class="dash" style="color:var(--sig7);background:var(--sig7)"></i>single focused transmit</span><span data-s="ideal"><i class="dot" style="color:var(--sig4);background:var(--sig4)"></i>RTB without ε<sub>c</sub> and d</span><span data-s="est"><i class="mark" style="color:var(--sig5);background:var(--sig5)"></i>virtual-source estimate (R.3)</span></div></div>
       <div class="rtb-chart" id="rtb-p2" role="tabpanel" hidden><canvas id="rtb-c2" aria-label="RTB gain versus depth in dB"></canvas>
@@ -552,7 +549,8 @@ var RTBCore = (function () {
     for (let k = 0; k < K; k++) { const ti = tix[k];
       if (tv(ti, cr.tE, -D.mk[k]) >= 0.25 * mxE[ti]) { cov[k] = 1; ncov++; }
       if (tv(ti, cr.tP, -D.mk[k]) >= 0.25 * mxP[ti]) gncov++; }
-    const wr = D.wk.map((w, k) => P.wts === 'foot' ? cov[k] : w);
+    const amc = tix.map((ti, k) => Math.sqrt(tv(ti, cr.tE, -D.mk[k]))), amcx = Math.max(1e-30, ...amc);
+    const wr = D.wk.map((w, k) => P.wts === 'foot' ? cov[k] : (P.wts === 'match' || P.wts === 'ampn') ? amc[k] / amcx : w);
     const wsum2 = wr.reduce((s, w) => s + w * w, 0);
     let wcov = 0; for (let k = 0; k < K; k++) if (cov[k]) wcov += wr[k];
     if (!(wcov > 0)) wcov = Math.max(1e-12, wr.reduce((a, b) => a + b, 0));
@@ -612,7 +610,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = RTBCore;
   let job = 0, shown = null, fallbackTimer = 0;   /* shown: last completed result (the only one drawn) */
 
   /* -------- controls -------- */
-  const DEF = { K: 1, s: 1, dm: 'exact', zf: 30, na: 64, apod: 'rect', wts: 'uniform', f0: 3.5, bw: 60, eps: 0, v: 0, prf: 5, ord: 'lr', norm: 'row', floor: -25, comb: 'max', meas: 'gate' };
+  const DEF = { K: 1, s: 1, dm: 'exact', zf: 30, na: 64, apod: 'rect', wts: 'ampn', f0: 3.5, bw: 60, eps: 0, v: 0, prf: 5, ord: 'lr', norm: 'coh', floor: -25, comb: 'max', meas: 'gate' };
   const SPAN = 6.0;   /* mm: transmit centres are kept within +-SPAN, so K is capped at 2 floor(SPAN / s) + 1 */
   const kcap = s => 2 * Math.floor(SPAN / (s * 0.3) + 1e-9) + 1;
   function params() {
@@ -643,7 +641,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = RTBCore;
   function start() {
     labels();
     const P = params();
-    if ($('rtb-meas').value === 'gate' && P.wts !== 'match' && P.wts !== 'ampn') { const key = C.cacheKey(P);
+    if ($('rtb-meas').value === 'gate' ) { const key = C.cacheKey(P);
       if (cache && cache.key === key) { frame(); return; }
       if (building && building.key === key) return;
       buildCache(P, key); return; }
@@ -682,8 +680,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = RTBCore;
   /* one frame from the cache for the current K, s and weights; returns its duration in ms */
   let lastFrameMs = 0;
   function frame() {
-    if (!cache && !['match', 'ampn'].includes($('rtb-wts').value)) return 0; const t0 = performance.now(); labels();
-    const P = params(); if (P.wts === 'match' || P.wts === 'ampn') { fullCompute(P); return 0; }   /* amplitude weights need the full computation */
+    if (!cache) return 0; const t0 = performance.now(); labels();
+    const P = params();
     if (C.cacheKey(P) !== cache.key) { start(); return 0; }
     const D = C.setup(P), rows = cache.rows.map(cr => C.combineRow(D, cache.Dc, cr));
     shown = { P, D, rows, done: true, cached: true }; derive(); drawAll();
@@ -923,19 +921,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = RTBCore;
     const iz = at(P.zf), g = W.sig[iz];
     { const NF = D.A * D.A / (4 * shown.lam * P.zf), wk = $('rtb-warn'); if (wk) wk.textContent = (NF < 1 || P.zf / D.A >= 4) ? 'Weak transmit focus (Fresnel number ' + NF.toFixed(2) + ', F# ' + (P.zf / D.A).toFixed(1) + '): there is no focus to synthesize around, so RTB gains little here and the (R.3) estimate does not apply.' : ''; }
     $('rtb-strip').innerHTML = cell('−6 dB width at 10 mm', 10) + cell('at z<sub>f</sub> = ' + P.zf + ' mm', P.zf) + cell('at 60 mm', 60) +
-      '<div><span>on-axis gain at z<sub>f</sub></span><b>' + (g >= 0 ? '+' : '−') + Math.abs(g).toFixed(1) + '</b> <small>dB re one transmit</small></div>' +
-      '<div><span>transmits covering at z<sub>f</sub></span><b>' + W.cov[iz] + '</b> <small>of K = ' + D.K + '</small></div>';
+'';
   }
   /* scenarios: set controls from defaults, open the relevant group, say what to look for */
   const SC = {
     amp: { set: { 'rtb-K': '41', 'rtb-dm': 'exact', 'rtb-wts': 'ampn', 'rtb-norm': 'coh' }, g: 'rtb', t: 1, say: 'Amplitude + phase: each transmit is aligned by the phase of its own field on the line and weighted by its amplitude there, then each depth is divided by the summed weight × amplitude, so the line has the same level at every depth (width 0.89–0.91 mm from 10 to 40 mm, 1.24 mm at 60 mm).' },
     sweep: { set: {}, g: 'rtb', t: 1, play: 'K', say: 'Play: K = 1, 3 … 41; map B narrows from one transmit (7.1 mm at 10 mm) to 0.92 mm as the synthetic aperture fills (C1).' },
-    def: { set: {}, g: 'rtb', t: 1, say: 'K = 1: maps A and B are identical (difference 0 dB): same measure, same scaling. Press Play next to K.' },
-    k41: { set: { 'rtb-K': '41' }, g: 'rtb', t: 1, say: 'K = 41: map B stays 0.9–1.3 mm wide from 10 to 60 mm, including z<sub>f</sub>; one transmit is 7.1 mm wide at 10 mm (C1).' },
+    def: { set: {}, g: 'rtb', t: 1, say: 'K = 1: one transmit, so maps A and B are the same. Press ▶ next to K to add transmits.' },
+    k41: { set: { 'rtb-K': '41' }, g: 'rtb', t: 1, say: 'K = 41: the synthetic beam stays 0.89–0.91 mm wide from 10 to 40 mm and 1.24 mm at 60 mm; one focused transmit is 7.1 mm wide at 10 mm.' },
     notch: { set: { 'rtb-K': '41', 'rtb-dm': 'vs', 'rtb-norm': 'coh' }, g: 'rtb', t: 2, say: 'K = 41, virtual-source delays: B (coherence scaling) dips 6.7 dB at z<sub>f</sub>; on-axis gain −1.5 dB instead of +7.8 dB (C2).' },
     unif: { set: { 'rtb-K': '41', 'rtb-wts': 'uniform' }, g: 'rtb', t: 1, say: 'K = 41, uniform weights (phase-only): width 0.90 / 0.68 / 1.28 mm at 10 mm / z<sub>f</sub> / 60 mm; with global scaling the line is 12 dB dimmer at z<sub>f</sub>. Compare “Amplitude + phase”.' },
     raw: { set: { 'rtb-K': '41', 'rtb-norm': 'global' }, g: 'disp', t: 3, say: 'K = 41, global scaling: dark band in B near z<sub>f</sub>, where 3 transmits overlap instead of 41 (18 dB brightness range, C3).' },
-    wide: { set: { 'rtb-K': '41', 'rtb-s': '4' }, g: 'rtb', t: 1, say: 's = 1.2 mm (K capped at 11): grating lobes in B near ±7 mm at 10 mm, about −17 dB (−10 dB near ±3.3 mm at 20 and 40 mm). Try Play next to s.' },
+    wide: { set: { 'rtb-K': '41', 'rtb-s': '4' }, g: 'rtb', t: 1, say: 's = 1.2 mm (K capped at 11): transmits too far apart for the focal width, so grating lobes appear: −16 dB near ±7 mm at 10 mm, −11 dB near ±3 mm at 20 and 40 mm.' },
     mot: { set: { 'rtb-K': '41', 'rtb-v': '50' }, g: 'err', t: 2, say: 'K = 41, d = 10 µm per transmit: B tilts, peak at −1.34 mm at 10 mm and +1.95 mm at 60 mm; try centre-out firing.' } };
   function look(h) { $('rtb-look').innerHTML = h || 'Pick a scenario, or change the controls.'; }
   document.querySelectorAll('.rtb-scn').forEach(b => b.addEventListener('click', () => { const s = SC[b.dataset.sc]; stopPlay(); setDefaults();
@@ -955,6 +952,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = RTBCore;
 };
   /* works both after the site's Lab script (module-script position) and inlined before it (raw fragment) */
   if (window.Lab && document.readyState !== 'loading') init(); else document.addEventListener('DOMContentLoaded', init);
+})();
+
+/* simplified UI: one combining menu drives the delay model, weights and scaling */
+(function () { const $ = id => document.getElementById(id), m = $('rtb-method'); if (!m) return;
+  const MAP = { ampn: ['exact', 'ampn', 'coh'], phase: ['exact', 'uniform', 'row'], simple: ['vs', 'uniform', 'coh'] };
+  const apply = () => { const v = MAP[m.value]; [['rtb-dm', v[0]], ['rtb-wts', v[1]], ['rtb-norm', v[2]]].forEach(([id, val]) => { const el = $(id); if (el.value !== val) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); } }); };
+  m.addEventListener('change', apply);
+  const back = () => { const d = $('rtb-dm').value, w = $('rtb-wts').value; m.value = d === 'vs' ? 'simple' : (w === 'ampn' ? 'ampn' : 'phase'); };
+  ['rtb-dm', 'rtb-wts'].forEach(id => $(id).addEventListener('change', back));
+  const r = $('rtb-reset'); if (r) r.addEventListener('click', () => setTimeout(back, 0));
+  document.querySelectorAll('.rtb-scn').forEach(bn => bn.addEventListener('click', () => setTimeout(back, 0)));
 })();
 
 </script>

@@ -1,0 +1,110 @@
+<!-- Focal Point explorer fragment (Open Ultrasound Lab). A solo-piano video in which each piano key acts as one array element and the
+     note timings follow the transmit delay laws. Needs the site shell (CSS tokens) and MathJax. Media files (focal-point.mp4,
+     focal-point-poster.jpg) sit next to the page in explorers/focal-point/. -->
+<style>
+.fp-root { max-width: 1100px; }
+.fp-head .eyebrow { margin-bottom: 2px; }
+.fp-head h1 { font-size: var(--step-3); margin: 2px 0 4px; }
+.fp-q { margin: 0 0 12px; font-size: .98rem; line-height: 1.45; max-width: none; }
+.fp-credit { display: block; font: 400 .74rem/1.35 var(--f-mono); color: var(--muted); margin-top: 3px; }
+.fp-x { display: grid; grid-template-columns: minmax(260px, 380px) minmax(0, 1fr); gap: 14px 22px; align-items: start; }
+.fp-vid { position: sticky; top: 72px; }
+.fp-vid video { display: block; width: 100%; aspect-ratio: 9 / 16; background: #16101e; border-radius: 12px; border: 1px solid var(--rule); }
+.fp-sound { font: 500 .8rem/1.3 var(--f-mono); color: var(--muted); margin: 6px 2px 0; }
+.fp-side h2 { font-size: var(--step-1); margin: 0 0 6px; }
+.fp-ch { list-style: none; counter-reset: fpc; margin: 0 0 16px; padding: 0; display: grid; gap: 6px; }
+.fp-ch li { counter-increment: fpc; }
+.fp-ch button { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 2.1em 3.4em minmax(0, 1fr); gap: 2px 8px; align-items: baseline;
+  width: 100%; padding: 7px 10px; border: 1px solid var(--rule); border-radius: 9px; background: var(--panel); }
+.fp-ch button::before { content: counter(fpc); font: 700 .9rem/1 var(--f-mono); color: var(--muted); }
+.fp-ch button:hover, .fp-ch button:focus-visible { border-color: var(--accent); }
+.fp-ch button[aria-current="true"] { border-color: var(--accent); background: var(--accent-wash); }
+.fp-t { font: 500 .8rem/1 var(--f-mono); color: var(--muted); }
+.fp-k { font: 700 .95rem/1.3 var(--f-display); color: var(--ink); }
+.fp-g { grid-column: 3; font-size: .86rem; line-height: 1.4; color: var(--muted); }
+.fp-law { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 10px 14px; margin: 0 0 16px; }
+.fp-law p { margin: 4px 0; }
+.fp-key { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 16px; padding: 0; list-style: none; font-size: .88rem; }
+.fp-key li { display: flex; align-items: center; gap: 6px; }
+.fp-key i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.fp-lim { margin: 0 0 8px; padding-left: 1.3em; } .fp-lim li { margin: 3px 0; line-height: 1.45; }
+.fp-tbl { width: 100%; border-collapse: collapse; font-size: .88rem; margin: 4px 0 16px; }
+.fp-tbl th, .fp-tbl td { border-bottom: 1px solid var(--rule); padding: 5px 6px; text-align: left; }
+.fp-tbl td.n { font-family: var(--f-mono); text-align: right; }
+@media (max-width: 760px) { .fp-x { grid-template-columns: 1fr; } .fp-vid { position: static; max-width: 420px; margin: 0 auto; width: 100%; } }
+</style>
+<div class="fp-root" id="fp-root">
+  <header class="fp-head">
+    <div class="eyebrow">Open Ultrasound Lab · Explorer · Module 19</div>
+    <h1>Focal Point: piano × ultrasound</h1>
+    <p class="fp-q">Can a piano explain ultrasound? Each of the 88 keys plays the part of one element of an array. Only the timing of the notes changes, and the same keys send a plane wave, steer it, focus it near or far, and build an image pixel by pixel. <span class="prov schem">Schematic</span>
+      <span class="fp-credit">Note timings follow the transmit delay laws exactly; geometry and wave speed are scaled so the delays can be heard. Solo piano, original composition by M. Nguyen. Piano samples: Salamander Grand Piano by Alexander Holm (CC BY).</span></p>
+  </header>
+  <div class="fp-x">
+    <div class="fp-vid">
+      <video id="fp-v" controls playsinline preload="metadata" poster="focal-point-poster.jpg" aria-label="Focal Point: a solo-piano video in which piano keys act as ultrasound array elements">
+        <source src="focal-point.mp4" type="video/mp4">
+        Your browser cannot play this video. <a href="focal-point.mp4">Download it</a>.
+      </video>
+      <p class="fp-sound">🔊 Sound on · 1:44 · tap a chapter to jump</p>
+    </div>
+    <div class="fp-side">
+      <h2>Chapters</h2>
+      <ol class="fp-ch" id="fp-ch">
+        <li><button type="button" data-t="2.9"><span class="fp-t">0:03</span><span class="fp-k">Key = element</span><span class="fp-g">Every key is one element of the array; every note sends a wave into the “tissue” below.</span></button></li>
+        <li><button type="button" data-t="29.6"><span class="fp-t">0:30</span><span class="fp-k">Plane wave</span><span class="fp-g">All keys together: a flat wavefront travels straight down.</span></button></li>
+        <li><button type="button" data-t="32.9"><span class="fp-t">0:33</span><span class="fp-k">Steering</span><span class="fp-g">A sweep from low to high keys delays each element a little more: the wavefront tilts. High to low steers the other way.</span></button></li>
+        <li><button type="button" data-t="54.0"><span class="fp-t">0:54</span><span class="fp-k">Near focus</span><span class="fp-g">Outer keys first, inner keys last, with outer keys softer (apodization). The falling notes trace the delay curve; every wave meets at one point.</span></button></li>
+        <li><button type="button" data-t="60.0"><span class="fp-t">1:00</span><span class="fp-k">Mid focus</span><span class="fp-g">A deeper focus needs a flatter delay curve: a quicker run, then a longer wait.</span></button></li>
+        <li><button type="button" data-t="65.9"><span class="fp-t">1:06</span><span class="fp-k">Far focus</span><span class="fp-g">Almost flat timing, almost a single chord: the focus moves deeper still.</span></button></li>
+        <li><button type="button" data-t="72.1"><span class="fp-t">1:12</span><span class="fp-k">Steer + focus</span><span class="fp-g">Start one side early: the focus moves off to the side.</span></button></li>
+        <li><button type="button" data-t="76.7"><span class="fp-t">1:17</span><span class="fp-k">Echo, delay + sum</span><span class="fp-g">The echo returns to the nearest keys first; delaying each return so they line up, then adding them, gives one bright pixel.</span></button></li>
+        <li><button type="button" data-t="82.9"><span class="fp-t">1:23</span><span class="fp-k">Moving sub-aperture</span><span class="fp-g">A group of keys focuses, then the group slides along the keyboard: one focus after another.</span></button></li>
+        <li><button type="button" data-t="89.6"><span class="fp-t">1:30</span><span class="fp-k">Image</span><span class="fp-g">Pixel by pixel, an image appears. Only the timing changed.</span></button></li>
+      </ol>
+      <h2>The timing laws</h2>
+      <div class="fp-law">
+        <p>Steering a plane wave by angle \(\theta\): element \(i\) at position \(x_i\) fires at \(t_i = t_0 + x_i \sin\theta / c\).</p>
+        <p>Focusing at a point: element \(i\) fires at \(t_i = T_F - L_i / c\), where \(L_i\) is its distance to the focus, so every wave arrives at time \(T_F\).</p>
+        <p>The echo from the focus reaches element \(i\) at \(T_F + L_i / c\); delay-and-sum removes these differences before adding.</p>
+      </div>
+      <h2>Measured in the video</h2>
+      <table class="fp-tbl">
+        <thead><tr><th>Focus</th><th>Run (first to last note)</th><th>Wait before the focus</th></tr></thead>
+        <tbody><tr><td>Near</td><td class="n">1.61 s</td><td class="n">0.69 s</td></tr>
+        <tr><td>Mid</td><td class="n">1.20 s</td><td class="n">1.69 s</td></tr>
+        <tr><td>Far</td><td class="n">0.73 s</td><td class="n">2.93 s</td></tr></tbody>
+      </table>
+      <h2>Colour key</h2>
+      <ul class="fp-key">
+        <li><i style="background:#f2c14e"></i>Melody and accompaniment</li>
+        <li><i style="background:#ff8a80"></i>Transmit gestures and beams</li>
+        <li><i style="background:#c4b0ff"></i>Echo</li>
+        <li><i style="background:#fff0c8"></i>Focus and pixels</li>
+        <li><i style="background:#fffaf0;border:1px solid var(--rule)"></i>Ideal wavefront</li>
+      </ul>
+      <h2>What is exact and what is not</h2>
+      <ul class="fp-lim">
+        <li><b>Exact:</b> every transmit note (207 of them) starts within 0.05 ms of the delay law of its gesture; the echo and scan notes use the same geometry.</li>
+        <li><b>Scaled:</b> the keyboard geometry and the wave speed (130 px/s) are chosen so delays last seconds and can be heard. A real probe applies nanosecond delays.</li>
+        <li><b>Free:</b> the melody and the chords are composed freely; only the runs, sweeps and echoes are dictated by the physics.</li>
+        <li><b>Simplified:</b> in the scan, pixels light when the transmit waves meet; the echo and delay-and-sum step is shown once, in chapter 8.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var v = document.getElementById('fp-v'), list = document.getElementById('fp-ch');
+  if (!v || !list) return;
+  var btns = Array.prototype.slice.call(list.querySelectorAll('button'));
+  btns.forEach(function (b) {
+    b.addEventListener('click', function () { v.currentTime = parseFloat(b.dataset.t); var p = v.play(); if (p && p.catch) p.catch(function () {}); });
+  });
+  v.addEventListener('timeupdate', function () {
+    var cur = null;
+    btns.forEach(function (b) { if (v.currentTime + 0.05 >= parseFloat(b.dataset.t)) cur = b; });
+    btns.forEach(function (b) { if (b === cur) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+  });
+})();
+</script>

@@ -50,16 +50,20 @@ def run(args):
         b = p.chromium.launch()
         for width, scheme in COMBOS:
             ctx = b.new_context(viewport={'width': width, 'height': 900}, color_scheme=scheme)
-            pg = ctx.new_page()
             def blocked(r):
                 u = r.request.url
                 return r.abort() if (u.startswith('http') and '127.0.0.1' not in u and not (cdn and 'jsdelivr' in u)) else r.continue_()
-            pg.route('**/*', blocked)
             errs = []
-            pg.on('console', lambda m: errs.append('console.error: ' + m.text) if m.type == 'error' and 'Failed to load resource' not in m.text and 'ERR_FAILED' not in m.text else None)
-            pg.on('pageerror', lambda e: errs.append(f'pageerror: {e}'))
+            def mkpage():   # a fresh page per file keeps renderer memory bounded (long runs crashed on large modules)
+                q = ctx.new_page(); q.route('**/*', blocked)
+                q.on('console', lambda m: errs.append('console.error: ' + m.text) if m.type == 'error' and 'Failed to load resource' not in m.text and 'ERR_FAILED' not in m.text else None)
+                q.on('pageerror', lambda e: errs.append(f'pageerror: {e}'))
+                return q
+            pg = None
             for f in files:
                 errs.clear()
+                if pg: pg.close()
+                pg = mkpage()
                 pg.goto(base + f)
                 pg.wait_for_timeout(1200)
                 info = pg.evaluate(JS)
