@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-03",
+ "updated": "2026-11-13",
  "passes": [
   {
    "date": "Oct 2026",
@@ -63,8 +63,8 @@
   },
   {
    "date": "2026-11-03",
-   "title": "Deep technical audits (Modules 04, 08, 17, 22, 23, 25, 27, 28, 29, 30, 31, 32, 33, 36)",
-   "detail": "One external audit of Module 04 (30 findings) and thirteen AI-assisted deep audits re-derived equations, ran every demo at default and limit settings and every lab (134 findings, 5 high priority). All high and medium findings were corrected and re-checked by a separate reviewer; a few low-priority items are listed in the errata."
+   "title": "Deep technical audits (Modules 04, 08, 17, 19, 22, 23, 25, 27, 28, 29, 30, 31, 32, 33, 36)",
+   "detail": "One external audit of Module 04 (30 findings) and fourteen AI-assisted deep audits re-derived equations, ran every demo at default and limit settings and every lab (145 findings, 5 high priority). All high and medium findings were corrected and re-checked by a separate reviewer; a few low-priority items are listed in the errata."
   },
   {
    "date": "ongoing",
@@ -317,7 +317,8 @@
     "Primary-source recheck of doubtful claims",
     "Reproducible external audit (scripts run, numerical checks, DOIs)",
     "Independent pre-publication audit (30 Oct 2026)",
-    "Cross-module pattern sweep after the Module 04 audit"
+    "Cross-module pattern sweep after the Module 04 audit",
+    "Deep technical audit, fixes independently re-checked (Nov 2026)"
    ],
    "open": []
   },

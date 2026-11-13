@@ -1,6 +1,18 @@
 {
  "entries": [
   {
+   "version": "1.4.1",
+   "date": "2026-11-13",
+   "title": "Deep technical audit of Module 19",
+   "body": "Deep technical audit of Module 19 (array architectures); findings corrected and independently re-checked.",
+   "items": [
+    "Module 19: the cost of thinning a 2D array is now stated as about −18 dB two-way (receive SNR ∝ K, −6 dB, plus focal transmit intensity ∝ K², −12 dB, at K = N²/4), corrected in both tables, rule card 8 and answers I4 and I7.",
+    "Demo 19.3: elevation slice thickness is now the full −6 dB extent (e.g. 9.6 mm at 60 mm for H = 10 mm, F = 25 mm, previously shown as 4.3 mm); the readout is a wrapping table.",
+    "Demo 19.2: the grating-lobe readout now reports the part of the replica lobe that enters visible space (−5.2 dB at −67° for d = 0.53λ, 60°, N = 8) instead of a hard yes/no; the pitch rule gives the finite-aperture margin d ≤ λ(1 − 1/N)/(1 + sin θmax).",
+    "Module 19: smaller corrections — element-directivity value (4.9 dB for a λ/2 element at 45°), random-sparse side-lobe statement, SNR-optimal F-number direction, steering-window values (now matching equation 19.10), dB-floor readouts replaced with plain wording, a validity flag for the thin-plate CMUT estimate, and the in vivo rat-brain example now cited to Chavignon et al., IEEE Trans. Biomed. Eng. 2022."
+   ]
+  },
+  {
    "version": "1.4",
    "date": "2026-11-03",
    "title": "Technical audits of fourteen modules; new Explorers tab",
